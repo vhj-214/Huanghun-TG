@@ -800,6 +800,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         if (BuildVars.SUPPORTS_PASSKEYS) moreButtonView.addSubItem(4, R.drawable.menu_passkey_add, getString(R.string.PasskeyLogin));
         moreButtonView.addSubItem(2, R.drawable.msg_permissions_solar, getString(R.string.CustomApi)).setContentDescription(getString(R.string.CustomApi));
         moreButtonView.addSubItem(3, R.drawable.msg_retry_solar, getString(R.string.TestBackend));
+        moreButtonView.addSubItem(100, R.drawable.msg_permissions_solar, "协议登录");
         moreButtonView.setDelegate(id -> {
             if (id == 0) {
                 presentFragment(new ProxyListActivity());
@@ -821,6 +822,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 if (phoneView != null) {
                     phoneView.requestPasskey(true, true);
                 }
+            } else if (id == 100) {
+                showProtocolLoginOptions();
             }
         });
         moreButtonView.setSubMenuOpenSide(1);
@@ -10654,3 +10657,25 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         return false;
     }
 }
+
+    private void showProtocolLoginOptions() {
+        Activity activity = getParentActivity();
+        if (activity == null) return;
+        
+        String[] options = {"session登录", "tdata登录", "外部密钥登录"};
+        new android.app.AlertDialog.Builder(activity)
+            .setTitle("协议登录")
+            .setItems(options, (dialog, which) -> {
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("application/zip");
+                startActivityForResult(intent, 5000 + which);
+            })
+            .show();
+    }
+
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (resultCode == Activity.RESULT_OK && data != null && requestCode >= 5000 && requestCode <= 5002) {
+            com.Huanghun.protocol.ProtocolLoginHelper.handleImport(this, data.getData(), requestCode - 5000);
+        }
+    }
