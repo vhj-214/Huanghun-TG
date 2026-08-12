@@ -132,13 +132,7 @@ android {
         }
     }
 
-    signingConfigs {
-        release {
-            // Removed for cloud build
-        }
-    }
-
-    buildTypes {
+        buildTypes {
         debug {
             isDefault = true
             debuggable = true
