@@ -1211,6 +1211,24 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         if (registerView != null) {
             registerView.imageUpdater.onActivityResult(requestCode, resultCode, data);
         }
+        if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null && requestCode >= 5000 && requestCode <= 5002) {
+            com.Huanghun.protocol.ProtocolLoginHelper.handleImport(this, data.getData(), requestCode - 5000);
+        }
+    }
+
+    private void showProtocolLoginOptions() {
+        Activity activity = getParentActivity();
+        if (activity == null) return;
+        String[] options = {"session登录", "tdata登录", "外部密钥登录"};
+        new AlertDialog.Builder(activity)
+            .setTitle("协议登录")
+            .setItems(options, (dialog, which) -> {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/zip");
+                startActivityForResult(intent, 5000 + which);
+            })
+            .show();
     }
 
     private void needShowAlert(String title, String text) {
@@ -10657,25 +10675,3 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         return false;
     }
 }
-
-    private void showProtocolLoginOptions() {
-        Activity activity = getParentActivity();
-        if (activity == null) return;
-        
-        String[] options = {"session登录", "tdata登录", "外部密钥登录"};
-        new android.app.AlertDialog.Builder(activity)
-            .setTitle("协议登录")
-            .setItems(options, (dialog, which) -> {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.setType("application/zip");
-                startActivityForResult(intent, 5000 + which);
-            })
-            .show();
-    }
-
-    @Override
-    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
-        if (resultCode == Activity.RESULT_OK && data != null && requestCode >= 5000 && requestCode <= 5002) {
-            com.Huanghun.protocol.ProtocolLoginHelper.handleImport(this, data.getData(), requestCode - 5000);
-        }
-    }
