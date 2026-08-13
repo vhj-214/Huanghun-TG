@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.Vector;
@@ -16,19 +17,28 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Imports an owner-provided Telethon session archive into the app's native tgnet store.
- * Import success is reported only after Telegram accepts the restored auth key and returns
- * the authenticated self user. No placeholder user or synthetic auth key is ever created.
+ * Imports owner-provided credential archives. Every candidate is counted as successful
+ * only after Telegram accepts it and returns a real account; no synthetic login state is
+ * ever generated. Individual invalid or revoked files never interrupt later candidates.
  */
 public final class ProtocolLoginHelper {
+    private static final int TYPE_SESSION = 0;
+    private static final int TYPE_TDATA = 1;
+    private static final int TYPE_PASSKEY = 2;
     private static final int MAX_ENTRIES = 512;
     private static final long MAX_UNCOMPRESSED_BYTES = 64L * 1024L * 1024L;
+    private static final long VERIFY_TIMEOUT_MS = 20_000L;
 
     private ProtocolLoginHelper() {
     }
@@ -43,10 +53,7 @@ public final class ProtocolLoginHelper {
             return;
         }
 
-        // All three menu entries use the same ZIP scanner. The archive is accepted
-        // whenever it contains a valid .session file; optional JSON files are ignored.
-        showToast(activity, "正在扫描压缩包中的 .session 会话文件…");
-
+        showToast(activity, "正在导入会话…");
         new Thread(() -> {
             try {
                 File importDir = new File(activity.getCacheDir(), "protocol_import");
@@ -54,32 +61,175 @@ public final class ProtocolLoginHelper {
                 if (!importDir.mkdirs() && !importDir.isDirectory()) {
                     throw new IOException("无法创建临时目录");
                 }
+                extractArchive(activity, uri, importDir);
 
-                File sessionFile = extractFirstSessionFile(activity, uri, importDir);
-                if (sessionFile == null) {
-                    throw new IOException("压缩包中没有找到 .session 会话文件");
+                CandidateCollection collection = collectCandidates(importDir, type);
+                BatchState batch = new BatchState(collection.scannedCount, loginActivity.getCurrentAccount());
+                batch.failedCount = collection.invalidCount;
+                if (collection.candidates.isEmpty()) {
+                    AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
+                    return;
                 }
-
-                showToast(activity, "已找到 .session，正在验证 Telegram 授权…");
-                ProtocolParser.SessionData data = ProtocolParser.parseTelethonSession(sessionFile);
-                int accountNum = loginActivity.getCurrentAccount();
-
-                // The native layer persists the real 256-byte MTProto auth key before the
-                // verification RPC is scheduled. The key is never displayed or logged.
-                ConnectionsManager.native_importAuthKey(accountNum, data.dcId, data.address, data.port, data.authKey);
-                verifySession(loginActivity, activity, accountNum, data.dcId);
+                AndroidUtilities.runOnUIThread(() -> startNextImport(loginActivity, activity, collection.candidates, batch, 0));
             } catch (Exception e) {
-                String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                showAlert(activity, "协议登录失败", "无法导入压缩包中的 .session 会话文件：\n" + reason);
+                AndroidUtilities.runOnUIThread(() -> showArchiveError(activity, e));
             }
-        }, "protocol-login").start();
+        }, "protocol-login-scan").start();
     }
 
-    private static File extractFirstSessionFile(Activity activity, Uri uri, File importDir) throws Exception {
-        File sessionFile = null;
+    private static CandidateCollection collectCandidates(File importDir, int type) {
+        CandidateCollection result = new CandidateCollection();
+        if (type == TYPE_TDATA) {
+            ArrayList<File> tdataDirectories = findTdataDirectories(importDir);
+            for (File tdataDirectory : tdataDirectories) {
+                try {
+                    ArrayList<ProtocolParser.SessionData> sessions = TdataParser.parse(tdataDirectory);
+                    if (sessions.isEmpty()) {
+                        result.scannedCount++;
+                        result.invalidCount++;
+                    } else {
+                        for (ProtocolParser.SessionData session : sessions) {
+                            result.candidates.add(ImportCandidate.forSession(session));
+                            result.scannedCount++;
+                        }
+                    }
+                } catch (Exception ignore) {
+                    result.scannedCount++;
+                    result.invalidCount++;
+                }
+            }
+            return result;
+        }
+
+        String extension = type == TYPE_PASSKEY ? ".passkey" : ".session";
+        for (File file : findFilesByExtension(importDir, extension)) {
+            result.candidates.add(type == TYPE_PASSKEY ? ImportCandidate.forPasskey(file) : ImportCandidate.forSession(file));
+            result.scannedCount++;
+        }
+        return result;
+    }
+
+    private static void startNextImport(LoginActivity loginActivity, Activity activity,
+                                        ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
+        new Thread(() -> importNext(loginActivity, activity, candidates, batch, index), "protocol-login-import").start();
+    }
+
+    private static void importNext(LoginActivity loginActivity, Activity activity,
+                                   ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
+        if (index >= candidates.size()) {
+            AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
+            return;
+        }
+
+        int accountNum = findNextFreeAccountSlot(batch);
+        if (accountNum < 0) {
+            batch.failedCount += candidates.size() - index;
+            batch.noFreeSlot = true;
+            AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
+            return;
+        }
+        batch.reservedSlots.add(accountNum);
+        ImportCandidate candidate = candidates.get(index);
+
+        if (candidate.kind == TYPE_PASSKEY) {
+            importPasskey(loginActivity, activity, candidates, batch, index, accountNum, candidate.file);
+            return;
+        }
+
+        try {
+            ProtocolParser.SessionData data = candidate.sessionData != null
+                    ? candidate.sessionData
+                    : ProtocolParser.parseTelethonSession(candidate.file);
+            ConnectionsManager.native_importAuthKey(accountNum, data.dcId, data.address, data.port, data.authKey);
+            verifySession(accountNum, data.dcId, new VerificationCallback() {
+                @Override
+                public void onVerified(TLRPC.User user) {
+                    AndroidUtilities.runOnUIThread(() -> recordVerifiedAccount(
+                            loginActivity, activity, candidates, batch, index, accountNum, data.dcId, user));
+                }
+
+                @Override
+                public void onFailed() {
+                    clearUnusedImportedKey(accountNum);
+                    AndroidUtilities.runOnUIThread(() -> recordFailure(
+                            loginActivity, activity, candidates, batch, index));
+                }
+            });
+        } catch (Exception ignore) {
+            clearUnusedImportedKey(accountNum);
+            AndroidUtilities.runOnUIThread(() -> recordFailure(loginActivity, activity, candidates, batch, index));
+        }
+    }
+
+    private static void importPasskey(LoginActivity loginActivity, Activity activity,
+                                      ArrayList<ImportCandidate> candidates, BatchState batch,
+                                      int index, int accountNum, File passkeyFile) {
+        try {
+            PasskeyParser.PasskeyData passkey = PasskeyParser.parse(passkeyFile);
+            PasskeyLoginHelper.login(accountNum, passkey, new PasskeyLoginHelper.Callback() {
+                @Override
+                public void onSuccess(TLRPC.TL_auth_authorization authorization) {
+                    if (authorization.user == null || authorization.user.id == 0) {
+                        onFailed();
+                        return;
+                    }
+                    AndroidUtilities.runOnUIThread(() -> recordVerifiedAccount(
+                            loginActivity, activity, candidates, batch, index, accountNum,
+                            passkey.datacenterId, authorization.user));
+                }
+
+                @Override
+                public void onFailed() {
+                    clearUnusedImportedKey(accountNum);
+                    AndroidUtilities.runOnUIThread(() -> recordFailure(
+                            loginActivity, activity, candidates, batch, index));
+                }
+            });
+        } catch (Exception ignore) {
+            clearUnusedImportedKey(accountNum);
+            AndroidUtilities.runOnUIThread(() -> recordFailure(loginActivity, activity, candidates, batch, index));
+        }
+    }
+
+    private static void recordVerifiedAccount(LoginActivity loginActivity, Activity activity,
+                                              ArrayList<ImportCandidate> candidates, BatchState batch,
+                                              int index, int accountNum, int datacenterId, TLRPC.User user) {
+        if (batch.importedUserIds.contains(user.id)) {
+            clearUnusedImportedKey(accountNum);
+            recordFailure(loginActivity, activity, candidates, batch, index);
+            return;
+        }
+
+        if (batch.firstSuccess == null) {
+            batch.firstSuccess = new ImportedAccount(accountNum, datacenterId, user);
+            batch.importedUserIds.add(user.id);
+            batch.successCount++;
+        } else {
+            try {
+                if (LoginActivity.saveProtocolLoginForAdditionalAccount(accountNum, user)) {
+                    batch.importedUserIds.add(user.id);
+                    batch.successCount++;
+                } else {
+                    clearUnusedImportedKey(accountNum);
+                    batch.failedCount++;
+                }
+            } catch (Throwable ignore) {
+                clearUnusedImportedKey(accountNum);
+                batch.failedCount++;
+            }
+        }
+        startNextImport(loginActivity, activity, candidates, batch, index + 1);
+    }
+
+    private static void recordFailure(LoginActivity loginActivity, Activity activity,
+                                      ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
+        batch.failedCount++;
+        startNextImport(loginActivity, activity, candidates, batch, index + 1);
+    }
+
+    private static void extractArchive(Activity activity, Uri uri, File importDir) throws Exception {
         int entries = 0;
         long totalBytes = 0;
-
         try (InputStream source = activity.getContentResolver().openInputStream(uri)) {
             if (source == null) {
                 throw new IOException("无法读取所选压缩包");
@@ -111,25 +261,76 @@ public final class ProtocolLoginHelper {
                                 file.write(buffer, 0, read);
                             }
                         }
-                        String lower = entry.getName().toLowerCase(Locale.ROOT);
-                        if (lower.endsWith(".session") && sessionFile == null) {
-                            sessionFile = output;
-                        }
                     }
                     zip.closeEntry();
                 }
             }
         }
-        return sessionFile;
     }
 
-    private static void verifySession(LoginActivity loginActivity, Activity activity, int accountNum, int dcId) {
-        showToast(activity, "正在连接 Telegram 并验证会话，请稍候…");
-        final ConnectionsManager manager = ConnectionsManager.getInstance(accountNum);
-        // Importing an auth key replaces a suspended DC connection. Explicitly resume it,
-        // then route the verification RPC to the imported DC instead of the old default DC.
-        manager.resumeNetworkMaybe();
+    private static ArrayList<File> findFilesByExtension(File root, String extension) {
+        ArrayList<File> result = new ArrayList<>();
+        collectFiles(root, extension, result);
+        Collections.sort(result, Comparator.comparing(File::getAbsolutePath));
+        return result;
+    }
 
+    private static void collectFiles(File root, String extension, ArrayList<File> result) {
+        File[] files = root.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (file.isDirectory()) {
+                collectFiles(file, extension, result);
+            } else if (file.getName().toLowerCase(Locale.ROOT).endsWith(extension)) {
+                result.add(file);
+            }
+        }
+    }
+
+    private static ArrayList<File> findTdataDirectories(File root) {
+        ArrayList<File> result = new ArrayList<>();
+        collectTdataDirectories(root, result);
+        Collections.sort(result, Comparator.comparing(File::getAbsolutePath));
+        return result;
+    }
+
+    private static void collectTdataDirectories(File root, ArrayList<File> result) {
+        File[] files = root.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (!file.isDirectory()) {
+                continue;
+            }
+            if ("tdata".equalsIgnoreCase(file.getName()) && new File(file, "key_datas").isFile()) {
+                result.add(file);
+            } else {
+                collectTdataDirectories(file, result);
+            }
+        }
+    }
+
+    private static int findNextFreeAccountSlot(BatchState batch) {
+        if (batch.preferredAccount >= 0
+                && batch.preferredAccount < UserConfig.MAX_ACCOUNT_COUNT
+                && !batch.reservedSlots.contains(batch.preferredAccount)
+                && !UserConfig.getInstance(batch.preferredAccount).isClientActivated()) {
+            return batch.preferredAccount;
+        }
+        for (int i = 0; i < UserConfig.MAX_ACCOUNT_COUNT; i++) {
+            if (!batch.reservedSlots.contains(i) && !UserConfig.getInstance(i).isClientActivated()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static void verifySession(int accountNum, int dcId, VerificationCallback callback) {
+        final ConnectionsManager manager = ConnectionsManager.getInstance(accountNum);
+        manager.resumeNetworkMaybe();
         final AtomicBoolean finished = new AtomicBoolean(false);
         TLRPC.TL_users_getUsers request = new TLRPC.TL_users_getUsers();
         request.id.add(new TLRPC.TL_inputUserSelf());
@@ -137,13 +338,8 @@ public final class ProtocolLoginHelper {
             if (!finished.compareAndSet(false, true)) {
                 return;
             }
-            if (error != null) {
-                String reason = error.text != null ? error.text : "UNKNOWN_ERROR";
-                showAlert(activity, "协议登录失败", "Telegram 未接受该会话授权：" + reason + "\n\n请确认压缩包中的 .session 仍有效，且属于您本人可使用的账号。");
-                return;
-            }
-            if (!(response instanceof Vector)) {
-                showAlert(activity, "协议登录失败", "服务器未返回有效的当前账号信息。");
+            if (error != null || !(response instanceof Vector)) {
+                callback.onFailed();
                 return;
             }
             TLRPC.User self = null;
@@ -156,19 +352,65 @@ public final class ProtocolLoginHelper {
                 }
             }
             if (self == null || self.id == 0) {
-                showAlert(activity, "协议登录失败", "服务器没有返回可用的当前账号信息。");
+                callback.onFailed();
                 return;
             }
-            final TLRPC.User authenticatedUser = self;
-            activity.runOnUiThread(() -> loginActivity.completeProtocolLogin(authenticatedUser, dcId));
-        }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized, dcId, ConnectionsManager.ConnectionTypeGeneric, true);
+            callback.onVerified(self);
+        }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
+                dcId, ConnectionsManager.ConnectionTypeGeneric, true);
 
         AndroidUtilities.runOnUIThread(() -> {
             if (finished.compareAndSet(false, true)) {
                 manager.cancelRequest(requestToken, true);
-                showAlert(activity, "协议登录超时", "20 秒内未收到 Telegram 的验证结果。会话文件已被识别，但客户端未能建立验证连接；请检查网络或重试。\n\n此提示不表示导入成功。 ");
+                callback.onFailed();
             }
-        }, 20_000);
+        }, VERIFY_TIMEOUT_MS);
+    }
+
+    private static void clearUnusedImportedKey(int accountNum) {
+        try {
+            ConnectionsManager.getInstance(accountNum).cleanup(true);
+        } catch (Throwable ignore) {
+        }
+    }
+
+    private static void showBatchSummary(Activity activity, LoginActivity loginActivity, BatchState batch) {
+        if (activity.isFinishing()) {
+            return;
+        }
+        StringBuilder message = new StringBuilder();
+        message.append("本次已扫描到 ").append(batch.scannedCount).append(" 个账户");
+        message.append("\n有效账户：").append(batch.successCount).append(" 个");
+        message.append("\n失败账户：").append(batch.failedCount).append(" 个");
+        if (batch.noFreeSlot) {
+            message.append("\n\n账户槽位已满，未继续导入剩余会话。");
+        } else if (batch.scannedCount == 0) {
+            message.append("\n\n未找到对应的会话文件。");
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                .setTitle("协议登录完成")
+                .setMessage(message.toString())
+                .setCancelable(false);
+        if (batch.firstSuccess != null) {
+            builder.setPositiveButton("进入账户", (dialog, which) ->
+                    loginActivity.completeProtocolLogin(batch.firstSuccess.user, batch.firstSuccess.datacenterId));
+        } else {
+            builder.setPositiveButton("确定", null);
+        }
+        builder.show();
+    }
+
+    private static void showArchiveError(Activity activity, Exception error) {
+        if (activity.isFinishing()) {
+            return;
+        }
+        String reason = error.getMessage() != null ? error.getMessage() : "无法读取所选压缩包";
+        new AlertDialog.Builder(activity)
+                .setTitle("协议登录失败")
+                .setMessage("无法扫描压缩包：\n" + reason)
+                .setPositiveButton("确定", null)
+                .show();
     }
 
     private static File resolveInside(File root, String name) throws IOException {
@@ -189,19 +431,7 @@ public final class ProtocolLoginHelper {
     }
 
     private static void showToast(Activity activity, String message) {
-        activity.runOnUiThread(() -> Toast.makeText(activity, message, Toast.LENGTH_LONG).show());
-    }
-
-    private static void showAlert(Activity activity, String title, String message) {
-        activity.runOnUiThread(() -> {
-            if (!activity.isFinishing()) {
-                new AlertDialog.Builder(activity)
-                        .setTitle(title)
-                        .setMessage(message)
-                        .setPositiveButton("确定", null)
-                        .show();
-            }
-        });
+        activity.runOnUiThread(() -> Toast.makeText(activity, message, Toast.LENGTH_SHORT).show());
     }
 
     private static void deleteRecursive(File file) {
@@ -217,5 +447,69 @@ public final class ProtocolLoginHelper {
             }
         }
         file.delete();
+    }
+
+    private interface VerificationCallback {
+        void onVerified(TLRPC.User user);
+
+        void onFailed();
+    }
+
+    private static final class ImportCandidate {
+        final int kind;
+        final File file;
+        final ProtocolParser.SessionData sessionData;
+
+        private ImportCandidate(int kind, File file, ProtocolParser.SessionData sessionData) {
+            this.kind = kind;
+            this.file = file;
+            this.sessionData = sessionData;
+        }
+
+        static ImportCandidate forSession(File file) {
+            return new ImportCandidate(TYPE_SESSION, file, null);
+        }
+
+        static ImportCandidate forSession(ProtocolParser.SessionData data) {
+            return new ImportCandidate(TYPE_TDATA, null, data);
+        }
+
+        static ImportCandidate forPasskey(File file) {
+            return new ImportCandidate(TYPE_PASSKEY, file, null);
+        }
+    }
+
+    private static final class CandidateCollection {
+        final ArrayList<ImportCandidate> candidates = new ArrayList<>();
+        int scannedCount;
+        int invalidCount;
+    }
+
+    private static final class ImportedAccount {
+        final int accountNum;
+        final int datacenterId;
+        final TLRPC.User user;
+
+        ImportedAccount(int accountNum, int datacenterId, TLRPC.User user) {
+            this.accountNum = accountNum;
+            this.datacenterId = datacenterId;
+            this.user = user;
+        }
+    }
+
+    private static final class BatchState {
+        final int scannedCount;
+        final int preferredAccount;
+        final Set<Integer> reservedSlots = new HashSet<>();
+        final Set<Long> importedUserIds = new HashSet<>();
+        int successCount;
+        int failedCount;
+        boolean noFreeSlot;
+        ImportedAccount firstSuccess;
+
+        BatchState(int scannedCount, int preferredAccount) {
+            this.scannedCount = scannedCount;
+            this.preferredAccount = preferredAccount;
+        }
     }
 }
