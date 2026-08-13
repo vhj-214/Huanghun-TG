@@ -37,6 +37,7 @@ public final class ProtocolLoginHelper {
     private static final int TYPE_SESSION = 0;
     private static final int TYPE_TDATA = 1;
     private static final int TYPE_PASSKEY = 2;
+    private static final int TYPE_PASSKEY_BRIDGE = 3;
     private static final int MAX_ENTRIES = 512;
     private static final long MAX_UNCOMPRESSED_BYTES = 64L * 1024L * 1024L;
     private static final long VERIFY_TIMEOUT_MS = 20_000L;
@@ -102,9 +103,10 @@ public final class ProtocolLoginHelper {
             return result;
         }
 
-        String extension = type == TYPE_PASSKEY ? ".passkey" : ".session";
+        boolean isPasskeyType = type == TYPE_PASSKEY || type == TYPE_PASSKEY_BRIDGE;
+        String extension = isPasskeyType ? ".passkey" : ".session";
         for (File file : findFilesByExtension(importDir, extension)) {
-            result.candidates.add(type == TYPE_PASSKEY ? ImportCandidate.forPasskey(file) : ImportCandidate.forSession(file));
+            result.candidates.add(isPasskeyType ? ImportCandidate.forPasskey(file, type) : ImportCandidate.forSession(file));
             result.scannedCount++;
         }
         return result;
@@ -124,10 +126,11 @@ public final class ProtocolLoginHelper {
 
         ImportCandidate candidate = candidates.get(index);
 
-        if (candidate.kind == TYPE_PASSKEY) {
+        if (candidate.kind == TYPE_PASSKEY || candidate.kind == TYPE_PASSKEY_BRIDGE) {
             int accountNum = reserveNextFreeAccountSlot(loginActivity, activity, candidates, batch, index);
             if (accountNum >= 0) {
-                importPasskey(loginActivity, activity, candidates, batch, index, accountNum, candidate.file);
+                importPasskey(loginActivity, activity, candidates, batch, index, accountNum, candidate.file,
+                        candidate.kind == TYPE_PASSKEY_BRIDGE);
             }
             return;
         }
@@ -174,14 +177,14 @@ public final class ProtocolLoginHelper {
 
     private static void importPasskey(LoginActivity loginActivity, Activity activity,
                                       ArrayList<ImportCandidate> candidates, BatchState batch,
-                                      int index, int accountNum, File passkeyFile) {
+                                      int index, int accountNum, File passkeyFile, boolean useBridge) {
         try {
             PasskeyParser.PasskeyData passkey = PasskeyParser.parse(passkeyFile);
-            PasskeyLoginHelper.login(accountNum, passkey, new PasskeyLoginHelper.Callback() {
+            PasskeyLoginHelper.Callback callback = new PasskeyLoginHelper.Callback() {
                 @Override
                 public void onSuccess(TLRPC.TL_auth_authorization authorization) {
                     if (authorization.user == null || authorization.user.id == 0) {
-                        onFailed();
+                        onFailed("未获取到授权账号信息");
                         return;
                     }
                     AndroidUtilities.runOnUIThread(() -> recordVerifiedAccount(
@@ -190,15 +193,31 @@ public final class ProtocolLoginHelper {
                 }
 
                 @Override
-                public void onFailed() {
+                public void onFailed(String reason) {
                     clearUnusedImportedKey(accountNum);
-                    AndroidUtilities.runOnUIThread(() -> recordFailure(
-                            loginActivity, activity, candidates, batch, index));
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (!useBridge && !batch.passkeyFallbackHintShown) {
+                            batch.passkeyFallbackHintShown = true;
+                            showPasskeyFallbackHint(activity, reason);
+                        }
+                        recordFailure(loginActivity, activity, candidates, batch, index);
+                    });
                 }
-            });
-        } catch (Exception ignore) {
+            };
+            if (useBridge) {
+                PasskeyLoginHelper.loginWithProtocolBridge(accountNum, passkey, callback);
+            } else {
+                PasskeyLoginHelper.login(accountNum, passkey, callback);
+            }
+        } catch (Exception error) {
             clearUnusedImportedKey(accountNum);
-            AndroidUtilities.runOnUIThread(() -> recordFailure(loginActivity, activity, candidates, batch, index));
+            AndroidUtilities.runOnUIThread(() -> {
+                if (!useBridge && !batch.passkeyFallbackHintShown) {
+                    batch.passkeyFallbackHintShown = true;
+                    showPasskeyFallbackHint(activity, "通行密钥文件无法解析");
+                }
+                recordFailure(loginActivity, activity, candidates, batch, index);
+            });
         }
     }
 
@@ -233,6 +252,18 @@ public final class ProtocolLoginHelper {
                                       ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
         batch.failedCount++;
         startNextImport(loginActivity, activity, candidates, batch, index + 1);
+    }
+
+    private static void showPasskeyFallbackHint(Activity activity, String reason) {
+        if (activity == null || activity.isFinishing()) {
+            return;
+        }
+        new AlertDialog.Builder(activity)
+                .setTitle("外部通行密钥（第一接口）失败")
+                .setMessage("本次通行密钥未完成 Telegram 授权：" + reason
+                        + "\n\n请返回“协议登录”，选择“外部通信密钥（第二接口）”后重新导入同一压缩包。第二接口会为挑战过期自动重新获取挑战并递增签名计数后重试。")
+                .setPositiveButton("确定", null)
+                .show();
     }
 
     private static void extractArchive(Activity activity, Uri uri, File importDir) throws Exception {
@@ -457,7 +488,7 @@ public final class ProtocolLoginHelper {
         if (batch.firstSuccess != null) {
             builder.setPositiveButton("进入账户", (dialog, which) ->
                     loginActivity.completeProtocolLogin(batch.firstSuccess.accountNum,
-                            batch.firstSuccess.user, batch.firstSuccess.datacenterId);
+                            batch.firstSuccess.user, batch.firstSuccess.datacenterId));
         } else {
             builder.setPositiveButton("确定", null);
         }
@@ -537,8 +568,8 @@ public final class ProtocolLoginHelper {
             return new ImportCandidate(TYPE_TDATA, null, data);
         }
 
-        static ImportCandidate forPasskey(File file) {
-            return new ImportCandidate(TYPE_PASSKEY, file, null);
+        static ImportCandidate forPasskey(File file, int kind) {
+            return new ImportCandidate(kind, file, null);
         }
     }
 
@@ -570,6 +601,7 @@ public final class ProtocolLoginHelper {
         int failedCount;
         int alreadyImportedCount;
         boolean noFreeSlot;
+        boolean passkeyFallbackHintShown;
         ImportedAccount firstSuccess;
 
         BatchState(int scannedCount, int preferredAccount) {

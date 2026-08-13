@@ -5,7 +5,6 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.SRPHelper;
 import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.ConnectionsManager;
-import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_account;
 
@@ -23,37 +22,78 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import tw.nekomimi.nekogram.NekoXConfig;
 
-/** Performs Telegram's WebAuthn Passkey login using an owner-provided .Passkey credential. */
+/**
+ * Performs Telegram's official WebAuthn Passkey login using an owner-provided
+ * credential. Authentication succeeds only when Telegram returns an actual
+ * authorization; this helper never creates synthetic account state.
+ */
 public final class PasskeyLoginHelper {
-    // Passkey login is two short server round trips. Do not block the batch for half a minute.
-    private static final long VERIFY_TIMEOUT_MS = 18_000L;
+    private static final int MAX_BRIDGE_ATTEMPTS = 3;
+    private static final long DIRECT_TIMEOUT_MS = 18_000L;
+    private static final long BRIDGE_TIMEOUT_MS = 34_000L;
+    private static final long RETRY_DELAY_MS = 150L;
 
     private PasskeyLoginHelper() {
     }
 
+    /** First interface: one direct official WebAuthn assertion. */
     public static void login(int accountNum, PasskeyParser.PasskeyData data, Callback callback) {
+        loginInternal(accountNum, data, false, callback);
+    }
+
+    /**
+     * Second interface: official WebAuthn retry flow. Every retry requests a new
+     * server challenge and advances the authenticator signature counter. The
+     * authorized native MTProto connection is then retained as the app session;
+     * no plaintext .session file is exported.
+     */
+    public static void loginWithProtocolBridge(int accountNum, PasskeyParser.PasskeyData data, Callback callback) {
+        loginInternal(accountNum, data, true, callback);
+    }
+
+    private static void loginInternal(int accountNum, PasskeyParser.PasskeyData data,
+                                      boolean useBridgeRetries, Callback callback) {
         if (data == null) {
-            callback.onFailed();
+            callback.onFailed("通行密钥数据无效");
             return;
         }
         final ConnectionsManager manager = ConnectionsManager.getInstance(accountNum);
-        // Connect to the credential's home DC before asking for a challenge.
         if (manager.getCurrentDatacenterId() != data.datacenterId) {
             manager.setDefaultDatacenterId(data.datacenterId);
         }
         manager.resumeNetworkMaybe();
+
         final AtomicBoolean completed = new AtomicBoolean(false);
         final AtomicInteger requestToken = new AtomicInteger(0);
+        final int maxAttempts = useBridgeRetries ? MAX_BRIDGE_ATTEMPTS : 1;
+        startAttempt(manager, data, callback, completed, requestToken, 1, maxAttempts);
 
+        AndroidUtilities.runOnUIThread(() -> {
+            if (completed.compareAndSet(false, true)) {
+                int token = requestToken.get();
+                if (token != 0) {
+                    manager.cancelRequest(token, true);
+                }
+                callback.onFailed("通行密钥验证超时");
+            }
+        }, useBridgeRetries ? BRIDGE_TIMEOUT_MS : DIRECT_TIMEOUT_MS);
+    }
+
+    private static void startAttempt(ConnectionsManager manager, PasskeyParser.PasskeyData data,
+                                     Callback callback, AtomicBoolean completed, AtomicInteger requestToken,
+                                     int attempt, int maxAttempts) {
+        if (completed.get()) {
+            return;
+        }
         TL_account.initPasskeyLogin init = new TL_account.initPasskeyLogin();
         init.api_id = NekoXConfig.currentAppId();
         init.api_hash = NekoXConfig.currentAppHash();
-        requestToken.set(manager.sendRequest(init, (response, error) -> {
+        requestToken.set(manager.sendRequest(init, (response, initError) -> {
             if (completed.get()) {
                 return;
             }
-            if (error != null || !(response instanceof TL_account.passkeyLoginOptions)) {
-                finishFailure(completed, callback);
+            if (initError != null || !(response instanceof TL_account.passkeyLoginOptions)) {
+                finishFailure(completed, callback, readableError(initError, "无法获取通行密钥挑战"));
                 return;
             }
             try {
@@ -62,7 +102,7 @@ public final class PasskeyLoginHelper {
                 String challenge = publicKey.getString("challenge");
                 String expectedRpId = publicKey.getString("rpId");
                 if (!data.rpId.equalsIgnoreCase(expectedRpId)) {
-                    finishFailure(completed, callback);
+                    finishFailure(completed, callback, "通行密钥域名不匹配");
                     return;
                 }
 
@@ -88,12 +128,18 @@ public final class PasskeyLoginHelper {
                     }
                     if (finishError != null && containsPasswordNeeded(finishError.text)) {
                         finishWithTwoFactor(manager, data, completed, callback, requestToken);
+                    } else if (finishError != null && containsChallengeExpired(finishError.text) && attempt < maxAttempts) {
+                        // The previous assertion used SignCount + 1. Advance the stored base
+                        // before requesting a new challenge so this retry uses the next count.
+                        data.signCount++;
+                        AndroidUtilities.runOnUIThread(() -> startAttempt(manager, data, callback, completed,
+                                requestToken, attempt + 1, maxAttempts), RETRY_DELAY_MS);
                     } else if (finishError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
-                        finishFailure(completed, callback);
+                        finishFailure(completed, callback, readableError(finishError, "Telegram 未接受该通行密钥"));
                     } else {
                         TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) authorization;
                         if (auth.user == null || auth.user.id == 0) {
-                            finishFailure(completed, callback);
+                            finishFailure(completed, callback, "未获取到授权账号信息");
                         } else {
                             finishSuccess(completed, callback, auth);
                         }
@@ -102,39 +148,29 @@ public final class PasskeyLoginHelper {
                         ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
                         data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
             } catch (Throwable ignore) {
-                finishFailure(completed, callback);
+                finishFailure(completed, callback, "通行密钥签名数据无效");
             }
         }, null, null,
                 ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
                 data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
-
-        AndroidUtilities.runOnUIThread(() -> {
-            if (completed.compareAndSet(false, true)) {
-                int token = requestToken.get();
-                if (token != 0) {
-                    manager.cancelRequest(token, true);
-                }
-                callback.onFailed();
-            }
-        }, VERIFY_TIMEOUT_MS);
     }
 
     private static void finishWithTwoFactor(ConnectionsManager manager, PasskeyParser.PasskeyData data,
                                              AtomicBoolean completed, Callback callback, AtomicInteger requestToken) {
         if (data.twoFactorPassword == null || data.twoFactorPassword.isEmpty()) {
-            finishFailure(completed, callback);
+            finishFailure(completed, callback, "该账号需要两步验证密码");
             return;
         }
         TL_account.getPassword getPassword = new TL_account.getPassword();
         requestToken.set(manager.sendRequest(getPassword, (passwordObject, passwordError) -> {
             if (completed.get() || passwordError != null || !(passwordObject instanceof TL_account.Password)) {
-                finishFailure(completed, callback);
+                finishFailure(completed, callback, readableError(passwordError, "无法读取两步验证信息"));
                 return;
             }
             try {
                 TL_account.Password password = (TL_account.Password) passwordObject;
                 if (!(password.current_algo instanceof TLRPC.TL_passwordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow)) {
-                    finishFailure(completed, callback);
+                    finishFailure(completed, callback, "不支持该账号的两步验证算法");
                     return;
                 }
                 TLRPC.TL_passwordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow algo =
@@ -143,26 +179,26 @@ public final class PasskeyLoginHelper {
                 byte[] x = SRPHelper.getX(passwordBytes, algo);
                 TLRPC.TL_inputCheckPasswordSRP check = SRPHelper.startCheck(x, password.srp_id, password.srp_B, algo);
                 if (check == null) {
-                    finishFailure(completed, callback);
+                    finishFailure(completed, callback, "两步验证参数无效");
                     return;
                 }
                 TLRPC.TL_auth_checkPassword checkPassword = new TLRPC.TL_auth_checkPassword();
                 checkPassword.password = check;
                 requestToken.set(manager.sendRequest(checkPassword, (authorization, checkError) -> {
                     if (checkError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
-                        finishFailure(completed, callback);
+                        finishFailure(completed, callback, readableError(checkError, "两步验证失败"));
                         return;
                     }
                     TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) authorization;
                     if (auth.user == null || auth.user.id == 0) {
-                        finishFailure(completed, callback);
+                        finishFailure(completed, callback, "未获取到授权账号信息");
                     } else {
                         finishSuccess(completed, callback, auth);
                     }
                 }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
                         data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
             } catch (Throwable ignore) {
-                finishFailure(completed, callback);
+                finishFailure(completed, callback, "两步验证处理失败");
             }
         }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
                 data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
@@ -207,21 +243,37 @@ public final class PasskeyLoginHelper {
         return errorText != null && errorText.contains("SESSION_PASSWORD_NEEDED");
     }
 
+    private static boolean containsChallengeExpired(String errorText) {
+        return errorText != null && errorText.contains("PASSKEY_CHALLENGE_EXPIRED");
+    }
+
+    private static String readableError(TLRPC.TL_error error, String fallback) {
+        if (error == null || error.text == null || error.text.isEmpty()) {
+            return fallback;
+        }
+        if (containsChallengeExpired(error.text)) {
+            return "通行密钥挑战已过期";
+        }
+        if (containsPasswordNeeded(error.text)) {
+            return "该账号需要两步验证密码";
+        }
+        return fallback;
+    }
+
     private static void finishSuccess(AtomicBoolean completed, Callback callback, TLRPC.TL_auth_authorization authorization) {
         if (completed.compareAndSet(false, true)) {
             callback.onSuccess(authorization);
         }
     }
 
-    private static void finishFailure(AtomicBoolean completed, Callback callback) {
+    private static void finishFailure(AtomicBoolean completed, Callback callback, String reason) {
         if (completed.compareAndSet(false, true)) {
-            callback.onFailed();
+            callback.onFailed(reason);
         }
     }
 
     public interface Callback {
         void onSuccess(TLRPC.TL_auth_authorization authorization);
-
-        void onFailed();
+        void onFailed(String reason);
     }
 }

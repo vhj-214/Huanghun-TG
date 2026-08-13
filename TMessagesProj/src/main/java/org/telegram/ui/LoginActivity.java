@@ -1211,7 +1211,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         if (registerView != null) {
             registerView.imageUpdater.onActivityResult(requestCode, resultCode, data);
         }
-        if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null && requestCode >= 5000 && requestCode <= 5002) {
+        if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null && requestCode >= 5000 && requestCode <= 5003) {
             com.Huanghun.protocol.ProtocolLoginHelper.handleImport(this, data.getData(), requestCode - 5000);
         }
     }
@@ -1219,7 +1219,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private void showProtocolLoginOptions() {
         Activity activity = getParentActivity();
         if (activity == null) return;
-        String[] options = {"session登录", "tdata登录", "外部密钥登录"};
+        String[] options = {"session登录", "tdata登录", "外部通行密钥（第一接口）", "外部通信密钥（第二接口）"};
         new AlertDialog.Builder(activity)
             .setTitle("协议登录")
             .setItems(options, (dialog, which) -> {
@@ -1771,6 +1771,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         onAuthSuccess(authorization);
     }
 
+    /**
+     * Persists an already verified protocol-import account without changing the current
+     * login screen. Used for additional valid .session files in a single ZIP archive.
+     */
     public static boolean saveProtocolLoginForAdditionalAccount(int accountNum, TLRPC.User user) {
         if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT || user == null || user.id == 0) {
             return false;
