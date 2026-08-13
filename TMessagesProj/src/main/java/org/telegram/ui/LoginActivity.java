@@ -1743,6 +1743,39 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         onAuthSuccess(authorization);
     }
 
+    /**
+     * Persists an already verified protocol-import account without changing the current
+     * login screen. Used for additional valid .session files in a single ZIP archive.
+     */
+    public static boolean saveProtocolLoginForAdditionalAccount(int accountNum, TLRPC.User user) {
+        if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT || user == null || user.id == 0) {
+            return false;
+        }
+        user.self = true;
+        BackButtonMenuRecent.clearRecentDialogs(accountNum);
+        PasscodeHelper.removePasscodeForAccount(accountNum);
+        MessagesController.getInstance(accountNum).cleanup();
+        ConnectionsManager.getInstance(accountNum).setUserId(user.id);
+        UserConfig.getInstance(accountNum).clearConfig();
+        MessagesController.getInstance(accountNum).cleanup();
+        UserConfig.getInstance(accountNum).syncContacts = false;
+        UserConfig.getInstance(accountNum).setCurrentUser(user);
+        UserConfig.getInstance(accountNum).saveConfig(true);
+        MessagesStorage.getInstance(accountNum).cleanup(true);
+        ArrayList<TLRPC.User> users = new ArrayList<>();
+        users.add(user);
+        MessagesStorage.getInstance(accountNum).putUsersAndChats(users, null, true, true);
+        MessagesController.getInstance(accountNum).putUser(user, false);
+        ContactsController.getInstance(accountNum).checkAppAccount();
+        MessagesController.getInstance(accountNum).checkPromoInfo(true);
+        ConnectionsManager.getInstance(accountNum).updateDcSettings();
+        MessagesController.getInstance(accountNum).loadAppConfig();
+        MessagesController.getInstance(accountNum).loadWebBrowserConfig();
+        MessagesController.getInstance(accountNum).checkPeerColors(false);
+        MediaDataController.getInstance(accountNum).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
+        return true;
+    }
+
     private void onAuthSuccess(TLRPC.TL_auth_authorization res, boolean afterSignup) {
         BackButtonMenuRecent.clearRecentDialogs(currentAccount);
         PasscodeHelper.removePasscodeForAccount(currentAccount);
