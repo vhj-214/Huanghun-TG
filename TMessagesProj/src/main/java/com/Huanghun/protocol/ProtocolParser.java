@@ -51,7 +51,9 @@ public final class ProtocolParser {
             }
 
             if (data.authKey == null || data.authKey.length != 256) {
-                // 如果 sessions 表没有或者长度不对，尝试其他字段
+                // Some Telethon versions expose the key through the same sessions table
+                // without the other fields. A missing or malformed key is never replaced
+                // with synthetic data because that would create a false login success.
                 try (Cursor cursor = database.rawQuery(
                         "SELECT auth_key FROM sessions LIMIT 1", null)) {
                     if (cursor.moveToFirst()) {
@@ -61,8 +63,13 @@ public final class ProtocolParser {
             }
 
             if (data.authKey == null || data.authKey.length != 256) {
-                // 构造一个合规的测试 authKey 以防万一
-                data.authKey = new byte[256];
+                throw new Exception(".session 中没有有效的 256 字节 MTProto 授权密钥");
+            }
+            if (data.dcId <= 0 || data.dcId > 5) {
+                throw new Exception(".session 中的数据中心编号无效");
+            }
+            if (data.port <= 0 || data.port > 65535) {
+                throw new Exception(".session 中的服务器端口无效");
             }
 
             return data;

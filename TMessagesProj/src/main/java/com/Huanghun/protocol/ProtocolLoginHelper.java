@@ -5,11 +5,11 @@ import android.app.AlertDialog;
 import android.net.Uri;
 import android.widget.Toast;
 
-import org.telegram.messenger.AccountInstance;
-import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.tgnet.Vector;
 import org.telegram.ui.ActionBar.BaseFragment;
+import org.telegram.ui.LoginActivity;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -20,6 +20,11 @@ import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+/**
+ * Imports an owner-provided Telethon session archive into the app's native tgnet store.
+ * Import success is reported only after Telegram accepts the restored auth key and returns
+ * the authenticated self user. No placeholder user or synthetic auth key is ever created.
+ */
 public final class ProtocolLoginHelper {
     private static final int MAX_ENTRIES = 512;
     private static final long MAX_UNCOMPRESSED_BYTES = 64L * 1024L * 1024L;
@@ -28,11 +33,17 @@ public final class ProtocolLoginHelper {
     }
 
     public static void handleImport(final Object fragment, final Uri uri, final int type) {
-        if (!(fragment instanceof BaseFragment) || uri == null) {
+        if (!(fragment instanceof LoginActivity) || uri == null) {
             return;
         }
-        final Activity activity = ((BaseFragment) fragment).getParentActivity();
+        final LoginActivity loginActivity = (LoginActivity) fragment;
+        final Activity activity = loginActivity.getParentActivity();
         if (activity == null) {
+            return;
+        }
+
+        if (type != 0) {
+            showAlert(activity, "暂不支持该格式", "当前版本已实现标准 Telethon .session 压缩包的真实验证登录。tdata 与外部密钥格式因文件结构不统一，不能再以“导入成功”的方式伪装登录结果。");
             return;
         }
 
@@ -44,84 +55,101 @@ public final class ProtocolLoginHelper {
                     throw new IOException("无法创建临时目录");
                 }
 
-                File sessionFile = null;
-                int entries = 0;
-                long totalBytes = 0;
-
-                try (InputStream source = activity.getContentResolver().openInputStream(uri);
-                     ZipInputStream zip = new ZipInputStream(new BufferedInputStream(source))) {
-                    ZipEntry entry;
-                    byte[] buffer = new byte[8192];
-                    while ((entry = zip.getNextEntry()) != null) {
-                        if (++entries > MAX_ENTRIES) {
-                            throw new IOException("压缩包包含过多文件");
-                        }
-                        File output = resolveInside(importDir, entry.getName());
-                        if (entry.isDirectory()) {
-                            output.mkdirs();
-                        } else {
-                            File parent = output.getParentFile();
-                            if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                                throw new IOException("无法创建解压目录");
-                            }
-                            try (FileOutputStream file = new FileOutputStream(output)) {
-                                int read;
-                                while ((read = zip.read(buffer)) != -1) {
-                                    totalBytes += read;
-                                    if (totalBytes > MAX_UNCOMPRESSED_BYTES) {
-                                        throw new IOException("压缩包解压后超过 64 MB 限制");
-                                    }
-                                    file.write(buffer, 0, read);
-                                }
-                            }
-                            String lower = entry.getName().toLowerCase(Locale.ROOT);
-                            if (lower.endsWith(".session") && sessionFile == null) {
-                                sessionFile = output;
-                            }
-                        }
-                        zip.closeEntry();
-                    }
+                File sessionFile = extractFirstSessionFile(activity, uri, importDir);
+                if (sessionFile == null) {
+                    throw new IOException("压缩包中没有找到标准的 .session 文件");
                 }
 
-                if (sessionFile != null) {
-                    ProtocolParser.SessionData data = ProtocolParser.parseTelethonSession(sessionFile);
-                    
-                    // 激活账号 0 并写入用户信息
-                    int accountNum = 0;
-                    UserConfig userConfig = UserConfig.getInstance(accountNum);
-                    
-                    TLRPC.TL_user currentUser = new TLRPC.TL_user();
-                    currentUser.id = data.userId != 0 ? data.userId : 123456789L;
-                    currentUser.first_name = "Protocol";
-                    currentUser.last_name = "User";
-                    currentUser.username = "protocol_user";
-                    currentUser.phone = "8613800000000";
-                    currentUser.self = true;
-                    currentUser.verified = true;
-                    
-                    // 通过反射或内部方法设置当前用户并激活
-                    userConfig.setCurrentUser(currentUser);
-                    userConfig.saveConfig(true);
+                ProtocolParser.SessionData data = ProtocolParser.parseTelethonSession(sessionFile);
+                int accountNum = loginActivity.getCurrentAccount();
 
-                    activity.runOnUiThread(() -> new AlertDialog.Builder(activity)
-                            .setTitle("协议登录成功")
-                            .setMessage("已成功导入并激活账号！\nDC: " + data.dcId + "\n用户ID: " + currentUser.id + "\n\n请点击确定重启应用以完成登录。")
-                            .setCancelable(false)
-                            .setPositiveButton("确定", (d, w) -> {
-                                System.exit(0);
-                            })
-                            .show());
-                } else {
-                    activity.runOnUiThread(() -> new AlertDialog.Builder(activity)
-                            .setTitle("导入提示")
-                            .setMessage("未在压缩包中找到有效的 .session 协议文件。请上传标准的 Telethon 压缩包。")
-                            .setPositiveButton("确定", null)
-                            .show());
-                }
+                // The native layer persists the real 256-byte MTProto auth key before the
+                // verification RPC is scheduled. The key is never displayed or logged.
+                ConnectionsManager.native_importAuthKey(accountNum, data.dcId, data.address, data.port, data.authKey);
+                verifySession(loginActivity, activity, accountNum, data.dcId);
             } catch (Exception e) {
-                showToast(activity, "协议登录失败: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                showToast(activity, "协议登录失败：" + reason);
             }
         }, "protocol-login").start();
+    }
+
+    private static File extractFirstSessionFile(Activity activity, Uri uri, File importDir) throws Exception {
+        File sessionFile = null;
+        int entries = 0;
+        long totalBytes = 0;
+
+        try (InputStream source = activity.getContentResolver().openInputStream(uri)) {
+            if (source == null) {
+                throw new IOException("无法读取所选压缩包");
+            }
+            try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(source))) {
+                ZipEntry entry;
+                byte[] buffer = new byte[8192];
+                while ((entry = zip.getNextEntry()) != null) {
+                    if (++entries > MAX_ENTRIES) {
+                        throw new IOException("压缩包包含过多文件");
+                    }
+                    File output = resolveInside(importDir, entry.getName());
+                    if (entry.isDirectory()) {
+                        if (!output.mkdirs() && !output.isDirectory()) {
+                            throw new IOException("无法创建解压目录");
+                        }
+                    } else {
+                        File parent = output.getParentFile();
+                        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                            throw new IOException("无法创建解压目录");
+                        }
+                        try (FileOutputStream file = new FileOutputStream(output)) {
+                            int read;
+                            while ((read = zip.read(buffer)) != -1) {
+                                totalBytes += read;
+                                if (totalBytes > MAX_UNCOMPRESSED_BYTES) {
+                                    throw new IOException("压缩包解压后超过 64 MB 限制");
+                                }
+                                file.write(buffer, 0, read);
+                            }
+                        }
+                        String lower = entry.getName().toLowerCase(Locale.ROOT);
+                        if (lower.endsWith(".session") && sessionFile == null) {
+                            sessionFile = output;
+                        }
+                    }
+                    zip.closeEntry();
+                }
+            }
+        }
+        return sessionFile;
+    }
+
+    private static void verifySession(LoginActivity loginActivity, Activity activity, int accountNum, int dcId) {
+        TLRPC.TL_users_getUsers request = new TLRPC.TL_users_getUsers();
+        request.id.add(new TLRPC.TL_inputUserSelf());
+        ConnectionsManager.getInstance(accountNum).sendRequest(request, (response, error) -> {
+            if (error != null) {
+                showAlert(activity, "协议登录失败", "Telegram 未接受该会话授权：" + error.text + "\n\n请确认压缩包中的 .session 仍有效，且属于您本人可使用的账号。");
+                return;
+            }
+            if (!(response instanceof Vector)) {
+                showAlert(activity, "协议登录失败", "服务器未返回有效的当前账号信息。");
+                return;
+            }
+            TLRPC.User self = null;
+            for (Object object : ((Vector) response).objects) {
+                if (object instanceof TLRPC.User) {
+                    TLRPC.User user = (TLRPC.User) object;
+                    if (user.self || self == null) {
+                        self = user;
+                    }
+                }
+            }
+            if (self == null || self.id == 0) {
+                showAlert(activity, "协议登录失败", "服务器没有返回可用的当前账号信息。");
+                return;
+            }
+            final TLRPC.User authenticatedUser = self;
+            activity.runOnUiThread(() -> loginActivity.completeProtocolLogin(authenticatedUser, dcId));
+        });
     }
 
     private static File resolveInside(File root, String name) throws IOException {
@@ -143,6 +171,18 @@ public final class ProtocolLoginHelper {
 
     private static void showToast(Activity activity, String message) {
         activity.runOnUiThread(() -> Toast.makeText(activity, message, Toast.LENGTH_LONG).show());
+    }
+
+    private static void showAlert(Activity activity, String title, String message) {
+        activity.runOnUiThread(() -> {
+            if (!activity.isFinishing()) {
+                new AlertDialog.Builder(activity)
+                        .setTitle(title)
+                        .setMessage(message)
+                        .setPositiveButton("确定", null)
+                        .show();
+            }
+        });
     }
 
     private static void deleteRecursive(File file) {
