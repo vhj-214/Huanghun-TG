@@ -1,0 +1,58 @@
+name: Validate Huanghun Protocol Login
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android-protocol-login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HUANGHUN_TEST_SESSION_ZIP_B64: ${{ secrets.HUANGHUN_TEST_SESSION_ZIP_B64 }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out validation harness
+        uses: actions/checkout@v4
+
+      - name: Enable hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", MODE="0666", GROUP="kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Download the fixed APK artifact
+        run: |
+          mkdir -p /tmp/huanghun-artifact
+          gh run download 31710900021 --repo vhj-214/NagramX --name Huanghun-APK --dir /tmp/huanghun-artifact
+          find /tmp/huanghun-artifact -maxdepth 1 -type f -name '*x86_64*.apk' -print
+
+      - name: Run Android protocol-login validation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            set -euo pipefail
+            test -n "$HUANGHUN_TEST_SESSION_ZIP_B64"
+            mkdir -p /tmp/huanghun-test/results
+            printf '%s' "$HUANGHUN_TEST_SESSION_ZIP_B64" | base64 --decode > /tmp/huanghun-test/session.zip
+            APK="$(find /tmp/huanghun-artifact -maxdepth 1 -type f -name '*x86_64*.apk' | head -n 1)"
+            test -n "$APK"
+            python3 .github/validate_protocol_login.py --apk "$APK" --session /tmp/huanghun-test/session.zip --out /tmp/huanghun-test/results
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Huanghun-Android-Validation
+          path: /tmp/huanghun-test/results
+          if-no-files-found: warn
+          retention-days: 1
