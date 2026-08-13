@@ -132,6 +132,7 @@ public final class ProtocolLoginHelper {
             return;
         }
 
+        int accountNum = -1;
         try {
             ProtocolParser.SessionData data = candidate.sessionData != null
                     ? candidate.sessionData
@@ -143,27 +144,30 @@ public final class ProtocolLoginHelper {
                 return;
             }
             batch.importedAuthKeyIds.add(authKeyId);
-            int accountNum = reserveNextFreeAccountSlot(loginActivity, activity, candidates, batch, index);
+            accountNum = reserveNextFreeAccountSlot(loginActivity, activity, candidates, batch, index);
             if (accountNum < 0) {
                 return;
             }
-            ConnectionsManager.native_importAuthKey(accountNum, data.dcId, data.address, data.port, data.authKey);
-            verifySession(accountNum, data.dcId, new VerificationCallback() {
+            final int assignedAccountNum = accountNum;
+            ConnectionsManager.native_importAuthKey(assignedAccountNum, data.dcId, data.address, data.port, data.authKey);
+            verifySession(assignedAccountNum, data.dcId, new VerificationCallback() {
                 @Override
                 public void onVerified(TLRPC.User user) {
                     AndroidUtilities.runOnUIThread(() -> recordVerifiedAccount(
-                            loginActivity, activity, candidates, batch, index, accountNum, data.dcId, user));
+                            loginActivity, activity, candidates, batch, index, assignedAccountNum, data.dcId, user));
                 }
 
                 @Override
                 public void onFailed() {
-                    clearUnusedImportedKey(accountNum);
+                    clearUnusedImportedKey(assignedAccountNum);
                     AndroidUtilities.runOnUIThread(() -> recordFailure(
                             loginActivity, activity, candidates, batch, index));
                 }
             });
         } catch (Exception ignore) {
-            clearUnusedImportedKey(accountNum);
+            if (accountNum >= 0) {
+                clearUnusedImportedKey(accountNum);
+            }
             AndroidUtilities.runOnUIThread(() -> recordFailure(loginActivity, activity, candidates, batch, index));
         }
     }
