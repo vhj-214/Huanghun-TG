@@ -3576,11 +3576,9 @@ void ConnectionsManager::importAuthKey(uint32_t datacenterId, std::string addres
                                                ((uint64_t) digest[14] << 16) |
                                                ((uint64_t) digest[13] << 8) |
                                                ((uint64_t) digest[12]));
-        // Generic requests use authKeyTemp when PFS_ENABLED is enabled.  A
-        // Telethon session carries one server-recognized MTProto key, so keep
-        // an independent copy in both slots until tgnet rotates a temporary
-        // key itself.  Leaving authKeyTemp empty makes generic RPCs wait
-        // forever even though the imported permanent key is valid.
+        // PFS-enabled generic connections select authKeyTemp. A Telethon session
+        // supplies an authorized permanent key, so keep an identical temporary
+        // slot until tgnet refreshes it through its regular PFS lifecycle.
         datacenter->authKeyTemp = new ByteArray((uint8_t *) authKey.data(), (uint32_t) authKey.size());
         datacenter->authKeyTempId = datacenter->authKeyPermId;
         datacenter->authorized = true;
