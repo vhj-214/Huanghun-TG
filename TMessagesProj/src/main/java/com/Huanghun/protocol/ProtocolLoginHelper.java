@@ -457,7 +457,7 @@ public final class ProtocolLoginHelper {
         if (batch.firstSuccess != null) {
             builder.setPositiveButton("进入账户", (dialog, which) ->
                     loginActivity.completeProtocolLogin(batch.firstSuccess.accountNum,
-                            batch.firstSuccess.user, batch.firstSuccess.datacenterId));
+                            batch.firstSuccess.user, batch.firstSuccess.datacenterId);
         } else {
             builder.setPositiveButton("确定", null);
         }
