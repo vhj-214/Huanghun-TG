@@ -211,23 +211,20 @@ public final class ProtocolLoginHelper {
             return;
         }
 
-        if (batch.firstSuccess == null) {
-            batch.firstSuccess = new ImportedAccount(accountNum, datacenterId, user);
-            batch.importedUserIds.add(user.id);
-            batch.successCount++;
-        } else {
-            try {
-                if (LoginActivity.saveProtocolLoginForAdditionalAccount(accountNum, user)) {
-                    batch.importedUserIds.add(user.id);
-                    batch.successCount++;
-                } else {
-                    clearUnusedImportedKey(accountNum);
-                    batch.failedCount++;
-                }
-            } catch (Throwable ignore) {
+        try {
+            if (!LoginActivity.saveProtocolLoginForAdditionalAccount(accountNum, user)) {
                 clearUnusedImportedKey(accountNum);
                 batch.failedCount++;
+            } else {
+                batch.importedUserIds.add(user.id);
+                batch.successCount++;
+                if (batch.firstSuccess == null) {
+                    batch.firstSuccess = new ImportedAccount(accountNum, datacenterId, user);
+                }
             }
+        } catch (Throwable ignore) {
+            clearUnusedImportedKey(accountNum);
+            batch.failedCount++;
         }
         startNextImport(loginActivity, activity, candidates, batch, index + 1);
     }
@@ -459,7 +456,8 @@ public final class ProtocolLoginHelper {
                 .setCancelable(false);
         if (batch.firstSuccess != null) {
             builder.setPositiveButton("进入账户", (dialog, which) ->
-                    loginActivity.completeProtocolLogin(batch.firstSuccess.user, batch.firstSuccess.datacenterId));
+                    loginActivity.completeProtocolLogin(batch.firstSuccess.accountNum,
+                            batch.firstSuccess.user, batch.firstSuccess.datacenterId));
         } else {
             builder.setPositiveButton("确定", null);
         }
