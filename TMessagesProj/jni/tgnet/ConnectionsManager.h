@@ -16,6 +16,7 @@
 #include <map>
 #include <atomic>
 #include <unordered_set>
+#include <vector>
 #include "Defines.h"
 
 #ifdef ANDROID
@@ -58,6 +59,7 @@ public:
     void cancelRequestsForGuid(int32_t guid);
     void bindRequestToGuid(int32_t requestToken, int32_t guid);
     void applyDatacenterAddress(uint32_t datacenterId, std::string ipAddress, uint32_t port);
+    void importAuthKey(uint32_t datacenterId, std::string address, uint32_t port, std::vector<uint8_t> authKey);
     void setDelegate(ConnectiosManagerDelegate *connectiosManagerDelegate);
     ConnectionState getConnectionState();
     void setUserId(int64_t userId);

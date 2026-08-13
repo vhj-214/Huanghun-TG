@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <memory.h>
 #include <openssl/rand.h>
+#include <openssl/sha.h>
 #include <zlib.h>
 #include <memory>
 #include <string>
@@ -3541,6 +3542,48 @@ void ConnectionsManager::applyDatacenterAddress(uint32_t datacenterId, std::stri
             }
             updateDcSettings(datacenterId, false, false);
         }
+    });
+}
+
+void ConnectionsManager::importAuthKey(uint32_t datacenterId, std::string address, uint32_t port, std::vector<uint8_t> authKey) {
+    if (datacenterId == 0 || authKey.size() != 256) {
+        return;
+    }
+    scheduleTask([&, datacenterId, address, port, authKey] {
+        Datacenter *datacenter = getDatacenterWithId(datacenterId);
+        if (datacenter == nullptr) {
+            datacenter = new Datacenter(instanceNum, datacenterId);
+            datacenters[datacenterId] = datacenter;
+        }
+
+        datacenter->suspendConnections(true);
+        datacenter->clearAuthKey(HandshakeTypeAll);
+        if (!address.empty() && port > 0 && port <= 65535) {
+            std::vector<TcpAddress> addresses;
+            addresses.emplace_back(address, port, 0, "");
+            datacenter->replaceAddresses(addresses, 0);
+            datacenter->resetAddressAndPortNum();
+        }
+
+        datacenter->authKeyPerm = new ByteArray((uint8_t *) authKey.data(), (uint32_t) authKey.size());
+        uint8_t digest[SHA_DIGEST_LENGTH];
+        SHA1(datacenter->authKeyPerm->bytes, datacenter->authKeyPerm->length, digest);
+        datacenter->authKeyPermId = (int64_t) (((uint64_t) digest[19] << 56) |
+                                               ((uint64_t) digest[18] << 48) |
+                                               ((uint64_t) digest[17] << 40) |
+                                               ((uint64_t) digest[16] << 32) |
+                                               ((uint64_t) digest[15] << 24) |
+                                               ((uint64_t) digest[14] << 16) |
+                                               ((uint64_t) digest[13] << 8) |
+                                               ((uint64_t) digest[12]));
+        datacenter->authorized = true;
+        datacenter->clearServerSalts(false);
+        datacenter->clearServerSalts(true);
+        datacenter->resetInitVersion();
+        currentDatacenterId = datacenterId;
+        movingToDatacenterId = DEFAULT_DATACENTER_ID;
+        saveConfig();
+        processRequestQueue(AllConnectionTypes, datacenterId);
     });
 }
 
