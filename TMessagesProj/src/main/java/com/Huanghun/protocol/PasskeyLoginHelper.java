@@ -25,7 +25,8 @@ import tw.nekomimi.nekogram.NekoXConfig;
 
 /** Performs Telegram's WebAuthn Passkey login using an owner-provided .Passkey credential. */
 public final class PasskeyLoginHelper {
-    private static final long VERIFY_TIMEOUT_MS = 30_000L;
+    // Passkey login is two short server round trips. Do not block the batch for half a minute.
+    private static final long VERIFY_TIMEOUT_MS = 18_000L;
 
     private PasskeyLoginHelper() {
     }
@@ -36,11 +37,11 @@ public final class PasskeyLoginHelper {
             return;
         }
         final ConnectionsManager manager = ConnectionsManager.getInstance(accountNum);
-        // A Passkey credential identifies the account's home DC. Keep the manager on
-        // that DC so the newly authorized network key is used after login completes.
+        // Connect to the credential's home DC before asking for a challenge.
         if (manager.getCurrentDatacenterId() != data.datacenterId) {
             manager.setDefaultDatacenterId(data.datacenterId);
         }
+        manager.resumeNetworkMaybe();
         final AtomicBoolean completed = new AtomicBoolean(false);
         final AtomicInteger requestToken = new AtomicInteger(0);
 
@@ -105,7 +106,7 @@ public final class PasskeyLoginHelper {
             }
         }, null, null,
                 ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
-                0, ConnectionsManager.ConnectionTypeGeneric, true));
+                data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
 
         AndroidUtilities.runOnUIThread(() -> {
             if (completed.compareAndSet(false, true)) {
