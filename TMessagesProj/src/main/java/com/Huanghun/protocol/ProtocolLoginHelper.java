@@ -161,7 +161,7 @@ public final class ProtocolLoginHelper {
             }
             final TLRPC.User authenticatedUser = self;
             activity.runOnUiThread(() -> loginActivity.completeProtocolLogin(authenticatedUser, dcId));
-        }, null, null, 0, dcId, ConnectionsManager.ConnectionTypeGeneric, true);
+        }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized, dcId, ConnectionsManager.ConnectionTypeGeneric, true);
 
         AndroidUtilities.runOnUIThread(() -> {
             if (finished.compareAndSet(false, true)) {
