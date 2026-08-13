@@ -7,6 +7,7 @@ import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.UserConfig;
+import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.Vector;
@@ -121,18 +122,13 @@ public final class ProtocolLoginHelper {
             return;
         }
 
-        int accountNum = findNextFreeAccountSlot(batch);
-        if (accountNum < 0) {
-            batch.failedCount += candidates.size() - index;
-            batch.noFreeSlot = true;
-            AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
-            return;
-        }
-        batch.reservedSlots.add(accountNum);
         ImportCandidate candidate = candidates.get(index);
 
         if (candidate.kind == TYPE_PASSKEY) {
-            importPasskey(loginActivity, activity, candidates, batch, index, accountNum, candidate.file);
+            int accountNum = reserveNextFreeAccountSlot(loginActivity, activity, candidates, batch, index);
+            if (accountNum >= 0) {
+                importPasskey(loginActivity, activity, candidates, batch, index, accountNum, candidate.file);
+            }
             return;
         }
 
@@ -140,6 +136,17 @@ public final class ProtocolLoginHelper {
             ProtocolParser.SessionData data = candidate.sessionData != null
                     ? candidate.sessionData
                     : ProtocolParser.parseTelethonSession(candidate.file);
+            long authKeyId = getAuthKeyId(data.authKey);
+            if (batch.importedAuthKeyIds.contains(authKeyId) || findExistingAccountForAuthKey(authKeyId) >= 0) {
+                batch.alreadyImportedCount++;
+                startNextImport(loginActivity, activity, candidates, batch, index + 1);
+                return;
+            }
+            batch.importedAuthKeyIds.add(authKeyId);
+            int accountNum = reserveNextFreeAccountSlot(loginActivity, activity, candidates, batch, index);
+            if (accountNum < 0) {
+                return;
+            }
             ConnectionsManager.native_importAuthKey(accountNum, data.dcId, data.address, data.port, data.authKey);
             verifySession(accountNum, data.dcId, new VerificationCallback() {
                 @Override
@@ -313,6 +320,57 @@ public final class ProtocolLoginHelper {
         }
     }
 
+    /**
+     * Returns Telegram's auth-key identifier using the MTProto SHA-1 convention.
+     * This allows duplicate archives to be recognized before a second connection
+     * reuses the same server-side authorization key.
+     */
+    private static long getAuthKeyId(byte[] authKey) throws IOException {
+        if (authKey == null || authKey.length != 256) {
+            throw new IOException("授权密钥长度无效");
+        }
+        byte[] digest = Utilities.computeSHA1(authKey);
+        if (digest == null || digest.length < 20) {
+            throw new IOException("无法计算授权密钥标识");
+        }
+        long result = 0;
+        for (int i = 0; i < 8; i++) {
+            result |= ((long) (digest[12 + i] & 0xff)) << (8 * i);
+        }
+        return result;
+    }
+
+    /** Finds a live local account using the exact same server authorization key. */
+    private static int findExistingAccountForAuthKey(long authKeyId) {
+        if (authKeyId == 0) {
+            return -1;
+        }
+        for (int i = 0; i < UserConfig.MAX_ACCOUNT_COUNT; i++) {
+            try {
+                if (UserConfig.getInstance(i).isClientActivated()
+                        && ConnectionsManager.getInstance(i).getCurrentAuthKeyId() == authKeyId) {
+                    return i;
+                }
+            } catch (Throwable ignore) {
+                // A not-yet-initialized slot simply cannot match an active account.
+            }
+        }
+        return -1;
+    }
+
+    private static int reserveNextFreeAccountSlot(LoginActivity loginActivity, Activity activity,
+                                                   ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
+        int accountNum = findNextFreeAccountSlot(batch);
+        if (accountNum < 0) {
+            batch.failedCount += candidates.size() - index;
+            batch.noFreeSlot = true;
+            AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
+            return -1;
+        }
+        batch.reservedSlots.add(accountNum);
+        return accountNum;
+    }
+
     private static int findNextFreeAccountSlot(BatchState batch) {
         if (batch.preferredAccount >= 0
                 && batch.preferredAccount < UserConfig.MAX_ACCOUNT_COUNT
@@ -382,6 +440,9 @@ public final class ProtocolLoginHelper {
         message.append("本次已扫描到 ").append(batch.scannedCount).append(" 个账户");
         message.append("\n有效账户：").append(batch.successCount).append(" 个");
         message.append("\n失败账户：").append(batch.failedCount).append(" 个");
+        if (batch.alreadyImportedCount > 0) {
+            message.append("\n已存在账户：").append(batch.alreadyImportedCount).append(" 个（未重复导入）");
+        }
         if (batch.noFreeSlot) {
             message.append("\n\n账户槽位已满，未继续导入剩余会话。");
         } else if (batch.scannedCount == 0) {
@@ -502,8 +563,10 @@ public final class ProtocolLoginHelper {
         final int preferredAccount;
         final Set<Integer> reservedSlots = new HashSet<>();
         final Set<Long> importedUserIds = new HashSet<>();
+        final Set<Long> importedAuthKeyIds = new HashSet<>();
         int successCount;
         int failedCount;
+        int alreadyImportedCount;
         boolean noFreeSlot;
         ImportedAccount firstSuccess;
 
