@@ -40,7 +40,7 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           script: |
-            set -euo pipefail
+            set -eu
             test -n "$HUANGHUN_TEST_SESSION_ZIP_B64"
             mkdir -p /tmp/huanghun-test/results
             printf '%s' "$HUANGHUN_TEST_SESSION_ZIP_B64" | base64 --decode > /tmp/huanghun-test/session.zip
