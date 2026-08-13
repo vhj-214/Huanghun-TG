@@ -537,9 +537,11 @@ void init(JNIEnv *env, jclass c, jint instanceNum, jint version, jint layer, jin
 
 void setJava(JNIEnv *env, jclass c, jboolean useJavaByteBuffers) {
     ConnectionsManager::useJavaVM(java, useJavaByteBuffers);
-    for (int a = 0; a < MAX_ACCOUNT_COUNT; a++) {
-        ConnectionsManager::getInstance(a).setDelegate(new Delegate());
-    }
+    // Defer native manager allocation until an account is actually used. This keeps
+    // the 100-slot account capacity from allocating large network buffers at startup.
+    ConnectionsManager::setDelegateFactory([]() -> ConnectiosManagerDelegate * {
+        return new Delegate();
+    });
 }
 
 static const char *ConnectionsManagerClassPathName = "org/telegram/tgnet/ConnectionsManager";
