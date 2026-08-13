@@ -44,6 +44,7 @@ public:
     ~ConnectionsManager();
 
     static ConnectionsManager &getInstance(int32_t instanceNum);
+    static void setDelegateFactory(std::function<ConnectiosManagerDelegate *()> factory);
     int64_t getCurrentTimeMillis();
     int64_t getCurrentTimeMonotonicMillis();
     int32_t getCurrentTime();

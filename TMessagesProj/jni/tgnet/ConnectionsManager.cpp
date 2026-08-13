@@ -18,6 +18,8 @@
 #include <openssl/sha.h>
 #include <zlib.h>
 #include <memory>
+#include <array>
+#include <mutex>
 #include <string>
 #include <cinttypes>
 #include "ConnectionsManager.h"
@@ -44,6 +46,11 @@ jmethodID jclass_ByteBuffer_allocateDirect = nullptr;
 #endif
 
 static bool done = false;
+namespace {
+    std::array<std::unique_ptr<ConnectionsManager>, MAX_ACCOUNT_COUNT> connectionsManagerInstances;
+    std::mutex connectionsManagerInstancesMutex;
+    std::function<ConnectiosManagerDelegate *()> connectionsManagerDelegateFactory;
+}
 
 ConnectionsManager::ConnectionsManager(int32_t instance) {
     instanceNum = instance;
@@ -137,38 +144,33 @@ ConnectionsManager::~ConnectionsManager() {
 }
 
 ConnectionsManager& ConnectionsManager::getInstance(int32_t instanceNum) {
-    switch (instanceNum) {
-        case 0:
-            static ConnectionsManager instance0(0);
-            return instance0;
-        case 1:
-            static ConnectionsManager instance1(1);
-            return instance1;
-        case 2:
-            static ConnectionsManager instance2(2);
-            return instance2;
-        case 3:
-            static ConnectionsManager instance3(3);
-            return instance3;
-        case 4:
-            static ConnectionsManager instance4(4);
-            return instance4;
-        case 5:
-            static ConnectionsManager instance5(5);
-            return instance5;
-        case 6:
-            static ConnectionsManager instance6(6);
-            return instance6;
-        case 7:
-            static ConnectionsManager instance7(7);
-            return instance7;
-        case 8:
-            static ConnectionsManager instance8(8);
-            return instance8;
-        case 9:
-        default:
-            static ConnectionsManager instance9(9);
-            return instance9;
+    // Java validates account indexes. Keep the native side defensive so an invalid
+    // caller can never alias an unrelated account slot.
+    if (instanceNum < 0 || instanceNum >= MAX_ACCOUNT_COUNT) {
+        instanceNum = 0;
+    }
+    std::lock_guard<std::mutex> lock(connectionsManagerInstancesMutex);
+    auto &instance = connectionsManagerInstances[instanceNum];
+    if (!instance) {
+        instance = std::make_unique<ConnectionsManager>(instanceNum);
+        if (connectionsManagerDelegateFactory) {
+            instance->setDelegate(connectionsManagerDelegateFactory());
+        }
+    }
+    return *instance;
+}
+
+void ConnectionsManager::setDelegateFactory(std::function<ConnectiosManagerDelegate *()> factory) {
+    std::lock_guard<std::mutex> lock(connectionsManagerInstancesMutex);
+    connectionsManagerDelegateFactory = std::move(factory);
+    // Normally no instance exists yet. Bind the factory to an early instance too,
+    // so initialization order cannot leave an account without Java callbacks.
+    if (connectionsManagerDelegateFactory) {
+        for (auto &instance : connectionsManagerInstances) {
+            if (instance) {
+                instance->setDelegate(connectionsManagerDelegateFactory());
+            }
+        }
     }
 }
 
