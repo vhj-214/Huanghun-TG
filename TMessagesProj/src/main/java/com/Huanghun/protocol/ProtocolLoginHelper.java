@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.net.Uri;
 import android.widget.Toast;
 
+import org.telegram.messenger.AndroidUtilities;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.Vector;
@@ -16,6 +17,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -123,11 +125,21 @@ public final class ProtocolLoginHelper {
 
     private static void verifySession(LoginActivity loginActivity, Activity activity, int accountNum, int dcId) {
         showToast(activity, "正在连接 Telegram 并验证会话，请稍候…");
+        final ConnectionsManager manager = ConnectionsManager.getInstance(accountNum);
+        // Importing an auth key replaces a suspended DC connection. Explicitly resume it,
+        // then route the verification RPC to the imported DC instead of the old default DC.
+        manager.resumeNetworkMaybe();
+
+        final AtomicBoolean finished = new AtomicBoolean(false);
         TLRPC.TL_users_getUsers request = new TLRPC.TL_users_getUsers();
         request.id.add(new TLRPC.TL_inputUserSelf());
-        ConnectionsManager.getInstance(accountNum).sendRequest(request, (response, error) -> {
+        final int requestToken = manager.sendRequest(request, (response, error) -> {
+            if (!finished.compareAndSet(false, true)) {
+                return;
+            }
             if (error != null) {
-                showAlert(activity, "协议登录失败", "Telegram 未接受该会话授权：" + error.text + "\n\n请确认压缩包中的 .session 仍有效，且属于您本人可使用的账号。");
+                String reason = error.text != null ? error.text : "UNKNOWN_ERROR";
+                showAlert(activity, "协议登录失败", "Telegram 未接受该会话授权：" + reason + "\n\n请确认压缩包中的 .session 仍有效，且属于您本人可使用的账号。");
                 return;
             }
             if (!(response instanceof Vector)) {
@@ -149,7 +161,14 @@ public final class ProtocolLoginHelper {
             }
             final TLRPC.User authenticatedUser = self;
             activity.runOnUiThread(() -> loginActivity.completeProtocolLogin(authenticatedUser, dcId));
-        });
+        }, null, null, 0, dcId, ConnectionsManager.ConnectionTypeGeneric, true);
+
+        AndroidUtilities.runOnUIThread(() -> {
+            if (finished.compareAndSet(false, true)) {
+                manager.cancelRequest(requestToken, true);
+                showAlert(activity, "协议登录超时", "20 秒内未收到 Telegram 的验证结果。会话文件已被识别，但客户端未能建立验证连接；请检查网络或重试。\n\n此提示不表示导入成功。 ");
+            }
+        }, 20_000);
     }
 
     private static File resolveInside(File root, String name) throws IOException {
