@@ -1729,24 +1729,48 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private boolean pendingSwitchingAccount;
 
     /**
-     * Completes a protocol-session login only after the native layer has authenticated
-     * users.getUsers(inputUserSelf) and supplied the actual current account record.
+     * Completes a protocol login in the activity's current account slot.
      */
     public void completeProtocolLogin(TLRPC.User user, int datacenterId) {
-        if (user == null || user.id == 0) {
+        completeProtocolLogin(currentAccount, user, datacenterId);
+    }
+
+    /**
+     * Activates and opens the exact slot reserved by the batch importer. The first
+     * verified item is already persisted before the summary is displayed, so this
+     * method must not assume that it belongs to LoginActivity.currentAccount.
+     */
+    public void completeProtocolLogin(int accountNum, TLRPC.User user, int datacenterId) {
+        if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT || user == null || user.id == 0) {
             needShowAlert("协议登录失败", "未获取到有效的当前账号信息。");
             return;
         }
         user.self = true;
+        if (accountNum != currentAccount) {
+            try {
+                UserConfig config = UserConfig.getInstance(accountNum);
+                if (!config.isClientActivated() || config.getClientUserId() != user.id) {
+                    if (!saveProtocolLoginForAdditionalAccount(accountNum, user)) {
+                        needShowAlert("协议登录失败", "无法保存已验证的账号信息。");
+                        return;
+                    }
+                }
+                if (getParentActivity() instanceof LaunchActivity) {
+                    newAccount = false;
+                    ((LaunchActivity) getParentActivity()).switchToAccount(accountNum, true);
+                    finishFragment();
+                    return;
+                }
+            } catch (Throwable ignore) {
+                needShowAlert("协议登录失败", "无法打开已验证的账号。");
+                return;
+            }
+        }
         TLRPC.TL_auth_authorization authorization = new TLRPC.TL_auth_authorization();
         authorization.user = user;
         onAuthSuccess(authorization);
     }
 
-    /**
-     * Persists an already verified protocol-import account without changing the current
-     * login screen. Used for additional valid .session files in a single ZIP archive.
-     */
     public static boolean saveProtocolLoginForAdditionalAccount(int accountNum, TLRPC.User user) {
         if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT || user == null || user.id == 0) {
             return false;
