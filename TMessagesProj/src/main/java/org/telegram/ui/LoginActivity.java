@@ -1728,6 +1728,21 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     private boolean pendingSwitchingAccount;
 
+    /**
+     * Completes a protocol-session login only after the native layer has authenticated
+     * users.getUsers(inputUserSelf) and supplied the actual current account record.
+     */
+    public void completeProtocolLogin(TLRPC.User user, int datacenterId) {
+        if (user == null || user.id == 0) {
+            needShowAlert("协议登录失败", "未获取到有效的当前账号信息。");
+            return;
+        }
+        user.self = true;
+        TLRPC.TL_auth_authorization authorization = new TLRPC.TL_auth_authorization();
+        authorization.user = user;
+        onAuthSuccess(authorization);
+    }
+
     private void onAuthSuccess(TLRPC.TL_auth_authorization res, boolean afterSignup) {
         BackButtonMenuRecent.clearRecentDialogs(currentAccount);
         PasscodeHelper.removePasscodeForAccount(currentAccount);
