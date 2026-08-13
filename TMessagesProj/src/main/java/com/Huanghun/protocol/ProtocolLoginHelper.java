@@ -8,7 +8,6 @@ import android.widget.Toast;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.Vector;
-import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.LoginActivity;
 
 import java.io.BufferedInputStream;
@@ -42,10 +41,9 @@ public final class ProtocolLoginHelper {
             return;
         }
 
-        if (type != 0) {
-            showAlert(activity, "暂不支持该格式", "当前版本已实现标准 Telethon .session 压缩包的真实验证登录。tdata 与外部密钥格式因文件结构不统一，不能再以“导入成功”的方式伪装登录结果。");
-            return;
-        }
+        // All three menu entries use the same ZIP scanner. The archive is accepted
+        // whenever it contains a valid .session file; optional JSON files are ignored.
+        showToast(activity, "正在扫描压缩包中的 .session 会话文件…");
 
         new Thread(() -> {
             try {
@@ -57,9 +55,10 @@ public final class ProtocolLoginHelper {
 
                 File sessionFile = extractFirstSessionFile(activity, uri, importDir);
                 if (sessionFile == null) {
-                    throw new IOException("压缩包中没有找到标准的 .session 文件");
+                    throw new IOException("压缩包中没有找到 .session 会话文件");
                 }
 
+                showToast(activity, "已找到 .session，正在验证 Telegram 授权…");
                 ProtocolParser.SessionData data = ProtocolParser.parseTelethonSession(sessionFile);
                 int accountNum = loginActivity.getCurrentAccount();
 
@@ -69,7 +68,7 @@ public final class ProtocolLoginHelper {
                 verifySession(loginActivity, activity, accountNum, data.dcId);
             } catch (Exception e) {
                 String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                showToast(activity, "协议登录失败：" + reason);
+                showAlert(activity, "协议登录失败", "无法导入压缩包中的 .session 会话文件：\n" + reason);
             }
         }, "protocol-login").start();
     }
@@ -123,6 +122,7 @@ public final class ProtocolLoginHelper {
     }
 
     private static void verifySession(LoginActivity loginActivity, Activity activity, int accountNum, int dcId) {
+        showToast(activity, "正在连接 Telegram 并验证会话，请稍候…");
         TLRPC.TL_users_getUsers request = new TLRPC.TL_users_getUsers();
         request.id.add(new TLRPC.TL_inputUserSelf());
         ConnectionsManager.getInstance(accountNum).sendRequest(request, (response, error) -> {
