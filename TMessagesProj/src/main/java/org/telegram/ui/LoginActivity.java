@@ -110,12 +110,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
-// import com.google.android.gms.safetynet.SafetyNet;
-// import com.google.android.gms.tasks.Task;
-// import com.google.android.play.core.integrity.IntegrityManager;
-// import com.google.android.play.core.integrity.IntegrityManagerFactory;
-// import com.google.android.play.core.integrity.IntegrityTokenRequest;
-// import com.google.android.play.core.integrity.IntegrityTokenResponse;
+import com.google.android.gms.safetynet.SafetyNet;
+import com.google.android.gms.tasks.Task;
+import com.google.android.play.core.integrity.IntegrityManager;
+import com.google.android.play.core.integrity.IntegrityManagerFactory;
+import com.google.android.play.core.integrity.IntegrityTokenRequest;
+import com.google.android.play.core.integrity.IntegrityTokenResponse;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -1872,8 +1872,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private void fillNextCodeParams(Bundle params, TLRPC.auth_SentCode res) {
         fillNextCodeParams(params, res, true);
     }
-/*
     private void resendCodeFromSafetyNet(Bundle params, TLRPC.auth_SentCode res, String reason) {
+
         if (!isRequestingFirebaseSms) {
             return;
         }
@@ -1908,7 +1908,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 });
             }
         }, ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin);
-    }*/
+    }
 
     public static String errorString(Throwable e) {
         if (e == null) return "NULL";
@@ -1947,7 +1947,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             setPage(VIEW_PAY, true, params, true);
             return;
         }
-        /*if (res.type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms && !res.type.verifiedFirebase && !isRequestingFirebaseSms) {
+        if (activityMode == MODE_CHANGE_PHONE_NUMBER && res.type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms && !res.type.verifiedFirebase && !isRequestingFirebaseSms) {
             if (PushListenerController.GooglePushListenerServiceProvider.INSTANCE.hasServices()) {
                 TLRPC.TL_auth_sentCodeTypeFirebaseSms r = (TLRPC.TL_auth_sentCodeTypeFirebaseSms) res.type;
                 needShowProgress(0);
@@ -2061,7 +2061,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 resendCodeFromSafetyNet(params, res, "GOOGLE_PLAY_SERVICES_NOT_AVAILABLE");
             }
             return;
-        }*/
+        }
 
         params.putString("phoneHash", res.phone_code_hash);
         if (res.next_type instanceof TLRPC.TL_auth_codeTypeCall) {
@@ -3290,10 +3290,13 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             TLRPC.TL_codeSettings settings = new TLRPC.TL_codeSettings();
             settings.allow_flashcall = simcardAvailable && allowCall && allowCancelCall && allowReadCallLog;
             settings.allow_missed_call = simcardAvailable && allowCall;
-            settings.allow_app_hash = settings.allow_firebase = PushListenerController.getProvider().hasServices();
-            if (forceDisableSafetyNet || TextUtils.isEmpty(BuildVars.SAFETYNET_KEY)) {
-                settings.allow_firebase = false;
-            }
+            // Only the change-bound-number flow implements the full Firebase SMS / Play
+            // Integrity confirmation protocol. Ordinary logins continue to use compatible
+            // normal delivery channels and do not advertise this specialized capability.
+            settings.allow_app_hash = PushListenerController.getProvider().hasServices();
+            settings.allow_firebase = activityMode == MODE_CHANGE_PHONE_NUMBER
+                    && PushListenerController.getProvider().hasServices()
+                    && !forceDisableSafetyNet;
 
             ArrayList<TLRPC.TL_auth_authorization> loginTokens = AuthTokensHelper.getSavedLogInTokens();
             if (loginTokens != null) {

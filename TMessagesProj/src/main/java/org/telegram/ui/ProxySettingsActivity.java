@@ -40,6 +40,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.core.graphics.ColorUtils;
 
@@ -453,6 +454,12 @@ public class ProxySettingsActivity extends BaseFragment {
         pasteCell.setText(LocaleController.getString(R.string.PasteFromClipboard), false);
         pasteCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
         pasteCell.setOnClickListener(v -> {
+            // Clipboard contents may have changed while this page was open.
+            updatePasteCell(true);
+            if (pasteType == -1) {
+                Toast.makeText(fragmentView.getContext(), "剪贴板中没有有效的代理链接", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (pasteType != -1) {
                 for (int i = 0; i < pasteFields.length; i++) {
                     if (pasteType == TYPE_SOCKS5 && i == FIELD_SECRET) {
@@ -487,11 +494,12 @@ public class ProxySettingsActivity extends BaseFragment {
             }
         });
         linearLayout2.addView(pasteCell, 0, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        pasteCell.setVisibility(View.GONE);
+        // Keep this entry permanently visible so users always know they can import a link.
+        pasteCell.setVisibility(View.VISIBLE);
         sectionCell[2] = new ShadowSectionCell(fragmentView.getContext());
         sectionCell[2].setBackground(Theme.getThemedDrawableByKey(fragmentView.getContext(), R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
         linearLayout2.addView(sectionCell[2], 1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        sectionCell[2].setVisibility(View.GONE);
+        sectionCell[2].setVisibility(View.VISIBLE);
 
         shareCell = new TextSettingsCell(context);
         shareCell.setBackgroundDrawable(Theme.getSelectorDrawable(true));
@@ -571,6 +579,10 @@ public class ProxySettingsActivity extends BaseFragment {
     }
 
     private void updatePasteCell() {
+        updatePasteCell(false);
+    }
+
+    private void updatePasteCell(boolean force) {
         final ClipData clip = clipboardManager.getPrimaryClip();
 
         String clipText;
@@ -584,7 +596,7 @@ public class ProxySettingsActivity extends BaseFragment {
             clipText = null;
         }
 
-        if (TextUtils.equals(clipText, pasteString)) {
+        if (!force && TextUtils.equals(clipText, pasteString)) {
             return;
         }
 
@@ -618,7 +630,7 @@ public class ProxySettingsActivity extends BaseFragment {
 
             if (params != null) {
                 for (int i = 0; i < params.length; i++) {
-                    final String[] pair = params[i].split("=");
+                    final String[] pair = params[i].split("=", 2);
                     if (pair.length != 2) continue;
                     switch (pair[0].toLowerCase()) {
                         case "server":
@@ -647,17 +659,10 @@ public class ProxySettingsActivity extends BaseFragment {
             }
         }
 
-        if (pasteType != -1) {
-            if (pasteCell.getVisibility() != View.VISIBLE) {
-                pasteCell.setVisibility(View.VISIBLE);
-                sectionCell[2].setVisibility(View.VISIBLE);
-            }
-        } else {
-            if (pasteCell.getVisibility() != View.GONE) {
-                pasteCell.setVisibility(View.GONE);
-                sectionCell[2].setVisibility(View.GONE);
-            }
-        }
+        // The import entry is always visible. A click either imports the recognized
+        // SOCKS5 / MTProto link or explains that the current clipboard has no valid link.
+        pasteCell.setVisibility(View.VISIBLE);
+        sectionCell[2].setVisibility(View.VISIBLE);
     }
 
     private void setShareDoneEnabled(boolean enabled, boolean animated) {
