@@ -1365,6 +1365,9 @@ public class LocaleController {
             if ("zh".equals(newLocale.getLanguage()) && newLocale.getCountry().isEmpty() && localeInfo.shortName != null) {
                 if (localeInfo.shortName.startsWith("zh_hant") || localeInfo.shortName.contains("taiwan")) {
                     newLocale = new Locale("zh", "TW");
+                } else if (localeInfo.shortName.startsWith("zh_hans")) {
+                    // Android's bundled Simplified Chinese resources use the zh-CN qualifier.
+                    newLocale = new Locale("zh", "CN");
                 }
             }
             if (override) {
@@ -3237,6 +3240,9 @@ public class LocaleController {
                         if ("zh".equals(newLocale.getLanguage()) && newLocale.getCountry().isEmpty() && localeInfo.shortName != null) {
                             if (localeInfo.shortName.startsWith("zh_hant") || localeInfo.shortName.contains("taiwan")) {
                                 newLocale = new Locale("zh", "TW");
+                            } else if (localeInfo.shortName.startsWith("zh_hans")) {
+                                // Android's bundled Simplified Chinese resources use the zh-CN qualifier.
+                                newLocale = new Locale("zh", "CN");
                             }
                         }
                         languageOverride = localeInfo.shortName;

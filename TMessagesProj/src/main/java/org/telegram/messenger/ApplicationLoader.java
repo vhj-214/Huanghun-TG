@@ -354,6 +354,8 @@ public class ApplicationLoader extends Application {
             applicationContext = getApplicationContext();
         }
 
+        // Seed Huanghun's bundled Chinese preference before any activity or LocaleController can render first-launch UI.
+        HuanghunDefaultSettings.applyOfficialChineseDefaultIfNeeded();
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
 
         try {

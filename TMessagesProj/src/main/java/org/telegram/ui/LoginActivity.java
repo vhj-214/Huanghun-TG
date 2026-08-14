@@ -1221,11 +1221,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         if (activity == null) return;
         String[] options = {"session登录", "tdata登录", "外部通行密钥（第一接口）", "外部通信密钥（第二接口）"};
         new AlertDialog.Builder(activity)
-            .setTitle("协议登录")
+            .setTitle("协议登录【上传压缩包文件 .zip 格式】")
             .setItems(options, (dialog, which) -> {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("application/zip");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed"});
                 startActivityForResult(intent, 5000 + which);
             })
             .show();

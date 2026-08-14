@@ -2,7 +2,9 @@ package com.Huanghun.protocol;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.database.Cursor;
 import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
@@ -52,6 +54,10 @@ public final class ProtocolLoginHelper {
         final LoginActivity loginActivity = (LoginActivity) fragment;
         final Activity activity = loginActivity.getParentActivity();
         if (activity == null) {
+            return;
+        }
+        if (!isZipArchive(activity, uri)) {
+            showZipFormatError(activity);
             return;
         }
 
@@ -263,6 +269,28 @@ public final class ProtocolLoginHelper {
                 .setTitle("外部通行密钥（第一接口）失败")
                 .setMessage("本次通行密钥未完成 Telegram 授权：" + reason
                         + "\n\n请返回“协议登录”，选择“外部通信密钥（第二接口）”后重新导入同一压缩包。第二接口会为挑战过期自动重新获取挑战并递增签名计数后重试。")
+                .setPositiveButton("确定", null)
+                .show();
+    }
+
+    private static boolean isZipArchive(Activity activity, Uri uri) {
+        String displayName = null;
+        try (Cursor cursor = activity.getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                displayName = cursor.getString(0);
+            }
+        } catch (Exception ignore) {
+        }
+        return displayName != null && displayName.toLowerCase(Locale.ROOT).endsWith(".zip");
+    }
+
+    private static void showZipFormatError(Activity activity) {
+        if (activity == null || activity.isFinishing()) {
+            return;
+        }
+        new AlertDialog.Builder(activity)
+                .setTitle("文件格式不支持")
+                .setMessage("请上传 .zip 格式压缩包，其他格式无法读取其中内容。")
                 .setPositiveButton("确定", null)
                 .show();
     }
