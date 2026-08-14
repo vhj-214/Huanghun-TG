@@ -4961,9 +4961,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
                         builder.setItems(items, (dialog, which) -> {
                             if (which == 0) { // Import Contacts
-                                getUserConfig().syncContacts = true;
+                                // Contact syncing is permanently disabled in Huanghun.
+                                getUserConfig().syncContacts = false;
                                 getUserConfig().saveConfig(false);
-                                getContactsController().forceImportContacts();
                             } else if (which == 1) { // Reload Contacts
                                 getContactsController().loadContacts(false, 0);
                             } else if (which == 2) { // Reset Imported Contacts

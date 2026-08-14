@@ -641,8 +641,17 @@ public class ContactsController extends BaseController {
         return count > 3;
     }
 
+    private boolean isHuanghunContactSyncAllowed() {
+        // This setting is intentionally locked off in Huanghun.
+        if (getUserConfig().syncContacts) {
+            getUserConfig().syncContacts = false;
+            getUserConfig().saveConfig(false);
+        }
+        return false;
+    }
+
     public HashMap<String, Contact> readContactsFromPhoneBook() {
-        if (!getUserConfig().syncContacts) {
+        if (!isHuanghunContactSyncAllowed()) {
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("contacts sync disabled");
             }
@@ -1012,6 +1021,10 @@ public class ContactsController extends BaseController {
     }
 
     protected void performSyncPhoneBook(final HashMap<String, Contact> contactHashMap, final boolean request, final boolean first, final boolean schedule, final boolean force, final boolean checkCount, final boolean canceled) {
+        // Final safeguard: no code path may upload the phone book in Huanghun.
+        if (!isHuanghunContactSyncAllowed()) {
+            return;
+        }
         if (!first && !contactsBookLoaded) {
             return;
         }

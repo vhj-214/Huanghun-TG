@@ -186,7 +186,10 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
 
         getContactsController().loadPrivacySettings();
         getMessagesController().getBlockedPeers(true);
-        currentSync = newSync = getUserConfig().syncContacts;
+        // Huanghun locks device contact syncing off for every account.
+        getUserConfig().syncContacts = false;
+        getUserConfig().saveConfig(false);
+        currentSync = newSync = false;
         currentSuggest = newSuggest = getUserConfig().suggestContacts;
         TLRPC.GlobalPrivacySettings privacySettings = getContactsController().getGlobalPrivacySettings();
         if (privacySettings != null) {
@@ -804,7 +807,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         }
         contactsSectionRow = rowCount++;
         contactsDeleteRow = rowCount++;
-        contactsSyncRow = rowCount++;
+        contactsSyncRow = -1;
         contactsSuggestRow = rowCount++;
         contactsDetailRow = rowCount++;
         secretSectionRow = rowCount++;
