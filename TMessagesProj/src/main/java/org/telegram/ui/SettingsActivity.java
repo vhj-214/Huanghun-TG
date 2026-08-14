@@ -654,7 +654,46 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
     }
 
+    private static final String HUANGHUN_ACCOUNT_ORDER_PREFS = "huanghun_account_order";
+    private static final String HUANGHUN_ACCOUNT_ORDER_KEY = "account_order_v1";
     private ArrayList<Integer> accountNumbers = new ArrayList<>();
+
+    private ArrayList<Integer> getHuanghunAccountOrder() {
+        ArrayList<Integer> order = new ArrayList<>();
+        String savedOrder = ApplicationLoader.applicationContext
+                .getSharedPreferences(HUANGHUN_ACCOUNT_ORDER_PREFS, Context.MODE_PRIVATE)
+                .getString(HUANGHUN_ACCOUNT_ORDER_KEY, "");
+        if (TextUtils.isEmpty(savedOrder)) {
+            return order;
+        }
+        for (String value : savedOrder.split(",")) {
+            try {
+                int account = Integer.parseInt(value);
+                if (!order.contains(account)) {
+                    order.add(account);
+                }
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        return order;
+    }
+
+    private void moveHuanghunAccount(int account, boolean toTop) {
+        ArrayList<Integer> order = new ArrayList<>(accountNumbers);
+        order.remove(Integer.valueOf(account));
+        if (toTop) {
+            order.add(0, account);
+        } else {
+            order.add(account);
+        }
+        ApplicationLoader.applicationContext
+                .getSharedPreferences(HUANGHUN_ACCOUNT_ORDER_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(HUANGHUN_ACCOUNT_ORDER_KEY, TextUtils.join(",", order))
+                .apply();
+        listView.adapter.update(true);
+    }
+
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (searchItem.isSearchFieldVisible2()) {
             items.add(UItem.asSpace(ActionBar.getCurrentActionBarHeight()));
@@ -671,7 +710,19 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 accountNumbers.add(a);
             }
         }
+        ArrayList<Integer> savedAccountOrder = getHuanghunAccountOrder();
         Collections.sort(accountNumbers, (o1, o2) -> {
+            int index1 = savedAccountOrder.indexOf(o1);
+            int index2 = savedAccountOrder.indexOf(o2);
+            if (index1 >= 0 || index2 >= 0) {
+                if (index1 < 0) {
+                    return 1;
+                } else if (index2 < 0) {
+                    return -1;
+                } else if (index1 != index2) {
+                    return Integer.compare(index1, index2);
+                }
+            }
             long l1 = UserConfig.getInstance(o1).loginTime;
             long l2 = UserConfig.getInstance(o2).loginTime;
             if (l1 > l2) {
@@ -959,6 +1010,20 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private boolean onLongClick(UItem item, View view, int position, float x, float y) {
+        if (item.instanceOf(AccountCell.Factory.class)) {
+            final Activity activity = getParentActivity();
+            if (activity == null) {
+                return false;
+            }
+            final int account = item.intValue;
+            new AlertDialog.Builder(activity, resourceProvider)
+                    .setTitle("调整账号位置")
+                    .setItems(new String[]{"移到最上面", "移到最下面"}, (dialog, which) -> {
+                        moveHuanghunAccount(account, which == 0);
+                    })
+                    .show();
+            return true;
+        }
         if (item.object instanceof TLRPC.TL_attachMenuBot) {
             TLRPC.TL_attachMenuBot attachMenuBot = (TLRPC.TL_attachMenuBot) item.object;
             BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, () -> listView.adapter.update(true));
