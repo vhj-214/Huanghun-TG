@@ -3309,6 +3309,10 @@ public class MessagesStorage extends BaseController {
                 SparseArray<MessagesController.DialogFilter> filtersToDelete = new SparseArray<>();
                 for (int a = 0, N = dialogFilters.size(); a < N; a++) {
                     MessagesController.DialogFilter filter = dialogFilters.get(a);
+                    if (getMessagesController().isHuanghunLocalOnlyFilter(filter)) {
+                        filter.localOnly = true;
+                        continue;
+                    }
                     filtersToDelete.put(filter.id, filter);
                 }
                 ArrayList<Integer> filtersOrder = new ArrayList<>();
@@ -3638,9 +3642,16 @@ public class MessagesStorage extends BaseController {
             anythingChanged = true;
         }
         boolean orderChanged = false;
+        int localFolderOrder = filtersOrder.size();
         for (int a = 0, N = dialogFilters.size(); a < N; a++) {
             MessagesController.DialogFilter filter = dialogFilters.get(a);
-            int order = filtersOrder.indexOf(filter.id);
+            int order;
+            if (getMessagesController().isHuanghunLocalOnlyFilter(filter)) {
+                filter.localOnly = true;
+                order = localFolderOrder++;
+            } else {
+                order = filtersOrder.indexOf(filter.id);
+            }
             if (filter.order != order) {
                 filter.order = order;
                 anythingChanged = true;

@@ -571,7 +571,8 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         ArrayList<TLRPC.TL_dialogFilterSuggested> suggestedFilters = getMessagesController().suggestedFilters;
         ArrayList<MessagesController.DialogFilter> dialogFilters = getMessagesController().getDialogFilters();
         items.add(ItemInner.asHint());
-        if (!suggestedFilters.isEmpty() && (NekoConfig.unlimitedDialogFilters.Bool() || dialogFilters.size() < 10)) {
+        final boolean allowExpandedLocalFolders = NekoConfig.unlimitedDialogFilters.Bool() || NekoConfig.localPremium.Bool();
+        if (!suggestedFilters.isEmpty() && (allowExpandedLocalFolders || dialogFilters.size() < 10)) {
             int start = items.size();
             items.add(ItemInner.asHeader(LocaleController.getString(R.string.FilterRecommended)));
             for (int i = 0; i < suggestedFilters.size(); ++i) {
@@ -592,11 +593,11 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             }
             filtersSectionEnd = items.size();
 
-            if (listView != null) listView.forcedSections.add(AndroidUtilities.pack(filtersSectionStart, filtersSectionEnd - 1 + (NekoConfig.unlimitedDialogFilters.Bool() || dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium ? 1 : 0)));
+            if (listView != null) listView.forcedSections.add(AndroidUtilities.pack(filtersSectionStart, filtersSectionEnd - 1 + (allowExpandedLocalFolders || dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium ? 1 : 0)));
         } else {
             filtersSectionStart = filtersSectionEnd = -1;
         }
-        if (NekoConfig.unlimitedDialogFilters.Bool() || dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium) {
+        if (allowExpandedLocalFolders || dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium) {
             items.add(ItemInner.asButton(LocaleController.getString(R.string.CreateNewFilter)));
         }
         items.add(ItemInner.asShadow(null));
@@ -627,11 +628,15 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             ArrayList<MessagesController.DialogFilter> filters = getMessagesController().getDialogFilters();
             for (int a = 0, N = filters.size(); a < N; a++) {
                 MessagesController.DialogFilter filter = filters.get(a);
-                req.order.add(filter.id);
+                if (!getMessagesController().isHuanghunLocalOnlyFilter(filter)) {
+                    req.order.add(filter.id);
+                }
             }
-            getConnectionsManager().sendRequest(req, (response, error) -> {
+            if (!req.order.isEmpty()) {
+                getConnectionsManager().sendRequest(req, (response, error) -> {
 
-            });
+                });
+            }
         }
         super.onFragmentDestroy();
     }
@@ -737,7 +742,7 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
 
     public void createFolder(INavigationLayout navigationLayout) {
         final int count = getMessagesController().getDialogFilters().size();
-        if (!NekoConfig.unlimitedDialogFilters.Bool() && (
+        if (!NekoConfig.unlimitedDialogFilters.Bool() && !NekoConfig.localPremium.Bool() && (
             count - 1 >= getMessagesController().dialogFiltersLimitDefault && !getUserConfig().isPremium() ||
             count >= getMessagesController().dialogFiltersLimitPremium
         )) {

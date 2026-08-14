@@ -1833,17 +1833,23 @@ public class FilterTabsView extends FrameLayout {
             MessagesStorage.getInstance(UserConfig.selectedAccount).saveDialogFiltersOrder();
             TLRPC.TL_messages_updateDialogFiltersOrder req = new TLRPC.TL_messages_updateDialogFiltersOrder();
             ArrayList<MessagesController.DialogFilter> filters = MessagesController.getInstance(UserConfig.selectedAccount).getDialogFilters();
+            MessagesController messagesController = MessagesController.getInstance(UserConfig.selectedAccount);
             for (int a = 0, N = filters.size(); a < N; a++) {
                 MessagesController.DialogFilter filter = filters.get(a);
+                if (messagesController.isHuanghunLocalOnlyFilter(filter)) {
+                    continue;
+                }
                 if (filter.isDefault()) {
                     req.order.add(0);
                 } else {
                     req.order.add(filter.id);
                 }
             }
-            MessagesController.getInstance(UserConfig.selectedAccount).lockFiltersInternal();
-            ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req, (response, error) -> {
-            });
+            messagesController.lockFiltersInternal();
+            if (!req.order.isEmpty()) {
+                ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req, (response, error) -> {
+                });
+            }
             orderChanged = false;
         }
     }

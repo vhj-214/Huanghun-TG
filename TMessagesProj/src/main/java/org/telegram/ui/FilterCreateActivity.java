@@ -198,9 +198,14 @@ public class FilterCreateActivity extends BaseFragment {
         filter = dialogFilter;
         if (filter == null) {
             filter = new MessagesController.DialogFilter();
-            filter.id = 2;
-            while (getMessagesController().dialogFiltersById.get(filter.id) != null) {
-                filter.id++;
+            filter.localOnly = getMessagesController().shouldCreateHuanghunLocalFilter();
+            if (filter.localOnly) {
+                filter.id = getMessagesController().getNextHuanghunLocalFilterId();
+            } else {
+                filter.id = 2;
+                while (getMessagesController().dialogFiltersById.get(filter.id) != null) {
+                    filter.id++;
+                }
             }
             filter.name = "";
             filter.color = (int) (Math.random() * 8);
@@ -802,7 +807,11 @@ public class FilterCreateActivity extends BaseFragment {
     }
 
     private void deleteFolder(View view) {
-        if (filter != null && filter.isChatlist()) {
+        if (filter != null && getMessagesController().isHuanghunLocalOnlyFilter(filter)) {
+            getMessagesController().removeFilter(filter);
+            getMessagesStorage().deleteDialogFilter(filter);
+            finishFragment();
+        } else if (filter != null && filter.isChatlist()) {
             FolderBottomSheet.showForDeletion(this, filter.id, success -> {
                 finishFragment();
             });
@@ -1073,6 +1082,9 @@ public class FilterCreateActivity extends BaseFragment {
         filter.alwaysShow = newAlwaysShow;
         filter.title_noanimate = newFilterNoanimate;
         if (creatingNew) {
+            if (filter.localOnly) {
+                fragment.getMessagesController().markHuanghunLocalOnlyFilter(filter);
+            }
             fragment.getMessagesController().addFilter(filter, atBegin);
         } else {
             fragment.getMessagesController().onFilterUpdate(filter);
@@ -1132,6 +1144,11 @@ public class FilterCreateActivity extends BaseFragment {
             req.filter.color = newFilterColor;
         }
         MessagesController messagesController = fragment.getMessagesController();
+        if (filter.localOnly || messagesController.isHuanghunLocalOnlyFilter(filter)) {
+            filter.localOnly = true;
+            processAddFilter(filter, newFilterFlags, newFilterEmoticon, newFilterName, newFilterNameEntities, newFilterNoanimate, newFilterColor, newAlwaysShow, newNeverShow, creatingNew, atBegin, hasUserChanged, resetUnreadCounter, fragment, onFinish);
+            return;
+        }
         ArrayList<Long> pinArray = new ArrayList<>();
         if (newPinned.size() != 0) {
             for (int a = 0, N = newPinned.size(); a < N; a++) {

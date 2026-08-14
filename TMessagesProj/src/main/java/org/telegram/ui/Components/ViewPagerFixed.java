@@ -2256,14 +2256,19 @@ public class ViewPagerFixed extends FrameLayout {
             if (!isEditing && orderChanged) {
                 MessagesStorage.getInstance(UserConfig.selectedAccount).saveDialogFiltersOrder();
                 TLRPC.TL_messages_updateDialogFiltersOrder req = new TLRPC.TL_messages_updateDialogFiltersOrder();
-                ArrayList<MessagesController.DialogFilter> filters = MessagesController.getInstance(UserConfig.selectedAccount).dialogFilters;
+                MessagesController messagesController = MessagesController.getInstance(UserConfig.selectedAccount);
+                ArrayList<MessagesController.DialogFilter> filters = messagesController.dialogFilters;
                 for (int a = 0, N = filters.size(); a < N; a++) {
                     MessagesController.DialogFilter filter = filters.get(a);
-                    req.order.add(filters.get(a).id);
+                    if (!messagesController.isHuanghunLocalOnlyFilter(filter)) {
+                        req.order.add(filter.id);
+                    }
                 }
-                ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req, (response, error) -> {
+                if (!req.order.isEmpty()) {
+                    ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req, (response, error) -> {
 
-                });
+                    });
+                }
                 orderChanged = false;
             }
         }

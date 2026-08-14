@@ -705,10 +705,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
             otherHeaderRow = rowCount++;
             directShareRow = rowCount++;
-            TL_account.contentSettings contentSettings = getMessagesController().getContentSettings();
-            if (contentSettings != null && contentSettings.sensitive_can_change) {
-                sensitiveContentRow = rowCount++;
-            }
+            // Keep this row visible while the official account setting loads; unavailable accounts show it disabled.
+            sensitiveContentRow = rowCount++;
             sendByEnterRow = rowCount++;
             distanceRow = rowCount++;
             otherSectionRow = rowCount++;
@@ -974,10 +972,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             if (getMessagesController().getContentSettings() == null) {
                 getMessagesController().getContentSettings(settings -> {
                     if (listView != null && listView.isAttachedToWindow() && listAdapter != null) {
-                        if ((sensitiveContentRow >= 0) == (settings != null && settings.sensitive_can_change)) {
+                        if (sensitiveContentRow >= 0) {
                             listAdapter.notifyItemChanged(sensitiveContentRow);
-                        } else {
-                            updateRows(true);
                         }
                     }
                 });
@@ -2629,7 +2625,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == directShareRow) {
                         textCheckCell.setTextAndValueAndCheck(getString("DirectShare", R.string.DirectShare), getString("DirectShareInfo", R.string.DirectShareInfo), SharedConfig.directShare, false, true);
                     } else if (position == sensitiveContentRow) {
+                        TL_account.contentSettings contentSettings = getMessagesController().getContentSettings();
                         textCheckCell.setTextAndValueAndCheck(getString(R.string.ShowSensitiveContent), getString(R.string.ShowSensitiveContentInfo), getMessagesController().showSensitiveContent(), true, true);
+                        textCheckCell.setEnabled(contentSettings == null || contentSettings.sensitive_can_change, null);
                     } else if (position == chatBlurRow) {
                         textCheckCell.setTextAndCheck(getString("BlurInChat", R.string.BlurInChat), SharedConfig.chatBlurEnabled(), true);
                     }

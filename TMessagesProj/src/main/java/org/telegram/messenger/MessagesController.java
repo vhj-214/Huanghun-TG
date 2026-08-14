@@ -1314,6 +1314,8 @@ public class MessagesController extends BaseController implements NotificationCe
         public ArrayList<TLRPC.Dialog> dialogsForward = new ArrayList<>();
         public int color;
         public boolean title_noanimate;
+        /** True only for Huanghun folders stored on this device and never sent to Telegram. */
+        public boolean localOnly;
 
         public ArrayList<TL_chatlists.TL_exportedChatlistInvite> invites = null;
 
@@ -2678,9 +2680,52 @@ public class MessagesController extends BaseController implements NotificationCe
         if (UserConfig.getInstance(currentAccount).isPremium()) getConnectionsManager().sendRequest(r, null);
     }
 
+    private static final int HUANGHUN_LOCAL_FILTER_ID_BASE = 1_000_000;
+    private static final String HUANGHUN_LOCAL_FILTER_IDS_KEY = "huanghun_local_filter_ids";
+
+    public boolean shouldCreateHuanghunLocalFilter() {
+        return NekoConfig.localPremium.Bool() || NekoConfig.unlimitedDialogFilters.Bool() && dialogFilters.size() >= dialogFiltersLimitPremium;
+    }
+
+    public int getNextHuanghunLocalFilterId() {
+        int id = HUANGHUN_LOCAL_FILTER_ID_BASE;
+        while (dialogFiltersById.get(id) != null) {
+            id++;
+        }
+        return id;
+    }
+
+    public boolean isHuanghunLocalOnlyFilter(DialogFilter filter) {
+        if (filter == null || mainPreferences == null) {
+            return false;
+        }
+        return mainPreferences.getStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()).contains(String.valueOf(filter.id));
+    }
+
+    public void markHuanghunLocalOnlyFilter(DialogFilter filter) {
+        if (filter == null || mainPreferences == null) {
+            return;
+        }
+        HashSet<String> ids = new HashSet<>(mainPreferences.getStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()));
+        ids.add(String.valueOf(filter.id));
+        filter.localOnly = true;
+        mainPreferences.edit().putStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, ids).apply();
+    }
+
+    private void unmarkHuanghunLocalOnlyFilter(DialogFilter filter) {
+        if (filter == null || mainPreferences == null) {
+            return;
+        }
+        HashSet<String> ids = new HashSet<>(mainPreferences.getStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()));
+        if (ids.remove(String.valueOf(filter.id))) {
+            mainPreferences.edit().putStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, ids).apply();
+        }
+    }
+
     public void removeFilter(DialogFilter filter) {
         dialogFilters.remove(filter);
         dialogFiltersById.remove(filter.id);
+        unmarkHuanghunLocalOnlyFilter(filter);
         getNotificationCenter().postNotificationName(NotificationCenter.dialogFiltersUpdated);
     }
 
