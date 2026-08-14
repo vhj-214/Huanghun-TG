@@ -224,6 +224,7 @@ public class ApplicationLoader extends Application {
         applicationInited = true;
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
         HuanghunDefaultSettings.applyForFreshInstall();
+        HuanghunDefaultSettings.applyOfficialChineseDefaultIfNeeded();
 
         try {
             LocaleController.getInstance(); //TODO improve

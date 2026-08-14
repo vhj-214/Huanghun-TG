@@ -610,6 +610,19 @@ public class LocaleController {
         languages.add(localeInfo);
         languagesDict.put(localeInfo.shortName, localeInfo);
 
+        // Huanghun bootstraps Chinese immediately from Android's bundled zh-CN resources.
+        // When the official zh-hans LangPack metadata arrives, loadRemoteLanguages upgrades
+        // this same entry to the remote official Telegram language pack.
+        localeInfo = new LocaleInfo();
+        localeInfo.name = "简体中文";
+        localeInfo.nameEnglish = "Chinese (Simplified)";
+        localeInfo.shortName = "zh_hans";
+        localeInfo.pluralLangCode = "zh";
+        localeInfo.pathToFile = null;
+        localeInfo.builtIn = true;
+        languages.add(localeInfo);
+        languagesDict.put(localeInfo.shortName, localeInfo);
+
         localeInfo = new LocaleInfo();
         localeInfo.name = "Italiano";
         localeInfo.nameEnglish = "Italian";

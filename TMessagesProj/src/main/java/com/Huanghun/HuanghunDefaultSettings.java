@@ -29,6 +29,7 @@ public final class HuanghunDefaultSettings {
     private static final String PREFS_NAME = "huanghun_bootstrap";
     private static final String KEY_APPLIED = "builtin_default_settings_v1_applied";
     private static final String KEY_DEFAULT_LANGUAGE_APPLIED = "official_zh_hans_language_applied";
+    private static final String KEY_CHINESE_PREFERENCE_SEEDED = "official_zh_hans_preference_seeded_v2";
     public static final String OFFICIAL_SIMPLIFIED_CHINESE = "zh_hans";
 
     private HuanghunDefaultSettings() {
@@ -51,9 +52,7 @@ public final class HuanghunDefaultSettings {
 
             // LocaleController reads this preference during initialization. The remote zh-hans
             // pack itself is downloaded and applied once its metadata becomes available.
-            MessagesController.getGlobalMainSettings().edit()
-                    .putString("language", OFFICIAL_SIMPLIFIED_CHINESE)
-                    .apply();
+            seedOfficialChinesePreference(context, true);
 
             // The importer may initialize these caches while validating N-Settings entries.
             // Reload once so this first launch immediately uses the bundled values.
@@ -68,14 +67,29 @@ public final class HuanghunDefaultSettings {
         }
     }
 
-    /** Returns true while a fresh Huanghun installation still needs the official zh-hans pack. */
+    /**
+     * Seeds the official Chinese preference once before LocaleController is created.
+     * This also upgrades Huanghun's previous English / zhcncc default without changing
+     * users who had already selected a different language themselves.
+     */
+    public static void applyOfficialChineseDefaultIfNeeded() {
+        Context context = ApplicationLoader.applicationContext;
+        if (context == null) {
+            return;
+        }
+        seedOfficialChinesePreference(context, false);
+    }
+
+    /** Returns true while the seeded zh-hans preference still needs its official remote pack. */
     public static boolean isOfficialChineseLanguagePending() {
         Context context = ApplicationLoader.applicationContext;
-        if (context == null || !isFreshInstall(context)) {
+        if (context == null) {
             return false;
         }
         SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return bootstrap.getBoolean(KEY_APPLIED, false)
+        String language = MessagesController.getGlobalMainSettings().getString("language", null);
+        return bootstrap.getBoolean(KEY_CHINESE_PREFERENCE_SEEDED, false)
+                && OFFICIAL_SIMPLIFIED_CHINESE.equals(language)
                 && !bootstrap.getBoolean(KEY_DEFAULT_LANGUAGE_APPLIED, false);
     }
 
@@ -88,6 +102,24 @@ public final class HuanghunDefaultSettings {
                     .putBoolean(KEY_DEFAULT_LANGUAGE_APPLIED, true)
                     .apply();
         }
+    }
+
+    private static void seedOfficialChinesePreference(Context context, boolean force) {
+        SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (bootstrap.getBoolean(KEY_CHINESE_PREFERENCE_SEEDED, false)) {
+            return;
+        }
+        SharedPreferences languagePreferences = MessagesController.getGlobalMainSettings();
+        String currentLanguage = languagePreferences.getString("language", null);
+        boolean isPreviousHuanghunDefault = currentLanguage == null
+                || "en".equalsIgnoreCase(currentLanguage)
+                || "zhcncc".equalsIgnoreCase(currentLanguage)
+                || "zh_cn".equalsIgnoreCase(currentLanguage);
+        if (!force && !isPreviousHuanghunDefault) {
+            return;
+        }
+        languagePreferences.edit().putString("language", OFFICIAL_SIMPLIFIED_CHINESE).apply();
+        bootstrap.edit().putBoolean(KEY_CHINESE_PREFERENCE_SEEDED, true).apply();
     }
 
     /** Disable account-region language recommendation dialogs; manual language selection remains available. */

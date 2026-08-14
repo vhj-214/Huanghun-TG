@@ -59,7 +59,7 @@
     "GroupMembers": true,
     "HideShareButtonInChannel": true,
     "TranslateMessageLLM": true,
-    "translationProvider": 6,
+    "translationProvider": 1,
     "TranscribeProvider": 2,
     "DateOfForwardedMsg": true,
     "TelegramUIAutoTranslate": true,
@@ -135,6 +135,8 @@
     "SaveLocalLastSeen": true,
     "HideDividers": true,
     "hideSendAsChannel": true,
-    "uploadBoost": true
+    "uploadBoost": true,
+    "CustomTitle": "黄昏",
+    "customSavePath": "黄昏"
   }
 }
