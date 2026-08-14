@@ -23,9 +23,9 @@ import java.io.File;
  * The marker is permanent so a user's later theme changes are never overridden.
  */
 public final class HuanghunDefaultTheme implements NotificationCenter.NotificationCenterDelegate {
-    private static final String THEME_SLUG = "k7aJtNVPWqvATih9";
+    private static final String THEME_SLUG = "wechatv8";
     private static final String PREFS_NAME = "huanghun_bootstrap";
-    private static final String KEY_APPLIED = "default_telegram_theme_v1_applied";
+    private static final String KEY_APPLIED = "default_telegram_theme_v2_applied";
 
     private static HuanghunDefaultTheme activeLoader;
 

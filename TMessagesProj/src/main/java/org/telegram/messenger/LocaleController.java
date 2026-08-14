@@ -3342,7 +3342,13 @@ public class LocaleController {
                     }
                     saveOtherLanguages();
                     NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.suggestedLangpack);
-                    if (applyCurrent) {
+                    if (com.Huanghun.HuanghunDefaultSettings.isOfficialChineseLanguagePending()) {
+                        LocaleInfo huanghunChinese = getLanguageFromDict(com.Huanghun.HuanghunDefaultSettings.OFFICIAL_SIMPLIFIED_CHINESE);
+                        if (huanghunChinese != null && huanghunChinese.isRemote()) {
+                            applyLanguage(huanghunChinese, true, false, false, true, currentAccount,
+                                    com.Huanghun.HuanghunDefaultSettings::markOfficialChineseLanguageApplied);
+                        }
+                    } else if (applyCurrent) {
                         applyLanguage(currentLocaleInfo, true, false, currentAccount);
                     }
                 });

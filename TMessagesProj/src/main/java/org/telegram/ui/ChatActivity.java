@@ -30393,11 +30393,13 @@ public class ChatActivity extends BaseFragment implements
         }
 
         boolean showRestartTopic = !isInPreviewMode() && forumTopic != null && forumTopic.closed && !forumTopic.hidden && ChatObject.canManageTopic(currentAccount, currentChat, forumTopic);
-        boolean showTranslate = (
-            true /*getUserConfig().isPremium()*/ ?
-                getMessagesController().getTranslateController().isDialogTranslatable(getDialogId()) && !getMessagesController().getTranslateController().isTranslateDialogHidden(getDialogId()) :
-                !getMessagesController().premiumFeaturesBlocked() && preferences.getInt("dialog_show_translate_count" + did, 5) <= 0
-        ) || DEBUG_TOP_PANELS;
+        // Huanghun keeps the user-enabled translation entry stable. Telegram's language detector
+        // can temporarily mark a dialog as non-translatable while messages are refreshed, which
+        // used to make this top bar disappear even after the user enabled it in N-Settings.
+        boolean showTranslate = (NekoConfig.showTranslate.Bool()
+                && getDialogId() != 0
+                && !getMessagesController().getTranslateController().isTranslateDialogHidden(getDialogId()))
+                || DEBUG_TOP_PANELS;
         boolean showAddProfilePicture = UserObject.isBot(currentUser) && currentUser.bot_can_edit && currentUser.photo == null;
         boolean showBizBot = currentEncryptedChat == null && getUserConfig().isPremium() && preferences.getLong("dialog_botid" + did, 0) != 0 || DEBUG_TOP_PANELS;
         boolean showBotAd = currentUser != null && currentUser.bot && messages.size() >= 2 && botSponsoredMessage != null;

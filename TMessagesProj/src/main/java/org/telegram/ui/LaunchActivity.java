@@ -8076,6 +8076,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     }
 
     private void showLanguageAlert(boolean force) {
+        if (com.Huanghun.HuanghunDefaultSettings.suppressSuggestedLanguageAlerts()) {
+            return;
+        }
         if (!UserConfig.getInstance(currentAccount).isClientActivated()) {
             return;
         }
