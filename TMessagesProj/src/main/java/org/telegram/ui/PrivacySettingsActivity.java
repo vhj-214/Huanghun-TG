@@ -439,11 +439,21 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
             } else if (position == noncontactsRow) {
                 presentFragment(new PrivacyControlActivity(ContactsController.PRIVACY_RULES_TYPE_MESSAGES));
             } else if (position == emailLoginRow) {
-                if (currentPassword == null || TextUtils.isEmpty(currentPassword.login_email_pattern)) {
+                if (currentPassword == null) {
                     BulletinFactory.of(PrivacySettingsActivity.this).createSimpleBulletin(
                             R.raw.chats_infotip,
-                            "该账号尚未设置登录邮箱"
+                            "正在加载账号安全设置，请稍后重试"
                     ).show();
+                    return;
+                }
+                if (TextUtils.isEmpty(currentPassword.login_email_pattern)) {
+                    presentFragment(new LoginActivity().changeEmail(() -> {
+                        Bulletin.LottieLayout layout = new Bulletin.LottieLayout(getContext(), null);
+                        layout.setAnimation(R.raw.email_check_inbox);
+                        layout.textView.setText(getString(R.string.YourLoginEmailChangedSuccess));
+                        Bulletin.make(PrivacySettingsActivity.this, layout, Bulletin.DURATION_SHORT).show();
+                        loadPasswordSettings();
+                    }));
                     return;
                 }
 
