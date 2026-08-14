@@ -26,8 +26,8 @@ import tw.nekomimi.nekogram.NekoConfig;
 public class UserConfig extends BaseController {
 
     public static int selectedAccount;
-    public final static int MAX_ACCOUNT_DEFAULT_COUNT = 1000;
-    public final static int MAX_ACCOUNT_COUNT = 1000;
+    public final static int MAX_ACCOUNT_DEFAULT_COUNT = 200;
+    public final static int MAX_ACCOUNT_COUNT = 200;
 
     private final Object sync = new Object();
     private volatile boolean configLoaded;
@@ -104,7 +104,7 @@ public class UserConfig extends BaseController {
     public static int getActivatedAccountsCount() {
         int count = 0;
         for (int a = 0; a < MAX_ACCOUNT_COUNT; a++) {
-            if (AccountInstance.getInstance(a).getUserConfig().isClientActivated()) {
+            if (UserConfig.getInstance(a).isClientActivated()) {
                 count++;
             }
         }
@@ -117,7 +117,8 @@ public class UserConfig extends BaseController {
 
     public static boolean hasPremiumOnAccounts() {
         for (int a = 0; a < MAX_ACCOUNT_COUNT; a++) {
-            if (AccountInstance.getInstance(a).getUserConfig().isClientActivated() && AccountInstance.getInstance(a).getUserConfig().getUserConfig().isPremium()) {
+            UserConfig config = UserConfig.getInstance(a);
+            if (config.isClientActivated() && config.isPremium()) {
                 return true;
             }
         }
