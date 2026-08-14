@@ -26,8 +26,8 @@ import tw.nekomimi.nekogram.NekoConfig;
 public class UserConfig extends BaseController {
 
     public static int selectedAccount;
-    public final static int MAX_ACCOUNT_DEFAULT_COUNT = 200;
-    public final static int MAX_ACCOUNT_COUNT = 200;
+    public final static int MAX_ACCOUNT_DEFAULT_COUNT = 100;
+    public final static int MAX_ACCOUNT_COUNT = 100;
 
     private final Object sync = new Object();
     private volatile boolean configLoaded;
