@@ -6309,7 +6309,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 return;
             }
 
-            String email = googleAccount != null ? googleAccount.getEmail() : emailField.getText().toString();
+            String email = googleAccount != null ? googleAccount.getEmail() : emailField.getText().toString().trim();
             Bundle params = new Bundle();
             params.putString("phone", phone);
             params.putString("ephone", emailPhone);
@@ -6379,26 +6379,32 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 if (response instanceof TL_account.sentEmailCode) {
                     TL_account.sentEmailCode emailCode = (TL_account.sentEmailCode) response;
                     fillNextCodeParams(params, emailCode);
-                } else if (error.text != null) {
-                    if (error.text.contains("EMAIL_INVALID")) {
-                        onPasscodeError(false);
-                    } else if (error.text.contains("EMAIL_NOT_ALLOWED")) {
-                        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.EmailNotAllowed));
-                    } else if (error.text.contains("PHONE_PASSWORD_FLOOD")) {
-                        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.FloodWait) + "\n" + error.text);
-                    } else if (error.text.contains("PHONE_NUMBER_FLOOD")) {
-                        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.PhoneNumberFlood) + "\n" + error.text);
-                    } else if (error.text.contains("PHONE_CODE_EMPTY") || error.text.contains("PHONE_CODE_INVALID")) {
-                        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("InvalidCode", R.string.InvalidCode));
-                    } else if (error.text.contains("PHONE_CODE_EXPIRED")) {
-                        onBackPressed(true);
-                        setPage(VIEW_PHONE_INPUT, true, null, true);
-                        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("CodeExpired", R.string.CodeExpired));
-                    } else if (error.text.startsWith("FLOOD_WAIT")) {
-                        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.FloodWait) + "\n" + error.text);
-                    } else if (error.code != -1000) {
-                        AlertsCreator.processError(currentAccount, error, LoginActivity.this, req, requestPhone);
-                    }
+                    return;
+                }
+                if (error == null || TextUtils.isEmpty(error.text)) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("ErrorOccurred", R.string.ErrorOccurred));
+                    return;
+                }
+                if (error.text.contains("EMAIL_INVALID")) {
+                    onPasscodeError(false);
+                } else if (error.text.contains("EMAIL_NOT_ALLOWED")) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.EmailNotAllowed));
+                } else if (error.text.contains("PHONE_PASSWORD_FLOOD")) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.FloodWait) + "\n" + error.text);
+                } else if (error.text.contains("PHONE_NUMBER_FLOOD")) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.PhoneNumberFlood) + "\n" + error.text);
+                } else if (error.text.contains("PHONE_CODE_EMPTY") || error.text.contains("PHONE_CODE_INVALID")) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("InvalidCode", R.string.InvalidCode));
+                } else if (error.text.contains("PHONE_CODE_EXPIRED")) {
+                    onBackPressed(true);
+                    setPage(VIEW_PHONE_INPUT, true, null, true);
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("CodeExpired", R.string.CodeExpired));
+                } else if (error.text.startsWith("FLOOD_WAIT")) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.FloodWait) + "\n" + error.text);
+                } else if (error.code == -1000) {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("ErrorOccurred", R.string.ErrorOccurred) + "\n" + error.text);
+                } else {
+                    AlertsCreator.processError(currentAccount, error, LoginActivity.this, req, requestPhone);
                 }
             }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin);
         }
