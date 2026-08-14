@@ -6695,6 +6695,53 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     // --- Input Menu Start---
+    private boolean outgoingAutoTranslationPending;
+
+    private boolean tryAutoTranslateOutgoingMessage(CharSequence message, boolean notify, int scheduleDate, int scheduleRepeatPeriod, long payStars, SendMessageInternalParams internalParams) {
+        if (outgoingAutoTranslationPending) {
+            return true;
+        }
+        if (!NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool() || internalParams.skipOutgoingAutoTranslate || editingMessageObject != null || TextUtils.isEmpty(message)) {
+            return false;
+        }
+        if (messageEditText == null) {
+            return false;
+        }
+        final String original = message.toString();
+        final String sourceCode = NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().String();
+        String targetCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
+        if (TextUtils.isEmpty(targetCode)) {
+            targetCode = NekoConfig.translateToLang.String();
+        }
+        final Locale source = TranslatorKt.getCode2Locale(sourceCode == null ? "" : sourceCode);
+        final Locale target = TranslatorKt.getCode2Locale(targetCode == null ? "" : targetCode);
+        if (source.equals(target)) {
+            return false;
+        }
+        final int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        outgoingAutoTranslationPending = true;
+        Translator.translateFrom(source, target, original, provider, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(@NotNull String translation) {
+                outgoingAutoTranslationPending = false;
+                if (messageEditText == null || TextUtils.isEmpty(translation) || !TextUtils.equals(original, messageEditText.getTextToUse().toString())) {
+                    BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
+                    return;
+                }
+                internalParams.skipOutgoingAutoTranslate = true;
+                messageEditText.setText(translation);
+                sendMessageInternal(notify, scheduleDate, scheduleRepeatPeriod, payStars, false, internalParams);
+            }
+
+            @Override
+            public void onFailed(boolean unsupported, @NotNull String error) {
+                outgoingAutoTranslationPending = false;
+                BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
+            }
+        });
+        return true;
+    }
+
     private void translateComment(Locale target) {
         translateComment(target, 0);
     }
@@ -8287,6 +8334,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             if (checkPremiumAnimatedEmoji(currentAccount, dialog_id, parentFragment, null, message)) {
                 return;
             }
+            if (tryAutoTranslateOutgoingMessage(message, notify, scheduleDate, scheduleRepeatPeriod, payStars, internalParams)) {
+                return;
+            }
             if (!TextUtils.isEmpty(message)) {
                 if (delegate != null) {
                     delegate.beforeMessageSend(message, notify, scheduleDate, payStars);
@@ -8356,6 +8406,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         public Boolean withMarkdown = null;
         public boolean withGame = true;
         public Boolean canUsePangu = null;
+        public boolean skipOutgoingAutoTranslate;
 
         public static SendMessageInternalParams markdown(Boolean withMarkdown) {
             SendMessageInternalParams params = new SendMessageInternalParams();

@@ -112,14 +112,26 @@ interface Translator {
             provider: Int = 0,
             translateCallBack: TranslateCallBack
         ) {
+            translateFrom(Locale(""), to, query, provider, translateCallBack)
+        }
 
+        /** Translates with an optional explicit source language; an empty source keeps auto-detection. */
+        @JvmStatic
+        @JvmOverloads
+        fun translateFrom(
+            from: Locale = Locale(""),
+            to: Locale = NekoConfig.translateToLang.String()?.code2Locale
+                ?: LocaleController.getInstance().currentLocale,
+            query: String,
+            provider: Int = 0,
+            translateCallBack: TranslateCallBack
+        ) {
             AppScope.io.launch {
                 runCatching {
-                    val result: String = translate(to, query, provider.takeIf { it != 0 } ?: NekoConfig.translationProvider.Int())
-
-                    AndroidUtilities.runOnUIThread {
-                        translateCallBack.onSuccess(result)
-                    }
+                    val effectiveProvider = provider.takeIf { it != 0 } ?: NekoConfig.translationProvider.Int()
+                    val sourceLanguage = if (from.language.isBlank()) "auto" else normalizeLanguage(from, effectiveProvider)
+                    val result = translateBase(sourceLanguage, to, query, ArrayList(), effectiveProvider).text.toString()
+                    AndroidUtilities.runOnUIThread { translateCallBack.onSuccess(result) }
                 }.onFailure {
                     AndroidUtilities.runOnUIThread {
                         translateCallBack.onFailed(
@@ -279,28 +291,14 @@ interface Translator {
         private suspend fun translateBase(
             to: Locale, query: String, entities: ArrayList<TLRPC.MessageEntity>, provider: Int
         ): TLRPC.TL_textWithEntities {
-            var language = to.language
-            var country = to.country
+            return translateBase("auto", to, query, entities, provider)
+        }
 
-            if (language == "in") language = "id"
-            if (country.lowercase() == "duang") country = "CN"
-
-            when (provider) {
-                providerDeepL -> language = language.uppercase()
-                providerMicrosoft, providerRealMicrosoft, providerGoogle -> if (language == "zh") {
-                    val countryUpperCase = country.uppercase()
-                    if (countryUpperCase == "CN" || countryUpperCase == "DUANG") {
-                        language =
-                            if (provider == providerMicrosoft || provider == providerRealMicrosoft) "zh-Hans" else "zh-CN"
-                    } else if (countryUpperCase == "TW" || countryUpperCase == "HK") {
-                        language =
-                            if (provider == providerMicrosoft || provider == providerRealMicrosoft) "zh-HanT" else "zh-TW"
-                    }
-                }
-
-                providerTelegram -> language =
-                    TelegramAPITranslator.convertLanguageCode(language, country)
-            }
+        @Throws(Exception::class)
+        private suspend fun translateBase(
+            from: String, to: Locale, query: String, entities: ArrayList<TLRPC.MessageEntity>, provider: Int
+        ): TLRPC.TL_textWithEntities {
+            val language = normalizeLanguage(to, provider)
             val translator = when (provider) {
                 providerGoogle -> GoogleAppTranslator
                 providerYandex -> YandexTranslator
@@ -314,7 +312,27 @@ interface Translator {
                 else -> throw IllegalArgumentException()
             }
 
-            return translator.doTranslate("auto", language, query, entities)
+            return translator.doTranslate(from, language, query, entities)
+        }
+
+        private fun normalizeLanguage(locale: Locale, provider: Int): String {
+            var language = locale.language
+            var country = locale.country
+            if (language == "in") language = "id"
+            if (country.lowercase() == "duang") country = "CN"
+            when (provider) {
+                providerDeepL -> language = language.uppercase()
+                providerMicrosoft, providerRealMicrosoft, providerGoogle -> if (language == "zh") {
+                    val countryUpperCase = country.uppercase()
+                    if (countryUpperCase == "CN" || countryUpperCase == "DUANG") {
+                        language = if (provider == providerMicrosoft || provider == providerRealMicrosoft) "zh-Hans" else "zh-CN"
+                    } else if (countryUpperCase == "TW" || countryUpperCase == "HK") {
+                        language = if (provider == providerMicrosoft || provider == providerRealMicrosoft) "zh-HanT" else "zh-TW"
+                    }
+                }
+                providerTelegram -> language = TelegramAPITranslator.convertLanguageCode(language, country)
+            }
+            return language
         }
 
         private val availableLocaleList: Array<Locale> = Locale.getAvailableLocales().also {

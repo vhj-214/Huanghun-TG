@@ -852,6 +852,30 @@ object NaConfig {
             ConfigItem.configTypeBool,
             true
         )
+    val outgoingAutoTranslate =
+        addConfig(
+            "OutgoingAutoTranslate",
+            ConfigItem.configTypeBool,
+            false
+        )
+    val outgoingAutoTranslateSourceLang =
+        addConfig(
+            "OutgoingAutoTranslateSourceLang",
+            ConfigItem.configTypeString,
+            ""
+        )
+    val outgoingAutoTranslateTargetLang =
+        addConfig(
+            "OutgoingAutoTranslateTargetLang",
+            ConfigItem.configTypeString,
+            ""
+        )
+    val outgoingAutoTranslateProvider =
+        addConfig(
+            "OutgoingAutoTranslateProvider",
+            ConfigItem.configTypeInt,
+            0 // 0: follow the normal translation provider
+        )
     val translatorMode =
         addConfig(
             "TranslatorMode",

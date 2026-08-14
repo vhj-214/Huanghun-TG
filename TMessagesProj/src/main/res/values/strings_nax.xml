@@ -176,6 +176,12 @@
     <string name="GeminiApiKeyNotSet">Gemini API Key is not configured.</string>
     <string name="GeminiApiKeyDialog">Configure Gemini API Key, using the one from translator settings if left blank.\n**How to obtain?**\n</string>
     <string name="GeminiNotSupport">Gemini is not supported on this device.</string>
+    <string name="OutgoingAutoTranslate">Outgoing Auto Translation</string>
+    <string name="OutgoingAutoTranslateSourceLanguage">Send Language</string>
+    <string name="OutgoingAutoTranslateTargetLanguage">Translation Language</string>
+    <string name="OutgoingAutoTranslateProvider">Translation Provider</string>
+    <string name="OutgoingAutoTranslateFollowProvider">Follow Translation Provider</string>
+    <string name="OutgoingAutoTranslateFailed">Translation failed. Your original message was kept.</string>
     <string name="ReplyInPrivate">Reply in Private Chat</string>
     <string name="TranscribeProviderGeminiPrompt">Prompt (optional)</string>
     <string name="uploadBoost">Upload Speed Boost</string>
