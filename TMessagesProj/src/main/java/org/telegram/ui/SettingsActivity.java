@@ -385,6 +385,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
         listView.adapter.setApplyBackground(false);
+        listView.listenReorder(this::onHuanghunAccountsReordered);
+        listView.allowReorder(true);
         listView.setSections();
         listView.setPadding(0, AndroidUtilities.statusBarHeight + dp(12), 0, AndroidUtilities.navigationBarHeight + additionNavigationBarHeight);
         listView.setClipToPadding(false);
@@ -656,7 +658,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     private static final String HUANGHUN_ACCOUNT_ORDER_PREFS = "huanghun_account_order";
     private static final String HUANGHUN_ACCOUNT_ORDER_KEY = "account_order_v1";
-    private ArrayList<Integer> accountNumbers = new ArrayList<>();
+    private final ArrayList<Integer> accountNumbers = new ArrayList<>();
+    private int huanghunAccountsReorderSectionId = -1;
 
     private ArrayList<Integer> getHuanghunAccountOrder() {
         ArrayList<Integer> order = new ArrayList<>();
@@ -678,20 +681,29 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         return order;
     }
 
-    private void moveHuanghunAccount(int account, boolean toTop) {
-        ArrayList<Integer> order = new ArrayList<>(accountNumbers);
-        order.remove(Integer.valueOf(account));
-        if (toTop) {
-            order.add(0, account);
-        } else {
-            order.add(account);
-        }
+    private void saveHuanghunAccountOrder(ArrayList<Integer> order) {
         ApplicationLoader.applicationContext
                 .getSharedPreferences(HUANGHUN_ACCOUNT_ORDER_PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(HUANGHUN_ACCOUNT_ORDER_KEY, TextUtils.join(",", order))
                 .apply();
-        listView.adapter.update(true);
+    }
+
+    private void onHuanghunAccountsReordered(int sectionId, ArrayList<UItem> reorderedItems) {
+        if (sectionId != huanghunAccountsReorderSectionId) {
+            return;
+        }
+        ArrayList<Integer> order = new ArrayList<>();
+        for (UItem item : reorderedItems) {
+            if (item.instanceOf(AccountCell.Factory.class) && !order.contains(item.intValue)) {
+                order.add(item.intValue);
+            }
+        }
+        if (!order.isEmpty()) {
+            accountNumbers.clear();
+            accountNumbers.addAll(order);
+            saveHuanghunAccountOrder(order);
+        }
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -775,10 +787,14 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         if (accountNumbers.size() > 0) {
             items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
+            huanghunAccountsReorderSectionId = adapter.reorderSectionStart();
             for (int i = 0; i < accountNumbers.size(); ++i) {
                 items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
             }
+            adapter.reorderSectionEnd();
             items.add(UItem.asShadow(null));
+        } else {
+            huanghunAccountsReorderSectionId = -1;
         }
 
         items.add(SettingCell.Factory.of(100, 0xFF3CCFFF, 0xFF007AFF, R.drawable.filled_profile_settings, getString(R.string.NekoSettings)));
@@ -1011,18 +1027,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     private boolean onLongClick(UItem item, View view, int position, float x, float y) {
         if (item.instanceOf(AccountCell.Factory.class)) {
-            final Activity activity = getParentActivity();
-            if (activity == null) {
-                return false;
-            }
-            final int account = item.intValue;
-            new AlertDialog.Builder(activity, resourceProvider)
-                    .setTitle("调整账号位置")
-                    .setItems(new String[]{"移到最上面", "移到最下面"}, (dialog, which) -> {
-                        moveHuanghunAccount(account, which == 0);
-                    })
-                    .show();
-            return true;
+            // 账号条目由 UniversalRecyclerView 的长按拖拽排序机制处理。
+            return false;
         }
         if (item.object instanceof TLRPC.TL_attachMenuBot) {
             TLRPC.TL_attachMenuBot attachMenuBot = (TLRPC.TL_attachMenuBot) item.object;

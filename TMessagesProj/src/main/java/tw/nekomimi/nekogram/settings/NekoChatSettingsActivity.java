@@ -785,9 +785,13 @@ public class NekoChatSettingsActivity extends BaseNekoXSettingsActivity implemen
                 } else if (position == cellGroup.rows.indexOf(doubleTapActionOutRow)) {
                     textCell.setTextAndValue(getString(R.string.DoubleTapOutgoing), DoubleTap.doubleTapActionMap.get(NaConfig.INSTANCE.getDoubleTapActionOut().Int()), true);
                 } else if (position == cellGroup.rows.indexOf(transcribeProviderCfCredentialsRow)) {
-                    textCell.setTextAndValue(getString(R.string.CloudflareCredentials), "", true);
+                    String accountId = NaConfig.INSTANCE.getTranscribeProviderCfAccountID().String().trim();
+                    String apiToken = NaConfig.INSTANCE.getTranscribeProviderCfApiToken().String().trim();
+                    String value = TextUtils.isEmpty(accountId) && TextUtils.isEmpty(apiToken) ? "未配置" : accountId + " / " + apiToken;
+                    textCell.setTextAndValue(getString(R.string.CloudflareCredentials), value, true);
                 } else if (position == cellGroup.rows.indexOf(transcribeProviderGeminiApiKeyRow)) {
-                    textCell.setTextAndValue(getString(R.string.LlmProviderGeminiKey), "", true);
+                    String apiKey = NaConfig.INSTANCE.getTranscribeProviderGeminiApiKey().String().trim();
+                    textCell.setTextAndValue(getString(R.string.LlmProviderGeminiKey), TextUtils.isEmpty(apiKey) ? "未配置" : apiKey, true);
                 } else if (position == cellGroup.rows.indexOf(transcribeProviderOpenAiRow)) {
                     textCell.setTextAndValue(getString(R.string.TranscribeProviderOpenAI), "", true);
                 }
