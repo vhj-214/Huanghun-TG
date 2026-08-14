@@ -1079,7 +1079,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     public String getVersionName() {
-        return AndroidUtil.getVersionText();
+        return "黄昏定制版本  @NBABB1314";
     }
 
     @Override

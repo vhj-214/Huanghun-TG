@@ -439,7 +439,11 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
             } else if (position == noncontactsRow) {
                 presentFragment(new PrivacyControlActivity(ContactsController.PRIVACY_RULES_TYPE_MESSAGES));
             } else if (position == emailLoginRow) {
-                if (currentPassword == null || currentPassword.login_email_pattern == null) {
+                if (currentPassword == null || TextUtils.isEmpty(currentPassword.login_email_pattern)) {
+                    BulletinFactory.of(PrivacySettingsActivity.this).createSimpleBulletin(
+                            R.raw.chats_infotip,
+                            "该账号尚未设置登录邮箱"
+                    ).show();
                     return;
                 }
 
@@ -494,7 +498,14 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 }
             } else if (position == passkeysRow) {
                 if (Build.VERSION.SDK_INT < 28 || !BuildVars.SUPPORTS_PASSKEYS) return;
-                if (currentPassword == null || !currentPassword.has_password) {
+                if (currentPassword == null) {
+                    BulletinFactory.of(PrivacySettingsActivity.this).createSimpleBulletin(
+                            R.raw.chats_infotip,
+                            "正在加载账号安全设置，请稍后重试"
+                    ).show();
+                    return;
+                }
+                if (!currentPassword.has_password) {
                     BulletinFactory.of(PrivacySettingsActivity.this).createSimpleBulletin(
                             R.raw.chats_infotip,
                             AndroidUtilities.replaceTags(getString(R.string.PaymentCardSavePaymentInformationInfoLine2).replace("*", "**")),
@@ -732,14 +743,9 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         passwordRow = rowCount++;
         autoDeleteMesages = rowCount++;
         passcodeRow = rowCount++;
-        if (getMessagesController().config.settingsDisplayPasskeys.get() && Build.VERSION.SDK_INT >= 28 && BuildVars.SUPPORTS_PASSKEYS) {
-            passkeysRow = rowCount++;
-        }
-        if (currentPassword != null ? currentPassword.login_email_pattern != null : SharedConfig.hasEmailLogin) {
-            emailLoginRow = rowCount++;
-        } else {
-            emailLoginRow = -1;
-        }
+        // 黄昏：所有账号都固定显示通行密钥和邮箱登录入口；实际可用性仍由 Telegram 服务端状态决定。
+        passkeysRow = rowCount++;
+        emailLoginRow = rowCount++;
         blockedRow = rowCount++;
         if (currentPassword != null) {
             boolean hasEmail = currentPassword.login_email_pattern != null;
@@ -834,26 +840,9 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
             getUserConfig().saveConfig(false);
             updateRows();
         } else {
-            if (currentPassword != null) {
-                int wasEmailRow = emailLoginRow;
-                boolean appear = currentPassword.login_email_pattern != null && emailLoginRow == -1;
-                boolean disappear = currentPassword.login_email_pattern == null && emailLoginRow != -1;
-
-                if (appear || disappear) {
-                    updateRows(false);
-
-                    if (listAdapter != null) {
-                        if (appear) {
-                            listAdapter.notifyItemInserted(emailLoginRow);
-                        } else {
-                            listAdapter.notifyItemRemoved(wasEmailRow);
-                        }
-                    }
-                }
-            }
-
             if (listAdapter != null) {
                 listAdapter.notifyItemChanged(passwordRow);
+                listAdapter.notifyItemChanged(emailLoginRow);
             }
         }
     }
@@ -1340,7 +1329,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                         CharSequence val = "";
                         if (currentPassword == null) {
                             showLoading = true;
-                        } else {
+                        } else if (!TextUtils.isEmpty(currentPassword.login_email_pattern)) {
                             SpannableStringBuilder spannable = SpannableStringBuilder.valueOf(currentPassword.login_email_pattern);
                             int startIndex = currentPassword.login_email_pattern.indexOf('*');
                             int endIndex = currentPassword.login_email_pattern.lastIndexOf('*');
@@ -1352,6 +1341,8 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                                 spannable.setSpan(new TextStyleSpan(run), startIndex, endIndex + 1, 0);
                             }
                             val = spannable;
+                        } else {
+                            val = getString(R.string.PasswordOff);
                         }
                         textCell2.setPrioritizeTitleOverValue(true);
                         textCell2.setTextAndSpoilersValueAndIcon(getString(R.string.EmailLogin), val, R.drawable.msg2_email, true);
