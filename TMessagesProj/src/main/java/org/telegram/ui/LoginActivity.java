@@ -1805,6 +1805,16 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private void onAuthSuccess(TLRPC.TL_auth_authorization res, boolean afterSignup) {
+        int existingAccount = findExistingActiveAccount(res.user.id, currentAccount);
+        if (existingAccount >= 0) {
+            ConnectionsManager.getInstance(currentAccount).cleanup(true);
+            UserConfig.getInstance(currentAccount).clearConfig();
+            Toast.makeText(getParentActivity(), "该账号已登录，已切换至现有账户", Toast.LENGTH_SHORT).show();
+            if (getParentActivity() instanceof LaunchActivity) {
+                ((LaunchActivity) getParentActivity()).switchToAccount(existingAccount, true);
+            }
+            return;
+        }
         BackButtonMenuRecent.clearRecentDialogs(currentAccount);
         PasscodeHelper.removePasscodeForAccount(currentAccount);
         MessagesController.getInstance(currentAccount).cleanup();
@@ -1838,6 +1848,19 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         MediaDataController.getInstance(currentAccount).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
 
         needFinishActivity(afterSignup, res.setup_password_required, res.otherwise_relogin_days);
+    }
+
+    private static int findExistingActiveAccount(long userId, int excludedAccount) {
+        if (userId == 0) {
+            return -1;
+        }
+        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+            if (account != excludedAccount && UserConfig.getInstance(account).isClientActivated()
+                    && UserConfig.getInstance(account).getClientUserId() == userId) {
+                return account;
+            }
+        }
+        return -1;
     }
 
     private void fillNextCodeParams(Bundle params, TL_account.sentEmailCode res) {

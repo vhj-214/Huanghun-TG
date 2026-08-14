@@ -224,9 +224,10 @@ public final class ProtocolLoginHelper {
     private static void recordVerifiedAccount(LoginActivity loginActivity, Activity activity,
                                               ArrayList<ImportCandidate> candidates, BatchState batch,
                                               int index, int accountNum, int datacenterId, TLRPC.User user) {
-        if (batch.importedUserIds.contains(user.id)) {
+        if (batch.importedUserIds.contains(user.id) || findExistingAccountForUserId(user.id, accountNum) >= 0) {
             clearUnusedImportedKey(accountNum);
-            recordFailure(loginActivity, activity, candidates, batch, index);
+            batch.alreadyImportedCount++;
+            startNextImport(loginActivity, activity, candidates, batch, index + 1);
             return;
         }
 
@@ -370,6 +371,20 @@ public final class ProtocolLoginHelper {
             result |= ((long) (digest[12 + i] & 0xff)) << (8 * i);
         }
         return result;
+    }
+
+    /** Finds an already active local slot for the same Telegram user, regardless of login method. */
+    private static int findExistingAccountForUserId(long userId, int excludedAccount) {
+        if (userId == 0) {
+            return -1;
+        }
+        for (int i = 0; i < UserConfig.MAX_ACCOUNT_COUNT; i++) {
+            if (i != excludedAccount && UserConfig.getInstance(i).isClientActivated()
+                    && UserConfig.getInstance(i).getClientUserId() == userId) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /** Finds a live local account using the exact same server authorization key. */

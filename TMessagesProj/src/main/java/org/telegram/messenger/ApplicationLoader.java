@@ -41,6 +41,7 @@ import androidx.core.content.FileProvider;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.Huanghun.HuanghunDefaultSettings;
 
 import org.json.JSONObject;
 import org.telegram.messenger.voip.VideoCapturerDevice;
@@ -222,6 +223,7 @@ public class ApplicationLoader extends Application {
         }
         applicationInited = true;
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
+        HuanghunDefaultSettings.applyForFreshInstall();
 
         try {
             LocaleController.getInstance(); //TODO improve

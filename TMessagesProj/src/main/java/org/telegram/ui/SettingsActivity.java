@@ -731,6 +731,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         items.add(SettingCell.Factory.of(100, 0xFF3CCFFF, 0xFF007AFF, R.drawable.filled_profile_settings, getString(R.string.NekoSettings)));
+        items.add(SettingCell.Factory.of(102, 0xFF9FB18A, 0xFF62735B, R.drawable.msg_info, "联系作者", "打开作者联系页面"));
         items.add(UItem.asShadow(null));
 
         items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
@@ -948,6 +949,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
             case 100: {
                 presentFragment(new NekoSettingsActivity());
+                break;
+            }
+            case 102: {
+                presentFragment(new com.Huanghun.ContactAuthorActivity());
                 break;
             }
         }

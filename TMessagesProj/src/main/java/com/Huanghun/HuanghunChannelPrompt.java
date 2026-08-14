@@ -1,10 +1,8 @@
 package com.Huanghun;
 
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.widget.Toast;
 
-import org.telegram.messenger.ApplicationLoader;
+
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
@@ -18,7 +16,6 @@ import java.util.HashMap;
  * is joined until the account holder explicitly presses the one-click button.
  */
 public final class HuanghunChannelPrompt {
-    private static final String PREFS = "huanghun_channel_prompt";
     private static final String NOTIFICATION_CHANNEL = "hqsh_dbtz";
     private static final String FEEDBACK_CHANNEL = "hqsh_db";
     private static final long PROMPT_COOLDOWN_MS = 5_000L;
@@ -32,22 +29,10 @@ public final class HuanghunChannelPrompt {
             return;
         }
         long userId = UserConfig.getInstance(accountNum).getClientUserId();
-        if (userId == 0 || isCompleted(userId) || recentlyShown(userId)) {
+        if (userId == 0 || recentlyShown(userId)) {
             return;
         }
         detectJoinedChannels(activity, accountNum, userId);
-    }
-
-    private static boolean isCompleted(long userId) {
-        return preferences().getBoolean("joined_" + userId, false);
-    }
-
-    private static void markCompleted(long userId) {
-        preferences().edit().putBoolean("joined_" + userId, true).apply();
-    }
-
-    private static SharedPreferences preferences() {
-        return ApplicationLoader.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     private static boolean recentlyShown(long userId) {
@@ -65,9 +50,7 @@ public final class HuanghunChannelPrompt {
     private static void detectJoinedChannels(LaunchActivity activity, int accountNum, long userId) {
         isJoined(accountNum, NOTIFICATION_CHANNEL, notificationJoined ->
                 isJoined(accountNum, FEEDBACK_CHANNEL, feedbackJoined -> {
-                    if (notificationJoined && feedbackJoined) {
-                        markCompleted(userId);
-                    } else if (!activity.isFinishing()) {
+                    if ((!notificationJoined || !feedbackJoined) && !activity.isFinishing()) {
                         showPrompt(activity, accountNum, userId);
                     }
                 }));
@@ -85,7 +68,6 @@ public final class HuanghunChannelPrompt {
     private static void joinBoth(LaunchActivity activity, int accountNum, long userId, int index, boolean allSucceeded) {
         if (index >= 2) {
             if (allSucceeded) {
-                markCompleted(userId);
                 Toast.makeText(activity, "已加入黄昏频道", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(activity, "部分频道未能加入，可稍后在关于页重试", Toast.LENGTH_LONG).show();
