@@ -36,6 +36,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.ChatObject;
+import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
@@ -76,6 +77,16 @@ import java.util.Map;
 
 public class NotificationsSettingsActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
+    private final boolean individualAccountSettings;
+
+    public NotificationsSettingsActivity() {
+        this(false);
+    }
+
+    public NotificationsSettingsActivity(boolean individualAccountSettings) {
+        this.individualAccountSettings = individualAccountSettings;
+    }
+
     public static class NotificationException {
         public int muteUntil;
         public boolean hasCustom;
@@ -99,6 +110,7 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
     private int accountsSectionRow;
     @Keep
     private int accountsAllRow;
+    private int accountsPersonalRow;
     private int accountsInfoRow;
 
     private int notificationsServiceRow;
@@ -166,13 +178,15 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
         MessagesController.getInstance(currentAccount).loadSignUpNotificationsSettings();
         loadExceptions(null);
 
-        if (UserConfig.getActivatedAccountsCount() > 1) {
+        if (!individualAccountSettings && UserConfig.getActivatedAccountsCount() > 1) {
             accountsSectionRow = rowCount++;
             accountsAllRow = rowCount++;
+            accountsPersonalRow = rowCount++;
             accountsInfoRow = rowCount++;
         } else {
             accountsSectionRow = -1;
             accountsAllRow = -1;
+            accountsPersonalRow = -1;
             accountsInfoRow = -1;
         }
 
@@ -227,6 +241,39 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
         getMessagesController().reloadReactionsNotifySettings();
 
         return super.onFragmentCreate();
+    }
+
+    /** Opens the selected account's existing notification screen without changing the active account. */
+    private void showAccountNotificationSettingsChooser() {
+        ArrayList<Integer> accounts = new ArrayList<>();
+        ArrayList<CharSequence> accountNames = new ArrayList<>();
+        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+            UserConfig config = UserConfig.getInstance(account);
+            if (!config.isClientActivated() || config.getCurrentUser() == null) {
+                continue;
+            }
+            TLRPC.User user = config.getCurrentUser();
+            String name = ContactsController.formatName(user.first_name, user.last_name);
+            if (TextUtils.isEmpty(name)) {
+                name = user.phone;
+            }
+            if (!TextUtils.isEmpty(user.phone)) {
+                name += "\n+" + user.phone;
+            }
+            accounts.add(account);
+            accountNames.add(name);
+        }
+        if (accounts.isEmpty()) {
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourceProvider);
+        builder.setTitle("个性设置");
+        builder.setItems(accountNames.toArray(new CharSequence[0]), (dialog, which) -> {
+            NotificationsSettingsActivity settings = new NotificationsSettingsActivity(true);
+            settings.setCurrentAccount(accounts.get(which));
+            presentFragment(settings);
+        });
+        showDialog(builder.create());
     }
 
     public void loadExceptions(Runnable onDone) {
@@ -479,7 +526,7 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(getString(R.string.NotificationsAndSounds));
+        actionBar.setTitle(individualAccountSettings ? "个性通知设置" : getString(R.string.NotificationsAndSounds));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -742,6 +789,8 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
                 } else {
                     ConnectionsManager.getInstance(currentAccount).setPushConnectionEnabled(false);
                 }
+            } else if (position == accountsPersonalRow) {
+                showAccountNotificationSettingsChooser();
             } else if (position == accountsAllRow) {
                 SharedPreferences preferences = MessagesController.getGlobalNotificationsSettings();
                 enabled = preferences.getBoolean("AllAccounts", true);
@@ -1153,7 +1202,9 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
                 case 5: {
                     TextSettingsCell textCell = (TextSettingsCell) holder.itemView;
                     SharedPreferences preferences = MessagesController.getNotificationsSettings(currentAccount);
-                    if (position == callsRingtoneRow) {
+                    if (position == accountsPersonalRow) {
+                        textCell.setText("个性设置", false);
+                    } else if (position == callsRingtoneRow) {
                         String value = preferences.getString("CallsRingtone", getString("DefaultRingtone", R.string.DefaultRingtone));
                         if (value.equals("NoSound")) {
                             value = getString("NoSound", R.string.NoSound);

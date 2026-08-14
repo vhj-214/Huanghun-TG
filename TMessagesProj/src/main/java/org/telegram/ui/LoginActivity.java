@@ -1948,7 +1948,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             return;
         }
         if (activityMode == MODE_CHANGE_PHONE_NUMBER && res.type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms && !res.type.verifiedFirebase && !isRequestingFirebaseSms) {
-            if (PushListenerController.GooglePushListenerServiceProvider.INSTANCE.hasServices()) {
+            if (PushListenerController.getProvider().hasServices()) {
                 TLRPC.TL_auth_sentCodeTypeFirebaseSms r = (TLRPC.TL_auth_sentCodeTypeFirebaseSms) res.type;
                 needShowProgress(0);
                 isRequestingFirebaseSms = true;

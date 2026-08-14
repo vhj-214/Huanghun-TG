@@ -423,7 +423,10 @@ public class Browser {
                 openAsInternalIntent(LaunchActivity.instance, uri.toString(), forceNotInternalForApps, forceRequest, inCaseLoading);
             } else {
                 if (inappBrowser) {
-                    if (!openInExternalApp(context, uri.toString(), allowIntent)) {
+                    // Keep ordinary web links inside Huanghun while the in-app browser is enabled.
+                    // Only explicit Android intent links may be handed to their target application.
+                    boolean handledExternally = isIntentScheme && openInExternalApp(context, uri.toString(), allowIntent);
+                    if (!handledExternally) {
                         if (uri != null && uri.getScheme() != null && uri.getScheme().equalsIgnoreCase("intent")) {
                             final Intent intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME);
                             final String fallbackUrl = intent.getStringExtra("browser_fallback_url");

@@ -8642,10 +8642,19 @@
     <string name="SearchEngine7SearchURL">https://www.startpage.com/sp/search?query=</string>
     <string name="SearchEngine7AutocompleteURL">https://www.startpage.com/osuggestions?q=</string>
     <string name="SearchEngine7PrivacyPolicyURL">https://www.startpage.com/en/privacy-policy</string>
-    <string name="SearchEngine8Name">reserved</string>
-    <string name="SearchEngine8SearchURL">reserved</string>
-    <string name="SearchEngine8AutocompleteURL">reserved</string>
-    <string name="SearchEngine8PrivacyPolicyURL">reserved</string>
+    <!-- Huanghun adds the browser-backed choices to the existing single-choice list. -->
+    <string name="SearchEngine8Name">Via</string>
+    <string name="SearchEngine8SearchURL">https://www.google.com/search?q=</string>
+    <string name="SearchEngine8AutocompleteURL">https://suggestqueries.google.com/complete/search?client=chrome&amp;q=</string>
+    <string name="SearchEngine8PrivacyPolicyURL">https://policies.google.com/privacy</string>
+    <string name="SearchEngine9Name">Microsoft Edge</string>
+    <string name="SearchEngine9SearchURL">https://www.bing.com/search?q=</string>
+    <string name="SearchEngine9AutocompleteURL">https://api.bing.com/osjson.aspx?query=</string>
+    <string name="SearchEngine9PrivacyPolicyURL">https://privacy.microsoft.com/en-us/privacystatement</string>
+    <string name="SearchEngine10Name">Quark</string>
+    <string name="SearchEngine10SearchURL">https://so.quark.cn/s?q=</string>
+    <string name="SearchEngine10AutocompleteURL">https://suggestqueries.google.com/complete/search?client=chrome&amp;q=</string>
+    <string name="SearchEngine10PrivacyPolicyURL">https://terms.alicdn.com/legal-agreement/terms/privacy/20220817162412335/20220817162412335.html</string>
     <string name="BrowserSettingsTitle">Web Browser</string>
     <string name="BrowserSettingsEnable">Enable In-App Browser</string>
     <string name="BrowserSettingsCustomTabsTitle">Open external links in</string>

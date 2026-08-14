@@ -571,7 +571,7 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         ArrayList<TLRPC.TL_dialogFilterSuggested> suggestedFilters = getMessagesController().suggestedFilters;
         ArrayList<MessagesController.DialogFilter> dialogFilters = getMessagesController().getDialogFilters();
         items.add(ItemInner.asHint());
-        if (!suggestedFilters.isEmpty() && dialogFilters.size() < 10) {
+        if (!suggestedFilters.isEmpty() && (NekoConfig.unlimitedDialogFilters.Bool() || dialogFilters.size() < 10)) {
             int start = items.size();
             items.add(ItemInner.asHeader(LocaleController.getString(R.string.FilterRecommended)));
             for (int i = 0; i < suggestedFilters.size(); ++i) {
@@ -592,11 +592,11 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             }
             filtersSectionEnd = items.size();
 
-            if (listView != null) listView.forcedSections.add(AndroidUtilities.pack(filtersSectionStart, filtersSectionEnd - 1 + (dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium ? 1 : 0)));
+            if (listView != null) listView.forcedSections.add(AndroidUtilities.pack(filtersSectionStart, filtersSectionEnd - 1 + (NekoConfig.unlimitedDialogFilters.Bool() || dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium ? 1 : 0)));
         } else {
             filtersSectionStart = filtersSectionEnd = -1;
         }
-        if (dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium) {
+        if (NekoConfig.unlimitedDialogFilters.Bool() || dialogFilters.size() < getMessagesController().dialogFiltersLimitPremium) {
             items.add(ItemInner.asButton(LocaleController.getString(R.string.CreateNewFilter)));
         }
         items.add(ItemInner.asShadow(null));
@@ -737,10 +737,10 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
 
     public void createFolder(INavigationLayout navigationLayout) {
         final int count = getMessagesController().getDialogFilters().size();
-        if (
+        if (!NekoConfig.unlimitedDialogFilters.Bool() && (
             count - 1 >= getMessagesController().dialogFiltersLimitDefault && !getUserConfig().isPremium() ||
             count >= getMessagesController().dialogFiltersLimitPremium
-        ) {
+        )) {
             showDialog(new LimitReachedBottomSheet(this, getContext(), LimitReachedBottomSheet.TYPE_FOLDERS, currentAccount, null));
         } else if (navigationLayout != null) {
             navigationLayout.presentFragment(new FilterCreateActivity());

@@ -18,7 +18,11 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
             5, 10, 15, 30, 60
     );
 
+    private static final long ACTIVE_PROXY_HEALTH_CHECK_INTERVAL = 60_000L;
+
     private boolean isCurrentlyChecking;
+    private boolean isActiveProxyChecking;
+    private final Runnable activeProxyHealthCheckRunnable = this::checkActiveProxyHealth;
     private Runnable checkProxyAndSwitchRunnable = () -> {
         isCurrentlyChecking = true;
 
@@ -53,6 +57,51 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
 
     public static void init() {
         INSTANCE.initInternal();
+    }
+
+    /**
+     * Checks the currently enabled built-in proxy even when rotation is disabled.
+     * A failed probe reapplies the same proxy settings, which asks tgnet to establish
+     * a fresh transport instead of leaving background notification connections stalled.
+     */
+    private void checkActiveProxyHealth() {
+        if (!SharedConfig.isProxyEnabled() || SharedConfig.currentProxy == null || isActiveProxyChecking) {
+            return;
+        }
+        final SharedConfig.ProxyInfo proxyInfo = SharedConfig.currentProxy;
+        if (proxyInfo.checking) {
+            scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
+            return;
+        }
+        isActiveProxyChecking = true;
+        final int account = UserConfig.selectedAccount;
+        proxyInfo.checking = true;
+        proxyInfo.proxyCheckPingId = ConnectionsManager.getInstance(account).checkProxy(
+                proxyInfo.address,
+                proxyInfo.port,
+                proxyInfo.username,
+                proxyInfo.password,
+                proxyInfo.secret,
+                time -> AndroidUtilities.runOnUIThread(() -> {
+                    proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
+                    proxyInfo.checking = false;
+                    isActiveProxyChecking = false;
+                    proxyInfo.available = time != -1;
+                    proxyInfo.ping = time == -1 ? 0 : time;
+                    NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
+                    if (time == -1 && SharedConfig.isProxyEnabled() && SharedConfig.currentProxy == proxyInfo) {
+                        ConnectionsManager.setProxySettings(true, proxyInfo.address, proxyInfo.port, proxyInfo.username, proxyInfo.password, proxyInfo.secret);
+                    }
+                    scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
+                })
+        );
+    }
+
+    private void scheduleActiveProxyHealthCheck(long delay) {
+        AndroidUtilities.cancelRunOnUIThread(activeProxyHealthCheckRunnable);
+        if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
+            AndroidUtilities.runOnUIThread(activeProxyHealthCheckRunnable, delay);
+        }
     }
 
     @SuppressWarnings("ComparatorCombinators")
@@ -97,6 +146,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
         }
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxyCheckDone);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxySettingsChanged);
+        scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
     }
 
     @Override
@@ -109,7 +159,14 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
             switchToAvailable();
         } else if (id == NotificationCenter.proxySettingsChanged) {
             AndroidUtilities.cancelRunOnUIThread(checkProxyAndSwitchRunnable);
+            scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
         } else if (id == NotificationCenter.didUpdateConnectionState && account == UserConfig.selectedAccount) {
+            if (SharedConfig.isProxyEnabled()) {
+                int activeState = ConnectionsManager.getInstance(account).getConnectionState();
+                long delay = activeState == ConnectionsManager.ConnectionStateConnectingToProxy ? 15_000L : ACTIVE_PROXY_HEALTH_CHECK_INTERVAL;
+                scheduleActiveProxyHealthCheck(delay);
+            }
+
             if (!SharedConfig.isProxyEnabled() && !SharedConfig.proxyRotationEnabled || SharedConfig.proxyList.size() <= 1) {
                 return;
             }

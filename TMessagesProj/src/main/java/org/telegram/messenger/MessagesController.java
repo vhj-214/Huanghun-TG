@@ -1444,7 +1444,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 return 0;
             }
         }
-        if (NaConfig.INSTANCE.getSortByUnread().Bool()) {
+        if (!NaConfig.INSTANCE.getSortByTime().Bool() && NaConfig.INSTANCE.getSortByUnread().Bool()) {
             boolean priority1 = ChatsHelper.getInstance(currentAccount).isUnreadSortPriority(dialog1);
             boolean priority2 = ChatsHelper.getInstance(currentAccount).isUnreadSortPriority(dialog2);
             if (priority1 != priority2) {
@@ -1452,8 +1452,8 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
         MediaDataController mediaDataController = getMediaDataController();
-        long date1 = DialogObject.getLastMessageOrDraftDate(dialog1, mediaDataController.getDraft(dialog1.id, 0));
-        long date2 = DialogObject.getLastMessageOrDraftDate(dialog2, mediaDataController.getDraft(dialog2.id, 0));
+        long date1 = NaConfig.INSTANCE.getSortByTime().Bool() ? dialog1.last_message_date : DialogObject.getLastMessageOrDraftDate(dialog1, mediaDataController.getDraft(dialog1.id, 0));
+        long date2 = NaConfig.INSTANCE.getSortByTime().Bool() ? dialog2.last_message_date : DialogObject.getLastMessageOrDraftDate(dialog2, mediaDataController.getDraft(dialog2.id, 0));
         if (date1 < date2) {
             return 1;
         } else if (date1 > date2) {
@@ -1487,7 +1487,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 return 0;
             }
         }
-        if (NaConfig.INSTANCE.getSortByUnread().Bool()) {
+        if (!NaConfig.INSTANCE.getSortByTime().Bool() && NaConfig.INSTANCE.getSortByUnread().Bool()) {
             boolean priority1 = ChatsHelper.getInstance(currentAccount).isUnreadSortPriority(dialog1);
             boolean priority2 = ChatsHelper.getInstance(currentAccount).isUnreadSortPriority(dialog2);
             if (priority1 != priority2) {
@@ -1495,8 +1495,8 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
         MediaDataController mediaDataController = getMediaDataController();
-        long date1 = DialogObject.getLastMessageOrDraftDate(dialog1, mediaDataController.getDraft(dialog1.id, 0));
-        long date2 = DialogObject.getLastMessageOrDraftDate(dialog2, mediaDataController.getDraft(dialog2.id, 0));
+        long date1 = NaConfig.INSTANCE.getSortByTime().Bool() ? dialog1.last_message_date : DialogObject.getLastMessageOrDraftDate(dialog1, mediaDataController.getDraft(dialog1.id, 0));
+        long date2 = NaConfig.INSTANCE.getSortByTime().Bool() ? dialog2.last_message_date : DialogObject.getLastMessageOrDraftDate(dialog2, mediaDataController.getDraft(dialog2.id, 0));
         if (date1 < date2) {
             return 1;
         } else if (date1 > date2) {
@@ -1643,8 +1643,10 @@ public class MessagesController extends BaseController implements NotificationCe
         canRevokePmInbox = mainPreferences.getBoolean("canRevokePmInbox", canRevokePmInbox);
         preloadFeaturedStickers = mainPreferences.getBoolean("preloadFeaturedStickers", false);
         youtubePipType = mainPreferences.getString("youtubePipType", "disabled");
-        keepAliveService = mainPreferences.getBoolean("keepAliveService", false);
-        backgroundConnection = mainPreferences.getBoolean("backgroundConnection", false);
+        // Huanghun keeps notification networking alive by default on fresh installs.
+        // Existing user choices remain unchanged because persisted values take precedence.
+        keepAliveService = mainPreferences.getBoolean("keepAliveService", true);
+        backgroundConnection = mainPreferences.getBoolean("backgroundConnection", true);
         promoDialogId = mainPreferences.getLong("proxy_dialog", 0);
         nextPromoInfoCheckTime = mainPreferences.getInt("nextPromoInfoCheckTime", 0);
         promoDialogType = mainPreferences.getInt("promo_dialog_type", 0);
@@ -24871,6 +24873,7 @@ public class MessagesController extends BaseController implements NotificationCe
             if (res instanceof TL_account.contentSettings) {
                 contentSettings = (TL_account.contentSettings) res;
                 contentSettingsLoadedTime = System.currentTimeMillis();
+                applyHuanghunSensitiveContentDefaultIfNeeded();
             }
             contentSettingsLoading = false;
             if (contentSettings != null && ignoreRestrictionReasons != null) {
@@ -24889,6 +24892,17 @@ public class MessagesController extends BaseController implements NotificationCe
             }
             getNotificationCenter().postNotificationName(NotificationCenter.contentSettingsLoaded);
         }));
+    }
+
+    /** Enables adult-content display once where Telegram explicitly allows this account setting. */
+    private void applyHuanghunSensitiveContentDefaultIfNeeded() {
+        if (contentSettings == null || mainPreferences == null || mainPreferences.getBoolean("huanghun_sensitive_content_default_applied", false)) {
+            return;
+        }
+        mainPreferences.edit().putBoolean("huanghun_sensitive_content_default_applied", true).apply();
+        if (contentSettings.sensitive_can_change && !contentSettings.sensitive_enabled) {
+            setContentSettings(true);
+        }
     }
 
     public void invalidateContentSettings() {
@@ -25503,6 +25517,7 @@ public class MessagesController extends BaseController implements NotificationCe
             webBrowserSettingsFetcher.getLocal(currentAccount, null, (h, res) -> AndroidUtilities.runOnUIThread(() -> {
                 if (res != null) {
                     webBrowserSettings = res;
+                    applyHuanghunInAppBrowserDefaultIfNeeded();
                     getNotificationCenter().postNotificationName(NotificationCenter.webBrowserSettingsUpdate);
                 }
             }));
@@ -25514,11 +25529,26 @@ public class MessagesController extends BaseController implements NotificationCe
         webBrowserSettingsFetcher.fetch(currentAccount, null, config -> AndroidUtilities.runOnUIThread(() -> {
             if (config != null) {
                 webBrowserSettings = config;
+                applyHuanghunInAppBrowserDefaultIfNeeded();
                 getNotificationCenter().postNotificationName(NotificationCenter.webBrowserSettingsUpdate);
             }
             AndroidUtilities.cancelRunOnUIThread(loadWebConfigRunnable);
             AndroidUtilities.runOnUIThread(loadWebConfigRunnable, 60 * 60 * 1000 + 10);
         }));
+    }
+
+    /**
+     * Huanghun starts with the in-app browser enabled once per account. The marker is saved
+     * before the server request so a later account restart never overwrites a user's choice.
+     */
+    private void applyHuanghunInAppBrowserDefaultIfNeeded() {
+        if (webBrowserSettings == null || mainPreferences.getBoolean("huanghun_in_app_browser_default_applied", false)) {
+            return;
+        }
+        mainPreferences.edit().putBoolean("huanghun_in_app_browser_default_applied", true).apply();
+        if (webBrowserSettings.open_external_browser) {
+            updateWebBrowserSettings(false, webBrowserSettings.display_close_button);
+        }
     }
 
     public void addWebBrowserException(String url, boolean open_external_browser) {

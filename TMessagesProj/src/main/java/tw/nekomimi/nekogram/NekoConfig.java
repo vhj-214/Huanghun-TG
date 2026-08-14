@@ -107,6 +107,9 @@ public class NekoConfig {
     public static ConfigItem stickerSize = addConfig("stickerSize", configTypeFloat, 14.0f);
     public static ConfigItem unlimitedFavedStickers = addConfig("UnlimitedFavoredStickers", configTypeBool, false);
     public static ConfigItem unlimitedPinnedDialogs = addConfig("UnlimitedPinnedDialogs", configTypeBool, false);
+    // Huanghun enables this by default to remove the client's own folder-count gate.
+    // Telegram may still reject unsupported counts server-side, which remains authoritative.
+    public static ConfigItem unlimitedDialogFilters = addConfig("UnlimitedDialogFilters", configTypeBool, true);
     public static ConfigItem openArchiveOnPull = addConfig("OpenArchiveOnPull", configTypeBool, false);
     public static ConfigItem hideKeyboardOnChatScroll = addConfig("HideKeyboardOnChatScroll", configTypeBool, false);
     public static ConfigItem useSystemEmoji = addConfig("EmojiUseDefault", configTypeBool, false);

@@ -52,6 +52,9 @@
     <string name="BotToken">令牌</string>
     <string name="UnlimitedPinnedDialogs">无限的置顶聊天</string>
     <string name="UnlimitedPinnedDialogsAbout">关闭同步以无限置顶聊天。</string>
+    <string name="UnlimitedDialogFilters">无限添加聊天文件夹</string>
+    <string name="UnlimitedDialogFiltersAbout">取消客户端的文件夹数量限制；Telegram 服务器仍可能返回自身限制。</string>
+    <string name="SortByTime">按时间排列</string>
     <string name="OpenArchiveOnPull">下拉打开“已归档聊天”</string>
     <string name="HideKeyboardOnChatScroll">滚动浏览时隐藏键盘</string>
     <string name="UserRestrictionsSendStickers2">发送贴纸</string>

@@ -167,6 +167,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
 
     // Dialogs
     private final AbstractConfigCell headerDialogs = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.DialogsSettings)));
+    private final AbstractConfigCell sortByTimeRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getSortByTime(), null, getString(R.string.SortByTime)));
     private final AbstractConfigCell sortByUnreadRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getSortByUnread()));
     private final AbstractConfigCell hideDialogsSearchFieldRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDialogsSearchField()));
     private final AbstractConfigCell disableDialogsFloatingButtonRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getDisableDialogsFloatingButton()));
@@ -332,7 +333,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             } else if (key.equals(NaConfig.INSTANCE.getCustomTitleUserName().getKey())) {
                 checkCustomTitleRows();
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
-            } else if (key.equals(NaConfig.INSTANCE.getSortByUnread().getKey())) {
+            } else if (key.equals(NaConfig.INSTANCE.getSortByUnread().getKey()) || key.equals(NaConfig.INSTANCE.getSortByTime().getKey())) {
                 getMessagesController().sortDialogs(null);
                 getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload, true);
             } else if (key.equals(NaConfig.INSTANCE.getIgnoreUnreadCount().getKey())) {

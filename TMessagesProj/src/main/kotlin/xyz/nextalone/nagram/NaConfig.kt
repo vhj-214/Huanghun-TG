@@ -1350,6 +1350,12 @@ object NaConfig {
             ConfigItem.configTypeBool,
             false
         )
+    val sortByTime =
+        addConfig(
+            "SortByTime",
+            ConfigItem.configTypeBool,
+            true
+        )
     val cameraInVideoMessages =
         addConfig(
             "CameraInVideoMessages",

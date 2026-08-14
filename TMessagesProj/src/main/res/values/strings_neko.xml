@@ -52,6 +52,8 @@
     <string name="BotToken">Token</string>
     <string name="UnlimitedPinnedDialogs">Unlimited Pinned Dialogs</string>
     <string name="UnlimitedPinnedDialogsAbout">Pin unlimited dialogs by turn their sync off.</string>
+    <string name="UnlimitedDialogFilters">Unlimited Chat Folders</string>
+    <string name="UnlimitedDialogFiltersAbout">Removes the client-side folder limit. Telegram server limits may still apply.</string>
     <string name="OpenArchiveOnPull">Open \"Archived Chats\" on Pull-Down</string>
     <string name="HideKeyboardOnChatScroll">Hide Keyboard on Scroll</string>
     <string name="UserRestrictionsSendStickers2">Send Stickers</string>
