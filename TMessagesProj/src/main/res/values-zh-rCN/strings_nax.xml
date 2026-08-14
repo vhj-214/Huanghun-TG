@@ -169,6 +169,7 @@
     <string name="OutgoingAutoTranslateProvider">翻译接口</string>
     <string name="OutgoingAutoTranslateFollowProvider">跟随翻译源</string>
     <string name="OutgoingAutoTranslateFailed">翻译失败，已保留原消息。</string>
+    <string name="HuanghunAccountSummary">欢迎使用黄昏定制版！！！！\n当前已登录账号：%1$d 个\n当前剩余卡槽位置：%2$d 个</string>
     <string name="ReplyInPrivate">在私聊中回复</string>
     <string name="TranscribeProviderGeminiPrompt">提示词（可选）</string>
     <string name="uploadBoost">上传加速</string>

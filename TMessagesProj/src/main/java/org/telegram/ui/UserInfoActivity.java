@@ -422,7 +422,8 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             items.add(SettingsActivity.SettingCell.Factory.of(BUTTON_AI, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.premium_ai_editor, applyNewSpan(getString(R.string.EditProfileChatAutomation))));
         }
         items.add(UItem.asShadow(-3, getString(R.string.EditProfileChatAutomationInfo)));
-        final boolean hasAddAccount = UserConfig.getActivatedAccountsCount() < UserConfig.MAX_ACCOUNT_COUNT;
+        final int activatedAccounts = UserConfig.getActivatedAccountsCount();
+        final boolean hasAddAccount = activatedAccounts < UserConfig.MAX_ACCOUNT_COUNT;
         if (hasAddAccount) {
             addAccountRow = items.size();
             items.add(InfoCell.Factory.of(BUTTON_ADD_ACCOUNT, R.drawable.outline_add_account, getString(R.string.AddAccount), null, 0).accent());
@@ -434,20 +435,9 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             for (int i = 0; i < accountNumbers.size(); ++i) {
                 items.add(SettingsActivity.AccountCell.Factory.of(i, accountNumbers.get(i)));
             }
-            if (!UserConfig.hasPremiumOnAccounts()) {
-                final int moreAccounts = Math.max(0, UserConfig.getMaxAccountCount() - UserConfig.getActivatedAccountsCount());
-                items.add(UItem.asShadow(
-                    TextUtils.concat(
-                        moreAccounts > 0 ? LocaleController.formatPluralStringComma("AddAccountInfo1", moreAccounts) + " " : "",
-                        replaceSingleTag(LocaleController.formatPluralStringComma("AddAccountInfo2", UserConfig.getMaxAccountCount()), () -> {
-                            presentFragment(new PremiumPreviewFragment("add_account"));
-                        })
-                    )
-                ));
-            } else {
-                items.add(UItem.asShadow(null));
-            }
         }
+        final int remainingAccountSlots = Math.max(0, UserConfig.MAX_ACCOUNT_COUNT - activatedAccounts);
+        items.add(UItem.asShadow(LocaleController.formatString(R.string.HuanghunAccountSummary, activatedAccounts, remainingAccountSlots)));
         logoutRow = items.size();
         items.add(InfoCell.Factory.of(BUTTON_LOGOUT, R.drawable.msg_leave, getString(R.string.LogOut), null, 0).red());
         items.add(UItem.asShadow(-4, null));
