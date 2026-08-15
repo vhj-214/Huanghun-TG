@@ -141,7 +141,7 @@ public class NekoConfig {
 
     // Huanghun extension features: the defaults are applied only on first use and stay editable.
     public static ConfigItem huanghunBlockNonContacts = addConfig("HuanghunBlockNonContacts", configTypeBool, false);
-    public static ConfigItem huanghunBlockedKeywords = addConfig("HuanghunBlockedKeywords", configTypeString, "海外bc\n安全验证");
+    public static ConfigItem huanghunBlockedKeywords = addConfig("HuanghunBlockedKeywords", configTypeString, "海外bc\n安全验证\n兼职刷单\n加微信\n高收益\nUSDT\n免费领取\n投资理财\n裸聊交友\n色情服务\n代办签证\n买粉买赞");
 
     public static ConfigItem disableNotificationBubbles = addConfig("disableNotificationBubbles", configTypeBool, false);
 

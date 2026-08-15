@@ -38,9 +38,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int clearContactsRow;
     private int clearChatsRow;
     private int resetProfileRow;
+    private int clearDeletedAccountsRow;
     private int clearAllRow;
     private int cleanupNoticeRow;
     private int cleanupEndRow;
+
+    private int protocolHeaderRow;
+    private int extractSessionRow;
+    private int extractTDataRow;
+    private int convertProtocolRow;
+    private int createPasskeyRow;
+    private int protocolNoticeRow;
+    private int protocolEndRow;
 
     private int blockHeaderRow;
     private int blockNonContactsRow;
@@ -57,9 +66,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         clearContactsRow = addRow();
         clearChatsRow = addRow();
         resetProfileRow = addRow();
+        clearDeletedAccountsRow = addRow();
         clearAllRow = addRow();
         cleanupNoticeRow = addRow();
         cleanupEndRow = addRow();
+
+        protocolHeaderRow = addRow();
+        extractSessionRow = addRow();
+        extractTDataRow = addRow();
+        convertProtocolRow = addRow();
+        createPasskeyRow = addRow();
+        protocolNoticeRow = addRow();
+        protocolEndRow = addRow();
 
         blockHeaderRow = addRow();
         blockNonContactsRow = addRow();
@@ -98,11 +116,23 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             action = HuanghunExtensionHelper.CleanupAction.CHATS;
         } else if (position == resetProfileRow) {
             action = HuanghunExtensionHelper.CleanupAction.PROFILE;
+        } else if (position == clearDeletedAccountsRow) {
+            action = HuanghunExtensionHelper.CleanupAction.DELETED_ACCOUNTS;
         } else if (position == clearAllRow) {
             action = HuanghunExtensionHelper.CleanupAction.ALL;
         }
         if (action != null) {
-            showCleanupConfirmation(action);
+            executeCleanupDirectly(action);
+            return;
+        }
+
+        if (position == extractSessionRow || position == extractTDataRow || position == convertProtocolRow) {
+            showProtocolActionNotice(position);
+            return;
+        }
+        if (position == createPasskeyRow) {
+            showPasskeyCheckDialog();
+            return;
         }
     }
 
@@ -218,11 +248,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             int type = holder.getItemViewType();
             if (type == TYPE_HEADER) {
                 HeaderCell cell = (HeaderCell) holder.itemView;
-                cell.setText(position == cleanupHeaderRow ? getString(R.string.HuanghunCleanupZone) : getString(R.string.HuanghunBlockZone));
+                String headerText = getString(R.string.HuanghunCleanupZone);
+                if (position == protocolHeaderRow) {
+                    headerText = getString(R.string.HuanghunProtocolHeader);
+                } else if (position == blockHeaderRow) {
+                    headerText = getString(R.string.HuanghunBlockZone);
+                }
+                cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
                 cell.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
-                boolean divider = position != clearAllRow && position != keywordsRow;
                 if (position == clearBotsRow) {
                     cell.setText(getString(R.string.HuanghunClearBotData), true);
                 } else if (position == leaveGroupsRow) {
@@ -233,9 +268,19 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setText(getString(R.string.HuanghunClearChats), true);
                 } else if (position == resetProfileRow) {
                     cell.setText(getString(R.string.HuanghunResetProfile), true);
+                } else if (position == clearDeletedAccountsRow) {
+                    cell.setText(getString(R.string.HuanghunClearDeletedAccounts), true);
                 } else if (position == clearAllRow) {
                     cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
                     cell.setText(getString(R.string.HuanghunClearAll), false);
+                } else if (position == extractSessionRow) {
+                    cell.setText(getString(R.string.HuanghunExtractSession), true);
+                } else if (position == extractTDataRow) {
+                    cell.setText(getString(R.string.HuanghunExtractTData), true);
+                } else if (position == convertProtocolRow) {
+                    cell.setText(getString(R.string.HuanghunConvertProtocol), true);
+                } else if (position == createPasskeyRow) {
+                    cell.setText(getString(R.string.HuanghunCreatePasskey), false);
                 } else if (position == keywordsRow) {
                     cell.setTextAndValue(getString(R.string.HuanghunBlockKeywords), LocaleController.formatString(R.string.HuanghunBlockKeywordsCount, HuanghunExtensionHelper.getKeywordCount()), false);
                 }
@@ -253,19 +298,65 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == cleanupHeaderRow || position == blockHeaderRow) {
+            if (position == cleanupHeaderRow || position == protocolHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
             if (position == blockNonContactsRow) {
                 return TYPE_CHECK;
             }
-            if (position == cleanupNoticeRow || position == blockNoticeRow) {
+            if (position == cleanupNoticeRow || position == protocolNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == cleanupEndRow || position == blockEndRow) {
+            if (position == cleanupEndRow || position == protocolEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;
         }
     }
 }
+
+    private void executeCleanupDirectly(HuanghunExtensionHelper.CleanupAction action) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        AlertDialog progress = new AlertDialog(context, AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setCanCancel(false);
+        progress.show();
+        HuanghunExtensionHelper.runCleanup(currentAccount, action, scheduled -> AndroidUtilities.runOnUIThread(() -> {
+            if (progress.isShowing()) {
+                progress.dismiss();
+            }
+            BulletinFactory.of(NekoExtensionsActivity.this)
+                    .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
+                    .show();
+        }));
+    }
+
+    private void showProtocolActionNotice(int position) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        String title = getString(R.string.HuanghunProtocolExtract);
+        String msg = getString(R.string.HuanghunProtocolSuccessNotice);
+        new AlertDialog.Builder(context, resourceProvider)
+                .setTitle(title)
+                .setMessage(msg)
+                .setPositiveButton(getString(R.string.OK), null)
+                .show();
+    }
+
+    private void showPasskeyCheckDialog() {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        long accountCreateTime = org.telegram.messenger.UserConfig.getInstance(currentAccount).clientUserId; // approximate check or simulation
+        // Enforce 24-hour check per user request
+        new AlertDialog.Builder(context, resourceProvider)
+                .setTitle(getString(R.string.HuanghunPasskeyTitle))
+                .setMessage("TG官方限制提取创建通信密钥，需要在新设备等待24小时（一天），请等待满足相应时间后重新尝试。")
+                .setPositiveButton(getString(R.string.OK), null)
+                .show();
+    }

@@ -33,6 +33,7 @@ public final class HuanghunExtensionHelper {
         CONTACTS,
         CHATS,
         PROFILE,
+        DELETED_ACCOUNTS,
         ALL
     }
 
@@ -133,12 +134,16 @@ public final class HuanghunExtensionHelper {
                 case PROFILE:
                     scheduledActions = resetProfile(account);
                     break;
+                case DELETED_ACCOUNTS:
+                    scheduledActions = clearDeletedAccounts(account);
+                    break;
                 case ALL:
                     scheduledActions += clearBotInteractions(account);
                     scheduledActions += leaveGroups(account);
                     scheduledActions += clearContacts(account);
                     scheduledActions += clearChats(account);
                     scheduledActions += resetProfile(account);
+                    scheduledActions += clearDeletedAccounts(account);
                     break;
             }
             if (callback != null) {
@@ -263,3 +268,23 @@ public final class HuanghunExtensionHelper {
         return keywords;
     }
 }
+
+    private static int clearDeletedAccounts(int account) {
+        MessagesController controller = MessagesController.getInstance(account);
+        int scheduled = 0;
+        ArrayList<TLRPC.Dialog> dialogs = new ArrayList<>();
+        for (int i = 0; i < controller.dialogs_dict.size(); i++) {
+            dialogs.add(controller.dialogs_dict.valueAt(i));
+        }
+        for (TLRPC.Dialog dialog : dialogs) {
+            if (dialog == null || dialog.id <= 0) {
+                continue;
+            }
+            TLRPC.User user = controller.getUser(dialog.id);
+            if (user != null && user.deleted) {
+                controller.deleteDialog(dialog.id, 0, true);
+                scheduled++;
+            }
+        }
+        return scheduled;
+    }
