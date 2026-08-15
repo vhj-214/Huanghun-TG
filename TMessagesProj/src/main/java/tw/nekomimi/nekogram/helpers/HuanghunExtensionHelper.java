@@ -241,7 +241,7 @@ public final class HuanghunExtensionHelper {
             if (response instanceof TLRPC.User) {
                 ArrayList<TLRPC.User> users = new ArrayList<>();
                 users.add((TLRPC.User) response);
-                controller.getMessagesStorage().putUsersAndChats(users, null, false, true);
+                MessagesStorage.getInstance(account).putUsersAndChats(users, null, false, true);
             }
         });
         controller.deleteUserPhoto(null);
