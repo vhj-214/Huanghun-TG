@@ -72,16 +72,11 @@ public final class HuanghunExtensionHelper {
             return false;
         }
 
-        String message = messageObject.messageOwner.message;
-        if (TextUtils.isEmpty(message)) {
-            // Also check caption for media messages
-            if (messageObject.messageOwner.caption != null) {
-                message = messageObject.messageOwner.caption;
-            } else {
-                return false;
-            }
+        CharSequence messageText = messageObject.messageText;
+        if (TextUtils.isEmpty(messageText)) {
+            return false;
         }
-        String normalizedMessage = message.toLowerCase(Locale.ROOT);
+        String normalizedMessage = messageText.toString().toLowerCase(Locale.ROOT);
         for (String keyword : getKeywords()) {
             if (TextUtils.isEmpty(keyword)) {
                 continue;
@@ -154,7 +149,11 @@ public final class HuanghunExtensionHelper {
     private static int clearBotInteractions(int account) {
         MessagesController controller = MessagesController.getInstance(account);
         int scheduled = 0;
-        for (TLRPC.Dialog dialog : new ArrayList<>(controller.getDialogs(0))) {
+        ArrayList<TLRPC.Dialog> dialogs = new ArrayList<>();
+        for (int i = 0; i < controller.dialogs_dict.size(); i++) {
+            dialogs.add(controller.dialogs_dict.valueAt(i));
+        }
+        for (TLRPC.Dialog dialog : dialogs) {
             if (dialog == null || dialog.id <= 0) {
                 continue;
             }
@@ -170,13 +169,19 @@ public final class HuanghunExtensionHelper {
     private static int leaveGroups(int account) {
         MessagesController controller = MessagesController.getInstance(account);
         int scheduled = 0;
-        for (TLRPC.Dialog dialog : new ArrayList<>(controller.getDialogs(0))) {
+        ArrayList<TLRPC.Dialog> dialogs = new ArrayList<>();
+        for (int i = 0; i < controller.dialogs_dict.size(); i++) {
+            dialogs.add(controller.dialogs_dict.valueAt(i));
+        }
+        for (TLRPC.Dialog dialog : dialogs) {
             if (dialog == null || dialog.id >= 0) {
                 continue;
             }
             long chatId = -dialog.id;
             TLRPC.Chat chat = controller.getChat(chatId);
             if (chat == null) {
+                controller.deleteDialog(dialog.id, 0, true);
+                scheduled++;
                 continue;
             }
             if (ChatObject.isChannel(chat)) {
@@ -184,7 +189,7 @@ public final class HuanghunExtensionHelper {
                 req.channel = MessagesController.getInputChannel(chat);
                 ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> {});
             } else {
-                controller.deleteUserFromChat(chatId, controller.getUser(UserConfig.getInstance(account).getClientUserId()), null);
+                controller.deleteParticipantFromChat(chatId, controller.getInputPeer(UserConfig.getInstance(account).getClientUserId()));
             }
             controller.deleteDialog(dialog.id, 0, true);
             scheduled++;
@@ -203,7 +208,11 @@ public final class HuanghunExtensionHelper {
         MessagesController controller = MessagesController.getInstance(account);
         long selfId = UserConfig.getInstance(account).getClientUserId();
         int scheduled = 0;
-        for (TLRPC.Dialog dialog : new ArrayList<>(controller.getDialogs(0))) {
+        ArrayList<TLRPC.Dialog> dialogs = new ArrayList<>();
+        for (int i = 0; i < controller.dialogs_dict.size(); i++) {
+            dialogs.add(controller.dialogs_dict.valueAt(i));
+        }
+        for (TLRPC.Dialog dialog : dialogs) {
             if (dialog == null || dialog.id == selfId || dialog.id == 0) {
                 continue;
             }
@@ -217,15 +226,23 @@ public final class HuanghunExtensionHelper {
         MessagesController controller = MessagesController.getInstance(account);
         TL_account.updateProfile profileRequest = new TL_account.updateProfile();
         profileRequest.flags = 1 | 2 | 4;
-        profileRequest.first_name = "";
+        profileRequest.first_name = " "; // Telegram requires non-empty first name
         profileRequest.last_name = "";
         profileRequest.about = "";
         ConnectionsManager.getInstance(account).sendRequest(profileRequest, (response, error) -> {
+            if (response instanceof TLRPC.Updates) {
+                controller.processUpdates((TLRPC.Updates) response, false);
+            }
         });
 
         TL_account.updateUsername usernameRequest = new TL_account.updateUsername();
         usernameRequest.username = "";
         ConnectionsManager.getInstance(account).sendRequest(usernameRequest, (response, error) -> {
+            if (response instanceof TLRPC.User) {
+                ArrayList<TLRPC.User> users = new ArrayList<>();
+                users.add((TLRPC.User) response);
+                controller.getMessagesStorage().putUsersAndChats(users, null, false, true);
+            }
         });
         controller.deleteUserPhoto(null);
         return 3;
