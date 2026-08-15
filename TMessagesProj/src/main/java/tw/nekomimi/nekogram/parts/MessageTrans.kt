@@ -241,13 +241,11 @@ fun ChatActivity.translateMessages(
     val translatorMode = NaConfig.translatorMode.Int()
     val canReuseCache = provider == 0
 
-    // Check if all messages are already translated, hide translation if so
-    val allTranslated = messages.all { msg ->
-        if (msg.isRich) {
-            RichMessageTransHelper.hasActiveTranslation(msg)
-        } else {
-            msg.isTranslated
-        }
+    // Only hide a translation when its target-language text is truly available. A dialog-level
+    // translation flag can be present on an outgoing message even though that bubble has no
+    // rendered translated text yet.
+    val allTranslated = messages.isNotEmpty() && messages.all { msg ->
+        msg.hasVisibleTranslation(targetLanguage)
     }
     if (allTranslated) {
         messages.forEach { msg ->
@@ -618,6 +616,20 @@ private fun ChatActivity.applyCachedTranslations(
                 }
             }
         }
+    }
+}
+
+private fun MessageObject.hasVisibleTranslation(targetLanguage: String): Boolean {
+    return when {
+        isRich -> RichMessageTransHelper.hasActiveTranslation(this)
+        messageOwner.summarizedOpen -> {
+            messageOwner.translatedSummaryText?.text?.isNotBlank() == true &&
+                    messageOwner.translatedSummaryLanguage.equals(targetLanguage, ignoreCase = true)
+        }
+        isPoll -> isTranslatedPoll() &&
+                messageOwner.translatedToLanguage.equals(targetLanguage, ignoreCase = true)
+        else -> messageOwner.translatedText?.text?.isNotBlank() == true &&
+                messageOwner.translatedToLanguage.equals(targetLanguage, ignoreCase = true)
     }
 }
 

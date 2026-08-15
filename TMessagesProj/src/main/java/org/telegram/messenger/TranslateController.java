@@ -178,7 +178,7 @@ public class TranslateController extends BaseController {
         return (
             messageObject != null &&
             messageObject.messageOwner != null &&
-            !messageObject.isOutOwner() &&
+            // 黄昏支持按聊天翻译时同时翻译我方与对方的普通消息。
             !messageObject.isRestrictedMessage &&
             !messageObject.isSponsored() &&
             (

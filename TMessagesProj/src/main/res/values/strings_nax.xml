@@ -122,7 +122,7 @@
     <string name="Other">Other</string>
     <string name="RestartApp">Restart App</string>
     <string name="ResetSettings">Reset Settings</string>
-    <string name="ResetSettingsAlert">Are you sure you want to reset all N-Settings?</string>
+    <string name="ResetSettingsAlert">Are you sure you want to reset all Huanghun plugin settings?</string>
     <string name="DontAutoPlayNextVoice">Don\'t Auto Play Next Voice Message</string>
     <string name="SaveToChatSubfolder">Save Attachments by Chat Name</string>
     <string name="MessageColoredBackground">Colorful Message Backgrounds</string>
@@ -368,4 +368,25 @@
     <string name="ImportAyuDB">Import Database</string>
     <string name="ImportAyuDBAlert">The current message database will be replaced. The app will restart after the import.</string>
     <string name="DisableSwipeToNext">Disable Swipe to Next</string>
+    <string name="HuanghunExtensions">Extensions</string>
+    <string name="HuanghunCleanupZone">Cleanup</string>
+    <string name="HuanghunBlockZone">Blocking</string>
+    <string name="HuanghunClearBotData">Clear all bot interaction data</string>
+    <string name="HuanghunLeaveAllGroups">Delete and leave all groups</string>
+    <string name="HuanghunClearContacts">Delete all contacts</string>
+    <string name="HuanghunClearChats">Delete all chat history</string>
+    <string name="HuanghunResetProfile">Clear username, profile, and stories</string>
+    <string name="HuanghunClearAll">Clear all items above</string>
+    <string name="HuanghunCleanupNotice">Every cleanup action requires typed confirmation. Telegram remains authoritative for groups that require ownership transfer, so those groups are never forcibly deleted.</string>
+    <string name="HuanghunBlockNonContacts">Block messages from non-contacts</string>
+    <string name="HuanghunBlockKeywords">Keyword management</string>
+    <string name="HuanghunBlockKeywordsCount">%1$d keywords configured</string>
+    <string name="HuanghunBlockKeywordsHint">Paste multiple lines. Whitespace, punctuation, and special symbols all split keywords automatically and duplicates are removed.</string>
+    <string name="HuanghunBlockNotice">When enabled, a keyword match in a non-contact private message removes the dialog, clears its messages, and blocks the sender.</string>
+    <string name="HuanghunCleanupConfirmTitle">Confirm cleanup</string>
+    <string name="HuanghunCleanupConfirmMessage">This action cannot be undone. Type “清除” to confirm.</string>
+    <string name="HuanghunCleanupConfirmAction">Confirm cleanup</string>
+    <string name="HuanghunCleanupConfirmInvalid">Type “清除” to confirm.</string>
+    <string name="HuanghunCleanupScheduled">%1$d cleanup actions scheduled.</string>
+    <string name="HuanghunSaveKeywords">Save keywords</string>
 </resources>

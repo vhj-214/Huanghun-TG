@@ -103,6 +103,11 @@ interface Translator {
             return result
         }
 
+        private fun isEquivalentTranslation(source: String, translated: String): Boolean {
+            fun normalize(text: String): String = text.trim().replace(Regex("\\s+"), " ")
+            return normalize(source).equals(normalize(translated), ignoreCase = true)
+        }
+
         /**
          * Translates an entire message with automatic source-language detection and falls back
          * across providers. Keeping the source as "auto" lets each provider process messages
@@ -121,18 +126,28 @@ interface Translator {
             ProviderInfo.PROVIDERS.forEach { candidates.add(it.providerConstant) }
 
             var lastError: Throwable? = null
+            var unchangedResult: TLRPC.TL_textWithEntities? = null
             for (candidate in candidates) {
                 try {
                     val result = translateBase(to, query, entities, candidate)
-                    if (result.text.isNotBlank()) {
-                        return result
+                    val translatedText = result.text
+                    if (translatedText.isNotBlank()) {
+                        // A provider that simply echoes a foreign message must not prevent the
+                        // remaining providers from trying automatic language detection.
+                        if (!isEquivalentTranslation(query, translatedText)) {
+                            return result
+                        }
+                        if (unchangedResult == null) {
+                            unchangedResult = result
+                        }
+                    } else {
+                        lastError = IllegalStateException("Empty translation result")
                     }
-                    lastError = IllegalStateException("Empty translation result")
                 } catch (error: Throwable) {
                     lastError = error
                 }
             }
-            throw lastError ?: IllegalStateException("No translation provider succeeded")
+            return unchangedResult ?: throw (lastError ?: IllegalStateException("No translation provider succeeded"))
         }
 
         @JvmStatic

@@ -109,7 +109,7 @@
     <string name="Other">其他</string>
     <string name="RestartApp">重启应用</string>
     <string name="ResetSettings">重置设置</string>
-    <string name="ResetSettingsAlert">您确定要重置所有 N-设置 吗？</string>
+    <string name="ResetSettingsAlert">您确定要重置所有黄昏插件功能设置吗？</string>
     <string name="DontAutoPlayNextVoice">禁用自动播放下一条语音消息</string>
     <string name="SaveToChatSubfolder">按对话名称保存附件</string>
     <string name="MessageColoredBackground">多彩消息背景</string>
@@ -354,4 +354,25 @@
     <string name="ImportAyuDB">导入数据库</string>
     <string name="ImportAyuDBAlert">当前消息数据库将被替换。导入后应用将重启。</string>
     <string name="DisableSwipeToNext">禁用滑动切到下一个</string>
+    <string name="HuanghunExtensions">扩展功能</string>
+    <string name="HuanghunCleanupZone">清理专区</string>
+    <string name="HuanghunBlockZone">屏蔽专区</string>
+    <string name="HuanghunClearBotData">清除账号内所有与机器人的交互数据</string>
+    <string name="HuanghunLeaveAllGroups">删除并退出所有群或群聊</string>
+    <string name="HuanghunClearContacts">删除所有联系人</string>
+    <string name="HuanghunClearChats">删除所有聊天记录</string>
+    <string name="HuanghunResetProfile">清空账号用户名、个人资料和动态</string>
+    <string name="HuanghunClearAll">一键清除上述所有</string>
+    <string name="HuanghunCleanupNotice">所有清理操作均需要输入确认词。受 Telegram 服务器规则限制，必须先转让所有权的群组会由服务器拒绝退出，不会被强制删除。</string>
+    <string name="HuanghunBlockNonContacts">屏蔽非联系人发送内容</string>
+    <string name="HuanghunBlockKeywords">关键词管理</string>
+    <string name="HuanghunBlockKeywordsCount">目前已设定 %1$d 个词</string>
+    <string name="HuanghunBlockKeywordsHint">可粘贴多行内容，任意空格、标点或特殊符号都会自动分隔关键词并去重。</string>
+    <string name="HuanghunBlockNotice">开启后，非联系人私聊消息命中关键词时会自动移除该私聊、清理消息并拉黑发送者。</string>
+    <string name="HuanghunCleanupConfirmTitle">确认清理操作</string>
+    <string name="HuanghunCleanupConfirmMessage">此操作不可逆。请输入“清除”后再确认执行。</string>
+    <string name="HuanghunCleanupConfirmAction">确认清除</string>
+    <string name="HuanghunCleanupConfirmInvalid">请输入“清除”以确认。</string>
+    <string name="HuanghunCleanupScheduled">已提交 %1$d 项清理任务。</string>
+    <string name="HuanghunSaveKeywords">保存关键词</string>
 </resources>

@@ -69,6 +69,8 @@ import com.google.common.collect.Lists;
 import org.telegram.messenger.support.LongSparseIntArray;
 import org.telegram.messenger.utils.tlutils.TlUtils;
 import org.telegram.messenger.voip.VoIPGroupNotification;
+
+import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_account;
@@ -1023,6 +1025,8 @@ public class NotificationsController extends BaseController implements Notificat
     }
 
     public void processNewMessages(ArrayList<MessageObject> messageObjects, boolean isLast, boolean isFcm, CountDownLatch countDownLatch) {
+        // Run the Huanghun non-contact keyword filter before any notification content is built.
+        HuanghunExtensionHelper.filterIncomingMessages(currentAccount, messageObjects);
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("NotificationsController: processNewMessages msgs.size()=" + (messageObjects == null ? "null" : messageObjects.size()) + " isLast=" + isLast + " isFcm=" + isFcm + ")");
         }

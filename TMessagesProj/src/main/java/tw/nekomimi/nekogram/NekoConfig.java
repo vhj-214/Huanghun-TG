@@ -139,6 +139,10 @@ public class NekoConfig {
     public static ConfigItem translateInputLang = addConfig("TransInputToLang", configTypeString, "en");
     public static ConfigItem googleCloudTranslateKey = addConfig("GoogleCloudTransKey", configTypeString, "");
 
+    // Huanghun extension features: the defaults are applied only on first use and stay editable.
+    public static ConfigItem huanghunBlockNonContacts = addConfig("HuanghunBlockNonContacts", configTypeBool, false);
+    public static ConfigItem huanghunBlockedKeywords = addConfig("HuanghunBlockedKeywords", configTypeString, "海外bc\n安全验证");
+
     public static ConfigItem disableNotificationBubbles = addConfig("disableNotificationBubbles", configTypeBool, false);
 
     public static ConfigItem tabsTitleType = addConfig("TabTitleType", configTypeInt, NekoXConfig.TITLE_TYPE_TEXT);
