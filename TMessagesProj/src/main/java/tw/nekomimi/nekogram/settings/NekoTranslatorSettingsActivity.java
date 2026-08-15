@@ -322,7 +322,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         List<Locale> locales = Translator.getFullTelegramLanguageLocales();
         String[] labels = new String[locales.size()];
         for (int index = 0; index < locales.size(); index++) {
-            labels[index] = getBatchTargetLanguageLabel(locales.get(index));
+            labels[index] = getOutgoingTargetLanguageLabel(locales.get(index));
         }
         PopupBuilder builder = new PopupBuilder(anchor);
         builder.setItems(labels, (index, __) -> {
@@ -332,6 +332,15 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
             return Unit.INSTANCE;
         });
         builder.show();
+    }
+
+    private String getOutgoingTargetLanguageLabel(Locale locale) {
+        String nativeName = locale.getDisplayName(locale);
+        String chineseName = locale.getDisplayName(Locale.SIMPLIFIED_CHINESE);
+        if (TextUtils.isEmpty(nativeName) || nativeName.equalsIgnoreCase(chineseName)) {
+            return chineseName;
+        }
+        return nativeName + "（" + chineseName + "）";
     }
 
     private String getProviderName(int providerConstant) {
