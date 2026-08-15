@@ -7,6 +7,7 @@ import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_account;
 
@@ -209,12 +210,12 @@ public final class HuanghunExtensionHelper {
         profileRequest.first_name = "";
         profileRequest.last_name = "";
         profileRequest.about = "";
-        controller.getConnectionsManager().sendRequest(profileRequest, (response, error) -> {
+        ConnectionsManager.getInstance(account).sendRequest(profileRequest, (response, error) -> {
         });
 
         TL_account.updateUsername usernameRequest = new TL_account.updateUsername();
         usernameRequest.username = "";
-        controller.getConnectionsManager().sendRequest(usernameRequest, (response, error) -> {
+        ConnectionsManager.getInstance(account).sendRequest(usernameRequest, (response, error) -> {
         });
         controller.deleteUserPhoto(null);
         return 3;

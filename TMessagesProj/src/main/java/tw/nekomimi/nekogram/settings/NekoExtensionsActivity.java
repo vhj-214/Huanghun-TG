@@ -18,8 +18,6 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
-import org.telegram.ui.Cells.HeaderCell;
-import org.telegram.ui.Cells.ShadowSectionCell;
 import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
@@ -29,6 +27,7 @@ import org.telegram.ui.Components.LayoutHelper;
 
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
+import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 /** Settings page for Huanghun account cleanup and non-contact message blocking. */
 public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
