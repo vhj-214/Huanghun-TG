@@ -176,6 +176,9 @@
     <string name="HuanghunBatchResult">批量翻译结果</string>
     <string name="HuanghunBatchCopy">复制整条结果</string>
     <string name="HuanghunBatchSelectLanguage">请至少选择一种目标语言</string>
+    <string name="HuanghunBatchSave">保存语言</string>
+    <string name="HuanghunBatchTargetNotSet">未选择</string>
+    <string name="HuanghunBatchSelectedLanguages">已选择 %1$d 种语言</string>
     <string name="OutgoingAutoTranslateSourceLanguage">发送语言（译文）</string>
     <string name="OutgoingAutoTranslateTargetLanguage">原文语言</string>
     <string name="OutgoingAutoTranslateAutoDetect">自动识别</string>

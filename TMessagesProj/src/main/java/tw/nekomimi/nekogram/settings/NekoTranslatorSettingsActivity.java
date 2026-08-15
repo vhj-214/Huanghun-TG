@@ -41,6 +41,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BotWebViewVibrationEffect;
+import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
@@ -458,7 +459,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
                 return Unit.INSTANCE;
             });
         } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateBatchRow)) {
-            showBatchTranslateDialog();
+            showBatchTargetLanguageDialog();
         } else if (position == cellGroup.rows.indexOf(llmModelRow)) {
             showLlmModelDialog();
         } else if (position == cellGroup.rows.indexOf(doNotTranslateRow)) {
@@ -503,7 +504,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
                     String value = TextUtils.isEmpty(code) ? getString(R.string.OutgoingAutoTranslateAutoDetect) : NekoXConfig.formatLang(code);
                     textCell.setTextAndValue(getString(R.string.OutgoingAutoTranslateTargetLanguage), value, true);
                 } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateBatchRow)) {
-                    textCell.setTextAndValue(getString(R.string.HuanghunBatchTranslate), getString(R.string.HuanghunBatchTranslateSummary), true);
+                    textCell.setTextAndValue(getString(R.string.HuanghunBatchTranslate), getBatchTargetLanguageSummary(), true);
                 } else if (position == cellGroup.rows.indexOf(doNotTranslateRow)) {
                     textCell.setTextAndValue(getString(R.string.DoNotTranslate), getRestrictedLanguages(), true, true);
                 } else if (position == cellGroup.rows.indexOf(llmModelRow)) {
@@ -796,41 +797,103 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         }
     }
 
-    private static final String BATCH_TRANSLATE_SEPARATOR = "\n\n--------------------\n\n";
+    private ArrayList<Locale> getBatchTargetLocales() {
+        ArrayList<Locale> targets = new ArrayList<>();
+        HashSet<String> seen = new HashSet<>();
+        String saved = NaConfig.INSTANCE.getOutgoingAutoTranslateBatchTargetLangs().String();
+        if (TextUtils.isEmpty(saved)) {
+            return targets;
+        }
+        for (String code : saved.split(",")) {
+            if (TextUtils.isEmpty(code)) {
+                continue;
+            }
+            try {
+                Locale locale = TranslatorKt.getCode2Locale(code.trim());
+                String normalized = TranslatorKt.getLocale2code(locale);
+                if (!TextUtils.isEmpty(locale.getLanguage()) && seen.add(normalized)) {
+                    targets.add(locale);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        return targets;
+    }
 
-    private void showBatchTranslateDialog() {
+    private ArrayList<Locale> getTelegramSupportedTargetLocales() {
+        ArrayList<Locale> locales = new ArrayList<>();
+        HashSet<String> seen = new HashSet<>();
+        for (LocaleController.LocaleInfo info : LocaleController.getInstance().languages) {
+            String code = info.pluralLangCode;
+            if (TextUtils.isEmpty(code) || code.toLowerCase().contains("duang")) {
+                continue;
+            }
+            try {
+                Locale locale = TranslatorKt.getCode2Locale(code);
+                String normalized = TranslatorKt.getLocale2code(locale);
+                if (!TextUtils.isEmpty(locale.getLanguage()) && seen.add(normalized)) {
+                    locales.add(locale);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        locales.sort((left, right) -> getBatchTargetLanguageLabel(left).compareToIgnoreCase(getBatchTargetLanguageLabel(right)));
+        return locales;
+    }
+
+    private String getBatchTargetLanguageLabel(Locale locale) {
+        String nativeName = locale.getDisplayName(locale);
+        String chineseName = locale.getDisplayName(Locale.SIMPLIFIED_CHINESE);
+        if (TextUtils.isEmpty(nativeName) || nativeName.equalsIgnoreCase(chineseName)) {
+            return chineseName;
+        }
+        return nativeName + "（" + chineseName + "）";
+    }
+
+    private String getBatchTargetLanguageSummary() {
+        ArrayList<Locale> targets = getBatchTargetLocales();
+        if (targets.isEmpty()) {
+            return getString(R.string.HuanghunBatchTargetNotSet);
+        }
+        if (targets.size() <= 2) {
+            ArrayList<String> names = new ArrayList<>();
+            for (Locale locale : targets) {
+                names.add(getBatchTargetLanguageLabel(locale));
+            }
+            return TextUtils.join("、", names);
+        }
+        return String.format(getString(R.string.HuanghunBatchSelectedLanguages), targets.size());
+    }
+
+    /** Configures batch targets only. Translation itself is started from the chat input menu. */
+    private void showBatchTargetLanguageDialog() {
         Context context = getParentActivity();
         if (context == null) {
             return;
         }
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
-        int sidePadding = dp(20);
-        container.setPadding(sidePadding, dp(8), sidePadding, dp(8));
-
-        EditTextBoldCursor input = LlmEditTextFactory.createAndSetupMultilineEditText(
-                context, getResourceProvider(), "", getString(R.string.HuanghunBatchInputHint), EditorInfo.IME_ACTION_DONE, true
-        );
-        container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(120), 0, 0, 0, 12));
+        container.setPadding(dp(20), dp(8), dp(20), dp(8));
 
         TextView languageHint = new TextView(context);
         languageHint.setText(getString(R.string.HuanghunBatchLanguageHint));
         languageHint.setTextSize(14);
         languageHint.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
-        container.addView(languageHint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 4));
+        container.addView(languageHint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
 
-        String[] languageNames = new String[]{"English", "日本語", "한국어", "Русский", "Español", "Français", "Deutsch", "العربية", "Bahasa Indonesia"};
-        Locale[] languageLocales = new Locale[]{
-                Locale.ENGLISH, Locale.JAPANESE, Locale.KOREAN, new Locale("ru"), new Locale("es"),
-                Locale.FRENCH, Locale.GERMAN, new Locale("ar"), new Locale("id")
-        };
+        ArrayList<Locale> locales = getTelegramSupportedTargetLocales();
+        HashSet<String> selectedCodes = new HashSet<>();
+        for (Locale locale : getBatchTargetLocales()) {
+            selectedCodes.add(TranslatorKt.getLocale2code(locale));
+        }
         ArrayList<CheckBox> languageChecks = new ArrayList<>();
-        for (int i = 0; i < languageNames.length; i++) {
+        for (Locale locale : locales) {
             CheckBox checkBox = new CheckBox(context);
-            checkBox.setText(languageNames[i]);
+            checkBox.setText(getBatchTargetLanguageLabel(locale));
             checkBox.setTextSize(16);
             checkBox.setPadding(0, 0, 0, 0);
-            checkBox.setChecked(i == 0);
+            checkBox.setTag(locale);
+            checkBox.setChecked(selectedCodes.contains(TranslatorKt.getLocale2code(locale)));
             languageChecks.add(checkBox);
             container.addView(checkBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(42)));
         }
@@ -843,82 +906,29 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         builder.setTitle(getString(R.string.HuanghunBatchTranslate));
         builder.setView(scrollView, dp(420));
         builder.setNegativeButton(getString(R.string.Cancel), null);
-        builder.setPositiveButton(getString(R.string.HuanghunBatchStart), null);
+        builder.setPositiveButton(getString(R.string.HuanghunBatchSave), null);
         AlertDialog dialog = builder.create();
         showDialog(dialog);
         dialog.setOnShowListener(__ -> {
             View confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             if (confirm != null) {
                 confirm.setOnClickListener(v -> {
-                    String original = input.getText() == null ? "" : input.getText().toString().trim();
-                    if (TextUtils.isEmpty(original)) {
-                        AndroidUtil.showInputError(input);
-                        return;
-                    }
-                    ArrayList<Locale> targets = new ArrayList<>();
-                    for (int i = 0; i < languageChecks.size(); i++) {
-                        if (languageChecks.get(i).isChecked()) {
-                            targets.add(languageLocales[i]);
+                    ArrayList<String> codes = new ArrayList<>();
+                    for (CheckBox checkBox : languageChecks) {
+                        if (checkBox.isChecked() && checkBox.getTag() instanceof Locale) {
+                            Locale locale = (Locale) checkBox.getTag();
+                            codes.add(TranslatorKt.getLocale2code(locale));
                         }
                     }
-                    if (targets.isEmpty()) {
-                        BulletinFactory.of(this).createSimpleBulletin(R.raw.info, getString(R.string.HuanghunBatchSelectLanguage)).show();
-                        return;
+                    NaConfig.INSTANCE.getOutgoingAutoTranslateBatchTargetLangs().setConfigString(TextUtils.join(",", codes));
+                    int row = cellGroup.rows.indexOf(outgoingAutoTranslateBatchRow);
+                    if (row >= 0) {
+                        listAdapter.notifyItemChanged(row);
                     }
                     dialog.dismiss();
-                    AlertDialog progress = new AlertDialog.Builder(context, getResourceProvider())
-                            .setTitle(getString(R.string.HuanghunBatchTranslate))
-                            .setMessage(getString(R.string.HuanghunBatchWorking))
-                            .create();
-                    progress.setCanceledOnTouchOutside(false);
-                    progress.setCancelable(false);
-                    showDialog(progress);
-                    String sourceCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
-                    Locale source = TextUtils.isEmpty(sourceCode) ? new Locale("") : TranslatorKt.getCode2Locale(sourceCode);
-                    translateBatchSequentially(original, source, targets, 0, NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int(), new StringBuilder(original), progress, context);
                 });
             }
         });
-    }
-
-    private void translateBatchSequentially(String original, Locale source, ArrayList<Locale> targets, int index, int provider, StringBuilder result, AlertDialog progress, Context context) {
-        if (index >= targets.size()) {
-            if (progress.isShowing()) {
-                progress.dismiss();
-            }
-            showBatchTranslateResult(context, result.toString());
-            return;
-        }
-        Translator.translateFrom(source, targets.get(index), original, provider, new Translator.Companion.TranslateCallBack() {
-            @Override
-            public void onSuccess(@NonNull String translation) {
-                result.append(BATCH_TRANSLATE_SEPARATOR).append(translation);
-                translateBatchSequentially(original, source, targets, index + 1, provider, result, progress, context);
-            }
-
-            @Override
-            public void onFailed(boolean unsupported, @NonNull String error) {
-                result.append(BATCH_TRANSLATE_SEPARATOR).append(getString(R.string.OutgoingAutoTranslateFailed));
-                translateBatchSequentially(original, source, targets, index + 1, provider, result, progress, context);
-            }
-        });
-    }
-
-    private void showBatchTranslateResult(Context context, String result) {
-        TextView resultView = new TextView(context);
-        resultView.setText(result);
-        resultView.setTextSize(16);
-        resultView.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        resultView.setTextIsSelectable(true);
-        resultView.setPadding(dp(20), dp(8), dp(20), dp(8));
-        ScrollView scrollView = new ScrollView(context);
-        scrollView.addView(resultView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        AlertDialog.Builder builder = new AlertDialog.Builder(context, getResourceProvider());
-        builder.setTitle(getString(R.string.HuanghunBatchResult));
-        builder.setView(scrollView, dp(420));
-        builder.setNegativeButton(getString(R.string.Cancel), null);
-        builder.setPositiveButton(getString(R.string.HuanghunBatchCopy), (dialogInterface, which) -> AndroidUtilities.addToClipboard(result));
-        showDialog(builder.create());
     }
 
     /** @noinspection deprecation*/

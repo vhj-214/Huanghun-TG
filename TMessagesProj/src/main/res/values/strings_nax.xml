@@ -189,6 +189,9 @@
     <string name="HuanghunBatchResult">Batch Translation Result</string>
     <string name="HuanghunBatchCopy">Copy Complete Result</string>
     <string name="HuanghunBatchSelectLanguage">Select at least one target language</string>
+    <string name="HuanghunBatchSave">Save Languages</string>
+    <string name="HuanghunBatchTargetNotSet">Not selected</string>
+    <string name="HuanghunBatchSelectedLanguages">%1$d languages selected</string>
     <string name="OutgoingAutoTranslateSourceLanguage">Send Language (Translation)</string>
     <string name="OutgoingAutoTranslateTargetLanguage">Original Language</string>
     <string name="OutgoingAutoTranslateAutoDetect">Auto Detect</string>

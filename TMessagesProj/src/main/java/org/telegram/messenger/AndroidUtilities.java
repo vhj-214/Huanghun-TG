@@ -2400,6 +2400,7 @@ public class AndroidUtilities {
     public static void resetTypefaceCache() {
         typefaceCache.clear();
         mediumTypeface = null;
+        TypefaceHelper.clearHuanghunTypefaceCache();
     }
 
     public static Typeface getTypeface(String assetPath) {

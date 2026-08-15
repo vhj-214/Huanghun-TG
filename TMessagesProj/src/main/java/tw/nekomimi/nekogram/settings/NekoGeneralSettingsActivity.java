@@ -7,9 +7,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Environment;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -31,7 +29,6 @@ import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.INavigationLayout;
 import org.telegram.ui.ActionBar.SimpleTextView;
-import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.UndoView;
@@ -385,7 +382,9 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             } else if (key.equals(NekoConfig.typeface.getKey())) {
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
             } else if (key.equals(NekoConfig.huanghunCustomTypeface.getKey())) {
-                restartForHuanghunTypeface((int) newValue);
+                // Keep this identical to the system-font behavior: the user decides when to
+                // apply the restart from the “应用” action, instead of interrupting the task.
+                tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
             } else if (key.equals(NaConfig.INSTANCE.getDisableDialogsFloatingButton().getKey())) {
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
             } else if (key.equals(NaConfig.INSTANCE.getHidePremiumSection().getKey())) {
@@ -467,34 +466,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     }
 
     // impl ListAdapter
-    private void restartForHuanghunTypeface(int selectedTypeface) {
-        final Context context = getParentActivity();
-        if (context == null) {
-            return;
-        }
-        final int safeIndex = Math.max(0, Math.min(selectedTypeface, huanghunTypefaceNames.length - 1));
-        final AlertDialog dialog = new AlertDialog.Builder(context)
-                .setTitle("黄昏")
-                .setMessage(LocaleController.formatString(R.string.HuanghunTypefaceRestarting, huanghunTypefaceNames[safeIndex]))
-                .create();
-        dialog.setCanceledOnTouchOutside(false);
-        dialog.setCancelable(false);
-        showDialog(dialog);
-        AndroidUtilities.runOnUIThread(() -> {
-            if (dialog.isShowing()) {
-                dialog.dismiss();
-            }
-            AndroidUtilities.resetTypefaceCache();
-            Theme.createCommonMessageResources();
-            Intent restartIntent = new Intent(context, LaunchActivity.class);
-            restartIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            context.startActivity(restartIntent);
-            if (context instanceof Activity) {
-                ((Activity) context).finishAffinity();
-            }
-        }, 1200);
-    }
-
     private class ListAdapter extends BaseListAdapter {
 
         public ListAdapter(Context context) {

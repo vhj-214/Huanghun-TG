@@ -876,6 +876,13 @@ object NaConfig {
             ConfigItem.configTypeBool,
             true
         )
+    // Comma-separated language tags selected in Translator Settings for batch translation.
+    val outgoingAutoTranslateBatchTargetLangs =
+        addConfig(
+            "OutgoingAutoTranslateBatchTargetLangs",
+            ConfigItem.configTypeString,
+            ""
+        )
     val outgoingAutoTranslateProvider =
         addConfig(
             "OutgoingAutoTranslateProvider",

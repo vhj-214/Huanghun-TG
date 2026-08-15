@@ -75,6 +75,9 @@ public class TypefaceHelper {
             HUANGHUN_FONT_PREFIX + "lxgw_wenkai.ttf",
             HUANGHUN_FONT_PREFIX + "liu_jian_mao_cao.ttf"
     };
+    // Each font file can be tens of megabytes. Retain normal/bold/italic variants so list
+    // layouts and message cells never repeatedly reopen an asset while the user scrolls.
+    private static final Typeface[][] HUANGHUN_TYPEFACE_CACHE = new Typeface[HUANGHUN_FONT_ASSETS.length][4];
 
     public static Typeface createTypeface(String assetPath) {
         final int selectedTypeface = NekoConfig.huanghunCustomTypeface.Int();
@@ -114,14 +117,26 @@ public class TypefaceHelper {
             return null;
         }
         try {
-            Typeface baseTypeface = createTypefaceFromAsset(HUANGHUN_FONT_ASSETS[selectedTypeface]);
             int style = Typeface.NORMAL;
             if (requestedAssetPath.contains("italic")) {
                 style = requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") ? Typeface.BOLD_ITALIC : Typeface.ITALIC;
             } else if (requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") || requestedAssetPath.contains("rextrabold")) {
                 style = Typeface.BOLD;
             }
-            return style == Typeface.NORMAL ? baseTypeface : Typeface.create(baseTypeface, style);
+            synchronized (HUANGHUN_TYPEFACE_CACHE) {
+                Typeface cached = HUANGHUN_TYPEFACE_CACHE[selectedTypeface][style];
+                if (cached != null) {
+                    return cached;
+                }
+                Typeface baseTypeface = HUANGHUN_TYPEFACE_CACHE[selectedTypeface][Typeface.NORMAL];
+                if (baseTypeface == null) {
+                    baseTypeface = createTypefaceFromAsset(HUANGHUN_FONT_ASSETS[selectedTypeface]);
+                    HUANGHUN_TYPEFACE_CACHE[selectedTypeface][Typeface.NORMAL] = baseTypeface;
+                }
+                Typeface resolved = style == Typeface.NORMAL ? baseTypeface : Typeface.create(baseTypeface, style);
+                HUANGHUN_TYPEFACE_CACHE[selectedTypeface][style] = resolved;
+                return resolved;
+            }
         } catch (Throwable e) {
             FileLog.e("Could not load Huanghun font '" + HUANGHUN_FONT_ASSETS[selectedTypeface] + "'", e);
             return null;
@@ -131,6 +146,17 @@ public class TypefaceHelper {
     @Nullable
     public static Typeface getHuanghunTypeface(boolean bold) {
         return getHuanghunTypeface(bold ? AndroidUtilities.TYPEFACE_ROBOTO_MEDIUM : "fonts/rregular.ttf");
+    }
+
+    /** Releases cached bundled typefaces before an explicit app restart or memory cleanup. */
+    public static void clearHuanghunTypefaceCache() {
+        synchronized (HUANGHUN_TYPEFACE_CACHE) {
+            for (int index = 0; index < HUANGHUN_TYPEFACE_CACHE.length; index++) {
+                for (int style = 0; style < HUANGHUN_TYPEFACE_CACHE[index].length; style++) {
+                    HUANGHUN_TYPEFACE_CACHE[index][style] = null;
+                }
+            }
+        }
     }
 
     public static Typeface createTypefaceFromAsset(String assetPath) {

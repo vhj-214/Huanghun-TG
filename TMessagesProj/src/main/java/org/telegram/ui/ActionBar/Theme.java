@@ -8590,6 +8590,49 @@ public class Theme {
         dialogs_tagTextPaint.setTextSize(dp(10));
         dialogs_searchNamePaint.setTextSize(dp(16));
         dialogs_searchNameEncryptedPaint.setTextSize(dp(16));
+        applyHuanghunDialogsTypeface();
+    }
+
+    /** Avoids expensive layout invalidation when a paint already uses the selected font. */
+    private static void applyHuanghunTypefaceIfNeeded(TextPaint paint, Typeface typeface) {
+        if (paint != null && paint.getTypeface() != typeface) {
+            paint.setTypeface(typeface);
+        }
+    }
+
+    /** Applies the selected Huanghun family to all list and search text paints. */
+    private static void applyHuanghunDialogsTypeface() {
+        if (NekoConfig.huanghunCustomTypeface.Int() == 0) {
+            return;
+        }
+        Typeface normal = TypefaceHelper.getHuanghunTypeface(false);
+        Typeface bold = TypefaceHelper.getHuanghunTypeface(true);
+        if (normal == null || bold == null) {
+            return;
+        }
+        TextPaint[] normalPaints = new TextPaint[] {
+                dialogs_messagePaint != null ? dialogs_messagePaint[0] : null,
+                dialogs_messagePaint != null ? dialogs_messagePaint[1] : null,
+                dialogs_messagePrintingPaint != null ? dialogs_messagePrintingPaint[0] : null,
+                dialogs_messagePrintingPaint != null ? dialogs_messagePrintingPaint[1] : null,
+                dialogs_timePaint, dialogs_onlinePaint, dialogs_offlinePaint
+        };
+        for (TextPaint paint : normalPaints) {
+            applyHuanghunTypefaceIfNeeded(paint, normal);
+        }
+        TextPaint[] boldPaints = new TextPaint[] {
+                dialogs_namePaint != null ? dialogs_namePaint[0] : null,
+                dialogs_namePaint != null ? dialogs_namePaint[1] : null,
+                dialogs_nameEncryptedPaint != null ? dialogs_nameEncryptedPaint[0] : null,
+                dialogs_nameEncryptedPaint != null ? dialogs_nameEncryptedPaint[1] : null,
+                dialogs_countTextPaint, dialogs_countTextPaint2, dialogs_searchNamePaint,
+                dialogs_searchNameEncryptedPaint, dialogs_messageNamePaint, dialogs_timePaintBold,
+                dialogs_timePaintBoldAccent, dialogs_archiveTextPaint, dialogs_archiveTextPaintSmall,
+                dialogs_tagTextPaint
+        };
+        for (TextPaint paint : boldPaints) {
+            applyHuanghunTypefaceIfNeeded(paint, bold);
+        }
     }
 
     public static void applyDialogsTheme() {
@@ -8754,9 +8797,7 @@ public class Theme {
                 chat_durationPaint, chat_shipmentPaint, chat_contextResult_descriptionTextPaint
         };
         for (TextPaint paint : normalPaints) {
-            if (paint != null) {
-                paint.setTypeface(normal);
-            }
+            applyHuanghunTypefaceIfNeeded(paint, normal);
         }
         TextPaint[] boldPaints = new TextPaint[] {
                 chat_msgBotButtonPaint, chat_namePaint, chat_replyNamePaint, chat_topicTextPaint,
@@ -8766,9 +8807,7 @@ public class Theme {
                 chat_actionTextPaint2, chat_actionTextPaint3, chat_contextResult_titleTextPaint
         };
         for (TextPaint paint : boldPaints) {
-            if (paint != null) {
-                paint.setTypeface(bold);
-            }
+            applyHuanghunTypefaceIfNeeded(paint, bold);
         }
     }
 

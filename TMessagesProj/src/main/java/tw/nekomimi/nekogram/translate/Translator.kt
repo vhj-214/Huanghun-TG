@@ -115,6 +115,50 @@ interface Translator {
             translateFrom(Locale(""), to, query, provider, translateCallBack)
         }
 
+        /**
+         * Tries the selected provider first, then the remaining built-in providers one by one.
+         * Huanghun uses this for automatic sending, batch translation, and normal input
+         * translation so a temporary provider failure does not leave the user without a result.
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun translateFromWithFallback(
+            from: Locale = Locale(""),
+            to: Locale = NekoConfig.translateToLang.String()?.code2Locale
+                ?: LocaleController.getInstance().currentLocale,
+            query: String,
+            provider: Int = 0,
+            translateCallBack: TranslateCallBack
+        ) {
+            val primaryProvider = provider.takeIf { it != 0 } ?: NekoConfig.translationProvider.Int()
+            val candidates = linkedSetOf<Int>()
+            candidates.add(primaryProvider)
+            ProviderInfo.PROVIDERS.forEach { candidates.add(it.providerConstant) }
+            val providers = candidates.toList()
+
+            fun tryProvider(index: Int, lastUnsupported: Boolean = false, lastError: String = "") {
+                if (index >= providers.size) {
+                    translateCallBack.onFailed(lastUnsupported, lastError.ifBlank { "No translation provider succeeded" })
+                    return
+                }
+                translateFrom(from, to, query, providers[index], object : TranslateCallBack {
+                    override fun onSuccess(translation: String) {
+                        if (translation.isBlank()) {
+                            tryProvider(index + 1, false, "Empty translation result")
+                        } else {
+                            translateCallBack.onSuccess(translation)
+                        }
+                    }
+
+                    override fun onFailed(unsupported: Boolean, message: String) {
+                        tryProvider(index + 1, unsupported, message)
+                    }
+                })
+            }
+
+            tryProvider(0)
+        }
+
         /** Translates with an optional explicit source language; an empty source keeps auto-detection. */
         @JvmStatic
         @JvmOverloads
