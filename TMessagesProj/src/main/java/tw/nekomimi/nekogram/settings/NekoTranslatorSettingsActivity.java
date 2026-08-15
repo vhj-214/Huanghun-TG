@@ -495,7 +495,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
                     textCell.setTextAndValue(getString(R.string.OutgoingAutoTranslateSourceLanguage), value, true);
                 } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateTargetLangRow)) {
                     String code = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
-                    String value = TextUtils.isEmpty(code) ? getString(R.string.TranslationTargetApp) : NekoXConfig.formatLang(code);
+                    String value = TextUtils.isEmpty(code) ? getString(R.string.OutgoingAutoTranslateAutoDetect) : NekoXConfig.formatLang(code);
                     textCell.setTextAndValue(getString(R.string.OutgoingAutoTranslateTargetLanguage), value, true);
                 } else if (position == cellGroup.rows.indexOf(doNotTranslateRow)) {
                     textCell.setTextAndValue(getString(R.string.DoNotTranslate), getRestrictedLanguages(), true, true);

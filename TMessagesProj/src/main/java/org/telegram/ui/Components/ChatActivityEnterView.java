@@ -5230,9 +5230,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                         if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
                             sendPopupWindow.dismiss();
                         }
-                        Translator.showTargetLangSelect(view, true, (locale) -> {
-                            if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
-                                menuPopupWindow.dismiss();
+                        Translator.showTargetLangSelect(view1, true, (locale) -> {
+                            if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
+                                sendPopupWindow.dismiss();
                             }
                             translateComment(locale, Translator.providerLLMTranslator);
                             Translator.setInputTranslateLangForChat(chatId, TranslatorKt.getLocale2code(locale));
@@ -5259,9 +5259,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                         if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
                             sendPopupWindow.dismiss();
                         }
-                        Translator.showTargetLangSelect(view, true, (locale) -> {
-                            if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
-                                menuPopupWindow.dismiss();
+                        Translator.showTargetLangSelect(view1, true, (locale) -> {
+                            if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
+                                sendPopupWindow.dismiss();
                             }
                             translateComment(locale);
                             Translator.setInputTranslateLangForChat(chatId, TranslatorKt.getLocale2code(locale));
@@ -6708,14 +6708,21 @@ public class ChatActivityEnterView extends FrameLayout implements
             return false;
         }
         final String original = message.toString();
-        final String sourceCode = NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().String();
-        String targetCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
-        if (TextUtils.isEmpty(targetCode)) {
-            targetCode = NekoConfig.translateToLang.String();
+        // The first setting is the language the message will be sent in. The second
+        // setting is the original-input language and may be left blank for auto detection.
+        String sendLanguageCode = NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().String();
+        final String originalLanguageCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
+        if (TextUtils.isEmpty(sendLanguageCode)) {
+            sendLanguageCode = NekoConfig.translateToLang.String();
         }
-        final Locale source = TranslatorKt.getCode2Locale(sourceCode == null ? "" : sourceCode);
-        final Locale target = TranslatorKt.getCode2Locale(targetCode == null ? "" : targetCode);
-        if (source.equals(target)) {
+        if (TextUtils.isEmpty(sendLanguageCode)) {
+            sendLanguageCode = "en";
+        }
+        final Locale source = TextUtils.isEmpty(originalLanguageCode)
+                ? new Locale("")
+                : TranslatorKt.getCode2Locale(originalLanguageCode);
+        final Locale target = TranslatorKt.getCode2Locale(sendLanguageCode);
+        if (!TextUtils.isEmpty(originalLanguageCode) && source.equals(target)) {
             return false;
         }
         final int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
@@ -6774,9 +6781,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 @Override
                 public void onSuccess(@NotNull TLRPC.TL_textWithEntities finalText) {
                     status.dismiss();
-                    String translation = finalText.text;
-                    if (start == end) messageEditText.replaceTextInternal(0, messageEditText.getText().length(), translation);
-                    else messageEditText.replaceTextInternal(start, end, translation);
+                    showInputTranslationDetails(origin, finalText.text, start, end);
                 }
 
                 @Override
@@ -6808,8 +6813,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 @Override
                 public void onSuccess(@NotNull String translation) {
                     status.dismiss();
-                    if (start == end) messageEditText.replaceTextInternal(0, messageEditText.getText().length(), translation);
-                    else messageEditText.replaceTextInternal(start, end, translation);
+                    showInputTranslationDetails(origin, translation, start, end);
                 }
 
                 @Override
@@ -6824,6 +6828,27 @@ public class ChatActivityEnterView extends FrameLayout implements
 
             });
         }
+    }
+
+    private void showInputTranslationDetails(String original, String translation, int start, int end) {
+        if (messageEditText == null || parentActivity == null || parentFragment == null) {
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
+        builder.setTitle(getString(R.string.OutgoingAutoTranslateDetails));
+        builder.setMessage(LocaleController.formatString(R.string.OutgoingAutoTranslateDetailsText, original, translation));
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        builder.setPositiveButton(getString(R.string.OutgoingAutoTranslateApply), (dialogInterface, which) -> {
+            if (messageEditText == null) {
+                return;
+            }
+            if (start == end) {
+                messageEditText.replaceTextInternal(0, messageEditText.getText().length(), translation);
+            } else {
+                messageEditText.replaceTextInternal(start, end, translation);
+            }
+        });
+        parentFragment.showDialog(builder.create());
     }
 
     @Nullable

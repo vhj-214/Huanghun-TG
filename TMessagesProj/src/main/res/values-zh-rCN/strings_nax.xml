@@ -165,8 +165,12 @@
     <string name="GeminiApiKeyDialog">配置 Gemini API 密钥，留空将尝试使用翻译器设置中的密钥。\n**如何获取?**\n</string>
     <string name="GeminiNotSupport">此设备不支持 Gemini。</string>
     <string name="OutgoingAutoTranslate">发言自动翻译</string>
-    <string name="OutgoingAutoTranslateSourceLanguage">发送语言</string>
-    <string name="OutgoingAutoTranslateTargetLanguage">翻译语言</string>
+    <string name="OutgoingAutoTranslateSourceLanguage">发送语言（译文）</string>
+    <string name="OutgoingAutoTranslateTargetLanguage">原文语言</string>
+    <string name="OutgoingAutoTranslateAutoDetect">自动识别</string>
+    <string name="OutgoingAutoTranslateDetails">翻译详情</string>
+    <string name="OutgoingAutoTranslateApply">使用译文</string>
+    <string name="OutgoingAutoTranslateDetailsText">原文：\n%1$s\n\n译文：\n%2$s</string>
     <string name="OutgoingAutoTranslateProvider">翻译接口</string>
     <string name="OutgoingAutoTranslateFollowProvider">跟随翻译源</string>
     <string name="OutgoingAutoTranslateFailed">翻译失败，已保留原消息。</string>
