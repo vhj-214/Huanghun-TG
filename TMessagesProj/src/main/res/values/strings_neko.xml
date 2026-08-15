@@ -29,6 +29,10 @@
     <string name="HuanghunTypefaceSmiley">Smiley Sans</string>
     <string name="HuanghunTypefaceWenKai">LXGW WenKai</string>
     <string name="HuanghunTypefaceWildHandwriting">Liu Jian Mao Cao</string>
+    <string name="HuanghunTypefaceCatMarker">Maoken Assorted · Cat Doodle</string>
+    <string name="HuanghunTypefaceCandy">Black Sugar Plum Candy</string>
+    <string name="HuanghunTypefaceRound">975 Yuan · Rounded Reading</string>
+    <string name="HuanghunTypefaceHardPen">Maoken Hard-Pen Regular Script</string>
     <string name="HuanghunTypefaceRestarting">Saved “%1$s”. Huanghun will restart automatically to apply the new typeface.</string>
     <string name="NoQuoteForward">NoQuote forward</string>
     <string name="Repeat">Repost</string>

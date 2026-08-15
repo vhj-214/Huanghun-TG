@@ -644,7 +644,11 @@ public class NekoChatSettingsActivity extends BaseNekoXSettingsActivity implemen
         } else if (position == cellGroup.rows.indexOf(emojiSetsRow)) {
             presentFragment(new NekoEmojiSettingsActivity());
         } else if (position == cellGroup.rows.indexOf(transcribeProviderCfCredentialsRow)) {
-            TranscribeHelper.showCfCredentialsDialog(this);
+            TranscribeHelper.showCfCredentialsDialog(this, () -> {
+                if (listAdapter != null) {
+                    listAdapter.notifyItemChanged(position);
+                }
+            });
         } else if (position == cellGroup.rows.indexOf(transcribeProviderGeminiApiKeyRow)) {
             TranscribeHelper.showGeminiApiKeyDialog(this);
         } else if (position == cellGroup.rows.indexOf(transcribeProviderOpenAiRow)) {

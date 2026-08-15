@@ -6765,7 +6765,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             return true;
         }
         final Locale target = TranslatorKt.getCode2Locale(sendLanguageCode);
-        if (!Translator.isOfficialTranslationTargetLocale(target)) {
+        if (!Translator.isFullTelegramLanguageLocale(target)) {
             BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateUnsupportedTarget)).show();
             return false;
         }
@@ -6907,7 +6907,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 Locale locale = TranslatorKt.getCode2Locale(code.trim());
                 String normalized = TranslatorKt.getLocale2code(locale);
                 if (!TextUtils.isEmpty(locale.getLanguage())
-                        && Translator.isOfficialTranslationTargetLocale(locale)
+                        && Translator.isFullTelegramLanguageLocale(locale)
                         && seen.add(normalized)) {
                     targets.add(locale);
                 }

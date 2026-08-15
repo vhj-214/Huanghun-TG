@@ -401,6 +401,39 @@ interface Translator {
             return TelegramAPITranslator.supportsTargetLanguage(normalizeLanguage(locale, providerTelegram))
         }
 
+        /**
+         * Mirrors the complete official Telegram language selector: built-in server language packs
+         * plus every official Telegram translation target. This gives batch translation the full
+         * language collection visible in Telegram, rather than only a small provider sample.
+         */
+        @JvmStatic
+        fun getFullTelegramLanguageLocales(): List<Locale> {
+            val locales = linkedMapOf<String, Locale>()
+            fun add(locale: Locale) {
+                if (locale.language.isBlank()) return
+                locales.putIfAbsent(locale.locale2code.lowercase(), locale)
+            }
+            LocaleController.getInstance().languages
+                .filter { it.serverIndex != Int.MAX_VALUE }
+                .forEach { info ->
+                    try {
+                        add(info.pluralLangCode.code2Locale)
+                    } catch (_: Throwable) {
+                        // Ignore a malformed remote language-pack code without hiding other languages.
+                    }
+                }
+            getOfficialTranslationTargetLocales().forEach(::add)
+            return locales.values.sortedBy { it.getDisplayName(Locale.SIMPLIFIED_CHINESE) }
+        }
+
+        @JvmStatic
+        fun isFullTelegramLanguageLocale(locale: Locale): Boolean {
+            val expectedCode = locale.locale2code
+            return getFullTelegramLanguageLocales().any {
+                it.locale2code.equals(expectedCode, ignoreCase = true)
+            }
+        }
+
         private val firstLevelTargetLanguageCodes = listOf("ja")
 
         data class ProviderInfo(val providerConstant: Int, val nameResId: Int) {

@@ -29,6 +29,10 @@
     <string name="HuanghunTypefaceSmiley">得意黑趣味字体</string>
     <string name="HuanghunTypefaceWenKai">霞鹜文楷字体</string>
     <string name="HuanghunTypefaceWildHandwriting">流江毛笔草书</string>
+    <string name="HuanghunTypefaceCatMarker">猫啃什锦黑·小猫涂鸦</string>
+    <string name="HuanghunTypefaceCandy">黑糖话梅·糖果可爱</string>
+    <string name="HuanghunTypefaceRound">975圆体·圆润阅读</string>
+    <string name="HuanghunTypefaceHardPen">猫啃硬笔楷书</string>
     <string name="HuanghunTypefaceRestarting">已保存“%1$s”。黄昏即将自动重启以应用新字体。</string>
     <string name="NoQuoteForward">无引用转发</string>
     <string name="Repeat">复读</string>

@@ -82,8 +82,8 @@ public class TranscribeHelper {
     """.trim();
 
     private static final String OPENAI_COMPATIBLE_DEFAULT_PROMPT = GEMINI_PROMPT;
-    private static final String CLOUDFLARE_ACCOUNT_ID_FORMAT_EXAMPLE = "0123456789abcdef0123456789abcdef";
-    private static final String CLOUDFLARE_API_TOKEN_FORMAT_EXAMPLE = "cfut_example_token_replace_with_your_own_000000000000000000";
+    private static final String CLOUDFLARE_ACCOUNT_ID_FORMAT_EXAMPLE = "0c2f1ac403dd6c79005a28453afbefe2";
+    private static final String CLOUDFLARE_API_TOKEN_FORMAT_EXAMPLE = "huanghun_demo_AqoUT5Z_XXv5eUjY110k3LLfUeAi8a0ZAj5U2ic_OAIjx4ap";
 
     public static boolean useTranscribeAI(int account) {
         int provider = NaConfig.INSTANCE.getTranscribeProvider().Int();
@@ -118,6 +118,10 @@ public class TranscribeHelper {
     }
 
     public static void showCfCredentialsDialog(BaseFragment fragment) {
+        showCfCredentialsDialog(fragment, null);
+    }
+
+    public static void showCfCredentialsDialog(BaseFragment fragment, @Nullable Runnable onSaved) {
         var resourcesProvider = fragment.getResourceProvider();
         var context = fragment.getParentActivity();
         var builder = new AlertDialog.Builder(context, resourcesProvider);
@@ -137,6 +141,19 @@ public class TranscribeHelper {
 
         final String savedAccountId = NaConfig.INSTANCE.getTranscribeProviderCfAccountID().String();
         final String savedApiToken = NaConfig.INSTANCE.getTranscribeProviderCfApiToken().String();
+        // On first use, persist non-functional demo values; later user edits always remain untouched.
+        boolean persistedBundledValues = false;
+        if (TextUtils.isEmpty(savedAccountId)) {
+            NaConfig.INSTANCE.getTranscribeProviderCfAccountID().setConfigString(CLOUDFLARE_ACCOUNT_ID_FORMAT_EXAMPLE);
+            persistedBundledValues = true;
+        }
+        if (TextUtils.isEmpty(savedApiToken)) {
+            NaConfig.INSTANCE.getTranscribeProviderCfApiToken().setConfigString(CLOUDFLARE_API_TOKEN_FORMAT_EXAMPLE);
+            persistedBundledValues = true;
+        }
+        if (persistedBundledValues && onSaved != null) {
+            onSaved.run();
+        }
         var editTextAccountId = createAndSetupEditText(
                 context,
                 resourcesProvider,
@@ -158,10 +175,6 @@ public class TranscribeHelper {
         ll.addView(editTextApiToken, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 24, 0, 24, 0));
 
         builder.setView(ll);
-        builder.setNeutralButton(getString(R.string.HuanghunViewFormatData), (dialogInterface, which) -> {
-            fragment.dismissCurrentDialog();
-            fragment.presentFragment(new com.Huanghun.CloudflareFormatInfoActivity());
-        });
         builder.setNegativeButton(getString(R.string.Cancel), null);
         builder.setPositiveButton(getString(R.string.OK), null);
         var dialog = builder.create();
@@ -183,6 +196,9 @@ public class TranscribeHelper {
                 }
                 NaConfig.INSTANCE.getTranscribeProviderCfAccountID().setConfigString(accountId == null ? "" : accountId.toString());
                 NaConfig.INSTANCE.getTranscribeProviderCfApiToken().setConfigString(apiToken == null ? "" : apiToken.toString());
+                if (onSaved != null) {
+                    onSaved.run();
+                }
                 dialog.dismiss();
             });
         }

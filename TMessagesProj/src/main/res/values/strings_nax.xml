@@ -173,7 +173,6 @@
     <string name="CloudflareAccountID">Account ID</string>
     <string name="CloudflareAPIToken">API Token</string>
     <string name="CloudflareCredentialsDialog">Configure Cloudflare Account ID and API Token.\n**How to obtain?**\n</string>
-    <string name="HuanghunViewFormatData">View Format Data</string>
     <string name="GeminiApiKeyNotSet">Gemini API Key is not configured.</string>
     <string name="GeminiApiKeyDialog">Configure Gemini API Key, using the one from translator settings if left blank.\n**How to obtain?**\n</string>
     <string name="GeminiNotSupport">Gemini is not supported on this device.</string>

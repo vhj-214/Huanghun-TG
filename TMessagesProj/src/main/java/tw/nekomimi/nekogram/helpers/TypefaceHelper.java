@@ -73,7 +73,11 @@ public class TypefaceHelper {
             HUANGHUN_FONT_PREFIX + "zcool_qingke_huangyou.ttf",
             HUANGHUN_FONT_PREFIX + "smiley_sans.ttf",
             HUANGHUN_FONT_PREFIX + "lxgw_wenkai.ttf",
-            HUANGHUN_FONT_PREFIX + "liu_jian_mao_cao.ttf"
+            HUANGHUN_FONT_PREFIX + "liu_jian_mao_cao.ttf",
+            HUANGHUN_FONT_PREFIX + "maoken_assorted_sans_lite.ttf",
+            HUANGHUN_FONT_PREFIX + "black_sugar_plum_candy.ttf",
+            HUANGHUN_FONT_PREFIX + "lxgw_975_yuan.ttf",
+            HUANGHUN_FONT_PREFIX + "maoken_yingbi_kaishu.ttf"
     };
     // Each font file can be tens of megabytes. Retain normal/bold/italic variants so list
     // layouts and message cells never repeatedly reopen an asset while the user scrolls.

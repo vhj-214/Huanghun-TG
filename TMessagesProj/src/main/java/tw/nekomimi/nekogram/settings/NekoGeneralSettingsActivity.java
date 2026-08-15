@@ -190,7 +190,11 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             getString(R.string.HuanghunTypefacePlayful),
             getString(R.string.HuanghunTypefaceSmiley),
             getString(R.string.HuanghunTypefaceWenKai),
-            getString(R.string.HuanghunTypefaceWildHandwriting)
+            getString(R.string.HuanghunTypefaceWildHandwriting),
+            getString(R.string.HuanghunTypefaceCatMarker),
+            getString(R.string.HuanghunTypefaceCandy),
+            getString(R.string.HuanghunTypefaceRound),
+            getString(R.string.HuanghunTypefaceHardPen)
     };
     private final AbstractConfigCell huanghunCustomTypefaceRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomTypeface", NekoConfig.huanghunCustomTypeface, huanghunTypefaceNames, null));
     private final AbstractConfigCell hideDividers = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDividers()));
