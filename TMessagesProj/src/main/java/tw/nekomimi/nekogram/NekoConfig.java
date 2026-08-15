@@ -89,8 +89,11 @@ public class NekoConfig {
     public static ConfigItem tabletMode = addConfig("TabletMode", configTypeInt, 0);
 
     public static ConfigItem typeface = addConfig("TypefaceUseDefault", configTypeBool, false);
-    // 0 keeps the original font; 1-7 map to the bundled Huanghun fonts.
+    // 0 keeps the original font; positive values map to the bundled Huanghun fonts.
     public static ConfigItem huanghunCustomTypeface = addConfig("HuanghunCustomTypeface", configTypeInt, 0);
+    // Version marker for inserting a new user-provided font at index 1 without changing an
+    // existing installation's current selection.
+    private static ConfigItem huanghunTypefaceIndexShiftV2 = addConfig("HuanghunTypefaceIndexShiftV2", configTypeBool, false);
     public static ConfigItem nameOrder = addConfig("NameOrder", configTypeInt, 1);
     public static ConfigItem mapPreviewProvider = addConfig("MapPreviewProvider", configTypeInt, 0);
     public static ConfigItem showAddToSavedMessages = addConfig("showAddToSavedMessages", configTypeBool, true);
@@ -276,6 +279,15 @@ public class NekoConfig {
                     o.value = o.defaultValue;
                     getPreferences().edit().remove(o.key).apply();
                 }
+            }
+            // The original shipped selector began at index 1. Keep existing user selections
+            // mapped to the same font after the user-provided font is inserted at index 1.
+            if (!huanghunTypefaceIndexShiftV2.Bool()) {
+                int selectedTypeface = huanghunCustomTypeface.Int();
+                if (selectedTypeface > 0) {
+                    huanghunCustomTypeface.setConfigInt(selectedTypeface + 1);
+                }
+                huanghunTypefaceIndexShiftV2.setConfigBool(true);
             }
             if (!configLoaded)
                 getPreferences().registerOnSharedPreferenceChangeListener(CloudSettingsHelper.listener);

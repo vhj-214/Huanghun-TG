@@ -492,8 +492,11 @@ private suspend fun ChatActivity.finalizeTranslation(
             postTranslatedNotification(msg)
             notificationCenter.postNotificationName(NotificationCenter.updateInterfaces, 0)
         }
-    } else if (msg.messageOwner.translatedText != null && !keepOriginal) {
-        AndroidUtilities.runOnUIThread {
+    } else if (msg.messageOwner.translatedText != null) {
+        // Rebuild the message text for every sender. The notification-only path used by
+        // incoming messages does not refresh an outgoing message bubble after manual translation.
+        withContext(Dispatchers.Main) {
+            messageHelper.resetMessageContent(dialogId, msg)
             postTranslatedNotification(msg)
             notificationCenter.postNotificationName(NotificationCenter.updateInterfaces, 0)
         }
@@ -533,11 +536,11 @@ private fun ChatActivity.hideTranslation(
     }
 
     AndroidUtilities.runOnUIThread {
-        if ((MessageHelper.shouldKeepOriginalForManualTranslation(translatorMode) && !msg.messageOwner.summarizedOpen) || msg.isPoll) {
-            messageHelper.resetMessageContent(dialogId, msg)
-        } else {
-            postTranslatedNotification(msg)
-        }
+        // Reset the text for all senders so toggling translation off restores the
+        // original content in both incoming and outgoing message bubbles.
+        messageHelper.resetMessageContent(dialogId, msg)
+        postTranslatedNotification(msg)
+        notificationCenter.postNotificationName(NotificationCenter.updateInterfaces, 0)
     }
 }
 
@@ -605,10 +608,13 @@ private fun ChatActivity.applyCachedTranslations(
                 }
 
                 else -> {
-                    notificationCenter.postNotificationName(
-                        NotificationCenter.messageTranslating, msg
-                    )
+                    // Cached translations need the same text rebuild as fresh translations,
+                    // including for bubbles sent by the current account.
+                    messageHelper.resetMessageContent(dialogId, msg)
                     postTranslatedNotification(msg)
+                    notificationCenter.postNotificationName(
+                        NotificationCenter.updateInterfaces, 0
+                    )
                 }
             }
         }
@@ -691,7 +697,10 @@ private suspend fun translateText(
             Translator.translate(target, text, safeEntities, provider)
         }
     } else {
-        Translator.translate(target, text, safeEntities, provider)
+        // Leave the source language on automatic detection for the complete message.
+        // This supports a single text containing several languages and retries another
+        // configured provider if the first one cannot translate it.
+        Translator.translateWithFallback(target, text, safeEntities, provider)
     }
 }
 

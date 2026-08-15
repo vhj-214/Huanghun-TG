@@ -18,6 +18,7 @@
     <string name="TypefaceUseDefault">使用系统字体</string>
     <string name="HuanghunCustomTypeface">自定义字体</string>
     <string name="HuanghunTypefaceOriginal">黄昏默认字体</string>
+    <string name="HuanghunTypefaceAiaiCute">唉，爱·可爱气字体</string>
     <string name="HuanghunTypefaceCute">可爱圆润字体</string>
     <string name="HuanghunTypefaceElegant">优雅小薇字体</string>
     <string name="HuanghunTypefaceCalligraphy">马善正书法</string>
@@ -33,6 +34,8 @@
     <string name="HuanghunTypefaceCandy">黑糖话梅·糖果可爱</string>
     <string name="HuanghunTypefaceRound">975圆体·圆润阅读</string>
     <string name="HuanghunTypefaceHardPen">猫啃硬笔楷书</string>
+    <string name="HuanghunTypefaceMarkerGothic">霞鹜漫黑·马克笔涂鸦</string>
+    <string name="HuanghunTypefaceZhuqueFangsong">朱雀仿宋·书卷阅读</string>
     <string name="HuanghunTypefaceRestarting">已保存“%1$s”。黄昏即将自动重启以应用新字体。</string>
     <string name="NoQuoteForward">无引用转发</string>
     <string name="Repeat">复读</string>

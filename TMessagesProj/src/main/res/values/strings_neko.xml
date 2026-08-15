@@ -18,6 +18,7 @@
     <string name="TypefaceUseDefault">Use System Font</string>
     <string name="HuanghunCustomTypeface">Custom Typeface</string>
     <string name="HuanghunTypefaceOriginal">Huanghun Default</string>
+    <string name="HuanghunTypefaceAiaiCute">Ai, Ai · Cute Air</string>
     <string name="HuanghunTypefaceCute">Cute Rounded</string>
     <string name="HuanghunTypefaceElegant">Elegant XiaoWei</string>
     <string name="HuanghunTypefaceCalligraphy">Ma Shan Zheng Calligraphy</string>
@@ -33,6 +34,8 @@
     <string name="HuanghunTypefaceCandy">Black Sugar Plum Candy</string>
     <string name="HuanghunTypefaceRound">975 Yuan · Rounded Reading</string>
     <string name="HuanghunTypefaceHardPen">Maoken Hard-Pen Regular Script</string>
+    <string name="HuanghunTypefaceMarkerGothic">LXGW Marker Gothic</string>
+    <string name="HuanghunTypefaceZhuqueFangsong">Zhuque Fangsong</string>
     <string name="HuanghunTypefaceRestarting">Saved “%1$s”. Huanghun will restart automatically to apply the new typeface.</string>
     <string name="NoQuoteForward">NoQuote forward</string>
     <string name="Repeat">Repost</string>

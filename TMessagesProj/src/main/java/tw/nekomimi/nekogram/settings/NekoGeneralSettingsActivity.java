@@ -180,6 +180,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     private final AbstractConfigCell typefaceRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.typeface));
     private final String[] huanghunTypefaceNames = new String[]{
             getString(R.string.HuanghunTypefaceOriginal),
+            getString(R.string.HuanghunTypefaceAiaiCute),
             getString(R.string.HuanghunTypefaceCute),
             getString(R.string.HuanghunTypefaceElegant),
             getString(R.string.HuanghunTypefaceCalligraphy),
@@ -194,7 +195,9 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             getString(R.string.HuanghunTypefaceCatMarker),
             getString(R.string.HuanghunTypefaceCandy),
             getString(R.string.HuanghunTypefaceRound),
-            getString(R.string.HuanghunTypefaceHardPen)
+            getString(R.string.HuanghunTypefaceHardPen),
+            getString(R.string.HuanghunTypefaceMarkerGothic),
+            getString(R.string.HuanghunTypefaceZhuqueFangsong)
     };
     private final AbstractConfigCell huanghunCustomTypefaceRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomTypeface", NekoConfig.huanghunCustomTypeface, huanghunTypefaceNames, null));
     private final AbstractConfigCell hideDividers = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDividers()));

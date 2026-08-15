@@ -63,6 +63,8 @@ public class TypefaceHelper {
     private static final String HUANGHUN_FONT_PREFIX = "fonts/huanghun/";
     private static final String[] HUANGHUN_FONT_ASSETS = new String[] {
             "",
+            // User-provided cute font: keep it immediately after the Huanghun default option.
+            HUANGHUN_FONT_PREFIX + "aiai_cute.ttf",
             HUANGHUN_FONT_PREFIX + "zcool_kuaile.ttf",
             HUANGHUN_FONT_PREFIX + "zcool_xiaowei.ttf",
             HUANGHUN_FONT_PREFIX + "mashan_zheng.ttf",
@@ -77,7 +79,9 @@ public class TypefaceHelper {
             HUANGHUN_FONT_PREFIX + "maoken_assorted_sans_lite.ttf",
             HUANGHUN_FONT_PREFIX + "black_sugar_plum_candy.ttf",
             HUANGHUN_FONT_PREFIX + "lxgw_975_yuan.ttf",
-            HUANGHUN_FONT_PREFIX + "maoken_yingbi_kaishu.ttf"
+            HUANGHUN_FONT_PREFIX + "maoken_yingbi_kaishu.ttf",
+            HUANGHUN_FONT_PREFIX + "lxgw_marker_gothic.ttf",
+            HUANGHUN_FONT_PREFIX + "zhuque_fangsong.ttf"
     };
     // Each font file can be tens of megabytes. Retain normal/bold/italic variants so list
     // layouts and message cells never repeatedly reopen an asset while the user scrolls.

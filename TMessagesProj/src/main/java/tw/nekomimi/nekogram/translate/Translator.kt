@@ -103,6 +103,38 @@ interface Translator {
             return result
         }
 
+        /**
+         * Translates an entire message with automatic source-language detection and falls back
+         * across providers. Keeping the source as "auto" lets each provider process messages
+         * that mix English, Japanese, Bengali, Chinese, and other languages in one text.
+         */
+        @Throws(Exception::class)
+        suspend fun translateWithFallback(
+            to: Locale,
+            query: String,
+            entities: ArrayList<TLRPC.MessageEntity>,
+            provider: Int = 0
+        ): TLRPC.TL_textWithEntities {
+            val primaryProvider = provider.takeIf { it != 0 } ?: NekoConfig.translationProvider.Int()
+            val candidates = linkedSetOf<Int>()
+            candidates.add(primaryProvider)
+            ProviderInfo.PROVIDERS.forEach { candidates.add(it.providerConstant) }
+
+            var lastError: Throwable? = null
+            for (candidate in candidates) {
+                try {
+                    val result = translateBase(to, query, entities, candidate)
+                    if (result.text.isNotBlank()) {
+                        return result
+                    }
+                    lastError = IllegalStateException("Empty translation result")
+                } catch (error: Throwable) {
+                    lastError = error
+                }
+            }
+            throw lastError ?: IllegalStateException("No translation provider succeeded")
+        }
+
         @JvmStatic
         @JvmOverloads
         fun translate(
@@ -117,8 +149,8 @@ interface Translator {
 
         /**
          * Tries the selected provider first, then the remaining built-in providers one by one.
-         * Huanghun uses this for automatic sending, batch translation, and normal input
-         * translation so a temporary provider failure does not leave the user without a result.
+         * Huanghun uses this for automatic sending and normal input translation so a temporary
+         * provider failure does not leave the user without a result.
          */
         @JvmStatic
         @JvmOverloads
