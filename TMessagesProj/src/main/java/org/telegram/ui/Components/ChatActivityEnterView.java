@@ -5077,17 +5077,6 @@ public class ChatActivityEnterView extends FrameLayout implements
             cell.setMinimumWidth(AndroidUtilities.dp(196));
             menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
 
-            cell = new ActionBarMenuSubItem(getContext(), false, false);
-            cell.setTextAndIcon(getString(R.string.HuanghunBatchTranslate), R.drawable.ic_translate);
-            cell.setOnClickListener(v -> {
-                if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
-                    menuPopupWindow.dismiss();
-                }
-                translateInputToBatchTargets();
-            });
-            cell.setMinimumWidth(AndroidUtilities.dp(196));
-            menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
-
             // Replace Text
             cell = new ActionBarMenuSubItem(getContext(), false, false);
             cell.setTextAndIcon(getString(R.string.ReplaceText), R.drawable.msg_edit);
@@ -6735,8 +6724,16 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     // --- Input Menu Start---
     private boolean outgoingAutoTranslationPending;
+    private String approvedOutgoingBatchText;
 
     private boolean tryAutoTranslateOutgoingMessage(CharSequence message, boolean notify, int scheduleDate, int scheduleRepeatPeriod, long payStars, SendMessageInternalParams internalParams) {
+        if (approvedOutgoingBatchText != null) {
+            boolean isApprovedBatchText = TextUtils.equals(approvedOutgoingBatchText, message);
+            approvedOutgoingBatchText = null;
+            if (isApprovedBatchText) {
+                return false;
+            }
+        }
         if (outgoingAutoTranslationPending) {
             return true;
         }
@@ -6760,11 +6757,17 @@ public class ChatActivityEnterView extends FrameLayout implements
         final Locale source = TextUtils.isEmpty(originalLanguageCode)
                 ? new Locale("")
                 : TranslatorKt.getCode2Locale(originalLanguageCode);
+        final int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        ArrayList<Locale> batchTargets = getBatchTargetLocales();
+        if (!batchTargets.isEmpty()) {
+            outgoingAutoTranslationPending = true;
+            showBatchTranslationFromSend(original, source, batchTargets, 0, provider, new StringBuilder(original));
+            return true;
+        }
         final Locale target = TranslatorKt.getCode2Locale(sendLanguageCode);
         if (!TextUtils.isEmpty(originalLanguageCode) && source.equals(target)) {
             return false;
         }
-        final int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
         outgoingAutoTranslationPending = true;
         Translator.translateFromWithFallback(source, target, original, provider, new Translator.Companion.TranslateCallBack() {
             @Override
@@ -6908,59 +6911,54 @@ public class ChatActivityEnterView extends FrameLayout implements
         return targets;
     }
 
-    private void translateInputToBatchTargets() {
-        if (messageEditText == null || parentActivity == null || parentFragment == null) {
-            return;
-        }
-        int start = messageEditText.getSelectionStart();
-        int end = messageEditText.getSelectionEnd();
-        CharSequence selectedText = messageEditText.getText();
-        if (start != end) {
-            selectedText = selectedText.subSequence(start, end);
-        }
-        String original = selectedText.toString().trim();
-        if (TextUtils.isEmpty(original)) {
-            return;
-        }
-        ArrayList<Locale> targets = getBatchTargetLocales();
-        if (targets.isEmpty()) {
-            BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.HuanghunBatchSelectLanguage)).show();
-            parentFragment.presentFragment(new NekoTranslatorSettingsActivity());
-            return;
-        }
-        String sourceCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
-        Locale source = TextUtils.isEmpty(sourceCode) ? new Locale("") : TranslatorKt.getCode2Locale(sourceCode);
-        AlertDialog progress = new AlertDialog.Builder(parentActivity, resourcesProvider)
-                .setTitle(getString(R.string.HuanghunBatchTranslate))
-                .setMessage(getString(R.string.HuanghunBatchWorking))
-                .create();
-        progress.setCanceledOnTouchOutside(false);
-        progress.setCancelable(false);
-        parentFragment.showDialog(progress);
-        translateBatchSequentially(original, source, targets, 0, NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int(), new StringBuilder(original), progress, start, end);
-    }
-
-    private void translateBatchSequentially(String original, Locale source, ArrayList<Locale> targets, int index, int provider, StringBuilder result, AlertDialog progress, int start, int end) {
+    /** Runs after a normal send-button tap when batch target languages are configured. */
+    private void showBatchTranslationFromSend(String original, Locale source, ArrayList<Locale> targets, int index, int provider, StringBuilder result) {
         if (index >= targets.size()) {
-            if (progress.isShowing()) {
-                progress.dismiss();
+            outgoingAutoTranslationPending = false;
+            if (messageEditText == null || !TextUtils.equals(original, messageEditText.getTextToUse().toString())) {
+                BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
+                return;
             }
-            showInputTranslationDetails(original, result.toString(), start, end);
+            String mergedResult = result.toString();
+            if (mergedResult.length() > accountInstance.getMessagesController().getMaxMessageLength()) {
+                BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
+                return;
+            }
+            showBatchTranslationDetails(original, mergedResult);
             return;
         }
         Translator.translateFromWithFallback(source, targets.get(index), original, provider, new Translator.Companion.TranslateCallBack() {
             @Override
             public void onSuccess(@NotNull String translation) {
                 result.append(HUANGHUN_BATCH_TRANSLATE_SEPARATOR).append(translation);
-                translateBatchSequentially(original, source, targets, index + 1, provider, result, progress, start, end);
+                showBatchTranslationFromSend(original, source, targets, index + 1, provider, result);
             }
 
             @Override
             public void onFailed(boolean unsupported, @NotNull String error) {
                 result.append(HUANGHUN_BATCH_TRANSLATE_SEPARATOR).append(getString(R.string.OutgoingAutoTranslateFailed));
-                translateBatchSequentially(original, source, targets, index + 1, provider, result, progress, start, end);
+                showBatchTranslationFromSend(original, source, targets, index + 1, provider, result);
             }
         });
+    }
+
+    private void showBatchTranslationDetails(String original, String mergedResult) {
+        if (messageEditText == null || parentActivity == null || parentFragment == null) {
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
+        builder.setTitle(getString(R.string.HuanghunBatchResult));
+        builder.setMessage(LocaleController.formatString(R.string.OutgoingAutoTranslateDetailsText, original, mergedResult));
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        builder.setPositiveButton(getString(R.string.OutgoingAutoTranslateApply), (dialogInterface, which) -> {
+            if (messageEditText == null) {
+                return;
+            }
+            messageEditText.replaceTextInternal(0, messageEditText.getText().length(), mergedResult);
+            // Only this user-confirmed merged result bypasses one translation pass on send.
+            approvedOutgoingBatchText = mergedResult;
+        });
+        parentFragment.showDialog(builder.create());
     }
 
     private void showInputTranslationDetails(String original, String translation, int start, int end) {
