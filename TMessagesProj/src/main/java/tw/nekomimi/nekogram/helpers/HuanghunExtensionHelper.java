@@ -3,6 +3,7 @@ package tw.nekomimi.nekogram.helpers;
 import android.text.TextUtils;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
@@ -73,10 +74,18 @@ public final class HuanghunExtensionHelper {
 
         String message = messageObject.messageOwner.message;
         if (TextUtils.isEmpty(message)) {
-            return false;
+            // Also check caption for media messages
+            if (messageObject.messageOwner.caption != null) {
+                message = messageObject.messageOwner.caption;
+            } else {
+                return false;
+            }
         }
         String normalizedMessage = message.toLowerCase(Locale.ROOT);
         for (String keyword : getKeywords()) {
+            if (TextUtils.isEmpty(keyword)) {
+                continue;
+            }
             if (normalizedMessage.contains(keyword.toLowerCase(Locale.ROOT))) {
                 return true;
             }
@@ -162,11 +171,21 @@ public final class HuanghunExtensionHelper {
         MessagesController controller = MessagesController.getInstance(account);
         int scheduled = 0;
         for (TLRPC.Dialog dialog : new ArrayList<>(controller.getDialogs(0))) {
-            if (dialog == null || dialog.id >= 0 || controller.getChat(-dialog.id) == null) {
+            if (dialog == null || dialog.id >= 0) {
                 continue;
             }
-            // Telegram remains authoritative for channels owned by the current account; those
-            // requiring ownership transfer are skipped by the server rather than force-deleted.
+            long chatId = -dialog.id;
+            TLRPC.Chat chat = controller.getChat(chatId);
+            if (chat == null) {
+                continue;
+            }
+            if (ChatObject.isChannel(chat)) {
+                TLRPC.TL_channels_leaveChannel req = new TLRPC.TL_channels_leaveChannel();
+                req.channel = MessagesController.getInputChannel(chat);
+                ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> {});
+            } else {
+                controller.deleteUserFromChat(chatId, controller.getUser(UserConfig.getInstance(account).getClientUserId()), null);
+            }
             controller.deleteDialog(dialog.id, 0, true);
             scheduled++;
         }
@@ -174,19 +193,10 @@ public final class HuanghunExtensionHelper {
     }
 
     private static int clearContacts(int account) {
-        MessagesController controller = MessagesController.getInstance(account);
         ContactsController contactsController = ContactsController.getInstance(account);
-        ArrayList<TLRPC.User> users = new ArrayList<>();
-        for (TLRPC.TL_contact contact : new ArrayList<>(contactsController.contacts)) {
-            TLRPC.User user = controller.getUser(contact.user_id);
-            if (user != null && user.id != UserConfig.getInstance(account).getClientUserId()) {
-                users.add(user);
-            }
-        }
-        if (!users.isEmpty()) {
-            contactsController.deleteContact(users, false);
-        }
-        return users.size();
+        int count = contactsController.contacts != null ? contactsController.contacts.size() : 0;
+        contactsController.deleteAllContacts(null);
+        return count;
     }
 
     private static int clearChats(int account) {
