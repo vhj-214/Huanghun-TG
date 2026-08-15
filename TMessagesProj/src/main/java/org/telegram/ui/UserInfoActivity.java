@@ -11,8 +11,11 @@ import static org.telegram.ui.Components.Premium.LimitReachedBottomSheet.TYPE_AC
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.LinearGradient;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -66,10 +69,14 @@ import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalFragment;
 import org.telegram.ui.Components.UniversalRecyclerView;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.TimeZone;
 
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 
@@ -437,10 +444,94 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             }
         }
         final int remainingAccountSlots = Math.max(0, UserConfig.MAX_ACCOUNT_COUNT - activatedAccounts);
-        items.add(UItem.asShadow(LocaleController.formatString(R.string.HuanghunAccountSummary, activatedAccounts, remainingAccountSlots)));
+        items.add(UItem.asCustomShadow(new HuanghunAccountSummaryView(getParentActivity(), activatedAccounts, remainingAccountSlots), LayoutHelper.WRAP_CONTENT));
         logoutRow = items.size();
         items.add(InfoCell.Factory.of(BUTTON_LOGOUT, R.drawable.msg_leave, getString(R.string.LogOut), null, 0).red());
         items.add(UItem.asShadow(-4, null));
+    }
+
+    /**
+     * 账号列表底部的黄昏定制提示。北京时间在视图已显示时按秒刷新，
+     * 并在文本绘制阶段按横向坐标应用彩虹渐变，避免每次刷新重建复杂样式。
+     */
+    private static class HuanghunAccountSummaryView extends TextView {
+        private static final int[] RAINBOW_COLORS = new int[] {
+                0xFFFF5252, // red
+                0xFFFF9800, // orange
+                0xFFFFEB3B, // yellow
+                0xFF43A047, // green
+                0xFF1E88E5, // blue
+                0xFF5E35B1, // indigo
+                0xFFE040FB  // violet
+        };
+
+        private final int activatedAccounts;
+        private final int remainingAccountSlots;
+        private final SimpleDateFormat beijingTimeFormat = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss", Locale.SIMPLIFIED_CHINESE);
+        private LinearGradient rainbowGradient;
+        private final Runnable clockRunnable = new Runnable() {
+            @Override
+            public void run() {
+                refreshText();
+            }
+        };
+
+        HuanghunAccountSummaryView(Context context, int activatedAccounts, int remainingAccountSlots) {
+            super(context);
+            this.activatedAccounts = activatedAccounts;
+            this.remainingAccountSlots = remainingAccountSlots;
+            beijingTimeFormat.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText4));
+            setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
+            setPadding(dp(24), dp(10), dp(24), dp(17));
+            setLineSpacing(dp(2), 1.0f);
+            setText(buildSummaryText());
+        }
+
+        private CharSequence buildSummaryText() {
+            final String summary = LocaleController.formatString(R.string.HuanghunAccountSummary, activatedAccounts, remainingAccountSlots);
+            final int firstLineBreak = summary.indexOf('\n');
+            final String welcomeLine = firstLineBreak >= 0 ? summary.substring(0, firstLineBreak) : summary;
+            final String statisticsLines = firstLineBreak >= 0 ? summary.substring(firstLineBreak) : "";
+            return welcomeLine + "  ·  北京时间：" + beijingTimeFormat.format(new Date()) + statisticsLines;
+        }
+
+        private void refreshText() {
+            setText(buildSummaryText());
+            invalidate();
+            final long delay = 1000L - (System.currentTimeMillis() % 1000L);
+            postDelayed(clockRunnable, delay);
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            removeCallbacks(clockRunnable);
+            refreshText();
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            removeCallbacks(clockRunnable);
+            super.onDetachedFromWindow();
+        }
+
+        @Override
+        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+            super.onSizeChanged(w, h, oldw, oldh);
+            rainbowGradient = w > 0 ? new LinearGradient(0, 0, w, 0, RAINBOW_COLORS, null, Shader.TileMode.CLAMP) : null;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            final Shader previousShader = getPaint().getShader();
+            if (rainbowGradient != null) {
+                getPaint().setShader(rainbowGradient);
+            }
+            super.onDraw(canvas);
+            getPaint().setShader(previousShader);
+        }
     }
 
     public static String birthdayString(TL_account.TL_birthday birthday) {
