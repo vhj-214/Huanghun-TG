@@ -6765,6 +6765,10 @@ public class ChatActivityEnterView extends FrameLayout implements
             return true;
         }
         final Locale target = TranslatorKt.getCode2Locale(sendLanguageCode);
+        if (!Translator.isOfficialTranslationTargetLocale(target)) {
+            BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateUnsupportedTarget)).show();
+            return false;
+        }
         if (!TextUtils.isEmpty(originalLanguageCode) && source.equals(target)) {
             return false;
         }
@@ -6902,7 +6906,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             try {
                 Locale locale = TranslatorKt.getCode2Locale(code.trim());
                 String normalized = TranslatorKt.getLocale2code(locale);
-                if (!TextUtils.isEmpty(locale.getLanguage()) && seen.add(normalized)) {
+                if (!TextUtils.isEmpty(locale.getLanguage())
+                        && Translator.isOfficialTranslationTargetLocale(locale)
+                        && seen.add(normalized)) {
                     targets.add(locale);
                 }
             } catch (Exception ignore) {

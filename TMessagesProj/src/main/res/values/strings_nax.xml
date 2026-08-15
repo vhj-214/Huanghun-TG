@@ -192,6 +192,7 @@
     <string name="HuanghunBatchSave">Save Languages</string>
     <string name="HuanghunBatchTargetNotSet">Not selected</string>
     <string name="HuanghunBatchSelectedLanguages">%1$d languages selected</string>
+    <string name="HuanghunBatchSaved">Saved %1$d target languages</string>
     <string name="OutgoingAutoTranslateSourceLanguage">Send Language (Translation)</string>
     <string name="OutgoingAutoTranslateTargetLanguage">Original Language</string>
     <string name="OutgoingAutoTranslateAutoDetect">Auto Detect</string>
@@ -201,6 +202,7 @@
     <string name="OutgoingAutoTranslateProvider">Translation Provider</string>
     <string name="OutgoingAutoTranslateFollowProvider">Follow Translation Provider</string>
     <string name="OutgoingAutoTranslateFailed">Translation failed. Your original message was kept.</string>
+    <string name="OutgoingAutoTranslateUnsupportedTarget">The selected target language is not supported. Please choose a language from the official list.</string>
     <string name="HuanghunAccountSummary">Welcome to Huanghun Custom Edition!!!!\nLogged in accounts: %1$d\nRemaining account slots: %2$d</string>
     <string name="HuanghunContinueAddAccount">Continue Adding</string>
     <string name="ReplyInPrivate">Reply in Private Chat</string>

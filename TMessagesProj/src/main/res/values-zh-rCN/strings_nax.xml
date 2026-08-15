@@ -179,6 +179,7 @@
     <string name="HuanghunBatchSave">保存语言</string>
     <string name="HuanghunBatchTargetNotSet">未选择</string>
     <string name="HuanghunBatchSelectedLanguages">已选择 %1$d 种语言</string>
+    <string name="HuanghunBatchSaved">已保存 %1$d 种目标语言</string>
     <string name="OutgoingAutoTranslateSourceLanguage">发送语言（译文）</string>
     <string name="OutgoingAutoTranslateTargetLanguage">原文语言</string>
     <string name="OutgoingAutoTranslateAutoDetect">自动识别</string>
@@ -188,6 +189,7 @@
     <string name="OutgoingAutoTranslateProvider">翻译接口</string>
     <string name="OutgoingAutoTranslateFollowProvider">跟随翻译源</string>
     <string name="OutgoingAutoTranslateFailed">翻译失败，已保留原消息。</string>
+    <string name="OutgoingAutoTranslateUnsupportedTarget">当前选择的译文语言不受支持，请从官方支持语言列表中重新选择。</string>
     <string name="HuanghunAccountSummary">欢迎使用黄昏定制版！！！！\n当前已登录账号：%1$d 个\n当前剩余卡槽位置：%2$d 个</string>
     <string name="HuanghunContinueAddAccount">继续添加账号</string>
     <string name="ReplyInPrivate">在私聊中回复</string>

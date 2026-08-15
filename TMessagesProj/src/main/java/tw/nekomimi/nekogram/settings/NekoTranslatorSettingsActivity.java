@@ -318,6 +318,23 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         builder.show();
     }
 
+    /** Shows only target languages accepted by Telegram's official translation endpoint. */
+    private void showOutgoingTargetLanguagePopup(View anchor, int position) {
+        List<Locale> locales = Translator.getOfficialTranslationTargetLocales();
+        String[] labels = new String[locales.size()];
+        for (int index = 0; index < locales.size(); index++) {
+            labels[index] = getBatchTargetLanguageLabel(locales.get(index));
+        }
+        PopupBuilder builder = new PopupBuilder(anchor);
+        builder.setItems(labels, (index, __) -> {
+            Locale locale = locales.get(index);
+            NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().setConfigString(TranslatorKt.getLocale2code(locale));
+            listAdapter.notifyItemChanged(position);
+            return Unit.INSTANCE;
+        });
+        builder.show();
+    }
+
     private String getProviderName(int providerConstant) {
         for (ProviderInfo info : ProviderInfo.PROVIDERS) {
             if (info.providerConstant == providerConstant) {
@@ -447,11 +464,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateProviderRow)) {
             showOutgoingAutoTranslateProviderPopup(view, () -> listAdapter.notifyItemChanged(position));
         } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateSourceLangRow)) {
-            Translator.showTargetLangSelect(view, true, true, (locale) -> {
-                NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().setConfigString(TranslatorKt.getLocale2code(locale));
-                listAdapter.notifyItemChanged(position);
-                return Unit.INSTANCE;
-            });
+            showOutgoingTargetLanguagePopup(view, position);
         } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateTargetLangRow)) {
             Translator.showTargetLangSelect(view, false, true, (locale) -> {
                 NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().setConfigString(TranslatorKt.getLocale2code(locale));
@@ -811,7 +824,9 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
             try {
                 Locale locale = TranslatorKt.getCode2Locale(code.trim());
                 String normalized = TranslatorKt.getLocale2code(locale);
-                if (!TextUtils.isEmpty(locale.getLanguage()) && seen.add(normalized)) {
+                if (!TextUtils.isEmpty(locale.getLanguage())
+                        && Translator.isOfficialTranslationTargetLocale(locale)
+                        && seen.add(normalized)) {
                     targets.add(locale);
                 }
             } catch (Exception ignore) {
@@ -820,25 +835,9 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         return targets;
     }
 
+    /** Uses the full official target-language set rather than the much smaller UI-locale list. */
     private ArrayList<Locale> getTelegramSupportedTargetLocales() {
-        ArrayList<Locale> locales = new ArrayList<>();
-        HashSet<String> seen = new HashSet<>();
-        for (LocaleController.LocaleInfo info : LocaleController.getInstance().languages) {
-            String code = info.pluralLangCode;
-            if (TextUtils.isEmpty(code) || code.toLowerCase().contains("duang")) {
-                continue;
-            }
-            try {
-                Locale locale = TranslatorKt.getCode2Locale(code);
-                String normalized = TranslatorKt.getLocale2code(locale);
-                if (!TextUtils.isEmpty(locale.getLanguage()) && seen.add(normalized)) {
-                    locales.add(locale);
-                }
-            } catch (Exception ignore) {
-            }
-        }
-        locales.sort((left, right) -> getBatchTargetLanguageLabel(left).compareToIgnoreCase(getBatchTargetLanguageLabel(right)));
-        return locales;
+        return new ArrayList<>(Translator.getOfficialTranslationTargetLocales());
     }
 
     private String getBatchTargetLanguageLabel(Locale locale) {
@@ -920,11 +919,15 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
                             codes.add(TranslatorKt.getLocale2code(locale));
                         }
                     }
-                    NaConfig.INSTANCE.getOutgoingAutoTranslateBatchTargetLangs().setConfigString(TextUtils.join(",", codes));
+                    String savedCodes = TextUtils.join(",", codes);
+                    NaConfig.INSTANCE.getOutgoingAutoTranslateBatchTargetLangs().setConfigString(savedCodes);
                     int row = cellGroup.rows.indexOf(outgoingAutoTranslateBatchRow);
                     if (row >= 0) {
                         listAdapter.notifyItemChanged(row);
                     }
+                    // Refresh the full group so the persisted summary is immediately visible.
+                    listAdapter.notifyDataSetChanged();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done, String.format(getString(R.string.HuanghunBatchSaved), codes.size())).show();
                     dialog.dismiss();
                 });
             }

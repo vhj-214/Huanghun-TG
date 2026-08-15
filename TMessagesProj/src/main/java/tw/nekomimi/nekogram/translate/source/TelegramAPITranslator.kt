@@ -98,6 +98,13 @@ object TelegramAPITranslator : Translator {
         return code
     }
 
+    /** The target-language set accepted by Telegram's official translateText endpoint. */
+    @JvmStatic
+    fun getSupportedTargetLanguageCodes(): List<String> = targetLanguages
+
+    @JvmStatic
+    fun supportsTargetLanguage(code: String): Boolean = targetLanguages.any { it.equals(code, ignoreCase = true) }
+
     private val targetLanguages = listOf(
         "sq", "ar", "am", "az", "ga", "et", "eu", "be", "bg", "is", "pl", "bs", "fa",
         "af", "da", "de", "ru", "fr", "tl", "fi", "fy", "km", "ka", "gu", "kk", "ht",

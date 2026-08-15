@@ -383,6 +383,24 @@ interface Translator {
             Arrays.sort(it, Comparator.comparing(Locale::toString))
         }
 
+        /**
+         * Returns every language accepted by Telegram's official translation endpoint.
+         * Using this shared list prevents the UI from offering Locale variants that providers
+         * silently fall back from to English.
+         */
+        @JvmStatic
+        fun getOfficialTranslationTargetLocales(): List<Locale> {
+            return TelegramAPITranslator.getSupportedTargetLanguageCodes()
+                .map { it.code2Locale }
+                .distinctBy { it.locale2code.lowercase() }
+                .sortedBy { it.getDisplayName(Locale.SIMPLIFIED_CHINESE) }
+        }
+
+        @JvmStatic
+        fun isOfficialTranslationTargetLocale(locale: Locale): Boolean {
+            return TelegramAPITranslator.supportsTargetLanguage(normalizeLanguage(locale, providerTelegram))
+        }
+
         private val firstLevelTargetLanguageCodes = listOf("ja")
 
         data class ProviderInfo(val providerConstant: Int, val nameResId: Int) {

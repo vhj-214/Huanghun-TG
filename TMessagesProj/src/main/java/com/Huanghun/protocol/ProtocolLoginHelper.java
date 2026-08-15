@@ -3,8 +3,15 @@ package com.Huanghun.protocol;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.provider.OpenableColumns;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
@@ -61,7 +68,8 @@ public final class ProtocolLoginHelper {
             return;
         }
 
-        showToast(activity, "正在导入会话…");
+        final ImportProgressDialog progress = new ImportProgressDialog(activity);
+        progress.showScanning();
         new Thread(() -> {
             try {
                 File importDir = new File(activity.getCacheDir(), "protocol_import");
@@ -72,15 +80,20 @@ public final class ProtocolLoginHelper {
                 extractArchive(activity, uri, importDir);
 
                 CandidateCollection collection = collectCandidates(importDir, type);
-                BatchState batch = new BatchState(collection.scannedCount, loginActivity.getCurrentAccount());
+                BatchState batch = new BatchState(collection.scannedCount, loginActivity.getCurrentAccount(), progress);
                 batch.failedCount = collection.invalidCount;
+                batch.processedCount = collection.invalidCount;
+                AndroidUtilities.runOnUIThread(() -> progress.showImporting(batch, batch.processedCount));
                 if (collection.candidates.isEmpty()) {
                     AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
                     return;
                 }
                 AndroidUtilities.runOnUIThread(() -> startNextImport(loginActivity, activity, collection.candidates, batch, 0));
             } catch (Exception e) {
-                AndroidUtilities.runOnUIThread(() -> showArchiveError(activity, e));
+                AndroidUtilities.runOnUIThread(() -> {
+                    progress.dismiss();
+                    showArchiveError(activity, e);
+                });
             }
         }, "protocol-login-scan").start();
     }
@@ -131,6 +144,7 @@ public final class ProtocolLoginHelper {
         }
 
         ImportCandidate candidate = candidates.get(index);
+        AndroidUtilities.runOnUIThread(() -> batch.progress.showImporting(batch, Math.min(batch.scannedCount, batch.processedCount + 1)));
 
         if (candidate.kind == TYPE_PASSKEY || candidate.kind == TYPE_PASSKEY_BRIDGE) {
             int accountNum = reserveNextFreeAccountSlot(loginActivity, activity, candidates, batch, index);
@@ -149,6 +163,7 @@ public final class ProtocolLoginHelper {
             long authKeyId = getAuthKeyId(data.authKey);
             if (batch.importedAuthKeyIds.contains(authKeyId) || findExistingAccountForAuthKey(authKeyId) >= 0) {
                 batch.alreadyImportedCount++;
+                batch.processedCount++;
                 startNextImport(loginActivity, activity, candidates, batch, index + 1);
                 return;
             }
@@ -233,6 +248,7 @@ public final class ProtocolLoginHelper {
         if (batch.importedUserIds.contains(user.id) || findExistingAccountForUserId(user.id, accountNum) >= 0) {
             clearUnusedImportedKey(accountNum);
             batch.alreadyImportedCount++;
+            batch.processedCount++;
             startNextImport(loginActivity, activity, candidates, batch, index + 1);
             return;
         }
@@ -252,12 +268,14 @@ public final class ProtocolLoginHelper {
             clearUnusedImportedKey(accountNum);
             batch.failedCount++;
         }
+        batch.processedCount++;
         startNextImport(loginActivity, activity, candidates, batch, index + 1);
     }
 
     private static void recordFailure(LoginActivity loginActivity, Activity activity,
                                       ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
         batch.failedCount++;
+        batch.processedCount++;
         startNextImport(loginActivity, activity, candidates, batch, index + 1);
     }
 
@@ -438,6 +456,7 @@ public final class ProtocolLoginHelper {
         int accountNum = findNextFreeAccountSlot(batch);
         if (accountNum < 0) {
             batch.failedCount += candidates.size() - index;
+            batch.processedCount += candidates.size() - index;
             batch.noFreeSlot = true;
             AndroidUtilities.runOnUIThread(() -> showBatchSummary(activity, loginActivity, batch));
             return -1;
@@ -507,26 +526,184 @@ public final class ProtocolLoginHelper {
         }
     }
 
+    private static TextView createTextView(Activity activity, String text, int sizeSp, int color) {
+        TextView view = new TextView(activity);
+        view.setText(text);
+        view.setTextSize(sizeSp);
+        view.setTextColor(color);
+        view.setGravity(Gravity.CENTER_VERTICAL);
+        return view;
+    }
+
+    private static GradientDrawable createRoundedBackground(int color, int radius) {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(color);
+        background.setCornerRadius(radius);
+        return background;
+    }
+
+    private static View createMetricCard(Activity activity, String label, int value, int accentColor) {
+        LinearLayout card = new LinearLayout(activity);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(AndroidUtilities.dp(6), AndroidUtilities.dp(8), AndroidUtilities.dp(6), AndroidUtilities.dp(8));
+        card.setBackground(createRoundedBackground(Color.rgb(247, 249, 253), AndroidUtilities.dp(14)));
+        TextView valueView = createTextView(activity, String.valueOf(value), 25, accentColor);
+        valueView.setGravity(Gravity.CENTER);
+        TextView labelView = createTextView(activity, label, 13, Color.rgb(86, 100, 124));
+        labelView.setGravity(Gravity.CENTER);
+        card.addView(valueView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        card.addView(labelView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        return card;
+    }
+
+    private static final class ImportProgressDialog {
+        private final Activity activity;
+        private AlertDialog dialog;
+        private TextView titleView;
+        private TextView detailView;
+        private TextView percentView;
+        private ProgressBar progressBar;
+
+        ImportProgressDialog(Activity activity) {
+            this.activity = activity;
+        }
+
+        void showScanning() {
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing()) {
+                    return;
+                }
+                if (dialog != null && dialog.isShowing()) {
+                    return;
+                }
+                int padding = AndroidUtilities.dp(22);
+                LinearLayout content = new LinearLayout(activity);
+                content.setOrientation(LinearLayout.VERTICAL);
+                content.setPadding(padding, AndroidUtilities.dp(15), padding, AndroidUtilities.dp(10));
+                content.setBackgroundColor(Color.WHITE);
+
+                titleView = createTextView(activity, "当前账号正在加载中", 21, Color.rgb(22, 35, 63));
+                content.addView(titleView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+                detailView = createTextView(activity, "正在扫描压缩包并验证文件格式…", 14, Color.rgb(91, 104, 128));
+                LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                detailParams.topMargin = AndroidUtilities.dp(7);
+                content.addView(detailView, detailParams);
+
+                progressBar = new ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal);
+                progressBar.setMax(100);
+                progressBar.setIndeterminate(true);
+                LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(7));
+                progressParams.topMargin = AndroidUtilities.dp(20);
+                content.addView(progressBar, progressParams);
+
+                percentView = createTextView(activity, "正在准备…", 14, Color.rgb(32, 105, 197));
+                percentView.setGravity(Gravity.CENTER_HORIZONTAL);
+                LinearLayout.LayoutParams percentParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                percentParams.topMargin = AndroidUtilities.dp(9);
+                content.addView(percentView, percentParams);
+
+                dialog = new AlertDialog.Builder(activity)
+                        .setView(content)
+                        .setCancelable(false)
+                        .create();
+                dialog.setCanceledOnTouchOutside(false);
+                dialog.show();
+            });
+        }
+
+        void showImporting(BatchState batch, int currentAccount) {
+            if (dialog == null || !dialog.isShowing()) {
+                showScanning();
+            }
+            int total = Math.max(1, batch.scannedCount);
+            int completed = Math.max(0, Math.min(batch.processedCount, total));
+            int current = Math.max(1, Math.min(currentAccount, total));
+            int percent = Math.max(0, Math.min(100, Math.round((completed * 100f) / total)));
+            if (titleView != null) {
+                titleView.setText("当前账号正在加载中");
+            }
+            if (detailView != null) {
+                detailView.setText("正在校验第 " + current + " 个账号，共 " + total + " 个");
+            }
+            if (progressBar != null) {
+                progressBar.setIndeterminate(false);
+                progressBar.setProgress(percent);
+            }
+            if (percentView != null) {
+                percentView.setText("加载进度  " + percent + "%  ·  已完成 " + completed + " / " + total);
+            }
+        }
+
+        void dismiss() {
+            if (dialog != null && dialog.isShowing()) {
+                dialog.dismiss();
+            }
+        }
+    }
+
     private static void showBatchSummary(Activity activity, LoginActivity loginActivity, BatchState batch) {
+        if (activity.isFinishing() || batch.summaryShown) {
+            return;
+        }
+        batch.summaryShown = true;
+        batch.progress.showImporting(batch, batch.scannedCount);
+        AndroidUtilities.runOnUIThread(() -> {
+            if (activity.isFinishing()) {
+                return;
+            }
+            batch.progress.dismiss();
+            showBatchSummaryContent(activity, loginActivity, batch);
+        }, 180);
+    }
+
+    private static void showBatchSummaryContent(Activity activity, LoginActivity loginActivity, BatchState batch) {
         if (activity.isFinishing()) {
             return;
         }
-        StringBuilder message = new StringBuilder();
-        message.append("本次已扫描到 ").append(batch.scannedCount).append(" 个账户");
-        message.append("\n有效账户：").append(batch.successCount).append(" 个");
-        message.append("\n失败账户：").append(batch.failedCount).append(" 个");
-        if (batch.alreadyImportedCount > 0) {
-            message.append("\n已存在账户：").append(batch.alreadyImportedCount).append(" 个（未重复导入）");
-        }
+        int padding = AndroidUtilities.dp(22);
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(padding, AndroidUtilities.dp(12), padding, AndroidUtilities.dp(4));
+
+        TextView title = createTextView(activity, "协议登录完成", 22, Color.rgb(22, 35, 63));
+        content.addView(title, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView subtitle = createTextView(activity, "导入校验已完成，以下为真实验证结果", 14, Color.rgb(91, 104, 128));
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = AndroidUtilities.dp(5);
+        content.addView(subtitle, subtitleParams);
+
+        LinearLayout metrics = new LinearLayout(activity);
+        metrics.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams metricsParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        metricsParams.topMargin = AndroidUtilities.dp(18);
+        content.addView(metrics, metricsParams);
+        metrics.addView(createMetricCard(activity, "有效", batch.successCount, Color.rgb(20, 166, 106)), new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f));
+        LinearLayout.LayoutParams metricMiddleParams = new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f);
+        metricMiddleParams.leftMargin = AndroidUtilities.dp(8);
+        metrics.addView(createMetricCard(activity, "无效", batch.failedCount, Color.rgb(220, 74, 74)), metricMiddleParams);
+        LinearLayout.LayoutParams metricLastParams = new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f);
+        metricLastParams.leftMargin = AndroidUtilities.dp(8);
+        metrics.addView(createMetricCard(activity, "已存在", batch.alreadyImportedCount, Color.rgb(85, 105, 155)), metricLastParams);
+
+        String detail = "共扫描 " + batch.scannedCount + " 个账户文件";
         if (batch.noFreeSlot) {
-            message.append("\n\n账户槽位已满，未继续导入剩余会话。");
+            detail += "\n账户槽位已满，未继续导入剩余会话。";
         } else if (batch.scannedCount == 0) {
-            message.append("\n\n未找到对应的会话文件。");
+            detail += "\n未找到符合该登录方式的有效文件。";
+        } else if (batch.alreadyImportedCount > 0) {
+            detail += "\n重复账户已自动跳过，不会重复创建。";
         }
+        TextView detailView = createTextView(activity, detail, 15, Color.rgb(53, 65, 86));
+        detailView.setBackground(createRoundedBackground(Color.rgb(241, 245, 252), AndroidUtilities.dp(14)));
+        detailView.setPadding(AndroidUtilities.dp(15), AndroidUtilities.dp(13), AndroidUtilities.dp(15), AndroidUtilities.dp(13));
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        detailParams.topMargin = AndroidUtilities.dp(14);
+        content.addView(detailView, detailParams);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(activity)
-                .setTitle("协议登录完成")
-                .setMessage(message.toString())
+                .setView(content)
                 .setCancelable(false);
         if (batch.firstSuccess != null) {
             builder.setPositiveButton("进入账户", (dialog, which) ->
@@ -637,19 +814,23 @@ public final class ProtocolLoginHelper {
     private static final class BatchState {
         final int scannedCount;
         final int preferredAccount;
+        final ImportProgressDialog progress;
         final Set<Integer> reservedSlots = new HashSet<>();
         final Set<Long> importedUserIds = new HashSet<>();
         final Set<Long> importedAuthKeyIds = new HashSet<>();
         int successCount;
         int failedCount;
+        int processedCount;
         int alreadyImportedCount;
         boolean noFreeSlot;
         boolean passkeyFallbackHintShown;
+        boolean summaryShown;
         ImportedAccount firstSuccess;
 
-        BatchState(int scannedCount, int preferredAccount) {
+        BatchState(int scannedCount, int preferredAccount, ImportProgressDialog progress) {
             this.scannedCount = scannedCount;
             this.preferredAccount = preferredAccount;
+            this.progress = progress;
         }
     }
 }
