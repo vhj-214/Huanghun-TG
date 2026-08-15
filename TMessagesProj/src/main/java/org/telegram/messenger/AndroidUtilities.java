@@ -2396,6 +2396,12 @@ public class AndroidUtilities {
         return result;
     }
 
+    /** Clears cached font instances before a safe in-app relaunch after a font selection change. */
+    public static void resetTypefaceCache() {
+        typefaceCache.clear();
+        mediumTypeface = null;
+    }
+
     public static Typeface getTypeface(String assetPath) {
         return typefaceCache.computeIfAbsent(assetPath, path -> {
             try {

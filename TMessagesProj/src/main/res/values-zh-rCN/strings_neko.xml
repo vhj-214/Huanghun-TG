@@ -25,6 +25,10 @@
     <string name="HuanghunTypefaceHandwriting">龙藏手写体</string>
     <string name="HuanghunTypefaceRounded">粉圆学习字体</string>
     <string name="HuanghunTypefacePinyin">汉字拼音标注字体</string>
+    <string name="HuanghunTypefacePlayful">庆科黄油可爱字体</string>
+    <string name="HuanghunTypefaceSmiley">得意黑趣味字体</string>
+    <string name="HuanghunTypefaceWenKai">霞鹜文楷字体</string>
+    <string name="HuanghunTypefaceWildHandwriting">流江毛笔草书</string>
     <string name="HuanghunTypefaceRestarting">已保存“%1$s”。黄昏即将自动重启以应用新字体。</string>
     <string name="NoQuoteForward">无引用转发</string>
     <string name="Repeat">复读</string>

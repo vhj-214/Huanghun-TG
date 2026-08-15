@@ -870,6 +870,12 @@ object NaConfig {
             ConfigItem.configTypeString,
             ""
         )
+    val outgoingAutoTranslateIncludeOriginal =
+        addConfig(
+            "OutgoingAutoTranslateIncludeOriginal",
+            ConfigItem.configTypeBool,
+            true
+        )
     val outgoingAutoTranslateProvider =
         addConfig(
             "OutgoingAutoTranslateProvider",

@@ -178,6 +178,17 @@
     <string name="GeminiApiKeyDialog">Configure Gemini API Key, using the one from translator settings if left blank.\n**How to obtain?**\n</string>
     <string name="GeminiNotSupport">Gemini is not supported on this device.</string>
     <string name="OutgoingAutoTranslate">Outgoing Auto Translation</string>
+    <string name="OutgoingAutoTranslateIncludeOriginal">Send Original and Translation</string>
+    <string name="HuanghunTranslateSettings">Translation Settings</string>
+    <string name="HuanghunBatchTranslate">Batch Translate</string>
+    <string name="HuanghunBatchTranslateSummary">Combine multiple languages into one result</string>
+    <string name="HuanghunBatchInputHint">Enter text to translate</string>
+    <string name="HuanghunBatchLanguageHint">Select target languages</string>
+    <string name="HuanghunBatchStart">Start Translation</string>
+    <string name="HuanghunBatchWorking">Translating one language at a time…</string>
+    <string name="HuanghunBatchResult">Batch Translation Result</string>
+    <string name="HuanghunBatchCopy">Copy Complete Result</string>
+    <string name="HuanghunBatchSelectLanguage">Select at least one target language</string>
     <string name="OutgoingAutoTranslateSourceLanguage">Send Language (Translation)</string>
     <string name="OutgoingAutoTranslateTargetLanguage">Original Language</string>
     <string name="OutgoingAutoTranslateAutoDetect">Auto Detect</string>

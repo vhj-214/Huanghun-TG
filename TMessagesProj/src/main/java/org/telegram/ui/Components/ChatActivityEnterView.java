@@ -233,6 +233,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import kotlin.Unit;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import tw.nekomimi.nekogram.settings.NekoTranslatorSettingsActivity;
 import tw.nekomimi.nekogram.llm.LlmConfig;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import tw.nekomimi.nekogram.utils.StringUtils;
@@ -5270,6 +5271,19 @@ public class ChatActivityEnterView extends FrameLayout implements
                         return true;
                     });
                     sendPopupLayout.addView(preSendTranslateButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+
+                    ActionBarMenuSubItem translateSettingsButton = new ActionBarMenuSubItem(getContext(), false, false, resourcesProvider);
+                    translateSettingsButton.setTextAndIcon(getString(R.string.HuanghunTranslateSettings), R.drawable.msg2_language);
+                    translateSettingsButton.setMinimumWidth(AndroidUtilities.dp(196));
+                    translateSettingsButton.setOnClickListener(v -> {
+                        if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
+                            sendPopupWindow.dismiss();
+                        }
+                        if (parentFragment != null) {
+                            parentFragment.presentFragment(new NekoTranslatorSettingsActivity());
+                        }
+                    });
+                    sendPopupLayout.addView(translateSettingsButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
                 }
                 sendPopupLayout.setupRadialSelectors(getThemedColor(Theme.key_dialogButtonSelector));
 
@@ -6735,8 +6749,16 @@ public class ChatActivityEnterView extends FrameLayout implements
                     BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
                     return;
                 }
+                String messageToSend = translation;
+                if (NaConfig.INSTANCE.getOutgoingAutoTranslateIncludeOriginal().Bool()) {
+                    messageToSend = original + "\n\n--------------------\n\n" + translation;
+                }
+                if (messageToSend.length() > accountInstance.getMessagesController().getMaxMessageLength()) {
+                    BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
+                    return;
+                }
                 internalParams.skipOutgoingAutoTranslate = true;
-                messageEditText.setText(translation);
+                messageEditText.setText(messageToSend);
                 sendMessageInternal(notify, scheduleDate, scheduleRepeatPeriod, payStars, false, internalParams);
             }
 

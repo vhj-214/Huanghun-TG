@@ -11,6 +11,8 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.LeadingMarginSpan;
 
+import androidx.annotation.Nullable;
+
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
@@ -67,13 +69,20 @@ public class TypefaceHelper {
             HUANGHUN_FONT_PREFIX + "zhimang_xing.ttf",
             HUANGHUN_FONT_PREFIX + "long_cang.ttf",
             HUANGHUN_FONT_PREFIX + "huninn.ttf",
-            HUANGHUN_FONT_PREFIX + "hanzi_pinyin_top.ttf"
+            HUANGHUN_FONT_PREFIX + "hanzi_pinyin_top.ttf",
+            HUANGHUN_FONT_PREFIX + "zcool_qingke_huangyou.ttf",
+            HUANGHUN_FONT_PREFIX + "smiley_sans.ttf",
+            HUANGHUN_FONT_PREFIX + "lxgw_wenkai.ttf",
+            HUANGHUN_FONT_PREFIX + "liu_jian_mao_cao.ttf"
     };
 
     public static Typeface createTypeface(String assetPath) {
         final int selectedTypeface = NekoConfig.huanghunCustomTypeface.Int();
         if (selectedTypeface > 0 && selectedTypeface < HUANGHUN_FONT_ASSETS.length) {
-            return createHuanghunTypeface(selectedTypeface, assetPath);
+            Typeface selected = getHuanghunTypeface(assetPath);
+            if (selected != null) {
+                return selected;
+            }
         }
         return switch (assetPath) {
             case AndroidUtilities.TYPEFACE_ROBOTO_MEDIUM ->
@@ -88,6 +97,8 @@ public class TypefaceHelper {
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? Typeface.create(Typeface.SANS_SERIF, 400, true) : Typeface.create("sans-serif", Typeface.ITALIC);
             case AndroidUtilities.TYPEFACE_ROBOTO_MONO ->
                     Typeface.MONOSPACE;
+            case "fonts/rregular.ttf" ->
+                    Typeface.create("sans-serif", Typeface.NORMAL);
             default -> createTypefaceFromAsset(assetPath);
         };
     }
@@ -96,15 +107,30 @@ public class TypefaceHelper {
      * Keeps Telegram's regular/bold/italic call sites on the selected Huanghun family.
      * The bundled display fonts provide a single weight, so style is applied by Android.
      */
-    private static Typeface createHuanghunTypeface(int selectedTypeface, String requestedAssetPath) {
-        Typeface baseTypeface = createTypefaceFromAsset(HUANGHUN_FONT_ASSETS[selectedTypeface]);
-        int style = Typeface.NORMAL;
-        if (requestedAssetPath.contains("italic")) {
-            style = requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") ? Typeface.BOLD_ITALIC : Typeface.ITALIC;
-        } else if (requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") || requestedAssetPath.contains("rextrabold")) {
-            style = Typeface.BOLD;
+    @Nullable
+    public static Typeface getHuanghunTypeface(String requestedAssetPath) {
+        final int selectedTypeface = NekoConfig.huanghunCustomTypeface.Int();
+        if (selectedTypeface <= 0 || selectedTypeface >= HUANGHUN_FONT_ASSETS.length) {
+            return null;
         }
-        return style == Typeface.NORMAL ? baseTypeface : Typeface.create(baseTypeface, style);
+        try {
+            Typeface baseTypeface = createTypefaceFromAsset(HUANGHUN_FONT_ASSETS[selectedTypeface]);
+            int style = Typeface.NORMAL;
+            if (requestedAssetPath.contains("italic")) {
+                style = requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") ? Typeface.BOLD_ITALIC : Typeface.ITALIC;
+            } else if (requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") || requestedAssetPath.contains("rextrabold")) {
+                style = Typeface.BOLD;
+            }
+            return style == Typeface.NORMAL ? baseTypeface : Typeface.create(baseTypeface, style);
+        } catch (Throwable e) {
+            FileLog.e("Could not load Huanghun font '" + HUANGHUN_FONT_ASSETS[selectedTypeface] + "'", e);
+            return null;
+        }
+    }
+
+    @Nullable
+    public static Typeface getHuanghunTypeface(boolean bold) {
+        return getHuanghunTypeface(bold ? AndroidUtilities.TYPEFACE_ROBOTO_MEDIUM : "fonts/rregular.ttf");
     }
 
     public static Typeface createTypefaceFromAsset(String assetPath) {

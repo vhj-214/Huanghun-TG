@@ -165,6 +165,17 @@
     <string name="GeminiApiKeyDialog">配置 Gemini API 密钥，留空将尝试使用翻译器设置中的密钥。\n**如何获取?**\n</string>
     <string name="GeminiNotSupport">此设备不支持 Gemini。</string>
     <string name="OutgoingAutoTranslate">发言自动翻译</string>
+    <string name="OutgoingAutoTranslateIncludeOriginal">自动发送原文和译文</string>
+    <string name="HuanghunTranslateSettings">翻译设置</string>
+    <string name="HuanghunBatchTranslate">批量翻译</string>
+    <string name="HuanghunBatchTranslateSummary">多语言合并为一条结果</string>
+    <string name="HuanghunBatchInputHint">输入需要翻译的原文</string>
+    <string name="HuanghunBatchLanguageHint">勾选需要翻译的目标语言</string>
+    <string name="HuanghunBatchStart">开始翻译</string>
+    <string name="HuanghunBatchWorking">正在依次翻译，请稍候…</string>
+    <string name="HuanghunBatchResult">批量翻译结果</string>
+    <string name="HuanghunBatchCopy">复制整条结果</string>
+    <string name="HuanghunBatchSelectLanguage">请至少选择一种目标语言</string>
     <string name="OutgoingAutoTranslateSourceLanguage">发送语言（译文）</string>
     <string name="OutgoingAutoTranslateTargetLanguage">原文语言</string>
     <string name="OutgoingAutoTranslateAutoDetect">自动识别</string>

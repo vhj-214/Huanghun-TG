@@ -25,6 +25,10 @@
     <string name="HuanghunTypefaceHandwriting">Long Cang Handwriting</string>
     <string name="HuanghunTypefaceRounded">Huninn Learning</string>
     <string name="HuanghunTypefacePinyin">Hanzi Pinyin Annotation</string>
+    <string name="HuanghunTypefacePlayful">QingKe Playful</string>
+    <string name="HuanghunTypefaceSmiley">Smiley Sans</string>
+    <string name="HuanghunTypefaceWenKai">LXGW WenKai</string>
+    <string name="HuanghunTypefaceWildHandwriting">Liu Jian Mao Cao</string>
     <string name="HuanghunTypefaceRestarting">Saved “%1$s”. Huanghun will restart automatically to apply the new typeface.</string>
     <string name="NoQuoteForward">NoQuote forward</string>
     <string name="Repeat">Repost</string>

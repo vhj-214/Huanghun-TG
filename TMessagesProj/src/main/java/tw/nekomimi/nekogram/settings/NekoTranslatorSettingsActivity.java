@@ -28,6 +28,7 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
 import android.view.inputmethod.EditorInfo;
+import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -121,9 +122,11 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
     // Outgoing auto translation
     private final AbstractConfigCell headerOutgoingAutoTranslate = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.OutgoingAutoTranslate)));
     private final AbstractConfigCell outgoingAutoTranslateRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getOutgoingAutoTranslate()));
+    private final AbstractConfigCell outgoingAutoTranslateIncludeOriginalRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getOutgoingAutoTranslateIncludeOriginal()));
     private final AbstractConfigCell outgoingAutoTranslateProviderRow = cellGroup.appendCell(new ConfigCellCustom("OutgoingAutoTranslateProvider", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
     private final AbstractConfigCell outgoingAutoTranslateSourceLangRow = cellGroup.appendCell(new ConfigCellCustom("OutgoingAutoTranslateSourceLanguage", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
     private final AbstractConfigCell outgoingAutoTranslateTargetLangRow = cellGroup.appendCell(new ConfigCellCustom("OutgoingAutoTranslateTargetLanguage", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
+    private final AbstractConfigCell outgoingAutoTranslateBatchRow = cellGroup.appendCell(new ConfigCellCustom("HuanghunBatchTranslate", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
     private final AbstractConfigCell dividerOutgoingAutoTranslate = cellGroup.appendCell(new ConfigCellDivider());
 
     // Translation
@@ -454,6 +457,8 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
                 listAdapter.notifyItemChanged(position);
                 return Unit.INSTANCE;
             });
+        } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateBatchRow)) {
+            showBatchTranslateDialog();
         } else if (position == cellGroup.rows.indexOf(llmModelRow)) {
             showLlmModelDialog();
         } else if (position == cellGroup.rows.indexOf(doNotTranslateRow)) {
@@ -497,6 +502,8 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
                     String code = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
                     String value = TextUtils.isEmpty(code) ? getString(R.string.OutgoingAutoTranslateAutoDetect) : NekoXConfig.formatLang(code);
                     textCell.setTextAndValue(getString(R.string.OutgoingAutoTranslateTargetLanguage), value, true);
+                } else if (position == cellGroup.rows.indexOf(outgoingAutoTranslateBatchRow)) {
+                    textCell.setTextAndValue(getString(R.string.HuanghunBatchTranslate), getString(R.string.HuanghunBatchTranslateSummary), true);
                 } else if (position == cellGroup.rows.indexOf(doNotTranslateRow)) {
                     textCell.setTextAndValue(getString(R.string.DoNotTranslate), getRestrictedLanguages(), true, true);
                 } else if (position == cellGroup.rows.indexOf(llmModelRow)) {
@@ -632,9 +639,11 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
 
         cellGroup.appendCell(headerOutgoingAutoTranslate);
         cellGroup.appendCell(outgoingAutoTranslateRow);
+        cellGroup.appendCell(outgoingAutoTranslateIncludeOriginalRow);
         cellGroup.appendCell(outgoingAutoTranslateProviderRow);
         cellGroup.appendCell(outgoingAutoTranslateSourceLangRow);
         cellGroup.appendCell(outgoingAutoTranslateTargetLangRow);
+        cellGroup.appendCell(outgoingAutoTranslateBatchRow);
         cellGroup.appendCell(dividerOutgoingAutoTranslate);
 
         cellGroup.appendCell(headerTranslation);
@@ -785,6 +794,131 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         if (changed) {
             addRowsToMap(cellGroup);
         }
+    }
+
+    private static final String BATCH_TRANSLATE_SEPARATOR = "\n\n--------------------\n\n";
+
+    private void showBatchTranslateDialog() {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int sidePadding = dp(20);
+        container.setPadding(sidePadding, dp(8), sidePadding, dp(8));
+
+        EditTextBoldCursor input = LlmEditTextFactory.createAndSetupMultilineEditText(
+                context, getResourceProvider(), "", getString(R.string.HuanghunBatchInputHint), EditorInfo.IME_ACTION_DONE, true
+        );
+        container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(120), 0, 0, 0, 12));
+
+        TextView languageHint = new TextView(context);
+        languageHint.setText(getString(R.string.HuanghunBatchLanguageHint));
+        languageHint.setTextSize(14);
+        languageHint.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
+        container.addView(languageHint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 4));
+
+        String[] languageNames = new String[]{"English", "日本語", "한국어", "Русский", "Español", "Français", "Deutsch", "العربية", "Bahasa Indonesia"};
+        Locale[] languageLocales = new Locale[]{
+                Locale.ENGLISH, Locale.JAPANESE, Locale.KOREAN, new Locale("ru"), new Locale("es"),
+                Locale.FRENCH, Locale.GERMAN, new Locale("ar"), new Locale("id")
+        };
+        ArrayList<CheckBox> languageChecks = new ArrayList<>();
+        for (int i = 0; i < languageNames.length; i++) {
+            CheckBox checkBox = new CheckBox(context);
+            checkBox.setText(languageNames[i]);
+            checkBox.setTextSize(16);
+            checkBox.setPadding(0, 0, 0, 0);
+            checkBox.setChecked(i == 0);
+            languageChecks.add(checkBox);
+            container.addView(checkBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(42)));
+        }
+
+        ScrollView scrollView = new ScrollView(context);
+        scrollView.setFillViewport(true);
+        scrollView.addView(container, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context, getResourceProvider());
+        builder.setTitle(getString(R.string.HuanghunBatchTranslate));
+        builder.setView(scrollView, dp(420));
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        builder.setPositiveButton(getString(R.string.HuanghunBatchStart), null);
+        AlertDialog dialog = builder.create();
+        showDialog(dialog);
+        dialog.setOnShowListener(__ -> {
+            View confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            if (confirm != null) {
+                confirm.setOnClickListener(v -> {
+                    String original = input.getText() == null ? "" : input.getText().toString().trim();
+                    if (TextUtils.isEmpty(original)) {
+                        AndroidUtil.showInputError(input);
+                        return;
+                    }
+                    ArrayList<Locale> targets = new ArrayList<>();
+                    for (int i = 0; i < languageChecks.size(); i++) {
+                        if (languageChecks.get(i).isChecked()) {
+                            targets.add(languageLocales[i]);
+                        }
+                    }
+                    if (targets.isEmpty()) {
+                        BulletinFactory.of(this).createSimpleBulletin(R.raw.info, getString(R.string.HuanghunBatchSelectLanguage)).show();
+                        return;
+                    }
+                    dialog.dismiss();
+                    AlertDialog progress = new AlertDialog.Builder(context, getResourceProvider())
+                            .setTitle(getString(R.string.HuanghunBatchTranslate))
+                            .setMessage(getString(R.string.HuanghunBatchWorking))
+                            .create();
+                    progress.setCanceledOnTouchOutside(false);
+                    progress.setCancelable(false);
+                    showDialog(progress);
+                    String sourceCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
+                    Locale source = TextUtils.isEmpty(sourceCode) ? new Locale("") : TranslatorKt.getCode2Locale(sourceCode);
+                    translateBatchSequentially(original, source, targets, 0, NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int(), new StringBuilder(original), progress, context);
+                });
+            }
+        });
+    }
+
+    private void translateBatchSequentially(String original, Locale source, ArrayList<Locale> targets, int index, int provider, StringBuilder result, AlertDialog progress, Context context) {
+        if (index >= targets.size()) {
+            if (progress.isShowing()) {
+                progress.dismiss();
+            }
+            showBatchTranslateResult(context, result.toString());
+            return;
+        }
+        Translator.translateFrom(source, targets.get(index), original, provider, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(@NonNull String translation) {
+                result.append(BATCH_TRANSLATE_SEPARATOR).append(translation);
+                translateBatchSequentially(original, source, targets, index + 1, provider, result, progress, context);
+            }
+
+            @Override
+            public void onFailed(boolean unsupported, @NonNull String error) {
+                result.append(BATCH_TRANSLATE_SEPARATOR).append(getString(R.string.OutgoingAutoTranslateFailed));
+                translateBatchSequentially(original, source, targets, index + 1, provider, result, progress, context);
+            }
+        });
+    }
+
+    private void showBatchTranslateResult(Context context, String result) {
+        TextView resultView = new TextView(context);
+        resultView.setText(result);
+        resultView.setTextSize(16);
+        resultView.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        resultView.setTextIsSelectable(true);
+        resultView.setPadding(dp(20), dp(8), dp(20), dp(8));
+        ScrollView scrollView = new ScrollView(context);
+        scrollView.addView(resultView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        AlertDialog.Builder builder = new AlertDialog.Builder(context, getResourceProvider());
+        builder.setTitle(getString(R.string.HuanghunBatchResult));
+        builder.setView(scrollView, dp(420));
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        builder.setPositiveButton(getString(R.string.HuanghunBatchCopy), (dialogInterface, which) -> AndroidUtilities.addToClipboard(result));
+        showDialog(builder.create());
     }
 
     /** @noinspection deprecation*/

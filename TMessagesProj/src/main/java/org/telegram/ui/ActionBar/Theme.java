@@ -151,7 +151,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
+import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
+import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -8731,6 +8733,42 @@ public class Theme {
             chat_msgTextCodePaint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 1), SharedConfig.fontSize - 2)));
             chat_msgTextCode2Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 3)));
             chat_msgTextCode3Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 5)));
+            applyHuanghunMessageTypeface();
+        }
+    }
+
+    private static void applyHuanghunMessageTypeface() {
+        if (NekoConfig.huanghunCustomTypeface.Int() == 0) {
+            return;
+        }
+        Typeface normal = TypefaceHelper.getHuanghunTypeface(false);
+        Typeface bold = TypefaceHelper.getHuanghunTypeface(true);
+        if (normal == null || bold == null) {
+            return;
+        }
+        TextPaint[] normalPaints = new TextPaint[] {
+                chat_msgTextPaint, chat_msgGameTextPaint, chat_replyTextPaint, chat_quoteTextPaint,
+                chat_explanationTextPaint, chat_titleLabelTextPaint, chat_forwardNamePaint,
+                chat_adminPaint, chat_timePaint, chat_ephemeralPaint, chat_infoPaint,
+                chat_locationAddressPaint, chat_audioPerformerPaint, chat_contactPhonePaint,
+                chat_durationPaint, chat_shipmentPaint, chat_contextResult_descriptionTextPaint
+        };
+        for (TextPaint paint : normalPaints) {
+            if (paint != null) {
+                paint.setTypeface(normal);
+            }
+        }
+        TextPaint[] boldPaints = new TextPaint[] {
+                chat_msgBotButtonPaint, chat_namePaint, chat_replyNamePaint, chat_topicTextPaint,
+                chat_infoBoldPaint, chat_stickerCommentCountPaint, chat_docNamePaint,
+                chat_locationTitlePaint, chat_audioTitlePaint, chat_botButtonPaint,
+                chat_contactNamePaint, chat_gamePaint, chat_actionTextPaint,
+                chat_actionTextPaint2, chat_actionTextPaint3, chat_contextResult_titleTextPaint
+        };
+        for (TextPaint paint : boldPaints) {
+            if (paint != null) {
+                paint.setTypeface(bold);
+            }
         }
     }
 
@@ -8840,6 +8878,7 @@ public class Theme {
             addChatPaint(key_paint_chatComposeBackground, chat_composeBackgroundPaint, key_chat_messagePanelBackground);
             addChatPaint(key_paint_chatTimeBackground, chat_timeBackgroundPaint, key_chat_mediaTimeBackground);
         }
+        applyHuanghunMessageTypeface();
     }
 
     public static void createChatResources(Context context, boolean fontsOnly) {

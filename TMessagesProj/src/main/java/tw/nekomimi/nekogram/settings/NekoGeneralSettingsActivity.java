@@ -7,6 +7,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Environment;
@@ -30,6 +31,7 @@ import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.INavigationLayout;
 import org.telegram.ui.ActionBar.SimpleTextView;
+import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.UndoView;
@@ -48,7 +50,6 @@ import tw.nekomimi.nekogram.config.cell.ConfigCellTextCheck;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextDetail;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextInput;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextInput2;
-import tw.nekomimi.nekogram.helpers.AppRestartHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -188,7 +189,11 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             getString(R.string.HuanghunTypefaceRunning),
             getString(R.string.HuanghunTypefaceHandwriting),
             getString(R.string.HuanghunTypefaceRounded),
-            getString(R.string.HuanghunTypefacePinyin)
+            getString(R.string.HuanghunTypefacePinyin),
+            getString(R.string.HuanghunTypefacePlayful),
+            getString(R.string.HuanghunTypefaceSmiley),
+            getString(R.string.HuanghunTypefaceWenKai),
+            getString(R.string.HuanghunTypefaceWildHandwriting)
     };
     private final AbstractConfigCell huanghunCustomTypefaceRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomTypeface", NekoConfig.huanghunCustomTypeface, huanghunTypefaceNames, null));
     private final AbstractConfigCell hideDividers = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDividers()));
@@ -479,7 +484,14 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             if (dialog.isShowing()) {
                 dialog.dismiss();
             }
-            AppRestartHelper.triggerRebirth(context, new Intent(context, LaunchActivity.class));
+            AndroidUtilities.resetTypefaceCache();
+            Theme.createCommonMessageResources();
+            Intent restartIntent = new Intent(context, LaunchActivity.class);
+            restartIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(restartIntent);
+            if (context instanceof Activity) {
+                ((Activity) context).finishAffinity();
+            }
         }, 1200);
     }
 
