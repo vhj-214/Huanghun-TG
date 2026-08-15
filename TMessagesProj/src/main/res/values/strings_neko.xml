@@ -16,6 +16,16 @@
     <string name="FirstLast">First Last</string>
     <string name="LastFirst">Last First</string>
     <string name="TypefaceUseDefault">Use System Font</string>
+    <string name="HuanghunCustomTypeface">Custom Typeface</string>
+    <string name="HuanghunTypefaceOriginal">Huanghun Default</string>
+    <string name="HuanghunTypefaceCute">Cute Rounded</string>
+    <string name="HuanghunTypefaceElegant">Elegant XiaoWei</string>
+    <string name="HuanghunTypefaceCalligraphy">Ma Shan Zheng Calligraphy</string>
+    <string name="HuanghunTypefaceRunning">Zhi Mang Xing Script</string>
+    <string name="HuanghunTypefaceHandwriting">Long Cang Handwriting</string>
+    <string name="HuanghunTypefaceRounded">Huninn Learning</string>
+    <string name="HuanghunTypefacePinyin">Hanzi Pinyin Annotation</string>
+    <string name="HuanghunTypefaceRestarting">Saved “%1$s”. Huanghun will restart automatically to apply the new typeface.</string>
     <string name="NoQuoteForward">NoQuote forward</string>
     <string name="Repeat">Repost</string>
     <string name="AddToSavedMessages">Save</string>

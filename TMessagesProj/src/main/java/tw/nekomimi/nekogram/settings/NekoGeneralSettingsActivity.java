@@ -8,6 +8,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Environment;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -47,6 +48,7 @@ import tw.nekomimi.nekogram.config.cell.ConfigCellTextCheck;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextDetail;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextInput;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextInput2;
+import tw.nekomimi.nekogram.helpers.AppRestartHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -178,6 +180,17 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     // Appearance
     private final AbstractConfigCell headerAppearance = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.Appearance)));
     private final AbstractConfigCell typefaceRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.typeface));
+    private final String[] huanghunTypefaceNames = new String[]{
+            getString(R.string.HuanghunTypefaceOriginal),
+            getString(R.string.HuanghunTypefaceCute),
+            getString(R.string.HuanghunTypefaceElegant),
+            getString(R.string.HuanghunTypefaceCalligraphy),
+            getString(R.string.HuanghunTypefaceRunning),
+            getString(R.string.HuanghunTypefaceHandwriting),
+            getString(R.string.HuanghunTypefaceRounded),
+            getString(R.string.HuanghunTypefacePinyin)
+    };
+    private final AbstractConfigCell huanghunCustomTypefaceRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomTypeface", NekoConfig.huanghunCustomTypeface, huanghunTypefaceNames, null));
     private final AbstractConfigCell hideDividers = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDividers()));
     private final AbstractConfigCell alwaysShowDownloadIconRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getAlwaysShowDownloadIcon()));
     private final AbstractConfigCell showStickersInTopLevelRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getShowStickersRowToplevel()));
@@ -366,6 +379,8 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
             } else if (key.equals(NekoConfig.typeface.getKey())) {
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
+            } else if (key.equals(NekoConfig.huanghunCustomTypeface.getKey())) {
+                restartForHuanghunTypeface((int) newValue);
             } else if (key.equals(NaConfig.INSTANCE.getDisableDialogsFloatingButton().getKey())) {
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
             } else if (key.equals(NaConfig.INSTANCE.getHidePremiumSection().getKey())) {
@@ -447,6 +462,27 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     }
 
     // impl ListAdapter
+    private void restartForHuanghunTypeface(int selectedTypeface) {
+        final Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        final int safeIndex = Math.max(0, Math.min(selectedTypeface, huanghunTypefaceNames.length - 1));
+        final AlertDialog dialog = new AlertDialog.Builder(context)
+                .setTitle("黄昏")
+                .setMessage(LocaleController.formatString(R.string.HuanghunTypefaceRestarting, huanghunTypefaceNames[safeIndex]))
+                .create();
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setCancelable(false);
+        showDialog(dialog);
+        AndroidUtilities.runOnUIThread(() -> {
+            if (dialog.isShowing()) {
+                dialog.dismiss();
+            }
+            AppRestartHelper.triggerRebirth(context, new Intent(context, LaunchActivity.class));
+        }, 1200);
+    }
+
     private class ListAdapter extends BaseListAdapter {
 
         public ListAdapter(Context context) {

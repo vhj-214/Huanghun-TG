@@ -11,14 +11,13 @@ import static org.telegram.ui.Components.Premium.LimitReachedBottomSheet.TYPE_AC
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Canvas;
-import android.graphics.LinearGradient;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
-import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -468,7 +467,6 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
         private final int activatedAccounts;
         private final int remainingAccountSlots;
         private final SimpleDateFormat beijingTimeFormat = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss", Locale.SIMPLIFIED_CHINESE);
-        private LinearGradient rainbowGradient;
         private final Runnable clockRunnable = new Runnable() {
             @Override
             public void run() {
@@ -490,11 +488,26 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
         }
 
         private CharSequence buildSummaryText() {
-            final String summary = LocaleController.formatString(R.string.HuanghunAccountSummary, activatedAccounts, remainingAccountSlots);
-            final int firstLineBreak = summary.indexOf('\n');
-            final String welcomeLine = firstLineBreak >= 0 ? summary.substring(0, firstLineBreak) : summary;
-            final String statisticsLines = firstLineBreak >= 0 ? summary.substring(firstLineBreak) : "";
-            return welcomeLine + "  ·  北京时间：" + beijingTimeFormat.format(new Date()) + statisticsLines;
+            final String redLine = "尊贵？没有尊贵的感觉，就像没有尊贵一样！！！";
+            final String summary = "北京时间：" + beijingTimeFormat.format(new Date())
+                    + "\n欢迎使用黄昏定制版！！！！"
+                    + "\n您的身份：尊贵的至尊VIP用户"
+                    + "\n" + redLine
+                    + "\n欢迎选择黄昏，欢迎使用黄昏！！！"
+                    + "\n ·  当前已登录账号：" + activatedAccounts + " 个"
+                    + "\n ·  当前剩余卡槽位置：" + remainingAccountSlots + " 个";
+            final SpannableStringBuilder styledSummary = new SpannableStringBuilder(summary);
+            final int redLineStart = summary.indexOf(redLine);
+            final int redLineEnd = redLineStart + redLine.length();
+            int rainbowColorIndex = 0;
+            for (int i = 0; i < summary.length(); i++) {
+                if (summary.charAt(i) == '\n') {
+                    continue;
+                }
+                final int color = i >= redLineStart && i < redLineEnd ? 0xFFF44336 : RAINBOW_COLORS[rainbowColorIndex++ % RAINBOW_COLORS.length];
+                styledSummary.setSpan(new ForegroundColorSpan(color), i, i + 1, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+            return styledSummary;
         }
 
         private void refreshText() {
@@ -517,21 +530,6 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             super.onDetachedFromWindow();
         }
 
-        @Override
-        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-            super.onSizeChanged(w, h, oldw, oldh);
-            rainbowGradient = w > 0 ? new LinearGradient(0, 0, w, 0, RAINBOW_COLORS, null, Shader.TileMode.CLAMP) : null;
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            final Shader previousShader = getPaint().getShader();
-            if (rainbowGradient != null) {
-                getPaint().setShader(rainbowGradient);
-            }
-            super.onDraw(canvas);
-            getPaint().setShader(previousShader);
-        }
     }
 
     public static String birthdayString(TL_account.TL_birthday birthday) {

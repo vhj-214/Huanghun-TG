@@ -89,6 +89,8 @@ public class NekoConfig {
     public static ConfigItem tabletMode = addConfig("TabletMode", configTypeInt, 0);
 
     public static ConfigItem typeface = addConfig("TypefaceUseDefault", configTypeBool, false);
+    // 0 keeps the original font; 1-7 map to the bundled Huanghun fonts.
+    public static ConfigItem huanghunCustomTypeface = addConfig("HuanghunCustomTypeface", configTypeInt, 0);
     public static ConfigItem nameOrder = addConfig("NameOrder", configTypeInt, 1);
     public static ConfigItem mapPreviewProvider = addConfig("MapPreviewProvider", configTypeInt, 0);
     public static ConfigItem showAddToSavedMessages = addConfig("showAddToSavedMessages", configTypeBool, true);

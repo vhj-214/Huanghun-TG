@@ -82,6 +82,8 @@ public class TranscribeHelper {
     """.trim();
 
     private static final String OPENAI_COMPATIBLE_DEFAULT_PROMPT = GEMINI_PROMPT;
+    private static final String CLOUDFLARE_ACCOUNT_ID_FORMAT_EXAMPLE = "0123456789abcdef0123456789abcdef";
+    private static final String CLOUDFLARE_API_TOKEN_FORMAT_EXAMPLE = "cfut_example_token_replace_with_your_own_000000000000000000";
 
     public static boolean useTranscribeAI(int account) {
         int provider = NaConfig.INSTANCE.getTranscribeProvider().Int();
@@ -133,10 +135,12 @@ public class TranscribeHelper {
         var ll = new LinearLayout(context);
         ll.setOrientation(LinearLayout.VERTICAL);
 
+        final String savedAccountId = NaConfig.INSTANCE.getTranscribeProviderCfAccountID().String();
+        final String savedApiToken = NaConfig.INSTANCE.getTranscribeProviderCfApiToken().String();
         var editTextAccountId = createAndSetupEditText(
                 context,
                 resourcesProvider,
-                NaConfig.INSTANCE.getTranscribeProviderCfAccountID().String(),
+                TextUtils.isEmpty(savedAccountId) ? CLOUDFLARE_ACCOUNT_ID_FORMAT_EXAMPLE : savedAccountId,
                 getString(R.string.CloudflareAccountID),
                 EditorInfo.IME_ACTION_NEXT,
                 true
@@ -146,7 +150,7 @@ public class TranscribeHelper {
         var editTextApiToken = createAndSetupEditText(
                 context,
                 resourcesProvider,
-                NaConfig.INSTANCE.getTranscribeProviderCfApiToken().String(),
+                TextUtils.isEmpty(savedApiToken) ? CLOUDFLARE_API_TOKEN_FORMAT_EXAMPLE : savedApiToken,
                 getString(R.string.CloudflareAPIToken),
                 EditorInfo.IME_ACTION_DONE,
                 false
@@ -154,6 +158,10 @@ public class TranscribeHelper {
         ll.addView(editTextApiToken, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 24, 0, 24, 0));
 
         builder.setView(ll);
+        builder.setNeutralButton(getString(R.string.HuanghunViewFormatData), (dialogInterface, which) -> {
+            fragment.dismissCurrentDialog();
+            fragment.presentFragment(new com.Huanghun.CloudflareFormatInfoActivity());
+        });
         builder.setNegativeButton(getString(R.string.Cancel), null);
         builder.setPositiveButton(getString(R.string.OK), null);
         var dialog = builder.create();

@@ -16,6 +16,16 @@
     <string name="FirstLast">名字 姓氏</string>
     <string name="LastFirst">姓氏 名字</string>
     <string name="TypefaceUseDefault">使用系统字体</string>
+    <string name="HuanghunCustomTypeface">自定义字体</string>
+    <string name="HuanghunTypefaceOriginal">黄昏默认字体</string>
+    <string name="HuanghunTypefaceCute">可爱圆润字体</string>
+    <string name="HuanghunTypefaceElegant">优雅小薇字体</string>
+    <string name="HuanghunTypefaceCalligraphy">马善正书法</string>
+    <string name="HuanghunTypefaceRunning">志莽行书</string>
+    <string name="HuanghunTypefaceHandwriting">龙藏手写体</string>
+    <string name="HuanghunTypefaceRounded">粉圆学习字体</string>
+    <string name="HuanghunTypefacePinyin">汉字拼音标注字体</string>
+    <string name="HuanghunTypefaceRestarting">已保存“%1$s”。黄昏即将自动重启以应用新字体。</string>
     <string name="NoQuoteForward">无引用转发</string>
     <string name="Repeat">复读</string>
     <string name="AddToSavedMessages">保存消息</string>

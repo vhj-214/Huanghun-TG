@@ -2399,7 +2399,7 @@ public class AndroidUtilities {
     public static Typeface getTypeface(String assetPath) {
         return typefaceCache.computeIfAbsent(assetPath, path -> {
             try {
-                if (NekoConfig.typeface.Bool()) {
+                if (NekoConfig.typeface.Bool() || NekoConfig.huanghunCustomTypeface.Int() != 0) {
                     return TypefaceHelper.createTypeface(path);
                 }
                 return TypefaceHelper.createTypefaceFromAsset(path);

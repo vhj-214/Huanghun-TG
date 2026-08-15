@@ -22,6 +22,7 @@ import org.telegram.ui.Components.TypefaceSpan;
 
 import java.util.List;
 
+import tw.nekomimi.nekogram.NekoConfig;
 import xyz.nextalone.nagram.NaConfig;
 
 public class TypefaceHelper {
@@ -57,7 +58,23 @@ public class TypefaceHelper {
         }
     }
 
+    private static final String HUANGHUN_FONT_PREFIX = "fonts/huanghun/";
+    private static final String[] HUANGHUN_FONT_ASSETS = new String[] {
+            "",
+            HUANGHUN_FONT_PREFIX + "zcool_kuaile.ttf",
+            HUANGHUN_FONT_PREFIX + "zcool_xiaowei.ttf",
+            HUANGHUN_FONT_PREFIX + "mashan_zheng.ttf",
+            HUANGHUN_FONT_PREFIX + "zhimang_xing.ttf",
+            HUANGHUN_FONT_PREFIX + "long_cang.ttf",
+            HUANGHUN_FONT_PREFIX + "huninn.ttf",
+            HUANGHUN_FONT_PREFIX + "hanzi_pinyin_top.ttf"
+    };
+
     public static Typeface createTypeface(String assetPath) {
+        final int selectedTypeface = NekoConfig.huanghunCustomTypeface.Int();
+        if (selectedTypeface > 0 && selectedTypeface < HUANGHUN_FONT_ASSETS.length) {
+            return createHuanghunTypeface(selectedTypeface, assetPath);
+        }
         return switch (assetPath) {
             case AndroidUtilities.TYPEFACE_ROBOTO_MEDIUM ->
                     isMediumWeightSupported() ? Typeface.create("sans-serif-medium", Typeface.NORMAL) : Typeface.create("sans-serif", Typeface.BOLD);
@@ -73,6 +90,21 @@ public class TypefaceHelper {
                     Typeface.MONOSPACE;
             default -> createTypefaceFromAsset(assetPath);
         };
+    }
+
+    /**
+     * Keeps Telegram's regular/bold/italic call sites on the selected Huanghun family.
+     * The bundled display fonts provide a single weight, so style is applied by Android.
+     */
+    private static Typeface createHuanghunTypeface(int selectedTypeface, String requestedAssetPath) {
+        Typeface baseTypeface = createTypefaceFromAsset(HUANGHUN_FONT_ASSETS[selectedTypeface]);
+        int style = Typeface.NORMAL;
+        if (requestedAssetPath.contains("italic")) {
+            style = requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") ? Typeface.BOLD_ITALIC : Typeface.ITALIC;
+        } else if (requestedAssetPath.contains("medium") || requestedAssetPath.contains("bold") || requestedAssetPath.contains("rextrabold")) {
+            style = Typeface.BOLD;
+        }
+        return style == Typeface.NORMAL ? baseTypeface : Typeface.create(baseTypeface, style);
     }
 
     public static Typeface createTypefaceFromAsset(String assetPath) {
