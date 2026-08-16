@@ -111,7 +111,6 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
     private AnimatedTextView applyTextView;
     private AnimatedTextView applySubTextView;
     private TextView chooseBackgroundTextView;
-    private TextView dynamicWallpaperTextView;
     private ChatThemeItem selectedItem;
     private boolean forceDark;
     private boolean isApplyClicked;
@@ -300,21 +299,6 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
         });
         rootLayout.addView(chooseBackgroundTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.START, 16, 150, 16, 16));
 
-        // 黄昏：位于“更改聊天壁纸”与“更改名称颜色”之间的动态视频壁纸入口。
-        dynamicWallpaperTextView = new TextView(getContext());
-        dynamicWallpaperTextView.setEllipsize(TextUtils.TruncateAt.END);
-        dynamicWallpaperTextView.setGravity(Gravity.CENTER);
-        dynamicWallpaperTextView.setLines(1);
-        dynamicWallpaperTextView.setSingleLine(true);
-        dynamicWallpaperTextView.setText("设置动态聊天壁纸");
-        dynamicWallpaperTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        dynamicWallpaperTextView.setOnClickListener(v -> {
-            if (chatActivity != null) {
-                dismiss();
-                chatActivity.pickDynamicVideoWallpaper();
-            }
-        });
-        rootLayout.addView(dynamicWallpaperTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.START, 16, 202, 16, 16));
 
         applyTextView = new AnimatedTextView(getContext(), true, true, true);
         applyTextView.getDrawable().setEllipsizeByGradient(true);
@@ -392,11 +376,6 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
         darkThemeView.setBackground(Theme.createSelectorDrawable(ColorUtils.setAlphaComponent(getThemedColor(Theme.key_featuredStickers_addButton), 30), 1));
         chooseBackgroundTextView.setTextColor(getThemedColor(Theme.key_dialogTextBlue));
         chooseBackgroundTextView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(6), Color.TRANSPARENT, ColorUtils.setAlphaComponent(getThemedColor(Theme.key_featuredStickers_addButton), (int) (0.3f * 255))));
-        if (dynamicWallpaperTextView != null) {
-            dynamicWallpaperTextView.setTextColor(getThemedColor(Theme.key_dialogTextBlue));
-            dynamicWallpaperTextView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(6), Color.TRANSPARENT, ColorUtils.setAlphaComponent(getThemedColor(Theme.key_featuredStickers_addButton), (int) (0.3f * 255))));
-        }
-
     }
 
     private void previewSelectedTheme() {
@@ -423,7 +402,6 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
             backButtonDrawable.setRotation(1f, animated);
             applyButton.setEnabled(false);
             AndroidUtilities.updateViewVisibilityAnimated(chooseBackgroundTextView, false, 0.9f, false, animated);
-            AndroidUtilities.updateViewVisibilityAnimated(dynamicWallpaperTextView, false, 0.9f, false, animated);
             AndroidUtilities.updateViewVisibilityAnimated(cancelOrResetTextView, false, 0.9f, false, animated);
             AndroidUtilities.updateViewVisibilityAnimated(applyButton, false, 1f, false, animated);
             AndroidUtilities.updateViewVisibilityAnimated(applyTextView, false, 0.9f, false, animated);
@@ -464,7 +442,6 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
                 backButtonDrawable.setRotation(1f, animated);
                 applyButton.setEnabled(false);
                 AndroidUtilities.updateViewVisibilityAnimated(chooseBackgroundTextView, true, 0.9f, false, animated);
-                AndroidUtilities.updateViewVisibilityAnimated(dynamicWallpaperTextView, true, 0.9f, false, animated);
                 AndroidUtilities.updateViewVisibilityAnimated(cancelOrResetTextView, true, 0.9f, false, animated);
                 AndroidUtilities.updateViewVisibilityAnimated(applyButton, false, 1f, false, animated);
                 AndroidUtilities.updateViewVisibilityAnimated(applyTextView, false, 0.9f, false, animated);

@@ -12,6 +12,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
@@ -97,6 +98,8 @@ import org.telegram.ui.Components.Text;
 import org.telegram.ui.Components.ThemeSmallPreviewView;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.Stories.recorder.PreviewView;
+
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -495,6 +498,8 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                         return false;
                     }
                 }, boostsStatus);
+            } else if (position == dynamicVideoWallpaperRow) {
+                chooseDynamicVideoWallpaper();
             }
         });
         DefaultItemAnimator itemAnimator = new DefaultItemAnimator();
@@ -521,6 +526,78 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
             }
         });
         return fragmentView = contentView;
+    }
+
+    private static final int REQUEST_DYNAMIC_VIDEO_WALLPAPER = 9923;
+
+    private void chooseDynamicVideoWallpaper() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_DYNAMIC_VIDEO_WALLPAPER);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            showDynamicVideoWallpaperDialog("设置失败", "无法打开视频选择器，请稍后重试。");
+        }
+    }
+
+    private void saveDynamicVideoWallpaper(Uri source) {
+        if (source == null || getParentActivity() == null) {
+            showDynamicVideoWallpaperDialog("设置失败", "未读取到所选视频，请重新选择。");
+            return;
+        }
+        AlertDialog progressDialog = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progressDialog.setMessage("正在保存并验证所选视频，请稍候。");
+        progressDialog.setCancelable(false);
+        showDialog(progressDialog);
+        final Context applicationContext = ApplicationLoader.applicationContext;
+        Utilities.globalQueue.postRunnable(() -> {
+            try {
+                String localPath = DynamicVideoWallpaperHelper.importVideo(applicationContext, source);
+                DynamicVideoWallpaperHelper.saveVideo(applicationContext, currentAccount, dialogId, localPath);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    showDynamicVideoWallpaperDialog("设置成功", "动态视频背景已保存。返回聊天后会立即作为该聊天背景播放；更换主题不会清除该视频背景。");
+                });
+            } catch (Throwable e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    String message = e.getMessage();
+                    if (TextUtils.isEmpty(message)) {
+                        message = "所选视频无法播放或保存，请更换视频后重试。";
+                    }
+                    showDynamicVideoWallpaperDialog("设置失败", message);
+                });
+            }
+        });
+    }
+
+    private void showDynamicVideoWallpaperDialog(String title, String message) {
+        if (getParentActivity() == null) {
+            return;
+        }
+        showDialog(new AlertDialog.Builder(getParentActivity(), resourceProvider)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(LocaleController.getString(R.string.OK), null)
+                .create());
+    }
+
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_DYNAMIC_VIDEO_WALLPAPER && resultCode == Activity.RESULT_OK) {
+            saveDynamicVideoWallpaper(data == null ? null : data.getData());
+        }
     }
 
     public boolean seesLoading() {
@@ -933,6 +1010,7 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
 
     protected int wallpaperThemesRow;
     protected int wallpaperRow;
+    protected int dynamicVideoWallpaperRow;
     protected int wallpaperHintRow;
 
     protected int profilePreviewRow;
@@ -961,6 +1039,7 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
         replyHintRow = rowsCount++;
         wallpaperThemesRow = rowsCount++;
         wallpaperRow = rowsCount++;
+        dynamicVideoWallpaperRow = rowsCount++;
         wallpaperHintRow = rowsCount++;
         profilePreviewRow = rowsCount++;
         profileColorGridRow = rowsCount++;
@@ -1130,6 +1209,9 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                     TextCell textCell = (TextCell) holder.itemView;
                     if (position == removeProfileColorRow) {
                         textCell.setText(LocaleController.getString(R.string.ChannelProfileColorReset), false);
+                    } else if (position == dynamicVideoWallpaperRow) {
+                        textCell.setText("设置动态聊天壁纸", false);
+                        textCell.setLockLevel(false, 0);
                     } else {
                         textCell.setText(LocaleController.getString(getWallpaperStrRes()), false);
                         if (currentLevel < getCustomWallpaperLevelMin()) {
@@ -1274,7 +1356,7 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                 return VIEW_TYPE_COLOR_PROFILE_GRID;
             } else if (position == replyEmojiRow || position == profileEmojiRow || position == statusEmojiRow || position == packEmojiRow || position == packStickerRow) {
                 return VIEW_TYPE_BUTTON_EMOJI;
-            } else if (position == wallpaperRow || position == removeProfileColorRow) {
+            } else if (position == wallpaperRow || position == dynamicVideoWallpaperRow || position == removeProfileColorRow) {
                 return VIEW_TYPE_BUTTON;
             } else {
                 return VIEW_TYPE_SHADOW;
