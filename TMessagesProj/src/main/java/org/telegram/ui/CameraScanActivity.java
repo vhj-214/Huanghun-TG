@@ -1001,7 +1001,7 @@ public class CameraScanActivity extends BaseFragment {
 
     private void processGalleryQrResult(QrResult res) {
         if (res == null || TextUtils.isEmpty(res.text)) {
-            AlertsCreator.showSimpleAlert(this, getString(R.string.AuthAnotherClient), getString(R.string.HuanghunQrCodeInvalid));
+            AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.AuthAnotherClient), LocaleController.getString(R.string.HuanghunQrCodeInvalid));
             return;
         }
         if (delegate == null) {
@@ -1016,9 +1016,9 @@ public class CameraScanActivity extends BaseFragment {
             finishFragment();
         }));
         if (qrLoading) {
-            recognizedMrzView.setText(getString(R.string.HuanghunQrAuthorizing));
+            recognizedMrzView.setText(LocaleController.getString(R.string.HuanghunQrAuthorizing));
             recognizedMrzView.setAlpha(1f);
-            updateRecognized(true);
+            updateRecognized();
         } else {
             delegate.didFindQr(recognizedText);
             finishFragment();
