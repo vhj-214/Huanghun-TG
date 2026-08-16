@@ -391,6 +391,7 @@ import tw.nekomimi.nekogram.helpers.ChatsHelper;
 import com.Huanghun.outfit.HuanghunOutfitRuntime;
 
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
@@ -595,6 +596,7 @@ public class ChatActivity extends BaseFragment implements
     private BusinessLinksEmptyView businessLinksEmptyView;
     public ChatActivityFragmentView contentView;
     private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
+    private boolean privacyChatUnlocked;
     private ChatBigEmptyView bigEmptyView;
     private ArrayList<View> actionModeViews = new ArrayList<>();
     public ChatAvatarContainer avatarContainer;
@@ -4649,7 +4651,6 @@ public class ChatActivity extends BaseFragment implements
             getConnectionsManager().bindRequestToGuid(req, classGuid);
         } else {
             actionBar.addView(avatarContainer, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, !inPreviewMode ? 52 : 0, 0, 52, 0));
-            HuanghunOutfitRuntime.attachAvatarPendant(avatarContainer);
             actionBar.createMenu().bringToFront();
         }
         actionBar.setOnActionModeFactorChangeListener(() -> {
@@ -5038,6 +5039,9 @@ public class ChatActivity extends BaseFragment implements
             chatListThanosEffect = null;
         }
         removingFromParent = false;
+        if (!privacyChatUnlocked && HuanghunPrivacyFolderHelper.isProtected(context, currentAccount, dialog_id)) {
+            return fragmentView = createProtectedChatLockView(context);
+        }
         fragmentView = contentView = new ChatActivityFragmentView(context, parentLayout);
         invalidateBlurredSourcesView = new OnPostDrawView(context, true, this::invalidateMergedVisibleBlurredPositionsAndSourcesImpl);
         contentView.addView(invalidateBlurredSourcesView);
@@ -21276,6 +21280,83 @@ public class ChatActivity extends BaseFragment implements
         hideFieldPanel(false);
     }
 
+    private View createProtectedChatLockView(Context context) {
+        actionBar.setTitle("受保护聊天");
+        FrameLayout root = new FrameLayout(context);
+        root.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPadding(dp(24), dp(24), dp(24), dp(24));
+        card.setBackground(Theme.createRoundRectDrawable(dp(20), getThemedColor(Theme.key_windowBackgroundWhite)));
+
+        TextView title = new TextView(context);
+        title.setText("当前聊天记录受到保护");
+        title.setTextSize(20);
+        title.setTypeface(AndroidUtilities.bold());
+        title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+        title.setGravity(Gravity.CENTER);
+        card.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView description = new TextView(context);
+        description.setText("请输入隐私文件夹访问密码，验证成功后才能查看该聊天记录。连续输错 3 次将锁定 30 分钟。");
+        description.setTextSize(14);
+        description.setGravity(Gravity.CENTER);
+        description.setLineSpacing(dp(3), 1f);
+        description.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
+        card.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 16));
+
+        EditTextBoldCursor password = new EditTextBoldCursor(context);
+        password.setHint("请输入访问密码");
+        password.setSingleLine(true);
+        password.setTextSize(16);
+        password.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+        password.setHintTextColor(getThemedColor(Theme.key_windowBackgroundWhiteHintText));
+        password.setPadding(dp(12), 0, dp(12), 0);
+        password.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhiteInputField));
+        int policy = HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount);
+        password.setInputType(policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
+                ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        card.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+
+        TextView status = new TextView(context);
+        status.setText(HuanghunPrivacyFolderHelper.policyHint(policy));
+        status.setTextSize(13);
+        status.setGravity(Gravity.CENTER);
+        status.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
+        card.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 9, 0, 10));
+
+        TextView unlock = new TextView(context);
+        unlock.setText("解锁并查看聊天");
+        unlock.setGravity(Gravity.CENTER);
+        unlock.setTextSize(16);
+        unlock.setTypeface(AndroidUtilities.bold());
+        unlock.setTextColor(Color.WHITE);
+        unlock.setBackground(Theme.createRoundRectDrawable(dp(14), getThemedColor(Theme.key_windowBackgroundWhiteBlueText4)));
+        card.addView(unlock, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        unlock.setOnClickListener(v -> {
+            int result = HuanghunPrivacyFolderHelper.verifyPassword(context, currentAccount, password.getText().toString());
+            if (result == HuanghunPrivacyFolderHelper.VERIFY_OK) {
+                privacyChatUnlocked = true;
+                getParentLayout().rebuildAllFragmentViews(true, true);
+                return;
+            }
+            if (result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED) {
+                status.setText(HuanghunPrivacyFolderHelper.getLockMessage(context, currentAccount));
+            } else if (result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED) {
+                status.setText("隐私文件夹已不存在，无法解锁此聊天。");
+            } else {
+                status.setText("密码错误。连续输错 3 次将锁定 30 分钟。");
+            }
+            status.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+            password.setText("");
+            password.requestFocus();
+        });
+        root.addView(card, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER, 18, 0, 18, 0));
+        return root;
+    }
+
     private void refreshDynamicVideoWallpaper() {
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.release();
@@ -31080,7 +31161,6 @@ public class ChatActivity extends BaseFragment implements
         }
         // 重新读取本地视频背景配置：从外观设置返回或切换主题后也必须应用到当前聊天。
         refreshDynamicVideoWallpaper();
-        HuanghunOutfitRuntime.attachAvatarPendant(avatarContainer);
         if (currentChat != null) {
             HuanghunOutfitRuntime.playJoinEffect(contentView, currentAccount, dialog_id);
         }

@@ -16,7 +16,6 @@ import java.util.List;
 public final class HuanghunOutfitConfig {
 
     public static final String CATEGORY_BUBBLE = "bubble";
-    public static final String CATEGORY_AVATAR = "avatar";
     public static final String CATEGORY_CALL = "call";
     public static final String CATEGORY_JOIN = "join";
 
@@ -47,19 +46,6 @@ public final class HuanghunOutfitConfig {
             "街机频道", "像素反弹", "霓虹存档", "8-bit 回信", "方块心跳",
             "鸭力气泡", "毛球频道", "香蕉漂流", "软胶怪谈", "云朵发疯",
             "霓墨书信", "流光折扇", "山海弹幕", "青龙回声", "锦纹气泡"
-    };
-
-    private static final String[] AVATAR_NAMES = new String[]{
-            "信号环", "量子裂片", "数据之眼", "像素偏移", "霓虹脉冲",
-            "钛银星环", "流银冠冕", "铬光双轨", "熔融月环", "镜面引力",
-            "反应堆", "机甲瞳孔", "推进环", "黑钛护框", "浮动齿轮",
-            "影翼边框", "黑焰荆棘", "月蚀冠", "赤瞳利爪", "暗域裂隙",
-            "星云泡泡", "月环失重", "极光碎片", "梦境轨道", "云海王冠",
-            "果冻天线", "糖晶蝴蝶", "透明音符", "彩胶星轨", "桃汽心跳",
-            "喷漆光环", "涂鸦小怪", "贴纸火焰", "滑板星标", "玩具雷达",
-            "像素王冠", "街机光圈", "方块羽翼", "存档星环", "霓虹光标",
-            "鸭头星环", "毛球触手", "香蕉天线", "软胶独角", "云朵爪印",
-            "霓墨龙环", "折扇星轨", "山海流光", "青龙护框", "锦纹月冠"
     };
 
     private static final String[] CALL_NAMES = new String[]{
@@ -153,31 +139,28 @@ public final class HuanghunOutfitConfig {
 
     public static String categoryTitle(String category) {
         if (CATEGORY_BUBBLE.equals(category)) return "设置气泡";
-        if (CATEGORY_AVATAR.equals(category)) return "头像挂件";
-        if (CATEGORY_CALL.equals(category)) return "来电铃声";
-        if (CATEGORY_JOIN.equals(category)) return "进群特效";
+        if (CATEGORY_CALL.equals(category)) return "来电主题";
+        if (CATEGORY_JOIN.equals(category)) return "进群提示特效";
         return "黄昏装扮";
     }
 
     public static String categoryDescription(String category) {
-        if (CATEGORY_BUBBLE.equals(category)) return "动态气泡、渐变描边与高光粒子";
-        if (CATEGORY_AVATAR.equals(category)) return "环绕头像的动态光环、纹理与粒子";
-        if (CATEGORY_CALL.equals(category)) return "全屏来电视觉与本地铃声试听";
-        if (CATEGORY_JOIN.equals(category)) return "人物、载具、粒子与轨迹组成的入场动画";
+        if (CATEGORY_BUBBLE.equals(category)) return "不同轮廓、贴纸、像素与动态主题气泡";
+        if (CATEGORY_CALL.equals(category)) return "整屏动态来电视觉与本地铃声试听";
+        if (CATEGORY_JOIN.equals(category)) return "跑车、飞机、火箭等主题化群聊入场提示";
         return "仅在本机显示";
     }
 
     private static String[] namesFor(String category) {
         if (CATEGORY_BUBBLE.equals(category)) return BUBBLE_NAMES;
-        if (CATEGORY_AVATAR.equals(category)) return AVATAR_NAMES;
         if (CATEGORY_CALL.equals(category)) return CALL_NAMES;
         if (CATEGORY_JOIN.equals(category)) return JOIN_NAMES;
         return null;
     }
 
     static {
-        if (BUBBLE_NAMES.length != 50 || AVATAR_NAMES.length != 50 || CALL_NAMES.length != 50 || JOIN_NAMES.length != 50) {
-            throw new IllegalStateException("黄昏装扮目录必须包含四类各 50 套模板");
+        if (BUBBLE_NAMES.length != 50 || CALL_NAMES.length != 50 || JOIN_NAMES.length != 50) {
+            throw new IllegalStateException("黄昏装扮目录必须包含三类各 50 套模板");
         }
     }
 }

@@ -109,12 +109,19 @@ public final class DynamicVideoWallpaperHelper {
 
     public static String getVideoPath(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
-        String path = preferences.getString(key(account, dialogId), null);
+        String selectedKey = key(account, dialogId);
+        String path = preferences.getString(selectedKey, null);
+        // 聊天设置页保存的全局默认视频使用 dialogId = 0。具体聊天没有单独设置时，
+        // 一律回退到该默认视频，因此切换 Telegram 主题不会影响本地动态背景。
+        if (path == null && dialogId != 0L) {
+            selectedKey = key(account, 0L);
+            path = preferences.getString(selectedKey, null);
+        }
         if (path == null) {
             return null;
         }
         if (!new File(path).isFile()) {
-            preferences.edit().remove(key(account, dialogId)).apply();
+            preferences.edit().remove(selectedKey).apply();
             return null;
         }
         return path;

@@ -43,7 +43,6 @@ public class HuanghunOutfitCenterActivity extends BaseFragment {
 
     private static final List<String> CATEGORIES = Arrays.asList(
             HuanghunOutfitConfig.CATEGORY_BUBBLE,
-            HuanghunOutfitConfig.CATEGORY_AVATAR,
             HuanghunOutfitConfig.CATEGORY_CALL,
             HuanghunOutfitConfig.CATEGORY_JOIN
     );
@@ -72,33 +71,34 @@ public class HuanghunOutfitCenterActivity extends BaseFragment {
 
         TextView headline = titleView(context, "黄昏 · 本地潮流装扮", 22, true);
         content.addView(headline, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(36)));
-        TextView subhead = titleView(context, "四大分类 · 200 套原创动态模板 · 仅在本机显示", 14, false);
+        TextView subhead = titleView(context, "三大分类 · 150 套原创动态主题 · 仅在本机显示", 14, false);
         subhead.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
         content.addView(subhead, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(30)));
 
         LinearLayout grid = new LinearLayout(context);
         grid.setOrientation(LinearLayout.VERTICAL);
-        for (int row = 0; row < 2; row++) {
+        for (int index = 0; index < CATEGORIES.size(); index += 2) {
             LinearLayout line = new LinearLayout(context);
             line.setGravity(Gravity.CENTER);
             line.setOrientation(LinearLayout.HORIZONTAL);
-            for (int column = 0; column < 2; column++) {
-                String category = CATEGORIES.get(row * 2 + column);
+            int count = Math.min(2, CATEGORIES.size() - index);
+            for (int column = 0; column < count; column++) {
+                String category = CATEGORIES.get(index + column);
                 CategoryCard card = new CategoryCard(context, category);
                 card.setOnClickListener(v -> presentFragment(new HuanghunOutfitCategoryActivity(category)));
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(182), 1f);
-                params.setMargins(column == 0 ? 0 : dp(6), dp(7), column == 0 ? dp(6) : 0, dp(7));
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(count == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : 0, dp(count == 1 ? 164 : 182), count == 1 ? 0f : 1f);
+                params.setMargins(column == 0 ? 0 : dp(6), dp(7), column == 0 && count == 2 ? dp(6) : 0, dp(7));
                 line.addView(card, params);
             }
-            grid.addView(line, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(196)));
+            grid.addView(line, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(count == 1 ? 178 : 196)));
         }
         content.addView(grid);
 
-        TextView note = titleView(context, "选择任一分类后可查看 50 套动态模板。每个模板均支持实时预览、保存与随时更换。", 14, false);
+        TextView note = titleView(context, "每个分类均提供 50 套不同造型的原创主题。预览确认后，效果会真实作用于聊天气泡、来电或群聊入场提示。", 14, false);
         note.setLineSpacing(dp(3), 1f);
         note.setPadding(dp(6), dp(12), dp(6), 0);
         note.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
-        content.addView(note, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(74)));
+        content.addView(note, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(82)));
 
         root.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         return fragmentView = root;

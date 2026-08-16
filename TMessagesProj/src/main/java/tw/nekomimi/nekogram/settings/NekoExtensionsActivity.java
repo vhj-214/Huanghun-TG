@@ -4,11 +4,14 @@ import static org.telegram.messenger.LocaleController.getString;
 
 import android.app.DatePickerDialog;
 import android.content.Context;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -34,6 +37,7 @@ import java.util.Locale;
 
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 /** Settings page for Huanghun account cleanup and non-contact message blocking. */
@@ -50,6 +54,14 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int clearAllRow;
     private int cleanupNoticeRow;
     private int cleanupEndRow;
+
+    private int privacyHeaderRow;
+    private int createPrivacyFolderRow;
+    private int managePrivacyChatsRow;
+    private int changePrivacyPasswordRow;
+    private int deletePrivacyFolderRow;
+    private int privacyNoticeRow;
+    private int privacyEndRow;
 
     private int blockHeaderRow;
     private int blockNonContactsRow;
@@ -72,11 +84,25 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         cleanupNoticeRow = addRow();
         cleanupEndRow = addRow();
 
+        privacyHeaderRow = addRow();
+        createPrivacyFolderRow = addRow();
+        managePrivacyChatsRow = addRow();
+        changePrivacyPasswordRow = addRow();
+        deletePrivacyFolderRow = addRow();
+        privacyNoticeRow = addRow();
+        privacyEndRow = addRow();
+
         blockHeaderRow = addRow();
         blockNonContactsRow = addRow();
         keywordsRow = addRow();
         blockNoticeRow = addRow();
         blockEndRow = addRow();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        notifyPrivacyRows();
     }
 
     @Override
@@ -86,6 +112,22 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
+        if (position == createPrivacyFolderRow) {
+            showCreatePrivacyFolderDialog();
+            return;
+        }
+        if (position == managePrivacyChatsRow) {
+            openPrivacyChats();
+            return;
+        }
+        if (position == changePrivacyPasswordRow) {
+            showChangePrivacyPassword();
+            return;
+        }
+        if (position == deletePrivacyFolderRow) {
+            showDeletePrivacyFolder();
+            return;
+        }
         if (position == blockNonContactsRow) {
             boolean enabled = NekoConfig.huanghunBlockNonContacts.toggleConfigBool();
             if (view instanceof TextCheckCell) {
@@ -221,6 +263,234 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         showDialog(dialog);
     }
 
+    private void showCreatePrivacyFolderDialog() {
+        if (HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+            showPrivacyInfo("隐私文件夹已创建", "当前账号已经创建隐私文件夹。你可以进入“管理隐私聊天”添加需要保护的群组、频道、机器人或私聊。");
+            return;
+        }
+        showPrivacyPasswordSetup(false);
+    }
+
+    private void showChangePrivacyPassword() {
+        if (!HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+            showPrivacyInfo("无法设置", "需要先创建隐私文件夹，才能设置访问密码。");
+            return;
+        }
+        showPrivacyPasswordVerification("验证当前密码", "请输入原密码后，才能设置新的隐私文件夹访问密码。", () -> showPrivacyPasswordSetup(true));
+    }
+
+    private void openPrivacyChats() {
+        if (!HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+            showPrivacyInfo("无法管理", "需要先创建隐私文件夹，才能添加受保护聊天。");
+            return;
+        }
+        showPrivacyPasswordVerification("解锁隐私文件夹", "请输入访问密码后管理受保护聊天。", () -> presentFragment(new HuanghunPrivacyChatsActivity(currentAccount)));
+    }
+
+    private void showDeletePrivacyFolder() {
+        if (!HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+            showPrivacyInfo("无法删除", "当前账号尚未创建隐私文件夹。");
+            return;
+        }
+        showPrivacyPasswordVerification("验证访问密码", "请输入隐私文件夹访问密码，验证成功后立即删除当前本机隐私文件夹。", () -> {
+            HuanghunPrivacyFolderHelper.delete(mContext, currentAccount);
+            notifyPrivacyRows();
+            BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "当前账号的本机隐私文件夹已删除。").show();
+        });
+    }
+
+    private void showPrivacyPasswordSetup(boolean changing) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(6), AndroidUtilities.dp(24), 0);
+
+        TextView description = new TextView(context);
+        description.setText(changing ? "请选择新密码类型，并连续输入两次相同的新密码。密码仅在本机保存。" : "首次创建需要设置访问密码。请选择密码类型，并连续输入两次相同密码。密码仅在本机保存。");
+        description.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        description.setLineSpacing(AndroidUtilities.dp(3), 1f);
+        container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
+
+        RadioGroup policyGroup = new RadioGroup(context);
+        policyGroup.setOrientation(RadioGroup.VERTICAL);
+        RadioButton digits = privacyPolicyRadio(context, "纯数字密码", HuanghunPrivacyFolderHelper.POLICY_DIGITS);
+        RadioButton letters = privacyPolicyRadio(context, "纯英文密码", HuanghunPrivacyFolderHelper.POLICY_LETTERS);
+        RadioButton mixed = privacyPolicyRadio(context, "英文和数字混合密码", HuanghunPrivacyFolderHelper.POLICY_MIXED);
+        policyGroup.addView(digits);
+        policyGroup.addView(letters);
+        policyGroup.addView(mixed);
+        policyGroup.check(changing ? policyButtonId(HuanghunPrivacyFolderHelper.getPolicy(mContext, currentAccount), digits, letters, mixed) : digits.getId());
+        container.addView(policyGroup, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+
+        TextView hint = new TextView(context);
+        hint.setTextColor(getThemedColor(Theme.key_dialogTextHint));
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        container.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+
+        EditTextBoldCursor first = privacyPasswordInput(context, "请输入密码");
+        EditTextBoldCursor confirm = privacyPasswordInput(context, "请再次输入确认密码");
+        container.addView(first, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48), 0, 0, 0, 8));
+        container.addView(confirm, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
+
+        int initialPolicy = changing ? HuanghunPrivacyFolderHelper.getPolicy(mContext, currentAccount) : HuanghunPrivacyFolderHelper.POLICY_DIGITS;
+        applyPrivacyPasswordPolicy(first, confirm, hint, initialPolicy);
+        policyGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            int policy = checkedId == letters.getId() ? HuanghunPrivacyFolderHelper.POLICY_LETTERS : (checkedId == mixed.getId() ? HuanghunPrivacyFolderHelper.POLICY_MIXED : HuanghunPrivacyFolderHelper.POLICY_DIGITS);
+            first.setText("");
+            confirm.setText("");
+            applyPrivacyPasswordPolicy(first, confirm, hint, policy);
+        });
+
+        AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
+                .setTitle(changing ? "设置隐私文件夹访问密码" : "创建隐私文件夹")
+                .setView(container)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(changing ? "保存新密码" : "创建", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int checkedId = policyGroup.getCheckedRadioButtonId();
+            int policy = checkedId == letters.getId() ? HuanghunPrivacyFolderHelper.POLICY_LETTERS : (checkedId == mixed.getId() ? HuanghunPrivacyFolderHelper.POLICY_MIXED : HuanghunPrivacyFolderHelper.POLICY_DIGITS);
+            String password = first.getText().toString();
+            String repeated = confirm.getText().toString();
+            if (!HuanghunPrivacyFolderHelper.isPasswordValid(policy, password)) {
+                first.setError(HuanghunPrivacyFolderHelper.policyHint(policy));
+                first.requestFocus();
+                return;
+            }
+            if (!password.equals(repeated)) {
+                confirm.setError("两次输入的密码不一致，请重新确认。");
+                confirm.requestFocus();
+                return;
+            }
+            boolean success = changing
+                    ? HuanghunPrivacyFolderHelper.changePassword(mContext, currentAccount, policy, password)
+                    : HuanghunPrivacyFolderHelper.create(mContext, currentAccount, policy, password);
+            if (!success) {
+                first.setError("保存失败，请稍后重试。");
+                return;
+            }
+            dialog.dismiss();
+            notifyPrivacyRows();
+            BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, changing ? "隐私文件夹访问密码已更新。" : "隐私文件夹已创建，请添加需要保护的聊天。").show();
+        }));
+        showDialog(dialog);
+    }
+
+    private RadioButton privacyPolicyRadio(Context context, String text, int policy) {
+        RadioButton button = new RadioButton(context);
+        button.setId(View.generateViewId());
+        button.setText(text);
+        button.setTag(policy);
+        button.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        return button;
+    }
+
+    private int policyButtonId(int policy, RadioButton digits, RadioButton letters, RadioButton mixed) {
+        if (policy == HuanghunPrivacyFolderHelper.POLICY_LETTERS) {
+            return letters.getId();
+        }
+        if (policy == HuanghunPrivacyFolderHelper.POLICY_MIXED) {
+            return mixed.getId();
+        }
+        return digits.getId();
+    }
+
+    private EditTextBoldCursor privacyPasswordInput(Context context, String hint) {
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        input.setHintTextColor(getThemedColor(Theme.key_dialogTextHint));
+        input.setHint(hint);
+        input.setSingleLine(true);
+        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
+        input.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputField));
+        input.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        return input;
+    }
+
+    private void applyPrivacyPasswordPolicy(EditTextBoldCursor first, EditTextBoldCursor confirm, TextView hint, int policy) {
+        int type = policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
+                ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD;
+        first.setInputType(type);
+        confirm.setInputType(type);
+        hint.setText(HuanghunPrivacyFolderHelper.policyHint(policy));
+    }
+
+    private void showPrivacyPasswordVerification(String title, String descriptionText, Runnable verified) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(6), AndroidUtilities.dp(24), 0);
+        TextView description = new TextView(context);
+        description.setText(descriptionText);
+        description.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        description.setLineSpacing(AndroidUtilities.dp(3), 1f);
+        container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
+        EditTextBoldCursor password = privacyPasswordInput(context, "请输入访问密码");
+        int policy = HuanghunPrivacyFolderHelper.getPolicy(mContext, currentAccount);
+        applyPrivacyPasswordPolicy(password, password, description, policy);
+        description.setText(descriptionText + "\n" + HuanghunPrivacyFolderHelper.policyHint(policy));
+        container.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
+
+        AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
+                .setTitle(title)
+                .setView(container)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton("解锁", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int result = HuanghunPrivacyFolderHelper.verifyPassword(mContext, currentAccount, password.getText().toString());
+            if (result == HuanghunPrivacyFolderHelper.VERIFY_OK) {
+                dialog.dismiss();
+                verified.run();
+                return;
+            }
+            if (result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED) {
+                password.setError(HuanghunPrivacyFolderHelper.getLockMessage(mContext, currentAccount));
+                return;
+            }
+            if (result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED) {
+                password.setError("需要先创建隐私文件夹。");
+                return;
+            }
+            password.setError("密码错误。连续输错 3 次将锁定 30 分钟。");
+            password.requestFocus();
+        }));
+        showDialog(dialog);
+    }
+
+    private void showPrivacyInfo(String title, String message) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(getString(R.string.OK), null)
+                .create());
+    }
+
+    private void notifyPrivacyRows() {
+        if (listAdapter == null) {
+            return;
+        }
+        listAdapter.notifyItemChanged(createPrivacyFolderRow);
+        listAdapter.notifyItemChanged(managePrivacyChatsRow);
+        listAdapter.notifyItemChanged(changePrivacyPasswordRow);
+        listAdapter.notifyItemChanged(deletePrivacyFolderRow);
+    }
+
     @Override
     protected BaseListAdapter createAdapter(Context context) {
         return new ListAdapter(context);
@@ -236,9 +506,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             int type = holder.getItemViewType();
             if (type == TYPE_HEADER) {
                 HeaderCell cell = (HeaderCell) holder.itemView;
-                String headerText = position == blockHeaderRow
-                        ? getString(R.string.HuanghunBlockZone)
-                        : getString(R.string.HuanghunCleanupZone);
+                String headerText = position == privacyHeaderRow
+                        ? "隐私专区"
+                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone));
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
@@ -260,6 +530,17 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 } else if (position == clearAllRow) {
                     cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
                     cell.setText(getString(R.string.HuanghunClearAll), false);
+                } else if (position == createPrivacyFolderRow) {
+                    boolean created = HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount);
+                    cell.setTextAndValue("创建隐私文件夹", created ? "已创建" : "未创建", true);
+                } else if (position == managePrivacyChatsRow) {
+                    int count = HuanghunPrivacyFolderHelper.getProtectedDialogs(mContext, currentAccount).size();
+                    cell.setTextAndValue("管理隐私聊天", HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount) ? "已保护 " + count + " 个聊天" : "请先创建", true);
+                } else if (position == changePrivacyPasswordRow) {
+                    cell.setText("设置隐私文件夹访问密码", true);
+                } else if (position == deletePrivacyFolderRow) {
+                    cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+                    cell.setText("删除当前隐私文件夹", false);
                 } else if (position == keywordsRow) {
                     cell.setTextAndValue(getString(R.string.HuanghunBlockKeywords), LocaleController.formatString(R.string.HuanghunBlockKeywordsCount, HuanghunExtensionHelper.getKeywordCount()), false);
                 }
@@ -268,7 +549,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : getString(R.string.HuanghunBlockNotice));
+                cell.setText(position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。" : getString(R.string.HuanghunBlockNotice)));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
@@ -277,16 +558,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == cleanupHeaderRow || position == blockHeaderRow) {
+            if (position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
             if (position == blockNonContactsRow) {
                 return TYPE_CHECK;
             }
-            if (position == cleanupNoticeRow || position == blockNoticeRow) {
+            if (position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == cleanupEndRow || position == blockEndRow) {
+            if (position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;

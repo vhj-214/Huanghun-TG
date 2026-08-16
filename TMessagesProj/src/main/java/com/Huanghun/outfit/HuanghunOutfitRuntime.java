@@ -20,6 +20,8 @@ import android.widget.FrameLayout;
 
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.MessagesController;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 
@@ -72,41 +74,12 @@ public final class HuanghunOutfitRuntime {
         if (item == null) {
             return;
         }
-        float phase = (SystemClock.elapsedRealtime() % 2600L) / 2600f;
-        RectF rect = new RectF(bounds.left + AndroidUtilities.dp(2), bounds.top + AndroidUtilities.dp(2), bounds.right - AndroidUtilities.dp(2), bounds.bottom - AndroidUtilities.dp(2));
-        float radius = Math.min(AndroidUtilities.dp(16), Math.min(rect.width(), rect.height()) / 3f);
-        BUBBLE_STROKE.setColor(withAlpha(item.accent, outgoing ? 145 : 105));
-        BUBBLE_STROKE.setStrokeWidth(AndroidUtilities.dp(1.25f));
-        canvas.drawRoundRect(rect, radius, radius, BUBBLE_STROKE);
-
-        canvas.save();
-        canvas.clipRect(rect);
-        float sweep = rect.left - rect.width() * .3f + rect.width() * 1.65f * phase;
-        BUBBLE_PAINT.setColor(withAlpha(Color.WHITE, outgoing ? 38 : 28));
-        canvas.rotate(-22f, sweep, rect.centerY());
-        canvas.drawRect(sweep, rect.top - rect.height(), sweep + AndroidUtilities.dp(8), rect.bottom + rect.height(), BUBBLE_PAINT);
-        canvas.restore();
+        float phase = (SystemClock.elapsedRealtime() % 3600L) / 3600f;
+        RectF rect = new RectF(bounds.left, bounds.top, bounds.right, bounds.bottom);
+        // 使用不透明的主题化壳层完整覆盖 Telegram 默认气泡，文字与媒体仍在之后正常绘制。
+        HuanghunOutfitVisuals.drawBubbleOverlay(canvas, item, phase, rect, outgoing);
     }
 
-    public static void attachAvatarPendant(ViewGroup container) {
-        if (container == null) {
-            return;
-        }
-        for (int i = container.getChildCount() - 1; i >= 0; i--) {
-            if (container.getChildAt(i) instanceof AvatarPendantView) {
-                container.removeViewAt(i);
-            }
-        }
-        HuanghunOutfitConfig.OutfitItem item = selected(container.getContext(), HuanghunOutfitConfig.CATEGORY_AVATAR);
-        if (item == null) {
-            return;
-        }
-        AvatarPendantView view = new AvatarPendantView(container.getContext(), item);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(AndroidUtilities.dp(45), AndroidUtilities.dp(45), Gravity.LEFT | Gravity.CENTER_VERTICAL);
-        params.leftMargin = AndroidUtilities.dp(1);
-        params.topMargin = AndroidUtilities.dp(1);
-        container.addView(view, params);
-    }
 
     public static synchronized void startLocalCallTone(Context context) {
         HuanghunOutfitConfig.OutfitItem item = selected(context, HuanghunOutfitConfig.CATEGORY_CALL);
@@ -142,7 +115,7 @@ public final class HuanghunOutfitRuntime {
             return null;
         }
         CallSkinView skin = new CallSkinView(context, item);
-        skin.setAlpha(.28f);
+        skin.setAlpha(.74f);
         skin.setClickable(false);
         skin.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         return skin;
@@ -160,12 +133,14 @@ public final class HuanghunOutfitRuntime {
         long now = SystemClock.elapsedRealtime();
         synchronized (JOIN_PLAY_TIMES) {
             Long last = JOIN_PLAY_TIMES.get(key);
-            if (last != null && now - last < 5000L) {
+            if (last != null && now - last < 12000L) {
                 return;
             }
             JOIN_PLAY_TIMES.put(key, now);
         }
-        JoinEffectView overlay = new JoinEffectView(parent.getContext(), item);
+        TLRPC.Chat chat = dialogId < 0 ? MessagesController.getInstance(account).getChat(-dialogId) : null;
+        String groupName = chat != null ? chat.title : "群聊";
+        JoinEffectView overlay = new JoinEffectView(parent.getContext(), item, groupName);
         overlay.setClickable(false);
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         parent.addView(overlay, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -212,17 +187,6 @@ public final class HuanghunOutfitRuntime {
         }
     }
 
-    private static final class AvatarPendantView extends AnimatedOutfitView {
-        AvatarPendantView(Context context, HuanghunOutfitConfig.OutfitItem item) {
-            super(context, item, 2600L);
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            HuanghunOutfitVisuals.drawAvatarFrame(canvas, item, progress, getWidth(), getHeight());
-        }
-    }
-
     private static final class CallSkinView extends AnimatedOutfitView {
         CallSkinView(Context context, HuanghunOutfitConfig.OutfitItem item) {
             super(context, item, 3600L);
@@ -235,8 +199,11 @@ public final class HuanghunOutfitRuntime {
     }
 
     private static final class JoinEffectView extends AnimatedOutfitView {
-        JoinEffectView(Context context, HuanghunOutfitConfig.OutfitItem item) {
-            super(context, item, 1750L);
+        private final String groupName;
+
+        JoinEffectView(Context context, HuanghunOutfitConfig.OutfitItem item, String groupName) {
+            super(context, item, 5800L);
+            this.groupName = groupName;
         }
 
         void playThenRemove(ViewGroup parent) {
@@ -253,13 +220,7 @@ public final class HuanghunOutfitRuntime {
 
         @Override
         protected void onDraw(Canvas canvas) {
-            float fade = progress < .78f ? 1f : Math.max(0f, 1f - (progress - .78f) / .22f);
-            canvas.save();
-            canvas.scale(1f + progress * .06f, 1f + progress * .06f, getWidth() / 2f, getHeight() / 2f);
-            canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (255 * fade));
-            HuanghunOutfitVisuals.drawJoinEffect(canvas, item, progress, getWidth(), getHeight());
-            canvas.restore();
-            canvas.restore();
+            HuanghunOutfitVisuals.drawJoinEffect(canvas, item, progress, getWidth(), getHeight(), groupName);
         }
     }
 }

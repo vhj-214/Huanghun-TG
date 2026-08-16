@@ -113,6 +113,7 @@ import org.telegram.ui.bots.BotWebViewAttachedSheet;
 import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.bots.WebViewRequestProps;
 import org.telegram.ui.web.SearchEngine;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import org.telegram.ui.web.WebBrowserSettings;
 
 import java.io.File;
@@ -150,6 +151,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
     @Keep
     private int backgroundRow;
+    private int dynamicVideoWallpaperRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -587,6 +589,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
         textSizeRow = -1;
         backgroundRow = -1;
+        dynamicVideoWallpaperRow = -1;
         changeUserColor = -1;
         settingsRow = -1;
         directShareRow = -1;
@@ -663,6 +666,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             textSizeHeaderRow = rowCount++;
             textSizeRow = rowCount++;
             backgroundRow = rowCount++;
+            dynamicVideoWallpaperRow = rowCount++;
             changeUserColor = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
@@ -833,6 +837,81 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             previousUpdatedType = Theme.selectedAutoNightType;
         }
         updateMenuItem();
+    }
+
+    private static final int REQUEST_DYNAMIC_VIDEO_WALLPAPER = 9924;
+
+    private void chooseDynamicVideoWallpaper() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_DYNAMIC_VIDEO_WALLPAPER);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            showDynamicVideoWallpaperDialog("设置失败", "无法打开视频选择器，请稍后重试。");
+        }
+    }
+
+    private void saveDynamicVideoWallpaper(Uri source) {
+        if (source == null || getParentActivity() == null) {
+            showDynamicVideoWallpaperDialog("设置失败", "未读取到所选视频，请重新选择。");
+            return;
+        }
+        AlertDialog progressDialog = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progressDialog.setMessage("正在保存并验证所选视频，请稍候。");
+        progressDialog.setCancelable(false);
+        showDialog(progressDialog);
+        final Context applicationContext = ApplicationLoader.applicationContext;
+        Utilities.globalQueue.postRunnable(() -> {
+            try {
+                String localPath = DynamicVideoWallpaperHelper.importVideo(applicationContext, source);
+                // dialogId 为 0 表示聊天设置页的全局默认动态背景，所有聊天均可回退使用。
+                DynamicVideoWallpaperHelper.saveVideo(applicationContext, currentAccount, 0L, localPath);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    showDynamicVideoWallpaperDialog("设置成功", "动态视频壁纸已保存。返回任意聊天后会立即播放；切换主题不会清除该视频壁纸。");
+                });
+            } catch (Throwable e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    String message = e.getMessage();
+                    if (TextUtils.isEmpty(message)) {
+                        message = "所选视频无法播放或保存，请更换视频后重试。";
+                    }
+                    showDynamicVideoWallpaperDialog("设置失败", message);
+                });
+            }
+        });
+    }
+
+    private void showDynamicVideoWallpaperDialog(String title, String message) {
+        if (getParentActivity() == null) {
+            return;
+        }
+        showDialog(new AlertDialog.Builder(getParentActivity())
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(getString(R.string.OK), null)
+                .create());
+    }
+
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_DYNAMIC_VIDEO_WALLPAPER && resultCode == Activity.RESULT_OK) {
+            saveDynamicVideoWallpaper(data == null ? null : data.getData());
+            return;
+        }
+        super.onActivityResultFragment(requestCode, resultCode, data);
     }
 
     @Override
@@ -1123,6 +1202,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 }
             } else if (position == backgroundRow) {
                 presentFragment(new WallpapersListActivity(WallpapersListActivity.TYPE_ALL));
+            } else if (position == dynamicVideoWallpaperRow) {
+                chooseDynamicVideoWallpaper();
             } else if (position == changeUserColor) {
                 presentFragment(new PeerColorActivity(0).setOnApplied(this));
             } else if (position == sendByEnterRow) {
@@ -2681,7 +2762,11 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     if (position == backgroundRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        cell.setTextAndIcon(getString(R.string.ChangeChatBackground), R.drawable.msg_background, changeUserColor >= 0);
+                        cell.setTextAndIcon(getString(R.string.ChangeChatBackground), R.drawable.msg_background, dynamicVideoWallpaperRow >= 0);
+                    } else if (position == dynamicVideoWallpaperRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
+                        cell.setTextAndIcon("设置动态壁纸", R.drawable.msg_background, changeUserColor >= 0);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -2777,7 +2862,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_THEME_ACCENT_LIST;
             } else if (position == bubbleRadiusRow) {
                 return TYPE_BUBBLE_RADIUS;
-            } else if (position == backgroundRow || position == editThemeRow || position == createNewThemeRow ||
+            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == editThemeRow || position == createNewThemeRow ||
                         position == liteModeRow || position == stickersRow) {
                 return TYPE_TEXT_PREFERENCE;
             } else if (position == swipeGestureRow) {
