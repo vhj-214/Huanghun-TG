@@ -312,8 +312,8 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
             try {
                 android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_PICK);
                 intent.setType("video/*");
-                if (fragment != null && fragment.getParentActivity() != null) {
-                    fragment.getParentActivity().startActivityForResult(intent, 9922);
+                if (chatActivity != null && chatActivity.getParentActivity() != null) {
+                    chatActivity.getParentActivity().startActivityForResult(intent, 9922);
                 } else if (getContext() instanceof Activity) {
                     ((Activity) getContext()).startActivityForResult(intent, 9922);
                 }
