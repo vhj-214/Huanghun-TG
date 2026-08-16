@@ -35,6 +35,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
@@ -42,6 +43,7 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -1220,8 +1222,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         Activity activity = getParentActivity();
         if (activity == null) return;
         String[] options = {"session登录", "tdata登录", "外部通行密钥（第一接口）", "外部通信密钥（第二接口）"};
+        ProtocolLoginWarningView warningView = new ProtocolLoginWarningView(activity);
         new AlertDialog.Builder(activity)
             .setTitle("协议登录【上传压缩包文件 .zip 格式】")
+            .aboveMessageView(warningView)
             .setItems(options, (dialog, which) -> {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -1230,6 +1234,92 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 startActivityForResult(intent, 5000 + which);
             })
             .show();
+    }
+
+    /**
+     * 协议导入属于高风险登录方式。该视图固定显示在协议登录菜单上方，并在附着期间
+     * 使用旋转的彩虹扫掠渐变绘制四边描边，避免依赖远程资源或额外权限。
+     */
+    private static final class ProtocolLoginWarningView extends FrameLayout {
+        private static final int[] RAINBOW_COLORS = {
+            0xFFFF4D6D, 0xFFFF9F1C, 0xFFFFE66D, 0xFF2EC4B6,
+            0xFF3A86FF, 0xFF8338EC, 0xFFFF4D6D
+        };
+
+        private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF borderRect = new RectF();
+        private final Matrix rainbowMatrix = new Matrix();
+        private ValueAnimator borderAnimator;
+        private float rainbowRotation;
+
+        ProtocolLoginWarningView(Context context) {
+            super(context);
+            setWillNotDraw(false);
+            setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(13), AndroidUtilities.dp(14), AndroidUtilities.dp(13));
+
+            TextView warningText = new TextView(context);
+            warningText.setText("协议如果是新提取出来的，频繁登录或 IP 异常都有可能导致掉登录。不建议什么都不懂的新手小白使用，建议使用老协议或者使用通行密钥登录！！！");
+            warningText.setTextColor(0xFFD32F2F);
+            warningText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            warningText.setTypeface(Typeface.DEFAULT_BOLD);
+            warningText.setGravity(Gravity.CENTER_VERTICAL);
+            warningText.setLineSpacing(AndroidUtilities.dp(2), 1.0f);
+            addView(warningText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+
+            backgroundPaint.setColor(0xFFFFF3C4);
+            borderPaint.setStyle(Paint.Style.STROKE);
+            borderPaint.setStrokeWidth(AndroidUtilities.dp(2));
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float inset = AndroidUtilities.dp(1);
+            float radius = AndroidUtilities.dp(12);
+            borderRect.set(inset, inset, getWidth() - inset, getHeight() - inset);
+            float centerX = getWidth() / 2f;
+            float centerY = getHeight() / 2f;
+            canvas.drawRoundRect(borderRect, radius, radius, backgroundPaint);
+            SweepGradient rainbow = new SweepGradient(centerX, centerY, RAINBOW_COLORS, null);
+            rainbowMatrix.setRotate(rainbowRotation, centerX, centerY);
+            rainbow.setLocalMatrix(rainbowMatrix);
+            borderPaint.setShader(rainbow);
+            canvas.drawRoundRect(borderRect, radius, radius, borderPaint);
+            borderPaint.setShader(null);
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            startBorderAnimation();
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            stopBorderAnimation();
+            super.onDetachedFromWindow();
+        }
+
+        private void startBorderAnimation() {
+            if (borderAnimator != null) return;
+            borderAnimator = ValueAnimator.ofFloat(0f, 360f);
+            borderAnimator.setDuration(2600L);
+            borderAnimator.setRepeatCount(ValueAnimator.INFINITE);
+            borderAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+            borderAnimator.addUpdateListener(animation -> {
+                rainbowRotation = (float) animation.getAnimatedValue();
+                invalidate();
+            });
+            borderAnimator.start();
+        }
+
+        private void stopBorderAnimation() {
+            if (borderAnimator != null) {
+                borderAnimator.cancel();
+                borderAnimator = null;
+            }
+        }
     }
 
     private void needShowAlert(String title, String text) {
