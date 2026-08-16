@@ -297,7 +297,31 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
                 openGalleryForBackground();
             }
         });
-        rootLayout.addView(chooseBackgroundTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.START, 16, 162, 16, 16));
+        rootLayout.addView(chooseBackgroundTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.START, 16, 150, 16, 16));
+
+        // Huanghun: Add Dynamic Video Wallpaper Button below change wallpaper
+        TextView dynamicWallpaperBtn = new TextView(getContext());
+        dynamicWallpaperBtn.setEllipsize(TextUtils.TruncateAt.END);
+        dynamicWallpaperBtn.setGravity(Gravity.CENTER);
+        dynamicWallpaperBtn.setLines(1);
+        dynamicWallpaperBtn.setSingleLine(true);
+        dynamicWallpaperBtn.setText("设置动态聊天壁纸");
+        dynamicWallpaperBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        dynamicWallpaperBtn.setTextColor(getThemedColor(Theme.key_featuredStickers_addButton));
+        dynamicWallpaperBtn.setOnClickListener(v -> {
+            try {
+                android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_PICK);
+                intent.setType("video/*");
+                if (fragment != null && fragment.getParentActivity() != null) {
+                    fragment.getParentActivity().startActivityForResult(intent, 9922);
+                } else if (getContext() instanceof Activity) {
+                    ((Activity) getContext()).startActivityForResult(intent, 9922);
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+        });
+        rootLayout.addView(dynamicWallpaperBtn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.START, 16, 205, 16, 16));
 
         applyTextView = new AnimatedTextView(getContext(), true, true, true);
         applyTextView.getDrawable().setEllipsizeByGradient(true);
