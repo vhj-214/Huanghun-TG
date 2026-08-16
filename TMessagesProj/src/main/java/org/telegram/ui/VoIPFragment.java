@@ -68,6 +68,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.AnimationNotificationsLocker;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
@@ -567,7 +568,7 @@ public class VoIPFragment implements
             previousState = currentState;
             currentState = state;
             if (state == VoIPService.STATE_WAITING_INCOMING) {
-                HuanghunOutfitRuntime.startLocalCallTone(getContext());
+                HuanghunOutfitRuntime.startLocalCallTone(ApplicationLoader.applicationContext);
             } else {
                 HuanghunOutfitRuntime.stopLocalCallTone();
             }
