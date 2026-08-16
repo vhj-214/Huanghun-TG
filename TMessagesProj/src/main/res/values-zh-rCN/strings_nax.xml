@@ -207,4 +207,5 @@
     <string name="HuanghunCleanupScheduled">已提交 %1$d 项清理任务。</string>
     <string name="HuanghunSaveKeywords">保存关键词</string>
     <string name="HuanghunClearMessagesByTime">删除指定时间的聊天记录</string>
+    <string name="HuanghunScanLocalQr">扫描本地图片</string>
 </resources>

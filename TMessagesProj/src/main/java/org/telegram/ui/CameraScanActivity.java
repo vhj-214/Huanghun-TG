@@ -27,7 +27,6 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.ShapeDrawable;
 import android.hardware.Camera;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -150,6 +149,8 @@ public class CameraScanActivity extends BaseFragment {
     private BarcodeDetector visionQrReader = null;
 
     private boolean needGalleryButton;
+    private boolean openGalleryOnStart;
+    private boolean openGalleryAfterPermissionGrant;
 
     private int currentType;
 
@@ -179,10 +180,21 @@ public class CameraScanActivity extends BaseFragment {
     }
 
     public static BottomSheet showAsSheet(BaseFragment parentFragment, boolean gallery, int type, CameraScanActivityDelegate cameraDelegate) {
-        return showAsSheet(parentFragment.getParentActivity(), gallery, type, cameraDelegate);
+        return showAsSheet(parentFragment, gallery, false, type, cameraDelegate);
+    }
+
+    public static BottomSheet showAsSheet(BaseFragment parentFragment, boolean gallery, boolean openGalleryOnStart, int type, CameraScanActivityDelegate cameraDelegate) {
+        if (parentFragment == null) {
+            return null;
+        }
+        return showAsSheet(parentFragment.getParentActivity(), gallery, openGalleryOnStart, type, cameraDelegate);
     }
 
     public static BottomSheet showAsSheet(Activity parentActivity, boolean gallery, int type, CameraScanActivityDelegate cameraDelegate) {
+        return showAsSheet(parentActivity, gallery, false, type, cameraDelegate);
+    }
+
+    public static BottomSheet showAsSheet(Activity parentActivity, boolean gallery, boolean openGalleryOnStart, int type, CameraScanActivityDelegate cameraDelegate) {
         if (parentActivity == null) {
             return null;
         }
@@ -205,6 +217,7 @@ public class CameraScanActivity extends BaseFragment {
                 };
                 fragment.shownAsBottomSheet = true;
                 fragment.needGalleryButton = gallery;
+                fragment.openGalleryOnStart = openGalleryOnStart;
                 actionBarLayout[0].addFragmentToStack(fragment);
                 actionBarLayout[0].showLastFragment();
                 actionBarLayout[0].getView().setPadding(backgroundPaddingLeft, 0, backgroundPaddingLeft, 0);
@@ -670,61 +683,10 @@ public class CameraScanActivity extends BaseFragment {
                 galleryButton.setImageResource(R.drawable.qr_gallery);
                 galleryButton.setBackgroundDrawable(Theme.createSelectorDrawableFromDrawables(Theme.createCircleDrawable(dp(60), 0x22ffffff), Theme.createCircleDrawable(dp(60), 0x44ffffff)));
                 viewGroup.addView(galleryButton);
-                galleryButton.setOnClickListener(currentImage -> {
-                    if (getParentActivity() == null) {
-                        return;
-                    }
-                    final Activity activity = getParentActivity();
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        if (activity.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-                            activity.requestPermissions(new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO}, BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE);
-                            return;
-                        }
-                    } else if (Build.VERSION.SDK_INT >= 23) {
-                        if (activity.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                            activity.requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE);
-                            return;
-                        }
-                    }
-                    PhotoAlbumPickerActivity fragment = new PhotoAlbumPickerActivity(PhotoAlbumPickerActivity.SELECT_TYPE_QR, false, false, null);
-                    fragment.setMaxSelectedPhotos(1, false);
-                    fragment.setAllowSearchImages(false);
-                    fragment.setDelegate(new PhotoAlbumPickerActivity.PhotoAlbumPickerActivityDelegate() {
-                        @Override
-                        public void didSelectPhotos(ArrayList<SendMessagesHelper.SendingMediaInfo> photos, boolean notify, int scheduleDate) {
-                            try {
-                                if (!photos.isEmpty()) {
-                                    SendMessagesHelper.SendingMediaInfo info = photos.get(0);
-                                    if (info.path != null) {
-                                        Point screenSize = AndroidUtilities.getRealScreenSize();
-                                        Bitmap bitmap = ImageLoader.loadBitmap(info.path, null, screenSize.x, screenSize.y, true);
-                                        QrResult res = tryReadQr(null, null, 0, 0, 0, bitmap);
-                                        if (res != null) {
-                                            if (delegate != null) {
-                                                delegate.didFindQr(res.text);
-                                            }
-                                            removeSelfFromStack();
-                                        }
-                                    }
-                                }
-                            } catch (Throwable e) {
-                                FileLog.e(e);
-                            }
-                        }
-
-                        @Override
-                        public void startPhotoSelectActivity() {
-                            try {
-                                Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
-                                photoPickerIntent.setType("image/*");
-                                getParentActivity().startActivityForResult(photoPickerIntent, 11);
-                            } catch (Exception e) {
-                                FileLog.e(e);
-                            }
-                        }
-                    });
-                    presentFragment(fragment);
-                });
+                galleryButton.setOnClickListener(currentImage -> openGalleryPicker());
+                if (openGalleryOnStart) {
+                    AndroidUtilities.runOnUIThread(this::openGalleryPicker, 120);
+                }
             }
 
             flashButton = new ImageView(context);
@@ -980,6 +942,77 @@ public class CameraScanActivity extends BaseFragment {
             }
         }
         return recognizedPoints;
+    }
+
+    private void openGalleryPicker() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final Activity activity = getParentActivity();
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (activity.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                openGalleryAfterPermissionGrant = true;
+                activity.requestPermissions(new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO}, BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE);
+                return;
+            }
+        } else if (Build.VERSION.SDK_INT >= 23) {
+            if (activity.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                openGalleryAfterPermissionGrant = true;
+                activity.requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE);
+                return;
+            }
+        }
+        openGalleryAfterPermissionGrant = false;
+        PhotoAlbumPickerActivity fragment = new PhotoAlbumPickerActivity(PhotoAlbumPickerActivity.SELECT_TYPE_QR, false, false, null);
+        fragment.setMaxSelectedPhotos(1, false);
+        fragment.setAllowSearchImages(false);
+        fragment.setDelegate(new PhotoAlbumPickerActivity.PhotoAlbumPickerActivityDelegate() {
+            @Override
+            public void didSelectPhotos(ArrayList<SendMessagesHelper.SendingMediaInfo> photos, boolean notify, int scheduleDate) {
+                try {
+                    if (!photos.isEmpty()) {
+                        SendMessagesHelper.SendingMediaInfo info = photos.get(0);
+                        if (info.path != null) {
+                            Point screenSize = AndroidUtilities.getRealScreenSize();
+                            Bitmap bitmap = ImageLoader.loadBitmap(info.path, null, screenSize.x, screenSize.y, true);
+                            QrResult res = tryReadQr(null, null, 0, 0, 0, bitmap);
+                            if (res != null) {
+                                if (delegate != null) {
+                                    delegate.didFindQr(res.text);
+                                }
+                                removeSelfFromStack();
+                            }
+                        }
+                    }
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+            }
+
+            @Override
+            public void startPhotoSelectActivity() {
+                try {
+                    Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
+                    photoPickerIntent.setType("image/*");
+                    getParentActivity().startActivityForResult(photoPickerIntent, 11);
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+            }
+        });
+        presentFragment(fragment);
+    }
+
+    @Override
+    public void onRequestPermissionsResultFragment(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResultFragment(requestCode, permissions, grantResults);
+        if (requestCode == BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE && openGalleryAfterPermissionGrant) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            openGalleryAfterPermissionGrant = false;
+            if (granted) {
+                openGalleryPicker();
+            }
+        }
     }
 
     @Override
@@ -1373,14 +1406,9 @@ public class CameraScanActivity extends BaseFragment {
                 onNoQrFound();
                 return null;
             }
-            if (needGalleryButton) {
-                Uri uri = Uri.parse(text);
-                String path = uri.getPath().replace("/", "");
-            } else {
-                if (currentType == TYPE_QR_LOGIN && !text.startsWith("tg://login?token=")) {
-                    onNoQrFound();
-                    return null;
-                }
+            if (currentType == TYPE_QR_LOGIN && !text.startsWith("tg://login?token=")) {
+                onNoQrFound();
+                return null;
             }
             QrResult qrResult = new QrResult();
             if (bounds != null) {

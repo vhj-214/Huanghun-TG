@@ -1051,6 +1051,7 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
         BackupImageView imageView;
         TextView textView;
         TextView buttonTextView;
+        TextView localImageButtonTextView;
         CellFlickerDrawable flickerDrawable = new CellFlickerDrawable();
 
         public ScanQRCodeView(@NonNull Context context) {
@@ -1153,14 +1154,25 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
                 }
                 openCameraScanActivity();
             });
-            addView(buttonTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, 16, 15, 16, 16));
+            addView(buttonTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, 16, 15, 16, 72));
+
+            localImageButtonTextView = new TextView(context);
+            localImageButtonTextView.setPadding(AndroidUtilities.dp(24), 0, AndroidUtilities.dp(24), 0);
+            localImageButtonTextView.setGravity(Gravity.CENTER);
+            localImageButtonTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            localImageButtonTextView.setTypeface(AndroidUtilities.bold());
+            localImageButtonTextView.setText(getString(R.string.HuanghunScanLocalQr));
+            localImageButtonTextView.setTextColor(Theme.getColor(Theme.key_featuredStickers_addButton));
+            localImageButtonTextView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(22), Theme.getColor(Theme.key_windowBackgroundWhite), Theme.getColor(Theme.key_listSelector)));
+            localImageButtonTextView.setOnClickListener(view -> openLocalImageQrScanActivity());
+            addView(localImageButtonTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 40, Gravity.BOTTOM, 16, 0, 16, 16));
 
             setSticker();
         }
 
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(276), MeasureSpec.EXACTLY));
+            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(332), MeasureSpec.EXACTLY));
         }
 
         @Override
@@ -1219,7 +1231,15 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
     }
 
     private void openCameraScanActivity() {
-        CameraScanActivity.showAsSheet(SessionsActivity.this, false, CameraScanActivity.TYPE_QR_LOGIN, new CameraScanActivity.CameraScanActivityDelegate() {
+        openCameraScanActivity(false);
+    }
+
+    private void openLocalImageQrScanActivity() {
+        openCameraScanActivity(true);
+    }
+
+    private void openCameraScanActivity(boolean openGalleryOnStart) {
+        CameraScanActivity.showAsSheet(SessionsActivity.this, openGalleryOnStart, openGalleryOnStart, CameraScanActivity.TYPE_QR_LOGIN, new CameraScanActivity.CameraScanActivityDelegate() {
 
             private TLObject response = null;
             private TLRPC.TL_error error = null;

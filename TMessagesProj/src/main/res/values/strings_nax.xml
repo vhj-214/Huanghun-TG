@@ -217,6 +217,7 @@
     <string name="TranslateMessageLLM">AI Translation</string>
     <string name="HuanghunClearDeletedAccounts">Clear deleted accounts</string>
     <string name="HuanghunClearMessagesByTime">Delete messages by time range</string>
+    <string name="HuanghunScanLocalQr">Scan local image</string>
     <string name="EditLocalNameOverride">Editing local name override.</string>
     <string name="ResetChatNameOverrides">Reset Chat Name Overrides</string>
     <string name="ResetChatNameNotification">Chat name overrides cleared.</string>
