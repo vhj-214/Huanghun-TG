@@ -432,7 +432,6 @@ public class ChatThemeBottomSheet extends BottomSheet implements NotificationCen
                 }
                 updateApplySubTextTranslation(showSubText, animated && applyTextView.getAlpha() > .8f);
                 AndroidUtilities.updateViewVisibilityAnimated(chooseBackgroundTextView, false, 0.9f, false, animated);
-                AndroidUtilities.updateViewVisibilityAnimated(dynamicWallpaperTextView, false, 0.9f, false, animated);
                 AndroidUtilities.updateViewVisibilityAnimated(cancelOrResetTextView, false, 0.9f, false, animated);
                 AndroidUtilities.updateViewVisibilityAnimated(applyButton, true, 1f, false, animated);
                 AndroidUtilities.updateViewVisibilityAnimated(applyTextView, true, 0.9f, false, animated);
