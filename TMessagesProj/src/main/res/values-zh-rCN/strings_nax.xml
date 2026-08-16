@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="XChannel">Nagram X 频道</string>
     <string name="EnableSaveDeletedMessages">保存已删除消息</string>
@@ -143,8 +143,8 @@
     <string name="MarkReadAfterSendNotice">发送新消息或点击表情回应时，自动将消息标记为已读。</string>
     <string name="SendWithoutSoundRowNotice">对方将不会收到声音提醒。</string>
     <string name="GhostReadMessage">标记已读</string>
-    <string name="GhostModeExcludeRead">Exclude Read</string>
-    <string name="GhostModeExcludeTyping">Exclude Typing</string>
+    <string name="GhostModeExcludeRead">排除已读</string>
+    <string name="GhostModeExcludeTyping">排除输入状态</string>
     <string name="SendWithSound">有声发送</string>
     <string name="PerformanceClass">设备性能等级</string>
     <string name="PerformanceClassHigh">高</string>
@@ -181,9 +181,9 @@
     <string name="ReplyInPrivate">在私聊中回复</string>
     <string name="TranscribeProviderGeminiPrompt">提示词（可选）</string>
     <string name="uploadBoost">上传加速</string>
-    <string name="HideDividers">Hide Dividers</string>
-    <string name="IconReplacements">Icon Replacements</string>
-    <string name="IconReplacementSolar">Solar Icons</string>
+    <string name="HideDividers">隐藏分隔线</string>
+    <string name="IconReplacements">图标替换</string>
+    <string name="IconReplacementSolar">Solar 图标集</string>
     <string name="HuanghunExtensions">扩展功能</string>
     <string name="HuanghunCleanupZone">清理专区</string>
     <string name="HuanghunBlockZone">屏蔽专区</string>
