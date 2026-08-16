@@ -433,12 +433,8 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
             int provider = NekoConfig.translationProvider.Int();
             boolean telegramUIAutoTranslateEnabled = NaConfig.INSTANCE.getTelegramUIAutoTranslate().Bool();
             boolean isRealPremium = UserConfig.getInstance(currentAccount).isPremium();
-            if (provider == Translator.providerTelegram && !telegramUIAutoTranslateEnabled && !isRealPremium) {
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.info, getString(R.string.LoginEmailResetPremiumRequiredTitle)).show();
-                BotWebViewVibrationEffect.APP_ERROR.vibrate();
-                AndroidUtilities.shakeViewSpring(view, -4);
-                return;
-            }
+            // Unlocked for Huanghun customization
+
         }
         super.handleCellClick(view, position, x, y);
     }
@@ -448,18 +444,9 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         if (position == cellGroup.rows.indexOf(translationProviderRow)) {
             showProviderSelectionPopup(view, NekoConfig.translationProvider, () -> {
                 int provider = NekoConfig.translationProvider.Int();
-                if (provider == Translator.providerTelegram) {
-                    boolean isRealPremium = UserConfig.getInstance(currentAccount).isPremium();
-                    if (isAutoTranslateEnabled && !isRealPremium) {
-                        NaConfig.INSTANCE.getTelegramUIAutoTranslate().setConfigBool(false);
-                        listAdapter.notifyItemChanged(cellGroup.rows.indexOf(useTelegramUIAutoTranslateRow));
-                        BulletinFactory.of(this).createSimpleBulletin(R.raw.info, getString(R.string.LoginEmailResetPremiumRequiredTitle)).show();
-                        AndroidUtil.showInputError(((ConfigCellTextCheck) useTelegramUIAutoTranslateRow).cell);
-                    }
-                } else {
-                    NaConfig.INSTANCE.getTelegramUIAutoTranslate().setConfigBool(isAutoTranslateEnabled);
-                    listAdapter.notifyItemChanged(cellGroup.rows.indexOf(useTelegramUIAutoTranslateRow));
-                }
+                // Unlocked for Huanghun customization
+                NaConfig.INSTANCE.getTelegramUIAutoTranslate().setConfigBool(isAutoTranslateEnabled);
+                listAdapter.notifyItemChanged(cellGroup.rows.indexOf(useTelegramUIAutoTranslateRow));
                 checkTranslationKeyRows();
                 listAdapter.notifyItemChanged(position);
             });

@@ -66,12 +66,26 @@ object TelegramAPITranslator : Translator {
                             if (err?.text != null && err.text!!.isNotEmpty()) {
                                 FileLog.e(err.text)
                             }
-                            continuation.resumeWithException(RuntimeException("An unexpected error occurred during Telegram API call: ${err?.text ?: "Unknown error"}"))
+                            // Fallback to Google Translator if official API rejects non-premium request
+                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                try {
+                                    val fallback = GoogleTranslator.doTranslate(from, to, query, entities)
+                                    continuation.resume(fallback)
+                                } catch (ex: Exception) {
+                                    continuation.resumeWithException(RuntimeException("Telegram API error (${err?.text}): ${ex.message}"))
+                                }
+                            }
                         }
                     }
             } catch (e: Exception) {
-                FileLog.e(e)
-                continuation.resumeWithException(e)
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    try {
+                        val fallback = GoogleTranslator.doTranslate(from, to, query, entities)
+                        continuation.resume(fallback)
+                    } catch (ex: Exception) {
+                        continuation.resumeWithException(e)
+                    }
+                }
             }
         }
     }

@@ -114,13 +114,8 @@ public class TranslateAlert3 extends BottomSheetWithRecyclerListView {
                     AndroidUtilities.addToClipboard(translated);
                 }
             } else if (item.id == 2) {
-                if (!UserConfig.getInstance(currentAccount).isPremium()) {
-                    final BaseFragment fragment = LaunchActivity.getSafeLastFragment();
-                    if (fragment == null) return;
-                    new PremiumFeatureBottomSheet(getContext(), PremiumPreviewFragment.PREMIUM_FEATURE_TRANSLATIONS, true, resourcesProvider)
-                        .show();
-                    return;
-                }
+                // Unlocked for Huanghun customization
+
                 MessagesController.getInstance(currentAccount).getTranslateController().toggleTranslatingDialog(dialogId);
                 dismiss();
             }
