@@ -195,15 +195,6 @@
     <string name="HuanghunClearDeletedAccounts">删除已注销的账户</string>
     <string name="HuanghunClearAll">一键清除上述所有</string>
     <string name="HuanghunCleanupNotice">受 Telegram 服务器规则限制，必须先转让所有权的群组会由服务器拒绝退出，不会被强制删除。</string>
-    <string name="HuanghunProtocolHeader">协议提取专区</string>
-    <string name="HuanghunExtractSession">提取 session 协议</string>
-    <string name="HuanghunExtractTData">提取 tdata 协议</string>
-    <string name="HuanghunConvertProtocol">session 与 tdata 格式互转</string>
-    <string name="HuanghunCreatePasskey">外部通行密钥创建</string>
-    <string name="HuanghunProtocolNotice">提取的文件将自动保存在 /Download/黄昏/协议提取/ 目录下。</string>
-    <string name="HuanghunProtocolExtract">协议提取</string>
-    <string name="HuanghunProtocolSuccessNotice">协议提取成功，已保存至下载目录的对应账号文件夹中。</string>
-    <string name="HuanghunPasskeyTitle">外部通行密钥</string>
     <string name="HuanghunBlockNonContacts">屏蔽非联系人发送内容</string>
     <string name="HuanghunBlockKeywords">关键词管理</string>
     <string name="HuanghunBlockKeywordsCount">目前已设定 %1$d 个词</string>

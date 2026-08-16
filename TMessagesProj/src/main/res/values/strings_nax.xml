@@ -217,15 +217,6 @@
     <string name="TranslateMessageLLM">AI Translation</string>
     <string name="HuanghunClearDeletedAccounts">Clear deleted accounts</string>
     <string name="HuanghunClearMessagesByTime">Delete messages by time range</string>
-    <string name="HuanghunProtocolHeader">Protocol Extraction Zone</string>
-    <string name="HuanghunExtractSession">Extract session protocol</string>
-    <string name="HuanghunExtractTData">Extract tdata protocol</string>
-    <string name="HuanghunConvertProtocol">Session &amp; tdata converter</string>
-    <string name="HuanghunCreatePasskey">Create external passkey</string>
-    <string name="HuanghunProtocolNotice">Extracted archives will be saved in /Download/黄昏/协议提取/.</string>
-    <string name="HuanghunProtocolExtract">Protocol Extraction</string>
-    <string name="HuanghunProtocolSuccessNotice">Protocol successfully extracted and saved to download directory.</string>
-    <string name="HuanghunPasskeyTitle">External Passkey</string>
     <string name="EditLocalNameOverride">Editing local name override.</string>
     <string name="ResetChatNameOverrides">Reset Chat Name Overrides</string>
     <string name="ResetChatNameNotification">Chat name overrides cleared.</string>

@@ -51,14 +51,6 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int cleanupNoticeRow;
     private int cleanupEndRow;
 
-    private int protocolHeaderRow;
-    private int extractSessionRow;
-    private int extractTDataRow;
-    private int convertProtocolRow;
-    private int createPasskeyRow;
-    private int protocolNoticeRow;
-    private int protocolEndRow;
-
     private int blockHeaderRow;
     private int blockNonContactsRow;
     private int keywordsRow;
@@ -79,14 +71,6 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         clearAllRow = addRow();
         cleanupNoticeRow = addRow();
         cleanupEndRow = addRow();
-
-        protocolHeaderRow = addRow();
-        extractSessionRow = addRow();
-        extractTDataRow = addRow();
-        convertProtocolRow = addRow();
-        createPasskeyRow = addRow();
-        protocolNoticeRow = addRow();
-        protocolEndRow = addRow();
 
         blockHeaderRow = addRow();
         blockNonContactsRow = addRow();
@@ -138,14 +122,6 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             return;
         }
 
-        if (position == extractSessionRow || position == extractTDataRow || position == convertProtocolRow) {
-            showProtocolActionNotice(position);
-            return;
-        }
-        if (position == createPasskeyRow) {
-            showPasskeyCheckDialog();
-            return;
-        }
     }
 
     private void showCleanupConfirmation(HuanghunExtensionHelper.CleanupAction action) {
@@ -260,12 +236,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             int type = holder.getItemViewType();
             if (type == TYPE_HEADER) {
                 HeaderCell cell = (HeaderCell) holder.itemView;
-                String headerText = getString(R.string.HuanghunCleanupZone);
-                if (position == protocolHeaderRow) {
-                    headerText = getString(R.string.HuanghunProtocolHeader);
-                } else if (position == blockHeaderRow) {
-                    headerText = getString(R.string.HuanghunBlockZone);
-                }
+                String headerText = position == blockHeaderRow
+                        ? getString(R.string.HuanghunBlockZone)
+                        : getString(R.string.HuanghunCleanupZone);
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
@@ -287,14 +260,6 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 } else if (position == clearAllRow) {
                     cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
                     cell.setText(getString(R.string.HuanghunClearAll), false);
-                } else if (position == extractSessionRow) {
-                    cell.setText(getString(R.string.HuanghunExtractSession), true);
-                } else if (position == extractTDataRow) {
-                    cell.setText(getString(R.string.HuanghunExtractTData), true);
-                } else if (position == convertProtocolRow) {
-                    cell.setText(getString(R.string.HuanghunConvertProtocol), true);
-                } else if (position == createPasskeyRow) {
-                    cell.setText(getString(R.string.HuanghunCreatePasskey), false);
                 } else if (position == keywordsRow) {
                     cell.setTextAndValue(getString(R.string.HuanghunBlockKeywords), LocaleController.formatString(R.string.HuanghunBlockKeywordsCount, HuanghunExtensionHelper.getKeywordCount()), false);
                 }
@@ -312,16 +277,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == cleanupHeaderRow || position == protocolHeaderRow || position == blockHeaderRow) {
+            if (position == cleanupHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
             if (position == blockNonContactsRow) {
                 return TYPE_CHECK;
             }
-            if (position == cleanupNoticeRow || position == protocolNoticeRow || position == blockNoticeRow) {
+            if (position == cleanupNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == cleanupEndRow || position == protocolEndRow || position == blockEndRow) {
+            if (position == cleanupEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;
@@ -346,34 +311,6 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }));
     }
 
-    private void showProtocolActionNotice(int position) {
-        Context context = getParentActivity();
-        if (context == null) {
-            return;
-        }
-        String title = getString(R.string.HuanghunProtocolExtract);
-        String msg = getString(R.string.HuanghunProtocolSuccessNotice);
-        new AlertDialog.Builder(context, resourceProvider)
-                .setTitle(title)
-                .setMessage(msg)
-                .setPositiveButton(getString(R.string.OK), null)
-                .show();
-    }
-
-    private void showPasskeyCheckDialog() {
-        Context context = getParentActivity();
-        if (context == null) {
-            return;
-        }
-        long accountCreateTime = org.telegram.messenger.UserConfig.getInstance(currentAccount).clientUserId; // approximate check or simulation
-        // Enforce 24-hour check per user request
-        new AlertDialog.Builder(context, resourceProvider)
-                .setTitle(getString(R.string.HuanghunPasskeyTitle))
-                .setMessage("TG官方限制提取创建通信密钥，需要在新设备等待24小时（一天），请等待满足相应时间后重新尝试。")
-                .setPositiveButton(getString(R.string.OK), null)
-                .show();
-    }
-
     private void showTimeRangeCleanupDialog() {
         Context context = getParentActivity();
         if (context == null) {
@@ -394,12 +331,14 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         final android.widget.RadioGroup modeGroup = new android.widget.RadioGroup(context);
         modeGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
         android.widget.RadioButton rb1 = new android.widget.RadioButton(context);
+        rb1.setId(View.generateViewId());
         rb1.setText("删除指定时间之前");
-        rb1.setChecked(true);
         modeGroup.addView(rb1);
         android.widget.RadioButton rb2 = new android.widget.RadioButton(context);
+        rb2.setId(View.generateViewId());
         rb2.setText("指定时间段（例如：2025-08-16 至 2026-03-17）");
         modeGroup.addView(rb2);
+        modeGroup.check(rb1.getId());
         container.addView(modeGroup);
 
         TextView dateTitle = new TextView(context);
@@ -442,15 +381,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         final android.widget.RadioGroup scopeGroup = new android.widget.RadioGroup(context);
         scopeGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
         android.widget.RadioButton sb1 = new android.widget.RadioButton(context);
+        sb1.setId(View.generateViewId());
         sb1.setText("群或频道");
-        sb1.setChecked(true);
         scopeGroup.addView(sb1);
         android.widget.RadioButton sb2 = new android.widget.RadioButton(context);
+        sb2.setId(View.generateViewId());
         sb2.setText("用户发送的消息（包含机器人）");
         scopeGroup.addView(sb2);
         android.widget.RadioButton sb3 = new android.widget.RadioButton(context);
+        sb3.setId(View.generateViewId());
         sb3.setText("两者都选");
         scopeGroup.addView(sb3);
+        scopeGroup.check(sb1.getId());
         container.addView(scopeGroup);
 
         builder.setView(container);
