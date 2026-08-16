@@ -1,6 +1,8 @@
 package org.telegram.ui;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
+
+import com.Huanghun.outfit.HuanghunOutfitRuntime;
 import static org.telegram.messenger.AndroidUtilities.isTablet;
 import static org.telegram.ui.GroupCallActivity.TRANSITION_DURATION;
 
@@ -540,6 +542,7 @@ public class VoIPFragment implements
     }
 
     private void destroy() {
+        HuanghunOutfitRuntime.stopLocalCallTone();
         if (VoIPService.getSharedInstance() != null) {
             VoIPService.getSharedInstance().unregisterStateListener(this);
         }
@@ -563,6 +566,11 @@ public class VoIPFragment implements
         if (currentState != state) {
             previousState = currentState;
             currentState = state;
+            if (state == VoIPService.STATE_WAITING_INCOMING) {
+                HuanghunOutfitRuntime.startLocalCallTone(getContext());
+            } else {
+                HuanghunOutfitRuntime.stopLocalCallTone();
+            }
             if (windowView != null) {
                 updateViewState();
             }
@@ -850,6 +858,11 @@ public class VoIPFragment implements
 
         frameLayout.addView(gradientLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         frameLayout.addView(voIpCoverView = new VoIpCoverView(context, callingUser, backgroundProvider) , LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // 黄昏本地来电皮肤位于背景层，官方接听、挂断、静音、扬声器和视频按钮保持原有逻辑。
+        View huanghunCallSkin = HuanghunOutfitRuntime.createCallSkin(context);
+        if (huanghunCallSkin != null) {
+            frameLayout.addView(huanghunCallSkin, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        }
         frameLayout.addView(voIpSnowView = new VoIpSnowView(context), LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 220));
         frameLayout.addView(callingUserTextureView);
 

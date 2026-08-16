@@ -388,6 +388,8 @@ import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
 import tw.nekomimi.nekogram.filters.RegexFilterEditActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import com.Huanghun.outfit.HuanghunOutfitRuntime;
+
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
@@ -4647,6 +4649,7 @@ public class ChatActivity extends BaseFragment implements
             getConnectionsManager().bindRequestToGuid(req, classGuid);
         } else {
             actionBar.addView(avatarContainer, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, !inPreviewMode ? 52 : 0, 0, 52, 0));
+            HuanghunOutfitRuntime.attachAvatarPendant(avatarContainer);
             actionBar.createMenu().bringToFront();
         }
         actionBar.setOnActionModeFactorChangeListener(() -> {
@@ -31077,6 +31080,10 @@ public class ChatActivity extends BaseFragment implements
         }
         // 重新读取本地视频背景配置：从外观设置返回或切换主题后也必须应用到当前聊天。
         refreshDynamicVideoWallpaper();
+        HuanghunOutfitRuntime.attachAvatarPendant(avatarContainer);
+        if (currentChat != null) {
+            HuanghunOutfitRuntime.playJoinEffect(contentView, currentAccount, dialog_id);
+        }
         checkChecksHint();
 
         Bulletin.addDelegate(this, bulletinDelegate = new Bulletin.Delegate() {
