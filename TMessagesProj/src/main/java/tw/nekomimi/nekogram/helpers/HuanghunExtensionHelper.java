@@ -2,6 +2,7 @@ package tw.nekomimi.nekogram.helpers;
 
 import android.text.TextUtils;
 
+import org.telegram.SQLite.SQLiteCursor;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ContactsController;
@@ -39,6 +40,10 @@ public final class HuanghunExtensionHelper {
 
     public interface CleanupCallback {
         void onComplete(int scheduledActions);
+    }
+
+    public interface TimeBoundsCallback {
+        void onBounds(long earliestMillis, long latestMillis);
     }
 
     private HuanghunExtensionHelper() {
@@ -267,7 +272,6 @@ public final class HuanghunExtensionHelper {
         }
         return keywords;
     }
-}
 
     private static int clearDeletedAccounts(int account) {
         MessagesController controller = MessagesController.getInstance(account);
@@ -288,3 +292,82 @@ public final class HuanghunExtensionHelper {
         }
         return scheduled;
     }
+
+    /**
+     * Removes only messages whose local timestamps fall in the selected inclusive date interval.
+     * scope: 0 = both, 1 = groups/channels, 2 = private chats and bots.
+     * mode: 0 = before the selected end date, 1 = selected start-to-end date interval.
+     */
+    public static void clearMessagesByTime(int account, int mode, long startTime, long endTime, int scope, CleanupCallback callback) {
+        final int minDate = mode == 1 ? (int) (startTime / 1000L) : 0;
+        final int maxDate = (int) (endTime / 1000L);
+        final MessagesStorage storage = MessagesStorage.getInstance(account);
+        final ArrayList<TLRPC.Dialog> dialogs = new ArrayList<>();
+        MessagesController controller = MessagesController.getInstance(account);
+        for (int i = 0; i < controller.dialogs_dict.size(); i++) {
+            dialogs.add(controller.dialogs_dict.valueAt(i));
+        }
+        storage.getStorageQueue().postRunnable(() -> {
+            int scheduled = 0;
+            for (TLRPC.Dialog dialog : dialogs) {
+                if (dialog == null || dialog.id == 0) {
+                    continue;
+                }
+                boolean isGroupOrChannel = dialog.id < 0;
+                boolean isPrivateOrBot = dialog.id > 0;
+                if ((scope == 1 && !isGroupOrChannel) || (scope == 2 && !isPrivateOrBot)) {
+                    continue;
+                }
+                ArrayList<Integer> messageIds = storage.getCachedMessagesInRange(dialog.id, minDate, maxDate);
+                if (messageIds.isEmpty()) {
+                    continue;
+                }
+                scheduled += messageIds.size();
+                final ArrayList<Integer> ids = messageIds;
+                final long dialogId = dialog.id;
+                AndroidUtilities.runOnUIThread(() -> MessagesController.getInstance(account)
+                        .deleteMessages(ids, null, null, dialogId, 0, true, 0));
+            }
+            final int result = scheduled;
+            AndroidUtilities.runOnUIThread(() -> {
+                if (callback != null) {
+                    callback.onComplete(result);
+                }
+            });
+        });
+    }
+
+    /** Reads the earliest and latest locally cached ordinary-message dates without blocking the UI. */
+    public static void loadAccountMessageTimeBounds(int account, TimeBoundsCallback callback) {
+        MessagesStorage storage = MessagesStorage.getInstance(account);
+        storage.getStorageQueue().postRunnable(() -> {
+            long earliest = System.currentTimeMillis();
+            long latest = earliest;
+            SQLiteCursor cursor = null;
+            try {
+                cursor = storage.getDatabase().queryFinalized("SELECT MIN(date), MAX(date) FROM messages_v2 WHERE date > 0");
+                if (cursor.next()) {
+                    if (!cursor.isNull(0)) {
+                        earliest = cursor.longValue(0) * 1000L;
+                    }
+                    if (!cursor.isNull(1)) {
+                        latest = cursor.longValue(1) * 1000L;
+                    }
+                }
+            } catch (Exception ignore) {
+                // Safe fallback: keep today's date when the local database is empty or unavailable.
+            } finally {
+                if (cursor != null) {
+                    cursor.dispose();
+                }
+            }
+            final long finalEarliest = earliest;
+            final long finalLatest = latest;
+            AndroidUtilities.runOnUIThread(() -> {
+                if (callback != null) {
+                    callback.onBounds(finalEarliest, finalLatest);
+                }
+            });
+        });
+    }
+}

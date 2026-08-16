@@ -216,6 +216,7 @@
     <string name="DebugMenuHideFrameMetrics">Hide Frame Metrics</string>
     <string name="TranslateMessageLLM">AI Translation</string>
     <string name="HuanghunClearDeletedAccounts">Clear deleted accounts</string>
+    <string name="HuanghunClearMessagesByTime">Delete messages by time range</string>
     <string name="HuanghunProtocolHeader">Protocol Extraction Zone</string>
     <string name="HuanghunExtractSession">Extract session protocol</string>
     <string name="HuanghunExtractTData">Extract tdata protocol</string>

@@ -2,6 +2,7 @@ package tw.nekomimi.nekogram.settings;
 
 import static org.telegram.messenger.LocaleController.getString;
 
+import android.app.DatePickerDialog;
 import android.content.Context;
 import android.text.InputType;
 import android.util.TypedValue;
@@ -25,6 +26,12 @@ import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
@@ -39,6 +46,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int clearChatsRow;
     private int resetProfileRow;
     private int clearDeletedAccountsRow;
+    private int clearMessagesByTimeRow;
     private int clearAllRow;
     private int cleanupNoticeRow;
     private int cleanupEndRow;
@@ -67,6 +75,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         clearChatsRow = addRow();
         resetProfileRow = addRow();
         clearDeletedAccountsRow = addRow();
+        clearMessagesByTimeRow = addRow();
         clearAllRow = addRow();
         cleanupNoticeRow = addRow();
         cleanupEndRow = addRow();
@@ -118,6 +127,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             action = HuanghunExtensionHelper.CleanupAction.PROFILE;
         } else if (position == clearDeletedAccountsRow) {
             action = HuanghunExtensionHelper.CleanupAction.DELETED_ACCOUNTS;
+        } else if (position == clearMessagesByTimeRow) {
+            showTimeRangeCleanupDialog();
+            return;
         } else if (position == clearAllRow) {
             action = HuanghunExtensionHelper.CleanupAction.ALL;
         }
@@ -270,6 +282,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setText(getString(R.string.HuanghunResetProfile), true);
                 } else if (position == clearDeletedAccountsRow) {
                     cell.setText(getString(R.string.HuanghunClearDeletedAccounts), true);
+                } else if (position == clearMessagesByTimeRow) {
+                    cell.setText(getString(R.string.HuanghunClearMessagesByTime), true);
                 } else if (position == clearAllRow) {
                     cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
                     cell.setText(getString(R.string.HuanghunClearAll), false);
@@ -313,7 +327,6 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             return TYPE_SETTINGS;
         }
     }
-}
 
     private void executeCleanupDirectly(HuanghunExtensionHelper.CleanupAction action) {
         Context context = getParentActivity();
@@ -360,3 +373,165 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .setPositiveButton(getString(R.string.OK), null)
                 .show();
     }
+
+    private void showTimeRangeCleanupDialog() {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(context, resourceProvider);
+        builder.setTitle(getString(R.string.HuanghunClearMessagesByTime));
+
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(10), AndroidUtilities.dp(24), 0);
+
+        TextView modeTitle = new TextView(context);
+        modeTitle.setText("请选择删除模式：");
+        modeTitle.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        container.addView(modeTitle);
+
+        final android.widget.RadioGroup modeGroup = new android.widget.RadioGroup(context);
+        modeGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
+        android.widget.RadioButton rb1 = new android.widget.RadioButton(context);
+        rb1.setText("删除指定时间之前");
+        rb1.setChecked(true);
+        modeGroup.addView(rb1);
+        android.widget.RadioButton rb2 = new android.widget.RadioButton(context);
+        rb2.setText("指定时间段（例如：2025-08-16 至 2026-03-17）");
+        modeGroup.addView(rb2);
+        container.addView(modeGroup);
+
+        TextView dateTitle = new TextView(context);
+        dateTitle.setText("\n请输入日期（格式 YYYY-MM-DD）：");
+        dateTitle.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        container.addView(dateTitle);
+
+        LinearLayout dateLayout = new LinearLayout(context);
+        dateLayout.setOrientation(LinearLayout.HORIZONTAL);
+
+        EditTextBoldCursor inputStart = new EditTextBoldCursor(context);
+        inputStart.setHint("开始日期");
+        inputStart.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        inputStart.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        inputStart.setInputType(InputType.TYPE_CLASS_DATETIME);
+        inputStart.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputField));
+        dateLayout.addView(inputStart, LayoutHelper.createLinear(0, 48, 1.0f, 0, 0, 4, 0));
+
+        EditTextBoldCursor inputEnd = new EditTextBoldCursor(context);
+        inputEnd.setHint("结束日期");
+        inputEnd.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        inputEnd.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        inputEnd.setInputType(InputType.TYPE_CLASS_DATETIME);
+        inputEnd.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputField));
+        dateLayout.addView(inputEnd, LayoutHelper.createLinear(0, 48, 1.0f, 4, 0, 0, 0));
+
+        inputStart.setOnClickListener(v -> showDatePicker(inputStart));
+        inputEnd.setOnClickListener(v -> showDatePicker(inputEnd));
+        HuanghunExtensionHelper.loadAccountMessageTimeBounds(currentAccount, (earliestMillis, latestMillis) -> {
+            inputStart.setText(formatDate(earliestMillis));
+            inputEnd.setText(formatDate(latestMillis));
+        });
+        container.addView(dateLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 12));
+
+        TextView scopeTitle = new TextView(context);
+        scopeTitle.setText("\n请选择清理范围：");
+        scopeTitle.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        container.addView(scopeTitle);
+
+        final android.widget.RadioGroup scopeGroup = new android.widget.RadioGroup(context);
+        scopeGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
+        android.widget.RadioButton sb1 = new android.widget.RadioButton(context);
+        sb1.setText("群或频道");
+        sb1.setChecked(true);
+        scopeGroup.addView(sb1);
+        android.widget.RadioButton sb2 = new android.widget.RadioButton(context);
+        sb2.setText("用户发送的消息（包含机器人）");
+        scopeGroup.addView(sb2);
+        android.widget.RadioButton sb3 = new android.widget.RadioButton(context);
+        sb3.setText("两者都选");
+        scopeGroup.addView(sb3);
+        container.addView(scopeGroup);
+
+        builder.setView(container);
+        builder.setPositiveButton(getString(R.string.OK), null);
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            boolean rangeMode = rb2.isChecked();
+            long endTime = parseDateAtDayBoundary(inputEnd.getText().toString(), true);
+            long startTime = rangeMode ? parseDateAtDayBoundary(inputStart.getText().toString(), false) : 0L;
+            if (endTime <= 0L) {
+                inputEnd.setError("请选择有效的结束日期");
+                return;
+            }
+            if (rangeMode && startTime <= 0L) {
+                inputStart.setError("请选择有效的开始日期");
+                return;
+            }
+            if (rangeMode && startTime > endTime) {
+                inputStart.setError("开始日期不能晚于结束日期");
+                return;
+            }
+            int mode = rangeMode ? 1 : 0;
+            int scope = sb3.isChecked() ? 0 : (sb2.isChecked() ? 2 : 1);
+            dialog.dismiss();
+            executeTimeCleanup(mode, startTime, endTime, scope);
+        }));
+        showDialog(dialog);
+    }
+
+    private void showDatePicker(EditTextBoldCursor target) {
+        Calendar calendar = Calendar.getInstance();
+        long selected = parseDateAtDayBoundary(target.getText().toString(), false);
+        if (selected > 0L) {
+            calendar.setTimeInMillis(selected);
+        }
+        DatePickerDialog picker = new DatePickerDialog(getParentActivity(), (view, year, month, dayOfMonth) -> {
+            target.setText(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth));
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+        picker.show();
+    }
+
+    private String formatDate(long value) {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(value));
+    }
+
+    private long parseDateAtDayBoundary(String text, boolean endOfDay) {
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            format.setLenient(false);
+            Date date = format.parse(text.trim());
+            if (date == null) {
+                return 0L;
+            }
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(date);
+            calendar.set(Calendar.HOUR_OF_DAY, endOfDay ? 23 : 0);
+            calendar.set(Calendar.MINUTE, endOfDay ? 59 : 0);
+            calendar.set(Calendar.SECOND, endOfDay ? 59 : 0);
+            calendar.set(Calendar.MILLISECOND, endOfDay ? 999 : 0);
+            return calendar.getTimeInMillis();
+        } catch (ParseException | NullPointerException ignored) {
+            return 0L;
+        }
+    }
+
+    private void executeTimeCleanup(int mode, long startTime, long endTime, int scope) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        AlertDialog progress = new AlertDialog(context, AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setCanCancel(false);
+        progress.show();
+        HuanghunExtensionHelper.clearMessagesByTime(currentAccount, mode, startTime, endTime, scope, scheduled -> AndroidUtilities.runOnUIThread(() -> {
+            if (progress.isShowing()) {
+                progress.dismiss();
+            }
+            BulletinFactory.of(NekoExtensionsActivity.this)
+                    .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
+                    .show();
+        }));
+    }
+}
