@@ -3276,8 +3276,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             TLRPC.TL_codeSettings settings = new TLRPC.TL_codeSettings();
             settings.allow_flashcall = simcardAvailable && allowCall && allowCancelCall && allowReadCallLog;
             settings.allow_missed_call = simcardAvailable && allowCall;
-            // Huanghun: Prioritize email code delivery if account has bound email
-            settings.flags |= 1; // request email code if available
             settings.allow_app_hash = PushListenerController.getProvider().hasServices();
             settings.allow_firebase = activityMode == MODE_CHANGE_PHONE_NUMBER
                     && PushListenerController.getProvider().hasServices()

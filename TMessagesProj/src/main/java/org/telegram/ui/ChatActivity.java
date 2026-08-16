@@ -388,6 +388,7 @@ import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
 import tw.nekomimi.nekogram.filters.RegexFilterEditActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
@@ -591,6 +592,7 @@ public class ChatActivity extends BaseFragment implements
     private QuickRepliesEmptyView quickRepliesEmptyView;
     private BusinessLinksEmptyView businessLinksEmptyView;
     public ChatActivityFragmentView contentView;
+    private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
     private ChatBigEmptyView bigEmptyView;
     private ArrayList<View> actionModeViews = new ArrayList<>();
     public ChatAvatarContainer avatarContainer;
@@ -3615,6 +3617,10 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.release();
+            dynamicVideoWallpaperPlayer = null;
+        }
         if (messageMetricsView != null) {
             messageMetricsView.finish();
         }
@@ -5065,6 +5071,7 @@ public class ChatActivity extends BaseFragment implements
         chatInputInAppContainer = chatInputViewsContainer.getInAppKeyboardBubbleContainer();
 
         updateBackground();
+        refreshDynamicVideoWallpaper();
 
         emptyViewContainer = null;
 
@@ -21266,10 +21273,88 @@ public class ChatActivity extends BaseFragment implements
         hideFieldPanel(false);
     }
 
+    public void pickDynamicVideoWallpaper() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, 9922);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            showDynamicVideoWallpaperDialog("动态聊天壁纸", "无法打开视频选择器，请稍后重试。");
+        }
+    }
+
+    private void applyDynamicVideoWallpaper(Uri videoUri) {
+        if (videoUri == null || getParentActivity() == null) {
+            showDynamicVideoWallpaperDialog("设置失败", "未读取到所选视频，请重新选择。");
+            return;
+        }
+        AlertDialog progressDialog = new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                .setTitle("正在设置动态聊天壁纸")
+                .setMessage("正在保存并验证所选视频，请稍候。")
+                .setCancelable(false)
+                .create();
+        showDialog(progressDialog);
+        final Context applicationContext = ApplicationLoader.applicationContext;
+        Utilities.globalQueue.postRunnable(() -> {
+            try {
+                String localPath = DynamicVideoWallpaperHelper.importVideo(applicationContext, videoUri);
+                DynamicVideoWallpaperHelper.saveVideo(applicationContext, currentAccount, dialog_id, localPath);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    refreshDynamicVideoWallpaper();
+                    showDynamicVideoWallpaperDialog("设置成功", "动态聊天壁纸已设置成功，仅在本机显示，不会上传或同步给对方。");
+                });
+            } catch (Throwable e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    String reason = e.getMessage();
+                    if (TextUtils.isEmpty(reason)) {
+                        reason = "所选视频无法播放或保存，请更换视频后重试。";
+                    }
+                    showDynamicVideoWallpaperDialog("设置失败", reason);
+                });
+            }
+        });
+    }
+
+    private void refreshDynamicVideoWallpaper() {
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.release();
+            dynamicVideoWallpaperPlayer = null;
+        }
+        if (contentView != null) {
+            dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, contentView.getContext(), currentAccount, dialog_id);
+        }
+    }
+
+    private void showDynamicVideoWallpaperDialog(String title, String message) {
+        if (getParentActivity() == null) {
+            return;
+        }
+        showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(LocaleController.getString(R.string.OK), null)
+                .create());
+    }
+
     @Override
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == 0 || requestCode == 2) {
+            if (requestCode == 9922) {
+                applyDynamicVideoWallpaper(data == null ? null : data.getData());
+            } else if (requestCode == 0 || requestCode == 2) {
                 createChatAttachView();
                 if (chatAttachAlert != null) {
                     chatAttachAlert.getPhotoLayout().onActivityResultFragment(requestCode, data, currentPicturePath);
@@ -31058,6 +31143,9 @@ public class ChatActivity extends BaseFragment implements
         if (contentView != null) {
             contentView.onResume();
         }
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.resume();
+        }
         checkChecksHint();
 
         Bulletin.addDelegate(this, bulletinDelegate = new Bulletin.Delegate() {
@@ -31276,6 +31364,9 @@ public class ChatActivity extends BaseFragment implements
         }
         if (contentView != null) {
             contentView.onPause();
+        }
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.pause();
         }
         if (chatMode == 0 || chatMode == MODE_SAVED && getUserConfig().getClientUserId() == getSavedDialogId() || chatMode == MODE_SUGGESTIONS && ChatObject.isMonoForum(currentChat)) {
             saveDraft();
