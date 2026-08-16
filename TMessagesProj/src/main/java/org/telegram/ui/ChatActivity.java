@@ -21297,8 +21297,8 @@ public class ChatActivity extends BaseFragment implements
         AlertDialog progressDialog = new AlertDialog.Builder(getParentActivity(), themeDelegate)
                 .setTitle("正在设置动态聊天壁纸")
                 .setMessage("正在保存并验证所选视频，请稍候。")
-                .setCancelable(false)
                 .create();
+        progressDialog.setCancelable(false);
         showDialog(progressDialog);
         final Context applicationContext = ApplicationLoader.applicationContext;
         Utilities.globalQueue.postRunnable(() -> {
