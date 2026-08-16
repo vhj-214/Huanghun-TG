@@ -105,4 +105,10 @@
     <string name="VideoPlayerDecoderPreferSW">软解优先</string>
     <string name="VideoPlayerDecoderHardware">仅硬解</string>
     <string name="VideoPlayerDecoderPreferHW">硬解优先</string>
+    <string name="AppIconGoogle" translatable="false">Google</string>
+    <string name="Nagram" translatable="false">Nagram</string>
+    <string name="Pangu" translatable="false">Pangu</string>
+    <string name="PushServiceTypeFCM" translatable="false">Google FCM</string>
+    <string name="PushServiceTypeMicroG" translatable="false">microG</string>
+    <string name="PushServiceTypeUnified" translatable="false">UnifiedPush</string>
 </resources>
