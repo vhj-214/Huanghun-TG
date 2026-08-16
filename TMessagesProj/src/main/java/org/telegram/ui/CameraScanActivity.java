@@ -84,6 +84,7 @@ import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.INavigationLayout;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
+import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.AnimationProperties;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
@@ -976,12 +977,7 @@ public class CameraScanActivity extends BaseFragment {
                             Point screenSize = AndroidUtilities.getRealScreenSize();
                             Bitmap bitmap = ImageLoader.loadBitmap(info.path, null, screenSize.x, screenSize.y, true);
                             QrResult res = tryReadQr(null, null, 0, 0, 0, bitmap);
-                            if (res != null) {
-                                if (delegate != null) {
-                                    delegate.didFindQr(res.text);
-                                }
-                                removeSelfFromStack();
-                            }
+                            processGalleryQrResult(res);
                         }
                     }
                 } catch (Throwable e) {
@@ -1003,6 +999,32 @@ public class CameraScanActivity extends BaseFragment {
         presentFragment(fragment);
     }
 
+    private void processGalleryQrResult(QrResult res) {
+        if (res == null || TextUtils.isEmpty(res.text)) {
+            AlertsCreator.showSimpleAlert(this, getString(R.string.AuthAnotherClient), getString(R.string.HuanghunQrCodeInvalid));
+            return;
+        }
+        if (delegate == null) {
+            return;
+        }
+        recognized = true;
+        recognizedText = res.text;
+        qrLoading = delegate.processQr(recognizedText, () -> AndroidUtilities.runOnUIThread(() -> {
+            if (delegate != null) {
+                delegate.didFindQr(recognizedText);
+            }
+            finishFragment();
+        }));
+        if (qrLoading) {
+            recognizedMrzView.setText(getString(R.string.HuanghunQrAuthorizing));
+            recognizedMrzView.setAlpha(1f);
+            updateRecognized(true);
+        } else {
+            delegate.didFindQr(recognizedText);
+            finishFragment();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResultFragment(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResultFragment(requestCode, permissions, grantResults);
@@ -1022,12 +1044,7 @@ public class CameraScanActivity extends BaseFragment {
                 Point screenSize = AndroidUtilities.getRealScreenSize();
                 Bitmap bitmap = ImageLoader.loadBitmap(null, data.getData(), screenSize.x, screenSize.y, true);
                 QrResult res = tryReadQr(null, null, 0, 0, 0, bitmap);
-                if (res != null) {
-                    if (delegate != null) {
-                        delegate.didFindQr(res.text);
-                    }
-                    finishFragment();
-                }
+                processGalleryQrResult(res);
             } catch (Throwable e) {
                 FileLog.e(e);
             }

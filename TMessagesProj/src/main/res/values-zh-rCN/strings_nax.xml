@@ -208,6 +208,10 @@
     <string name="HuanghunSaveKeywords">保存关键词</string>
     <string name="HuanghunClearMessagesByTime">删除指定时间的聊天记录</string>
     <string name="HuanghunScanLocalQr">扫描本地图片</string>
+    <string name="HuanghunQrAuthorizing">正在授权设备…</string>
+    <string name="HuanghunQrAuthorizationSuccess">授权成功</string>
+    <string name="HuanghunQrCodeExpired">二维码已过期，请重新上传。</string>
+    <string name="HuanghunQrCodeInvalid">图片中未识别到有效的 Telegram 登录二维码。</string>
     <string name="AddBookmark">书签</string>
     <string name="AddToFilter">添加到筛选器</string>
     <string name="ApiKeyNotSet">API 密钥未配置。</string>

@@ -1258,10 +1258,13 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
                     updateRows();
                     listAdapter.notifyDataSetChanged();
                     undoView.showWithAction(0, UndoView.ACTION_QR_SESSION_ACCEPTED, response);
+                    BulletinFactory.of(SessionsActivity.this).createSimpleBulletin(R.raw.contact_check, getString(R.string.HuanghunQrAuthorizationSuccess)).show();
                 } else if (error != null) {
                     AndroidUtilities.runOnUIThread(() -> {
                         final String text;
-                        if (error.text != null && error.text.equals("AUTH_TOKEN_EXCEPTION")) {
+                        if (error.text != null && (error.text.equals("AUTH_TOKEN_EXPIRED") || error.text.equals("AUTH_TOKEN_INVALID") || error.text.equals("AUTH_TOKEN_ALREADY_ACCEPTED"))) {
+                            text = getString(R.string.HuanghunQrCodeExpired);
+                        } else if (error.text != null && error.text.equals("AUTH_TOKEN_EXCEPTION")) {
                             text = getString(R.string.AccountAlreadyLoggedIn);
                         } else {
                             text = getString(R.string.ErrorOccurred) + "\n" + error.text;
