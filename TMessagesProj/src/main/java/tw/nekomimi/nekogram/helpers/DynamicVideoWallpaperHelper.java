@@ -3,6 +3,7 @@ package tw.nekomimi.nekogram.helpers;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.graphics.Matrix;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
@@ -25,6 +26,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 
 /**
  * 黄昏定制版的本地动态聊天壁纸。
@@ -282,6 +284,8 @@ public final class DynamicVideoWallpaperHelper {
         private Surface surface;
         private SurfaceTexture surfaceTexture;
         private View suppressedContentBackground;
+        private final ArrayList<SuppressedBackground> suppressedBackgrounds = new ArrayList<>();
+        private final ArrayList<SuppressedAlpha> suppressedAlphas = new ArrayList<>();
         private boolean released;
         private int videoWidth;
         private int videoHeight;
@@ -367,6 +371,37 @@ public final class DynamicVideoWallpaperHelper {
             suppressedContentBackground = background;
         }
 
+        /**
+         * 暂时移除顶部导航、翻译栏或外层容器的实色背景，但不隐藏其中的文字和按钮。
+         * 视频播放器释放时会逐一恢复原始 Drawable。
+         */
+        public void suppressViewBackground(View view) {
+            if (view == null) {
+                return;
+            }
+            for (SuppressedBackground state : suppressedBackgrounds) {
+                if (state.view == view) {
+                    return;
+                }
+            }
+            suppressedBackgrounds.add(new SuppressedBackground(view, view.getBackground()));
+            view.setBackground(null);
+        }
+
+        /** 暂时隐藏原始静态壁纸视图，释放播放器时精确恢复原透明度。 */
+        public void suppressViewAlpha(View view) {
+            if (view == null) {
+                return;
+            }
+            for (SuppressedAlpha state : suppressedAlphas) {
+                if (state.view == view) {
+                    return;
+                }
+            }
+            suppressedAlphas.add(new SuppressedAlpha(view, view.getAlpha()));
+            view.setAlpha(0f);
+        }
+
         public void release() {
             released = true;
             textureView.animate().cancel();
@@ -376,6 +411,14 @@ public final class DynamicVideoWallpaperHelper {
                 suppressedContentBackground.setAlpha(1f);
                 suppressedContentBackground = null;
             }
+            for (SuppressedBackground state : suppressedBackgrounds) {
+                state.view.setBackground(state.background);
+            }
+            suppressedBackgrounds.clear();
+            for (SuppressedAlpha state : suppressedAlphas) {
+                state.view.setAlpha(state.alpha);
+            }
+            suppressedAlphas.clear();
             if (layerView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) layerView.getParent()).removeView(layerView);
             }
@@ -385,6 +428,26 @@ public final class DynamicVideoWallpaperHelper {
          * 让 SurfaceTexture 使用视频自身的缓冲尺寸。若保留 MATCH_PARENT 的默认缓冲区，
          * 部分设备会在 Surface 层先执行 cover 缩放，随后再由 Matrix 缩放一次，最终只剩视频局部。
          */
+        private static final class SuppressedBackground {
+            final View view;
+            final Drawable background;
+
+            SuppressedBackground(View view, Drawable background) {
+                this.view = view;
+                this.background = background;
+            }
+        }
+
+        private static final class SuppressedAlpha {
+            final View view;
+            final float alpha;
+
+            SuppressedAlpha(View view, float alpha) {
+                this.view = view;
+                this.alpha = alpha;
+            }
+        }
+
         private void configureVideoBuffer() {
             if (surfaceTexture == null || videoWidth <= 0 || videoHeight <= 0) {
                 return;

@@ -321,10 +321,26 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         long remaining = HuanghunPrivacyFolderHelper.getPasswordResetRemaining(context, currentAccount);
         if (remaining > 0L) {
-            String remainingText = formatPrivacyResetRemaining(remaining);
+            final AlertDialog[] dialogHolder = new AlertDialog[1];
+            final Runnable[] countdownUpdater = new Runnable[1];
+            countdownUpdater[0] = () -> {
+                AlertDialog activeDialog = dialogHolder[0];
+                if (activeDialog == null || !activeDialog.isShowing()) {
+                    return;
+                }
+                long latestRemaining = HuanghunPrivacyFolderHelper.getPasswordResetRemaining(context, currentAccount);
+                if (latestRemaining <= 0L) {
+                    activeDialog.dismiss();
+                    notifyPrivacyRows();
+                    return;
+                }
+                activeDialog.setMessage(buildPrivacyResetCountdownMessage(latestRemaining));
+                notifyPrivacyRows();
+                AndroidUtilities.runOnUIThread(countdownUpdater[0], 1000L);
+            };
             AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
                     .setTitle("密码重置倒计时")
-                    .setMessage("已开始安全等待期。剩余 " + remainingText + " 后，系统会自动清除访问密码、受保护聊天列表和本机隐私文件夹。\n\n如果这不是你的操作，请立即取消重置。")
+                    .setMessage(buildPrivacyResetCountdownMessage(remaining))
                     .setNegativeButton("保留重置", null)
                     .setPositiveButton("取消密码重置", (d, which) -> {
                         HuanghunPrivacyFolderHelper.cancelPasswordReset(context, currentAccount);
@@ -332,7 +348,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                         BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "已取消密码重置，隐私文件夹继续保留。\n").show();
                     })
                     .create();
+            dialogHolder[0] = dialog;
+            dialog.setOnDismissListener(d -> AndroidUtilities.cancelRunOnUIThread(countdownUpdater[0]));
             showDialog(dialog);
+            countdownUpdater[0].run();
             return;
         }
         AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
@@ -349,11 +368,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         showDialog(dialog);
     }
 
+    private String buildPrivacyResetCountdownMessage(long remaining) {
+        return "已开始安全等待期。剩余 " + formatPrivacyResetRemaining(remaining) + " 后，系统会自动清除访问密码、受保护聊天列表和本机隐私文件夹。\n\n如果这不是你的操作，请立即取消重置。";
+    }
+
     private String formatPrivacyResetRemaining(long remaining) {
-        long totalMinutes = Math.max(0L, (remaining + 59_999L) / 60_000L);
-        long hours = totalMinutes / 60L;
-        long minutes = totalMinutes % 60L;
-        return String.format(Locale.CHINA, "%02d 小时 %02d 分", hours, minutes);
+        long totalSeconds = Math.max(0L, (remaining + 999L) / 1000L);
+        long hours = totalSeconds / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        long seconds = totalSeconds % 60L;
+        return String.format(Locale.CHINA, "%02d 小时 %02d 分 %02d 秒", hours, minutes, seconds);
     }
 
     private void showDeletePrivacyFolder() {

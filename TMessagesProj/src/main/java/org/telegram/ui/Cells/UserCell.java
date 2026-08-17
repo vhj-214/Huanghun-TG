@@ -63,6 +63,7 @@ import org.telegram.ui.Stories.StoriesListPlaceProvider;
 import org.telegram.ui.Stories.StoriesUtilities;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 public class UserCell extends FrameLayout implements NotificationCenter.NotificationCenterDelegate, Theme.Colorable {
 
@@ -143,6 +144,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     public UserCell(Context context, int padding, int checkbox, boolean admin, boolean needAddButton, Theme.ResourcesProvider resourcesProvider, boolean needMutualIcon) {
         super(context);
         this.resourcesProvider = resourcesProvider;
+        updateGlassBackground();
 
         int additionalPadding;
         if (needAddButton) {
@@ -780,8 +782,17 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         return super.drawChild(canvas, child, drawingTime);
     }
 
+    private void updateGlassBackground() {
+        if (Theme.isDefaultThemeActive()) {
+            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18)));
+        } else {
+            setBackground(null);
+        }
+    }
+
     @Override
     public void updateColors() {
+        updateGlassBackground();
     }
 
     public void setSelfAsSavedMessages(boolean value) {

@@ -21468,12 +21468,28 @@ public class ChatActivity extends BaseFragment implements
         if (contentView == null) {
             return;
         }
-        // ActionBarLayout 会在 createView 返回后才把聊天内容与顶部栏一并加入 containerView。
-        // 因此先等待内容视图附着，再把视频插到聊天内容之前，作为整页（含顶部栏和输入区）背景。
-        ViewParent rootParent = contentView.getParent();
-        if (rootParent instanceof ViewGroup) {
-            dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach((ViewGroup) rootParent, contentView,
+        // contentView 的直接父层只覆盖消息区域；状态栏下方的 ActionBar 与翻译栏在其外层导航容器中。
+        // 视频必须插入该最外层，才能从状态栏下沿连续铺到输入区。
+        ViewParent directParent = contentView.getParent();
+        if (directParent instanceof ViewGroup) {
+            ViewGroup directContainer = (ViewGroup) directParent;
+            ViewGroup wallpaperRoot = directContainer;
+            View wallpaperAnchor = contentView;
+            if (directContainer.getParent() instanceof ViewGroup) {
+                wallpaperRoot = (ViewGroup) directContainer.getParent();
+                wallpaperAnchor = directContainer;
+            }
+            dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(wallpaperRoot, wallpaperAnchor,
                     contentView.getContext(), currentAccount, dialog_id);
+            if (dynamicVideoWallpaperPlayer != null) {
+                // 仅移除实色背景，不改变导航文字、返回、通话或翻译按钮本身。
+                dynamicVideoWallpaperPlayer.suppressViewBackground(actionBar);
+                dynamicVideoWallpaperPlayer.suppressViewBackground(topPanelLayout);
+                dynamicVideoWallpaperPlayer.suppressViewBackground(actionBarSearchTags);
+                if (contentView.backgroundView != null) {
+                    dynamicVideoWallpaperPlayer.suppressViewAlpha(contentView.backgroundView);
+                }
+            }
         } else {
             contentView.post(() -> {
                 if (contentView != null && dynamicVideoWallpaperPlayer == null) {

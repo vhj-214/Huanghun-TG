@@ -151,6 +151,7 @@ import me.vkryl.android.animator.BoolAnimator;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
@@ -354,8 +355,17 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
     }
 
+    private void updateGlassBackground() {
+        if (Theme.isDefaultThemeActive()) {
+            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(20)));
+        } else {
+            setBackground(null);
+        }
+    }
+
     @Override
     public void updateColors() {
+        updateGlassBackground();
     }
 
     private CommunityArrowDrawable communityArrowDrawable;
@@ -701,6 +711,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         super(context);
         storyParams.allowLongress = true;
         this.resourcesProvider = resourcesProvider;
+        updateGlassBackground();
         parentFragment = fragment;
         Theme.createDialogsResources(context);
         drawMonoforumAvatar = false;

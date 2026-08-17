@@ -1142,7 +1142,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         public AccountHeaderCell(Context context, Theme.ResourcesProvider resourcesProvider) {
             super(context);
             this.resourcesProvider = resourcesProvider;
-            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
+            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18)));
 
             titleView = new TextView(context);
             titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -1166,7 +1166,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         @Override
         public void updateColors() {
-            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
+            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18)));
             titleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader, resourcesProvider));
             continueView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourcesProvider));
         }

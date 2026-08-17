@@ -6651,7 +6651,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         needLayoutText(Math.min(1f, diff));
 
         if (showStatusButton != null) {
-            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
+            showStatusButton.setBackgroundColor(Theme.isDefaultThemeActive() ? ColorUtils.setAlphaComponent(Color.WHITE, 52) : ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
         }
 
         nameTextView[1].setTextColor(peerColor != null ? Color.WHITE : ColorUtils.blendARGB(getThemedColor(Theme.key_profile_title), Color.WHITE, currentExpandAnimatorValue));
@@ -12332,7 +12332,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             onlineTextView[1].setTextColor(ColorUtils.blendARGB(applyPeerColor(statusColor, true, isOnline[0]), 0xB3FFFFFF, currentExpandAnimatorValue));
         }
         if (showStatusButton != null) {
-            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
+            showStatusButton.setBackgroundColor(Theme.isDefaultThemeActive() ? ColorUtils.setAlphaComponent(Color.WHITE, 52) : ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
         }
         if (actionBar != null) {
             actionBar.setItemsColor(ColorUtils.blendARGB(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon), getThemedColor(Theme.key_actionBarActionModeDefaultIcon), mediaHeaderAnimationProgress), false);
@@ -16083,9 +16083,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 color2 = applyPeerColor2(color2);
                 iconColor = Color.WHITE;
             }
-            CombinedDrawable combinedDrawable = new CombinedDrawable(shadowDrawable,
-                    Theme.createSimpleSelectorCircleDrawable(AndroidUtilities.dp(56), color1, color2),
-                    0, 0);
+            Drawable actionSurface = Theme.isDefaultThemeActive()
+                    ? HuanghunLiquidGlass.createPill(color1, getThemedColor(Theme.key_actionBarDefault), AndroidUtilities.dp(56))
+                    : Theme.createSimpleSelectorCircleDrawable(AndroidUtilities.dp(56), color1, color2);
+            CombinedDrawable combinedDrawable = new CombinedDrawable(shadowDrawable, actionSurface, 0, 0);
             combinedDrawable.setIconSize(AndroidUtilities.dp(56), AndroidUtilities.dp(56));
             writeButton.setBackground(combinedDrawable);
             writeButton.setColorFilter(new PorterDuffColorFilter(iconColor, PorterDuff.Mode.MULTIPLY));
@@ -16571,7 +16572,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (showStatusButton == null) {
             showStatusButton = new ShowDrawable(LocaleController.getString(R.string.StatusHiddenShow));
             showStatusButton.setAlpha((int) (0xFF * Math.min(1f, extraHeight / getHeaderExtraHeight())));
-            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
+            showStatusButton.setBackgroundColor(Theme.isDefaultThemeActive() ? ColorUtils.setAlphaComponent(Color.WHITE, 52) : ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
         }
         return showStatusButton;
     }
