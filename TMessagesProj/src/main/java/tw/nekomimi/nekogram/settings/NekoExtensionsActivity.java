@@ -264,7 +264,11 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     }
 
     private void showCreatePrivacyFolderDialog() {
-        if (HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        if (HuanghunPrivacyFolderHelper.isCreated(context, currentAccount)) {
             showPrivacyInfo("隐私文件夹已创建", "当前账号已经创建隐私文件夹。你可以进入“管理隐私聊天”添加需要保护的群组、频道、机器人或私聊。");
             return;
         }
@@ -272,7 +276,11 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     }
 
     private void showChangePrivacyPassword() {
-        if (!HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        if (!HuanghunPrivacyFolderHelper.isCreated(context, currentAccount)) {
             showPrivacyInfo("无法设置", "需要先创建隐私文件夹，才能设置访问密码。");
             return;
         }
@@ -280,7 +288,11 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     }
 
     private void openPrivacyChats() {
-        if (!HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        if (!HuanghunPrivacyFolderHelper.isCreated(context, currentAccount)) {
             showPrivacyInfo("无法管理", "需要先创建隐私文件夹，才能添加受保护聊天。");
             return;
         }
@@ -288,12 +300,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     }
 
     private void showDeletePrivacyFolder() {
-        if (!HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount)) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        if (!HuanghunPrivacyFolderHelper.isCreated(context, currentAccount)) {
             showPrivacyInfo("无法删除", "当前账号尚未创建隐私文件夹。");
             return;
         }
         showPrivacyPasswordVerification("验证访问密码", "请输入隐私文件夹访问密码，验证成功后立即删除当前本机隐私文件夹。", () -> {
-            HuanghunPrivacyFolderHelper.delete(mContext, currentAccount);
+            HuanghunPrivacyFolderHelper.delete(context, currentAccount);
             notifyPrivacyRows();
             BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "当前账号的本机隐私文件夹已删除。").show();
         });
@@ -323,7 +339,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         policyGroup.addView(digits);
         policyGroup.addView(letters);
         policyGroup.addView(mixed);
-        policyGroup.check(changing ? policyButtonId(HuanghunPrivacyFolderHelper.getPolicy(mContext, currentAccount), digits, letters, mixed) : digits.getId());
+        policyGroup.check(changing ? policyButtonId(HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount), digits, letters, mixed) : digits.getId());
         container.addView(policyGroup, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
 
         TextView hint = new TextView(context);
@@ -336,7 +352,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         container.addView(first, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48), 0, 0, 0, 8));
         container.addView(confirm, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
 
-        int initialPolicy = changing ? HuanghunPrivacyFolderHelper.getPolicy(mContext, currentAccount) : HuanghunPrivacyFolderHelper.POLICY_DIGITS;
+        int initialPolicy = changing ? HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount) : HuanghunPrivacyFolderHelper.POLICY_DIGITS;
         applyPrivacyPasswordPolicy(first, confirm, hint, initialPolicy);
         policyGroup.setOnCheckedChangeListener((group, checkedId) -> {
             int policy = checkedId == letters.getId() ? HuanghunPrivacyFolderHelper.POLICY_LETTERS : (checkedId == mixed.getId() ? HuanghunPrivacyFolderHelper.POLICY_MIXED : HuanghunPrivacyFolderHelper.POLICY_DIGITS);
@@ -367,8 +383,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 return;
             }
             boolean success = changing
-                    ? HuanghunPrivacyFolderHelper.changePassword(mContext, currentAccount, policy, password)
-                    : HuanghunPrivacyFolderHelper.create(mContext, currentAccount, policy, password);
+                    ? HuanghunPrivacyFolderHelper.changePassword(context, currentAccount, policy, password)
+                    : HuanghunPrivacyFolderHelper.create(context, currentAccount, policy, password);
             if (!success) {
                 first.setError("保存失败，请稍后重试。");
                 return;
@@ -437,7 +453,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         description.setLineSpacing(AndroidUtilities.dp(3), 1f);
         container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
         EditTextBoldCursor password = privacyPasswordInput(context, "请输入访问密码");
-        int policy = HuanghunPrivacyFolderHelper.getPolicy(mContext, currentAccount);
+        int policy = HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount);
         applyPrivacyPasswordPolicy(password, password, description, policy);
         description.setText(descriptionText + "\n" + HuanghunPrivacyFolderHelper.policyHint(policy));
         container.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
@@ -449,14 +465,14 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .setPositiveButton("解锁", null)
                 .create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            int result = HuanghunPrivacyFolderHelper.verifyPassword(mContext, currentAccount, password.getText().toString());
+            int result = HuanghunPrivacyFolderHelper.verifyPassword(context, currentAccount, password.getText().toString());
             if (result == HuanghunPrivacyFolderHelper.VERIFY_OK) {
                 dialog.dismiss();
                 verified.run();
                 return;
             }
             if (result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED) {
-                password.setError(HuanghunPrivacyFolderHelper.getLockMessage(mContext, currentAccount));
+                password.setError(HuanghunPrivacyFolderHelper.getLockMessage(context, currentAccount));
                 return;
             }
             if (result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED) {
