@@ -26,13 +26,14 @@ public final class HuanghunLiquidGlass {
             return drawable;
         }
         final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
-        final int whiteMix = dark ? 28 : 194;
-        final int tintMix = dark ? 48 : 122;
+        // 默认主题使用真正透光的液态玻璃：只保留淡淡折射，不再形成白色实底。
+        final int whiteMix = dark ? 34 : 82;
+        final int tintMix = dark ? 52 : 64;
         final int top = ColorUtils.setAlphaComponent(blend(Color.WHITE, tintColor, .14f), whiteMix);
         final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, tintColor, .20f), tintMix);
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
         drawable.setCornerRadius(Math.max(1f, radiusPx));
-        int outline = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 100 : 222);
+        int outline = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 104 : 168);
         drawable.setStroke(Math.max(1, Math.round(radiusPx * .036f)), outline);
         return drawable;
     }
@@ -49,8 +50,8 @@ public final class HuanghunLiquidGlass {
             return drawable;
         }
         final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
-        final int top = ColorUtils.setAlphaComponent(backdropColor, dark ? 214 : 204);
-        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, Color.WHITE, dark ? .05f : .16f), dark ? 196 : 190);
+        final int top = ColorUtils.setAlphaComponent(backdropColor, dark ? 58 : 52);
+        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, Color.WHITE, dark ? .05f : .16f), dark ? 72 : 68);
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
         drawable.setCornerRadius(0f);
         return drawable;
@@ -65,11 +66,11 @@ public final class HuanghunLiquidGlass {
         }
         final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
         final int tint = dark ? Color.rgb(160, 185, 226) : Color.rgb(124, 148, 193);
-        final int top = ColorUtils.setAlphaComponent(blend(Color.WHITE, tint, .12f), dark ? 54 : 158);
-        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, tint, .22f), dark ? 90 : 126);
+        final int top = ColorUtils.setAlphaComponent(blend(Color.WHITE, tint, .12f), dark ? 46 : 74);
+        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, tint, .22f), dark ? 62 : 68);
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
         drawable.setCornerRadius(0f);
-        drawable.setStroke(1, ColorUtils.setAlphaComponent(Color.WHITE, dark ? 50 : 158));
+        drawable.setStroke(1, ColorUtils.setAlphaComponent(Color.WHITE, dark ? 64 : 122));
         return drawable;
     }
 
@@ -81,7 +82,7 @@ public final class HuanghunLiquidGlass {
 
     public static int glassBackdropColor(int color) {
         final boolean dark = ColorUtils.calculateLuminance(color) < .42d;
-        return ColorUtils.setAlphaComponent(color, dark ? 172 : 118);
+        return ColorUtils.setAlphaComponent(color, dark ? 74 : 62);
     }
 
     public static int readableTextColor(int backdropColor) {

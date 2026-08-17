@@ -122,7 +122,7 @@ public final class HuanghunOutfitVisuals {
         canvas.drawRoundRect(new RectF(rect.left, rect.top + h * .045f, rect.right, rect.bottom + h * .07f), corner, corner, PAINT);
         // 保留玻璃质感但使用高不透明度核心层，避免官方绿色或视频壁纸透入正文下方。
         PAINT.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
-                new int[]{withAlpha(Color.WHITE, 232), withAlpha(Color.WHITE, 210), withAlpha(Color.WHITE, 224)},
+                new int[]{withAlpha(Color.WHITE, 172), withAlpha(Color.WHITE, 132), withAlpha(Color.WHITE, 156)},
                 null, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(rect, corner, corner, PAINT);
         PAINT.setShader(null);
@@ -151,47 +151,48 @@ public final class HuanghunOutfitVisuals {
             PATH.lineTo(rect.left + tail * .78f, rect.bottom - tail * .18f);
         }
         PATH.close();
-        PAINT.setColor(withAlpha(Color.WHITE, 216));
+        PAINT.setColor(withAlpha(Color.WHITE, 144));
         canvas.drawPath(PATH, PAINT);
     }
 
     private static void drawPremiumBubble(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, RectF rect, boolean outgoing) {
         final int family = item.group % 10;
-        final int template = item.group * 5 + item.variant;
-        final float h = Math.max(1f, rect.height());
-        final float w = Math.max(1f, rect.width());
-        final float edge = Math.min(h * .28f, Math.max(9f, w * .11f));
-        final float corner = Math.max(10f, h * .26f);
-        final boolean animated = item.variant != 0;
-        final float visualProgress = animated ? progress : .18f;
-
         /*
-         * 文字安全区是第一优先级：先用一整块高对比度的核心底板覆盖官方绿色，
-         * 再把图案、金属角、动物、晶体等全部限制在外沿。不再拉伸任何整张资源
-         * 穿过消息中心，因此正文、时间、勾选和链接都不会被压住。
+         * 采用完整主题素材作为成品画面：不再用细白线、几何轮廓或简约角标代替主题。
+         * 素材负责金属、星空、玫瑰、萌宠等完整外观；中央额外铺一层无绿色的透明玻璃消息窗，
+         * 因而不会使用 Telegram 原来的绿色气泡，也不会让主题细节压住正文、时间或已读状态。
          */
-        final int coreStart = blend(item.primary, Color.WHITE, .94f);
-        final int coreEnd = blend(item.secondary, Color.WHITE, .91f);
-        final RectF core = new RectF(rect.left, rect.top, rect.right, rect.bottom);
-        // 所有主题外沿严格留在 Telegram 已分配的消息边界内，不侵入上一条或下一条消息。
-        final RectF outer = new RectF(core);
-        final RectF safe = new RectF(core.left + edge * .28f, core.top + edge * .20f,
-                core.right - edge * .28f, core.bottom - edge * .20f);
-
-        drawReadableBubbleTail(canvas, core, outgoing, blend(coreStart, coreEnd, .50f));
-        PAINT.setShader(new LinearGradient(core.left, core.top, core.right, core.bottom,
-                new int[]{coreStart, coreEnd}, null, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(core, corner, corner, PAINT);
-        PAINT.setShader(null);
-
-        // 每个目录位置都选择不同的轮廓与角部物件；装饰始终在安全区之外。
-        STROKE.setStrokeWidth(Math.max(1.3f, h * .026f));
-        STROKE.setColor(withAlpha(blend(item.accent, Color.WHITE, .30f), 235));
-        drawPremiumShell(canvas, outer, Math.max(corner, edge * .82f), template % 10, visualProgress, STROKE);
-        drawReadableFrameOrnaments(canvas, outer, safe, item, template, visualProgress);
-        if (animated) {
-            drawReadableEdgeMotion(canvas, outer, safe, item, template, visualProgress);
+        final boolean hasThemeFrame = drawThemeAssetFrame(canvas, rect, family, item.variant);
+        if (!hasThemeFrame) {
+            // 资源读取失败时才使用低调的主题底板，正常路径始终显示完整成品主题素材。
+            PAINT.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
+                    new int[]{blend(item.primary, Color.BLACK, .32f), blend(item.secondary, Color.BLACK, .25f)}, null, Shader.TileMode.CLAMP));
+            canvas.drawRoundRect(rect, Math.max(10f, rect.height() * .24f), Math.max(10f, rect.height() * .24f), PAINT);
+            PAINT.setShader(null);
+        } else if (item.variant != 0) {
+            // 动态粒子先绘制在主题画面层，随后由玻璃文字窗隔离，不会扫过消息正文。
+            drawThemeMotion(canvas, rect, item, progress, family, item.variant, true);
         }
+        drawThemeGlassMessageWindow(canvas, rect, item, outgoing);
+    }
+
+    /** 在完整主题图中央绘制独立的 iOS 液态玻璃消息窗；绝不使用或混入官方绿色。 */
+    private static void drawThemeGlassMessageWindow(Canvas canvas, RectF rect, HuanghunOutfitConfig.OutfitItem item, boolean outgoing) {
+        final float h = Math.max(1f, rect.height());
+        final float insetX = Math.min(h * .18f, Math.max(7f, rect.width() * .055f));
+        final float insetY = Math.min(h * .13f, Math.max(4f, rect.height() * .075f));
+        final RectF glass = new RectF(rect.left + insetX, rect.top + insetY, rect.right - insetX, rect.bottom - insetY);
+        final float corner = Math.max(10f, glass.height() * .34f);
+        drawReadableBubbleTail(canvas, rect, outgoing, withAlpha(Color.WHITE, 132));
+        // 文字窗本身不绘制任何填充色：主题图、聊天壁纸和视频壁纸可完整透出。
+        // 液态玻璃效果只由边缘折射、高光和透明尾巴表达，绝不再形成白色或绿色底板。
+        STROKE.setStrokeWidth(Math.max(1f, h * .022f));
+        STROKE.setColor(withAlpha(Color.WHITE, 168));
+        canvas.drawRoundRect(new RectF(glass.left + h * .012f, glass.top + h * .012f, glass.right - h * .012f, glass.bottom - h * .012f), corner, corner, STROKE);
+        // 高光仅沿上边缘经过，中央保持干净以确保所有字体大小都清晰可读。
+        STROKE.setStrokeWidth(Math.max(1f, h * .030f));
+        STROKE.setColor(withAlpha(Color.WHITE, 82));
+        canvas.drawLine(glass.left + h * .22f, glass.top + h * .14f, glass.right - h * .22f, glass.top + h * .14f, STROKE);
     }
 
     /** 仅在文字安全区外绘制的主题物件：皇家、冰晶、玫瑰、街机、萌宠、竞速等轮廓互不复用。 */
@@ -352,17 +353,31 @@ public final class HuanghunOutfitVisuals {
     }
 
     private static boolean drawThemeAssetFrame(Canvas canvas, RectF bubble, int family, int variant) {
-        int[] scene = getSceneComposition(family, variant);
-        // 每条场景矩阵的中位资源作为完整横向主题框绘制一次，避免左端有主题、右半段退回原生样式。
-        Bitmap frameAsset = loadBubbleAsset(scene[1]);
-        if (frameAsset == null) {
+        final int[] scene = getSceneComposition(family, variant);
+        final Bitmap leftAsset = loadBubbleAsset(scene[0]);
+        final Bitmap centerAsset = loadBubbleAsset(scene[1]);
+        final Bitmap rightAsset = loadBubbleAsset(scene[2]);
+        if (leftAsset == null && centerAsset == null && rightAsset == null) {
             return false;
         }
-        final float h = bubble.height();
+        /*
+         * 每套气泡用三段完整的成品主题素材拼接：左端、中央场景和右端装饰都来自对应主题，
+         * 既保留截图参考中的饱满画面，也让 50 套目录不再只是同一张图换一种色调。
+         */
+        final RectF frame = new RectF(bubble.left, bubble.top, bubble.right, bubble.bottom);
+        final float firstEnd = frame.left + frame.width() * .40f;
+        final float lastStart = frame.left + frame.width() * .60f;
         PAINT.setAlpha(255);
-        SRC.set(0, 0, frameAsset.getWidth(), frameAsset.getHeight());
-        canvas.drawBitmap(frameAsset, SRC, new RectF(bubble.left - h * .04f, bubble.top - h * .10f,
-                bubble.right + h * .08f, bubble.bottom + h * .10f), PAINT);
+        if (leftAsset != null) {
+            drawAssetSection(canvas, leftAsset, 0f, .54f, new RectF(frame.left, frame.top, firstEnd, frame.bottom));
+        }
+        if (centerAsset != null) {
+            drawAssetSection(canvas, centerAsset, .20f, .80f, new RectF(frame.left + frame.width() * .29f, frame.top, frame.right - frame.width() * .29f, frame.bottom));
+        }
+        if (rightAsset != null) {
+            drawAssetSection(canvas, rightAsset, .46f, 1f, new RectF(lastStart, frame.top, frame.right, frame.bottom));
+        }
+        PAINT.setAlpha(255);
         return true;
     }
 
