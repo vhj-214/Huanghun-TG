@@ -49,6 +49,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -2730,7 +2731,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         };
         frameLayout.setClipChildren(false);
-        textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, DEFAULT_HEIGHT, 0));
+        // 输入、表情、附件和更多按钮保持在同一个胶囊容器内；背景由下方聊天模糊层透出。
+        frameLayout.setBackground(createHuanghunGlassInputBackground());
+        textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 8, 0, DEFAULT_HEIGHT, 4));
 
         emojiButton = new ChatActivityEnterViewAnimatedIconView(context) {
             @Override
@@ -4821,7 +4824,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
 
         if (allowBlur) {
-            backgroundPaint.setColor(getThemedColor(Theme.key_chat_messagePanelBackground));
+            // 底部承接聊天背景的真实模糊，胶囊容器仅叠加半透明玻璃与高光描边。
+            int composeColor = getThemedColor(Theme.key_chat_messagePanelBackground);
+            backgroundPaint.setColor(ColorUtils.setAlphaComponent(composeColor, 132));
             if (SharedConfig.chatBlurEnabled() && sizeNotifierLayout != null) {
                 blurBounds.set(0, bottom, getWidth(), getHeight());
                 sizeNotifierLayout.drawBlurRect(canvas, getTop(), blurBounds, backgroundPaint, false);
@@ -11498,8 +11503,26 @@ public class ChatActivityEnterView extends FrameLayout implements
         return trendingStickersAlert;
     }
 
+    private GradientDrawable createHuanghunGlassInputBackground() {
+        final int panel = getThemedColor(Theme.key_chat_messagePanelBackground);
+        final boolean dark = ColorUtils.calculateLuminance(panel) < .42d;
+        final int top = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 56 : 172);
+        final int bottom = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 30 : 106);
+        GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
+        glass.setCornerRadius(dp(25));
+        glass.setStroke(Math.max(1, dp(1)), ColorUtils.setAlphaComponent(Color.WHITE, dark ? 122 : 222));
+        return glass;
+    }
+
+    private void updateHuanghunGlassInputBackground() {
+        if (messageEditTextContainer != null) {
+            messageEditTextContainer.setBackground(createHuanghunGlassInputBackground());
+        }
+    }
+
     @Override
     public void updateColors() {
+        updateHuanghunGlassInputBackground();
         if (messageEditText != null) {
             messageEditText.setHintColor(getThemedColor(Theme.key_chat_messagePanelHint));
         }

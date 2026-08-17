@@ -171,21 +171,13 @@ public final class HuanghunOutfitVisuals {
         final int edgeColor = blend(item.accent, Color.WHITE, .62f);
 
         RECT.set(rect.left, rect.top, rect.right, rect.bottom);
-        PAINT.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
-                new int[]{corePrimary, coreSecondary, coreAccent}, null, Shader.TileMode.CLAMP));
-        drawPremiumShell(canvas, rect, corner, shellStyle, visualProgress, PAINT);
-        PAINT.setShader(null);
-        // 独立的明亮文字窗覆盖外壳中部；端部主题物件不能进入这一区域，避免遮挡正文。
-        final float safeInset = Math.min(rect.width() * .18f, h * .68f);
-        final RectF safeWindow = new RectF(rect.left + safeInset, rect.top + h * .16f,
-                rect.right - safeInset, rect.bottom - h * .16f);
-        if (safeWindow.width() > h * .72f) {
-            PAINT.setColor(withAlpha(Color.WHITE, 214));
-            canvas.drawRoundRect(safeWindow, Math.max(8f, h * .22f), Math.max(8f, h * .22f), PAINT);
-        }
-        drawBubbleTail(canvas, rect, item, outgoing, family);
-        // 主题主视觉只固定在两端，中央永久保留给正文、图片、语音、时间与状态图标。
+        // 已有完整主题资源时只绘制这一层，不再在背后叠加通用圆角壳或白色内窗。
         if (!drawThemeAssetFrame(canvas, rect, family, item.variant)) {
+            PAINT.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
+                    new int[]{corePrimary, coreSecondary, coreAccent}, null, Shader.TileMode.CLAMP));
+            drawPremiumShell(canvas, rect, corner, shellStyle, visualProgress, PAINT);
+            PAINT.setShader(null);
+            drawBubbleTail(canvas, rect, item, outgoing, family);
             drawEndOrnaments(canvas, rect, item, visualProgress, family, animated);
             drawPremiumBubbleDetails(canvas, rect, item, visualProgress, family, corner, edgeColor);
         }
@@ -247,22 +239,16 @@ public final class HuanghunOutfitVisuals {
 
     private static boolean drawThemeAssetFrame(Canvas canvas, RectF bubble, int family, int variant) {
         int[] scene = getSceneComposition(family, variant);
-        Bitmap leftAsset = loadBubbleAsset(scene[0]);
-        Bitmap centerAsset = loadBubbleAsset(scene[1]);
-        Bitmap rightAsset = loadBubbleAsset(scene[2]);
-        if (leftAsset == null || centerAsset == null || rightAsset == null) {
+        // 每条场景矩阵的中位资源作为完整横向主题框绘制一次，避免左端有主题、右半段退回原生样式。
+        Bitmap frameAsset = loadBubbleAsset(scene[1]);
+        if (frameAsset == null) {
             return false;
         }
         final float h = bubble.height();
-        final float cap = Math.min(bubble.width() * .20f, h * .78f);
-        final float top = bubble.top - h * .08f;
-        final float bottom = bubble.bottom + h * .08f;
         PAINT.setAlpha(255);
-        drawAssetSection(canvas, leftAsset, 0f, .34f,
-                new RectF(bubble.left - cap * .12f, top, bubble.left + cap, bottom));
-        // 中间资源过去会覆盖正文并把不同场景压成同一条深色边框；不再绘制。
-        drawAssetSection(canvas, rightAsset, .66f, 1f,
-                new RectF(bubble.right - cap, top, bubble.right + cap * .12f, bottom));
+        SRC.set(0, 0, frameAsset.getWidth(), frameAsset.getHeight());
+        canvas.drawBitmap(frameAsset, SRC, new RectF(bubble.left - h * .04f, bubble.top - h * .10f,
+                bubble.right + h * .08f, bubble.bottom + h * .10f), PAINT);
         return true;
     }
 
@@ -743,7 +729,7 @@ public final class HuanghunOutfitVisuals {
         float bottom = height * .70f;
         RECT.set(left, top, right, bottom);
         drawBubbleOverlay(canvas, item, progress, RECT, true);
-        PAINT.setColor(Color.WHITE);
+        PAINT.setColor(Color.rgb(28, 32, 42));
         PAINT.setTextAlign(Paint.Align.CENTER);
         PAINT.setTypeface(Typeface.DEFAULT_BOLD);
         PAINT.setTextSize(Math.max(13f, width * .13f));
@@ -1141,18 +1127,21 @@ public final class HuanghunOutfitVisuals {
     }
 
     private static boolean drawJoinThemeObject(Canvas canvas, RectF banner, int family, int variant, float progress) {
-        int assetIndex = getSceneComposition(family, variant)[0];
+        // 与消息气泡一致，进群提示使用完整横向主题带而不是左端一小块贴图。
+        // 这样主题的颜色、纹理和两端物件能连续贯穿整条横幅。
+        int assetIndex = getSceneComposition(family, variant)[1];
         Bitmap asset = loadBubbleAsset(assetIndex);
         if (asset == null) {
             return false;
         }
         final float h = banner.height();
-        final float sway = variant == 0 ? 0f : .025f * (float) Math.sin(progress * Math.PI * 2d);
-        final float slide = banner.left + banner.width() * (.04f + sway);
-        final int srcRight = Math.max(1, Math.round(asset.getWidth() * .43f));
-        SRC.set(0, 0, srcRight, asset.getHeight());
+        final float sway = variant == 0 ? 0f : .012f * (float) Math.sin(progress * Math.PI * 2d);
+        final float dx = banner.width() * sway;
+        SRC.set(0, 0, asset.getWidth(), asset.getHeight());
+        PAINT.setAlpha(238);
+        canvas.drawBitmap(asset, SRC, new RectF(banner.left + dx, banner.top + h * .035f,
+                banner.right + dx, banner.bottom - h * .035f), PAINT);
         PAINT.setAlpha(255);
-        canvas.drawBitmap(asset, SRC, new RectF(slide, banner.top + h * .06f, slide + h * 1.02f, banner.bottom - h * .06f), PAINT);
         return true;
     }
 
