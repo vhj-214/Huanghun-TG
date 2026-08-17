@@ -234,6 +234,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import kotlin.Unit;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.settings.NekoTranslatorSettingsActivity;
 import tw.nekomimi.nekogram.llm.LlmConfig;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
@@ -11505,13 +11506,8 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     private GradientDrawable createHuanghunGlassInputBackground() {
         final int panel = getThemedColor(Theme.key_chat_messagePanelBackground);
-        final boolean dark = ColorUtils.calculateLuminance(panel) < .42d;
-        final int top = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 56 : 172);
-        final int bottom = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 30 : 106);
-        GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
-        glass.setCornerRadius(dp(25));
-        glass.setStroke(Math.max(1, dp(1)), ColorUtils.setAlphaComponent(Color.WHITE, dark ? 122 : 222));
-        return glass;
+        final int tint = getThemedColor(Theme.key_chat_messagePanelSend);
+        return HuanghunLiquidGlass.createPill(panel, tint, dp(50));
     }
 
     private void updateHuanghunGlassInputBackground() {

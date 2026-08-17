@@ -53,6 +53,7 @@ import java.util.Locale;
 
 import tw.nekomimi.nekogram.ui.cells.AccountCell;
 import tw.nekomimi.nekogram.ui.cells.EmojiSetCell;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 public abstract class BaseNekoSettingsActivity extends BaseFragment {
@@ -99,7 +100,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         fragmentView = new BlurContentView(context);
-        fragmentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        fragmentView.setBackgroundColor(HuanghunLiquidGlass.glassBackdropColor(getThemedColor(Theme.key_windowBackgroundGray)));
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
 
         actionBar.setDrawBlurBackground(frameLayout);
@@ -160,9 +161,10 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     public ActionBar createActionBar(Context context) {
         ActionBar actionBar = super.createActionBar(context);
         if (hasWhiteActionBar()) {
-            actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
-            actionBar.setItemsColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText), false);
-            actionBar.setTitleColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+            int glassBase = getThemedColor(Theme.key_windowBackgroundWhite);
+            actionBar.setBackgroundColor(HuanghunLiquidGlass.glassBackdropColor(glassBase));
+            actionBar.setItemsColor(HuanghunLiquidGlass.readableTextColor(glassBase), false);
+            actionBar.setTitleColor(HuanghunLiquidGlass.readableTextColor(glassBase));
             actionBar.setCastShadows(false);
         }
         actionBar.setTitle(getActionBarTitle());
@@ -311,6 +313,12 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         }
     }
 
+    private void applyLiquidGlassRow(View view) {
+        int base = getThemedColor(Theme.key_windowBackgroundWhite);
+        int tint = getThemedColor(Theme.key_windowBackgroundWhiteBlueText4);
+        HuanghunLiquidGlass.applySurface(view, base, tint, dp(18));
+    }
+
     protected abstract class BaseListAdapter extends RecyclerListView.SelectionAdapter {
 
         protected final Context mContext;
@@ -350,62 +358,62 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     break;
                 case TYPE_SETTINGS:
                     view = new TextSettingsCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_CHECK:
                     view = new TextCheckCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_HEADER:
                     view = new HeaderCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_NOTIFICATION_CHECK:
                     view = new NotificationsCheckCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_DETAIL_SETTINGS:
                     view = new TextDetailSettingsCell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_INFO_PRIVACY:
                     view = new TextInfoPrivacyCell(mContext, resourcesProvider);
-                    view.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, getThemedColor(Theme.key_windowBackgroundGrayShadow)));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_TEXT:
                     view = new TextCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_CHECKBOX:
                     view = new TextCheckbox2Cell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_RADIO:
                     view = new TextRadioCell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_ACCOUNT:
                     view = new AccountCell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_EMOJI:
                 case TYPE_EMOJI_SELECTION:
                     view = new EmojiSetCell(mContext, viewType == TYPE_EMOJI_SELECTION);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_CREATION:
                     CreationTextCell creationTextCell = new CreationTextCell(mContext, 70, resourcesProvider);
                     creationTextCell.startPadding = 61;
                     view = creationTextCell;
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_FLICKER:
                     view = new FlickerLoadingView(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_CHECK2:
                     view = new TextCheckCell2(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
                 case TYPE_CHECKBOX2:
                     CheckBoxCell checkBoxCell = new CheckBoxCell(mContext, CheckBoxCell.TYPE_CHECK_BOX_ROUND, 21, getResourceProvider());
@@ -413,11 +421,15 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     checkBoxCell.getCheckBoxRound().setColor(Theme.key_switch2TrackChecked, Theme.key_radioBackground, Theme.key_checkboxCheck);
                     checkBoxCell.setEnabled(true);
                     view = checkBoxCell;
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    applyLiquidGlassRow(view);
                     break;
             }
             // noinspection ConstantConditions
-            view.setLayoutParams(new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT));
+            RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT);
+            if (viewType != TYPE_SHADOW) {
+                params.setMargins(dp(8), dp(2), dp(8), dp(2));
+            }
+            view.setLayoutParams(params);
             return new RecyclerListView.Holder(view);
         }
     }

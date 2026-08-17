@@ -33,6 +33,7 @@ import org.telegram.ui.ChatActivity;
 import java.util.ArrayList;
 import java.util.Set;
 
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 
 /** 本机隐私文件夹的只读入口；只有完成密码验证后才显示受保护的聊天。 */
@@ -61,7 +62,7 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         });
 
         FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        root.setBackgroundColor(HuanghunLiquidGlass.glassBackdropColor(Theme.getColor(Theme.key_windowBackgroundGray)));
         RecyclerListView listView = new RecyclerListView(context);
         listView.setLayoutManager(new LinearLayoutManager(context));
         listView.setAdapter(adapter = new FolderAdapter(context));
@@ -98,14 +99,14 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(6));
-        container.setBackground(privacyShape(getThemedColor(Theme.key_windowBackgroundWhite),
-                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .46f), 22));
+        container.setBackground(HuanghunLiquidGlass.createSurface(getThemedColor(Theme.key_windowBackgroundWhite),
+                getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), AndroidUtilities.dp(22)));
 
         LinearLayout hero = new LinearLayout(context);
         hero.setOrientation(LinearLayout.VERTICAL);
         hero.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(13), AndroidUtilities.dp(16), AndroidUtilities.dp(13));
-        hero.setBackground(privacyShape(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), getThemedColor(Theme.key_windowBackgroundWhite), .16f),
-                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .70f), 17));
+        hero.setBackground(HuanghunLiquidGlass.createSurface(getThemedColor(Theme.key_windowBackgroundWhite),
+                getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), AndroidUtilities.dp(17)));
         TextView tag = new TextView(context);
         tag.setText("本机安全保护");
         tag.setTextSize(12);
@@ -140,8 +141,8 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         password.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
         password.setHintTextColor(getThemedColor(Theme.key_dialogTextGray));
         password.setPadding(AndroidUtilities.dp(15), 0, AndroidUtilities.dp(15), 0);
-        password.setBackground(privacyShape(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteInputField), Color.WHITE, .18f),
-                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .56f), 14));
+        password.setBackground(HuanghunLiquidGlass.createSurface(getThemedColor(Theme.key_windowBackgroundWhiteInputField),
+                getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), AndroidUtilities.dp(14)));
         password.setInputType(policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
                 ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
                 : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);

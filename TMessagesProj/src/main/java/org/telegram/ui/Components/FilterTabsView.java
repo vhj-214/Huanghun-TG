@@ -75,6 +75,7 @@ import java.util.ArrayList;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.NekoXConfig;
 import tw.nekomimi.nekogram.folder.FolderIconHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 @SuppressLint("ViewConstructor")
 public class FilterTabsView extends FrameLayout {
@@ -1016,6 +1017,10 @@ public class FilterTabsView extends FrameLayout {
     public FilterTabsView(Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
+        int glassBase = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
+        int glassTint = Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4, resourcesProvider);
+        setBackground(HuanghunLiquidGlass.createPill(glassBase, glassTint, dp(48)));
+        setPadding(dp(5), dp(3), dp(5), dp(3));
         textCounterPaint.setTextSize(dpf2(11f));
         textCounterPaint.setTypeface(AndroidUtilities.bold());
         textPaint.setTextSize(dpf2(14f));
