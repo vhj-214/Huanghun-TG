@@ -290,6 +290,7 @@ import me.vkryl.android.util.ClickHelper;
 
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
@@ -4221,6 +4222,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         });
 
         ContentView contentView = new ContentView(context);
+        // 聊天列表页作为所有标签和搜索结果的共同背景，采用轻透内容层而不改变列表滚动与模糊采样。
+        contentView.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundWhite)));
         fragmentView = contentView;
 
         viewPositionWatcher = new ViewPositionWatcher(contentView);
@@ -7783,7 +7786,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             setDialogsListFrozen(true);
             viewPages[0].listView.setVerticalScrollBarEnabled(false);
             if (searchViewPager != null) {
-                searchViewPager.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                searchViewPager.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundWhite)));
             }
             searchAnimator = new AnimatorSet();
             ArrayList<Animator> animators = new ArrayList<>();

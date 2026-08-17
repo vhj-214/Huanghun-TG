@@ -20806,11 +20806,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             roundVideoPlayPipFloat.set(0, true);
         }
 
-        // 黄昏气泡会在原背景绘制之后完成自己的外壳；普通我方文本消息跳过官方绿色填充，
-        // 但仍保留 currentBackgroundDrawable 的边界计算供自定义气泡精确跟随字体尺寸。
-        final boolean replaceOutgoingBubble = currentMessageObject.isOutOwner() && !mediaBackground
-                && HuanghunOutfitRuntime.isMessageBubbleReplacementEnabled();
-        if (!replaceOutgoingBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
+        // 黄昏气泡仅是位于正文下方的边缘装饰，绝不能替代 Telegram 的消息核心底板。
+        // 始终保留原始气泡背景，确保任意字体大小下的正文、时间和状态图标都有稳定对比度。
+        if ((drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
             float alphaInternal = this.alphaInternal;
             if (fromParent) {
                 alphaInternal *= getAlpha();

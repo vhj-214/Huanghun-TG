@@ -84,6 +84,7 @@ import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.animator.ReplaceAnimator;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import xyz.nextalone.nagram.NaConfig;
 
 public class ActionBar extends FrameLayout implements FactorAnimator.Target, Theme.Colorable {
@@ -1171,7 +1172,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     public void setBackgroundColor(int color) {
         actionBarColor = color;
         if (!blurredBackground) {
-            super.setBackgroundColor(actionBarColor);
+            // 所有常规 Telegram 页面共用此入口：导航保持为独立玻璃层，内容在下方透出，
+            // 不把玻璃材质错误叠加到消息正文或列表文字上。
+            super.setBackground(HuanghunLiquidGlass.createNavigationSurface(actionBarColor));
         }
         if (backButtonImageView != null) {
             Drawable drawable = backButtonImageView.getDrawable();

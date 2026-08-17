@@ -7119,6 +7119,14 @@ public class Theme {
         return currentTheme;
     }
 
+    /**
+     * 黄昏定制默认采用液态玻璃；一旦用户在主题设置中选择其他主题，
+     * 相关界面应恢复使用该主题自己的实色、壁纸和材质定义。
+     */
+    public static boolean isDefaultThemeActive() {
+        return currentTheme != null && currentTheme == defaultTheme;
+    }
+
     private static long getAutoNightSwitchThemeDelay() {
         long newTime = SystemClock.elapsedRealtime();
         if (Math.abs(lastThemeSwitchTime - newTime) >= LIGHT_SENSOR_THEME_SWITCH_NEAR_THRESHOLD) {

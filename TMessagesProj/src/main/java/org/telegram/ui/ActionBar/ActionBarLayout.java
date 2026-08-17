@@ -71,6 +71,7 @@ import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ImageLoader;
 import org.telegram.messenger.MessagesController;
+import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.Utilities;
@@ -93,15 +94,19 @@ import org.telegram.ui.Stories.StoryViewer;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
-
+import java.util.Map;
+import java.util.WeakHashMap;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 
-public class ActionBarLayout extends FrameLayout implements INavigationLayout, FloatingDebugProvider {
-
+public class ActionBarLayout extends FrameLayout implements INavigationLayout, FloatingDebugProvider, NotificationCenter.NotificationCenterDelegate {
     public boolean highlightActionButtons = false;
+    /** 仅记录由黄昏默认主题接管的通用页面底板，避免覆盖页面自身的特殊背景。 */
+    private final WeakHashMap<View, Boolean> huanghunContentSurfaces = new WeakHashMap<>();
     private boolean attached;
     private boolean isSheet;
     private Window window;
@@ -109,6 +114,31 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     @Override
     public void setHighlightActionButtons(boolean highlightActionButtons) {
         this.highlightActionButtons = highlightActionButtons;
+    }
+
+    private void applyHuanghunContentSurface(BaseFragment fragment, View fragmentView) {
+        if (!fragment.hasOwnBackground && (fragmentView.getBackground() == null || huanghunContentSurfaces.containsKey(fragmentView))) {
+            fragmentView.setBackground(HuanghunLiquidGlass.createContentSurface(Theme.getColor(Theme.key_windowBackgroundWhite)));
+            huanghunContentSurfaces.put(fragmentView, Boolean.TRUE);
+        }
+    }
+
+    private void refreshHuanghunContentSurfaces() {
+        for (Iterator<Map.Entry<View, Boolean>> iterator = huanghunContentSurfaces.entrySet().iterator(); iterator.hasNext(); ) {
+            View surface = iterator.next().getKey();
+            if (surface == null || surface.getParent() == null) {
+                iterator.remove();
+            } else {
+                surface.setBackground(HuanghunLiquidGlass.createContentSurface(Theme.getColor(Theme.key_windowBackgroundWhite)));
+            }
+        }
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == NotificationCenter.didSetNewTheme) {
+            refreshHuanghunContentSurfaces();
+        }
     }
 
     public boolean storyViewerAttached() {
@@ -2251,9 +2281,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         fragment.onResume();
 
         currentActionBar = fragment.actionBar;
-        if (!fragment.hasOwnBackground && fragmentView.getBackground() == null) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        }
+        applyHuanghunContentSurface(fragment, fragmentView);
 
         LayoutContainer temp = containerView;
         containerView = containerViewBack;
@@ -2593,9 +2621,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 parent.removeView(fragmentView);
             }
         }
-        if (!fragment.hasOwnBackground && fragmentView.getBackground() == null) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        }
+        applyHuanghunContentSurface(fragment, fragmentView);
         containerView.addView(fragmentView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         containerView.setShouldHandleBottomInsets(fragment.getEdgeToEdgeSupportMode());
         containerView.setDrawNavigationBar(fragment.drawEdgeNavigationBar());
@@ -2628,9 +2654,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 parent.removeView(fragmentView);
             }
         }
-        if (!fragment.hasOwnBackground && fragmentView.getBackground() == null) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        }
+        applyHuanghunContentSurface(fragment, fragmentView);
         containerView.addView(fragmentView, Utilities.clamp(position, containerView.getChildCount(), 0), LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         containerView.setShouldHandleBottomInsets(fragment.getEdgeToEdgeSupportMode());
         containerView.setDrawNavigationBar(fragment.drawEdgeNavigationBar());
@@ -3648,12 +3672,14 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         attached = true;
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewTheme);
     }
 
     @Override
     protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.didSetNewTheme);
         attached = false;
+        super.onDetachedFromWindow();
     }
 
     public int measureKeyboardHeight() {

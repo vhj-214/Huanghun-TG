@@ -6,6 +6,8 @@ import android.view.View;
 
 import androidx.core.graphics.ColorUtils;
 
+import org.telegram.ui.ActionBar.Theme;
+
 /**
  * 黄昏定制版的通用液态玻璃外观。
  *
@@ -17,6 +19,12 @@ public final class HuanghunLiquidGlass {
     }
 
     public static GradientDrawable createSurface(int backdropColor, int tintColor, float radiusPx) {
+        if (!Theme.isDefaultThemeActive()) {
+            GradientDrawable drawable = new GradientDrawable();
+            drawable.setColor(backdropColor);
+            drawable.setCornerRadius(Math.max(1f, radiusPx));
+            return drawable;
+        }
         final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
         final int whiteMix = dark ? 28 : 194;
         final int tintMix = dark ? 48 : 122;
@@ -31,6 +39,38 @@ public final class HuanghunLiquidGlass {
 
     public static GradientDrawable createPill(int backdropColor, int tintColor, float heightPx) {
         return createSurface(backdropColor, tintColor, Math.max(1f, heightPx * .50f));
+    }
+
+    /** 默认页面内容底板：保持轻度透光但不对消息正文、列表正文额外描边。 */
+    public static GradientDrawable createContentSurface(int backdropColor) {
+        if (!Theme.isDefaultThemeActive()) {
+            GradientDrawable drawable = new GradientDrawable();
+            drawable.setColor(backdropColor);
+            return drawable;
+        }
+        final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
+        final int top = ColorUtils.setAlphaComponent(backdropColor, dark ? 214 : 204);
+        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, Color.WHITE, dark ? .05f : .16f), dark ? 196 : 190);
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
+        drawable.setCornerRadius(0f);
+        return drawable;
+    }
+
+    /** 全宽导航和工具栏使用的液态玻璃：保留透光与高光，避免把系统顶部栏错误做成圆角卡片。 */
+    public static GradientDrawable createNavigationSurface(int backdropColor) {
+        if (!Theme.isDefaultThemeActive()) {
+            GradientDrawable drawable = new GradientDrawable();
+            drawable.setColor(backdropColor);
+            return drawable;
+        }
+        final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
+        final int tint = dark ? Color.rgb(160, 185, 226) : Color.rgb(124, 148, 193);
+        final int top = ColorUtils.setAlphaComponent(blend(Color.WHITE, tint, .12f), dark ? 54 : 158);
+        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, tint, .22f), dark ? 90 : 126);
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
+        drawable.setCornerRadius(0f);
+        drawable.setStroke(1, ColorUtils.setAlphaComponent(Color.WHITE, dark ? 50 : 158));
+        return drawable;
     }
 
     public static void applySurface(View view, int backdropColor, int tintColor, float radiusPx) {
