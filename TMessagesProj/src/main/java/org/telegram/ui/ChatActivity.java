@@ -31586,8 +31586,11 @@ public class ChatActivity extends BaseFragment implements
         if (contentView != null) {
             contentView.onPause();
         }
+        // 动态壁纸层挂在导航容器中。进入群资料、成员页等内部 Fragment 时，聊天 Fragment 会暂停，
+        // 但视频层仍在前台页面下方可见；此处暂停会导致资料页只保留首帧，因此不在片段切换时停播。
+        // 播放器仅在聊天销毁或替换壁纸时释放，返回聊天页时仍由 refreshDynamicVideoWallpaper() 统一刷新。
         if (dynamicVideoWallpaperPlayer != null) {
-            dynamicVideoWallpaperPlayer.pause();
+            dynamicVideoWallpaperPlayer.resume();
         }
         if (chatMode == 0 || chatMode == MODE_SAVED && getUserConfig().getClientUserId() == getSavedDialogId() || chatMode == MODE_SUGGESTIONS && ChatObject.isMonoForum(currentChat)) {
             saveDraft();

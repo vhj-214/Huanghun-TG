@@ -183,15 +183,21 @@ public final class HuanghunOutfitVisuals {
         final float insetY = Math.min(h * .13f, Math.max(4f, rect.height() * .075f));
         final RectF glass = new RectF(rect.left + insetX, rect.top + insetY, rect.right - insetX, rect.bottom - insetY);
         final float corner = Math.max(10f, glass.height() * .34f);
-        drawReadableBubbleTail(canvas, rect, outgoing, withAlpha(Color.WHITE, 132));
-        // 文字窗本身不绘制任何填充色：主题图、聊天壁纸和视频壁纸可完整透出。
-        // 液态玻璃效果只由边缘折射、高光和透明尾巴表达，绝不再形成白色或绿色底板。
+        // 非默认主题外壳可能是黑金、深紫、星空等深色画面；Telegram 的正文默认使用深色文字。
+        // 因此安全区必须拥有独立的浅色玻璃填充，不能继续透明地叠在主题素材或默认玻璃上。
+        int panelTop = withAlpha(blend(Color.WHITE, item.accent, .06f), 244);
+        int panelBottom = withAlpha(blend(Color.rgb(247, 250, 255), item.secondary, .10f), 230);
+        PAINT.setShader(new LinearGradient(glass.left, glass.top, glass.right, glass.bottom,
+                new int[]{panelTop, panelBottom}, null, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(glass, corner, corner, PAINT);
+        PAINT.setShader(null);
+        drawReadableBubbleTail(canvas, rect, outgoing, panelBottom);
         STROKE.setStrokeWidth(Math.max(1f, h * .022f));
-        STROKE.setColor(withAlpha(Color.WHITE, 168));
+        STROKE.setColor(withAlpha(Color.WHITE, 222));
         canvas.drawRoundRect(new RectF(glass.left + h * .012f, glass.top + h * .012f, glass.right - h * .012f, glass.bottom - h * .012f), corner, corner, STROKE);
-        // 高光仅沿上边缘经过，中央保持干净以确保所有字体大小都清晰可读。
+        // 高光只经过上缘；中间浅色安全区始终让正文、时间和状态保持清晰。
         STROKE.setStrokeWidth(Math.max(1f, h * .030f));
-        STROKE.setColor(withAlpha(Color.WHITE, 82));
+        STROKE.setColor(withAlpha(Color.WHITE, 138));
         canvas.drawLine(glass.left + h * .22f, glass.top + h * .14f, glass.right - h * .22f, glass.top + h * .14f, STROKE);
     }
 
