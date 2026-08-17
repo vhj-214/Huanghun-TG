@@ -2,6 +2,7 @@ package tw.nekomimi.nekogram.helpers;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
@@ -151,8 +152,9 @@ public final class DynamicVideoWallpaperHelper {
         TextureView textureView = new TextureView(context);
         textureView.setClickable(false);
         textureView.setFocusable(false);
-        textureView.setOpaque(true);
-        textureView.setAlpha(0.88f);
+        textureView.setOpaque(false);
+        // 仅在播放器成功准备后显示，避免进入聊天时短暂出现黑色首帧。
+        textureView.setAlpha(0f);
 
         // SizeNotifierFrameLayout 会把 Telegram 原始壁纸放在 backgroundView（索引 0）。
         // 旧实现把 TextureView 也插到索引 0，导致官方静态壁纸被推到视频上层而完全遮住视频。
@@ -178,6 +180,8 @@ public final class DynamicVideoWallpaperHelper {
         private MediaPlayer mediaPlayer;
         private Surface surface;
         private boolean released;
+        private int videoWidth;
+        private int videoHeight;
 
         private Player(TextureView textureView, String path) {
             this.textureView = textureView;
@@ -203,8 +207,17 @@ public final class DynamicVideoWallpaperHelper {
                 mediaPlayer.setSurface(surface);
                 mediaPlayer.setLooping(true);
                 mediaPlayer.setVolume(0f, 0f);
+                mediaPlayer.setOnVideoSizeChangedListener((player, width, height) -> {
+                    videoWidth = width;
+                    videoHeight = height;
+                    textureView.post(this::applyCenterCrop);
+                });
                 mediaPlayer.setOnPreparedListener(player -> {
                     if (!released) {
+                        videoWidth = player.getVideoWidth();
+                        videoHeight = player.getVideoHeight();
+                        applyCenterCrop();
+                        textureView.animate().alpha(.96f).setDuration(220L).start();
                         player.start();
                     }
                 });
@@ -241,6 +254,7 @@ public final class DynamicVideoWallpaperHelper {
 
         public void release() {
             released = true;
+            textureView.animate().cancel();
             textureView.setSurfaceTextureListener(null);
             releaseMediaPlayer();
             if (textureView.getParent() instanceof ViewGroup) {
@@ -275,6 +289,21 @@ public final class DynamicVideoWallpaperHelper {
 
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+            applyCenterCrop();
+        }
+
+        /** 以中心裁切填满聊天背景，保留视频比例，不挤压人像或风景。 */
+        private void applyCenterCrop() {
+            if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
+                return;
+            }
+            float scale = Math.max(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
+            float scaledWidth = videoWidth * scale;
+            float scaledHeight = videoHeight * scale;
+            Matrix matrix = new Matrix();
+            matrix.setScale(scale, scale);
+            matrix.postTranslate((textureView.getWidth() - scaledWidth) / 2f, (textureView.getHeight() - scaledHeight) / 2f);
+            textureView.setTransform(matrix);
         }
 
         @Override

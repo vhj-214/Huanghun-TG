@@ -56,6 +56,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -21304,12 +21305,39 @@ public class ChatActivity extends BaseFragment implements
         showDialog(privacyChatLockDialog);
     }
 
+    private int blendPrivacyColor(int color1, int color2, float ratio) {
+        float r = Math.max(0f, Math.min(1f, ratio));
+        return Color.rgb(
+                (int) (Color.red(color1) * r + Color.red(color2) * (1f - r)),
+                (int) (Color.green(color1) * r + Color.green(color2) * (1f - r)),
+                (int) (Color.blue(color1) * r + Color.blue(color2) * (1f - r))
+        );
+    }
+
+    private GradientDrawable createPrivacyLockDrawable(int color, int stroke, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(dp(radiusDp));
+        drawable.setStroke(Math.max(1, dp(1)), stroke);
+        return drawable;
+    }
+
     private View createProtectedChatLockView(Context context) {
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(dp(24), dp(24), dp(24), dp(24));
-        card.setBackground(Theme.createRoundRectDrawable(dp(20), getThemedColor(Theme.key_windowBackgroundWhite)));
+        card.setPadding(dp(22), dp(18), dp(22), dp(20));
+        card.setBackground(createPrivacyLockDrawable(getThemedColor(Theme.key_windowBackgroundWhite),
+                blendPrivacyColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .48f), 22));
+        TextView label = new TextView(context);
+        label.setText("本机隐私保护");
+        label.setTextSize(12);
+        label.setTypeface(AndroidUtilities.bold());
+        label.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
+        label.setGravity(Gravity.CENTER);
+        label.setBackground(createPrivacyLockDrawable(blendPrivacyColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), getThemedColor(Theme.key_windowBackgroundWhite), .14f),
+                blendPrivacyColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .68f), 10));
+        card.addView(label, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 26));
 
         TextView title = new TextView(context);
         title.setText("当前聊天记录受到保护");
@@ -21317,10 +21345,10 @@ public class ChatActivity extends BaseFragment implements
         title.setTypeface(AndroidUtilities.bold());
         title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         title.setGravity(Gravity.CENTER);
-        card.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        card.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 9, 0, 0));
 
         TextView description = new TextView(context);
-        description.setText("请输入隐私文件夹访问密码，验证成功后才能查看该聊天记录。连续输错 3 次将锁定 30 分钟。");
+        description.setText("输入访问密码后才能查看聊天记录。密码只在当前设备验证；连续输错 3 次将锁定 30 分钟。");
         description.setTextSize(14);
         description.setGravity(Gravity.CENTER);
         description.setLineSpacing(dp(3), 1f);
@@ -21333,8 +21361,9 @@ public class ChatActivity extends BaseFragment implements
         password.setTextSize(16);
         password.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         password.setHintTextColor(getThemedColor(Theme.key_windowBackgroundWhiteHintText));
-        password.setPadding(dp(12), 0, dp(12), 0);
-        password.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhiteInputField));
+        password.setPadding(dp(15), 0, dp(15), 0);
+        password.setBackground(createPrivacyLockDrawable(blendPrivacyColor(getThemedColor(Theme.key_windowBackgroundWhiteInputField), Color.WHITE, .18f),
+                blendPrivacyColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .56f), 14));
         int policy = HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount);
         password.setInputType(policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
                 ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
@@ -21342,7 +21371,7 @@ public class ChatActivity extends BaseFragment implements
         card.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
 
         TextView status = new TextView(context);
-        status.setText(HuanghunPrivacyFolderHelper.policyHint(policy));
+        status.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy));
         status.setTextSize(13);
         status.setGravity(Gravity.CENTER);
         status.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
@@ -21354,7 +21383,8 @@ public class ChatActivity extends BaseFragment implements
         unlock.setTextSize(16);
         unlock.setTypeface(AndroidUtilities.bold());
         unlock.setTextColor(Color.WHITE);
-        unlock.setBackground(Theme.createRoundRectDrawable(dp(14), getThemedColor(Theme.key_windowBackgroundWhiteBlueText4)));
+        unlock.setBackground(createPrivacyLockDrawable(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4),
+                blendPrivacyColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .72f), 14));
         card.addView(unlock, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
         unlock.setOnClickListener(v -> {
             int result = HuanghunPrivacyFolderHelper.verifyPassword(context, currentAccount, password.getText().toString());

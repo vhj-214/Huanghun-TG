@@ -4,11 +4,16 @@ import static org.telegram.messenger.LocaleController.getString;
 
 import android.app.DatePickerDialog;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.text.Editable;
 import android.text.InputFilter;
+import android.text.TextWatcher;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -320,52 +325,55 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         if (context == null) {
             return;
         }
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(6), AndroidUtilities.dp(24), 0);
+        LinearLayout container = createPrivacyCard(context);
+        container.addView(createPrivacyHero(context, changing ? "更新本机访问密码" : "创建本机隐私文件夹",
+                changing ? "新密码只保存在这台设备上，不会同步到其他客户端。" : "设置完成后，加入文件夹的聊天会在任意入口要求验证。"));
 
-        TextView description = new TextView(context);
-        description.setText(changing ? "请选择新密码类型，并连续输入两次相同的新密码。密码仅在本机保存。" : "首次创建需要设置访问密码。请选择密码类型，并连续输入两次相同密码。密码仅在本机保存。");
-        description.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        description.setLineSpacing(AndroidUtilities.dp(3), 1f);
-        container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
-
+        TextView section = privacyLabel(context, "选择密码规则");
+        container.addView(section, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 18, 0, 5));
         RadioGroup policyGroup = new RadioGroup(context);
         policyGroup.setOrientation(RadioGroup.VERTICAL);
-        RadioButton digits = privacyPolicyRadio(context, "纯数字密码", HuanghunPrivacyFolderHelper.POLICY_DIGITS);
-        RadioButton letters = privacyPolicyRadio(context, "纯英文密码", HuanghunPrivacyFolderHelper.POLICY_LETTERS);
-        RadioButton mixed = privacyPolicyRadio(context, "英文和数字混合密码", HuanghunPrivacyFolderHelper.POLICY_MIXED);
+        RadioButton digits = privacyPolicyRadio(context, "纯数字密码  ·  4–12 位", HuanghunPrivacyFolderHelper.POLICY_DIGITS);
+        RadioButton letters = privacyPolicyRadio(context, "纯英文密码  ·  4–12 位", HuanghunPrivacyFolderHelper.POLICY_LETTERS);
+        RadioButton mixed = privacyPolicyRadio(context, "英文 + 数字  ·  4–12 位", HuanghunPrivacyFolderHelper.POLICY_MIXED);
         policyGroup.addView(digits);
         policyGroup.addView(letters);
         policyGroup.addView(mixed);
         policyGroup.check(changing ? policyButtonId(HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount), digits, letters, mixed) : digits.getId());
-        container.addView(policyGroup, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+        container.addView(policyGroup, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        TextView hint = new TextView(context);
-        hint.setTextColor(getThemedColor(Theme.key_dialogTextHint));
-        hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-        container.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+        TextView hint = privacyHint(context);
+        container.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 9));
+        EditTextBoldCursor first = privacyPasswordInput(context, "设置访问密码");
+        EditTextBoldCursor confirm = privacyPasswordInput(context, "再次输入，确认密码");
+        container.addView(first, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(52), 0, 0, 0, 9));
+        container.addView(confirm, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(52)));
 
-        EditTextBoldCursor first = privacyPasswordInput(context, "请输入密码");
-        EditTextBoldCursor confirm = privacyPasswordInput(context, "请再次输入确认密码");
-        container.addView(first, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48), 0, 0, 0, 8));
-        container.addView(confirm, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
-
+        TextView matchingState = privacyHint(context);
+        container.addView(matchingState, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 9, 0, 0));
         int initialPolicy = changing ? HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount) : HuanghunPrivacyFolderHelper.POLICY_DIGITS;
         applyPrivacyPasswordPolicy(first, confirm, hint, initialPolicy);
+        updatePasswordMatchingState(matchingState, first, confirm);
+        TextWatcher confirmationWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override public void afterTextChanged(Editable s) { updatePasswordMatchingState(matchingState, first, confirm); }
+        };
+        first.addTextChangedListener(confirmationWatcher);
+        confirm.addTextChangedListener(confirmationWatcher);
         policyGroup.setOnCheckedChangeListener((group, checkedId) -> {
             int policy = checkedId == letters.getId() ? HuanghunPrivacyFolderHelper.POLICY_LETTERS : (checkedId == mixed.getId() ? HuanghunPrivacyFolderHelper.POLICY_MIXED : HuanghunPrivacyFolderHelper.POLICY_DIGITS);
             first.setText("");
             confirm.setText("");
             applyPrivacyPasswordPolicy(first, confirm, hint, policy);
+            updatePasswordMatchingState(matchingState, first, confirm);
         });
 
         AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
-                .setTitle(changing ? "设置隐私文件夹访问密码" : "创建隐私文件夹")
+                .setTitle(changing ? "安全设置" : "隐私文件夹")
                 .setView(container)
-                .setNegativeButton(getString(R.string.Cancel), null)
-                .setPositiveButton(changing ? "保存新密码" : "创建", null)
+                .setNegativeButton("暂不设置", null)
+                .setPositiveButton(changing ? "保存新密码" : "完成创建", null)
                 .create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             int checkedId = policyGroup.getCheckedRadioButtonId();
@@ -378,7 +386,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 return;
             }
             if (!password.equals(repeated)) {
-                confirm.setError("两次输入的密码不一致，请重新确认。");
+                matchingState.setText("两次输入不一致，请重新确认。");
+                matchingState.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+                confirm.setError("请确认两次密码一致");
                 confirm.requestFocus();
                 return;
             }
@@ -396,13 +406,104 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         showDialog(dialog);
     }
 
+    private LinearLayout createPrivacyCard(Context context) {
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(4));
+        container.setBackground(privacyRoundedDrawable(getThemedColor(Theme.key_windowBackgroundWhite),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .42f), 22, 1));
+        return container;
+    }
+
+    private LinearLayout createPrivacyHero(Context context, String title, String subtitle) {
+        LinearLayout hero = new LinearLayout(context);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(14));
+        hero.setBackground(privacyRoundedDrawable(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), getThemedColor(Theme.key_windowBackgroundWhite), .16f),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .70f), 17, 1));
+        TextView eyebrow = new TextView(context);
+        eyebrow.setText("本机安全保护");
+        eyebrow.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        eyebrow.setTypeface(AndroidUtilities.bold());
+        eyebrow.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
+        hero.addView(eyebrow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        TextView titleView = new TextView(context);
+        titleView.setText(title);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 19);
+        titleView.setTypeface(AndroidUtilities.bold());
+        titleView.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        hero.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 4));
+        TextView subtitleView = new TextView(context);
+        subtitleView.setText(subtitle);
+        subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        subtitleView.setLineSpacing(AndroidUtilities.dp(2), 1f);
+        subtitleView.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        hero.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        return hero;
+    }
+
+    private TextView privacyLabel(Context context, String text) {
+        TextView label = new TextView(context);
+        label.setText(text);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        label.setTypeface(AndroidUtilities.bold());
+        label.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        return label;
+    }
+
+    private TextView privacyHint(Context context) {
+        TextView hint = new TextView(context);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        hint.setLineSpacing(AndroidUtilities.dp(2), 1f);
+        hint.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        return hint;
+    }
+
+    private GradientDrawable privacyRoundedDrawable(int color, int strokeColor, int radiusDp, int strokeDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(AndroidUtilities.dp(radiusDp));
+        drawable.setStroke(Math.max(1, AndroidUtilities.dp(strokeDp)), strokeColor);
+        return drawable;
+    }
+
+    private int privacyBlend(int color1, int color2, float amount) {
+        float a = Math.max(0f, Math.min(1f, amount));
+        return Color.rgb(
+                (int) (Color.red(color1) * a + Color.red(color2) * (1f - a)),
+                (int) (Color.green(color1) * a + Color.green(color2) * (1f - a)),
+                (int) (Color.blue(color1) * a + Color.blue(color2) * (1f - a))
+        );
+    }
+
+    private void updatePasswordMatchingState(TextView state, EditTextBoldCursor first, EditTextBoldCursor confirm) {
+        String password = first.getText().toString();
+        String repeated = confirm.getText().toString();
+        if (password.isEmpty() && repeated.isEmpty()) {
+            state.setText("输入两次相同的密码后即可完成设置。");
+            state.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        } else if (repeated.isEmpty()) {
+            state.setText("请再次输入密码以完成确认。");
+            state.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        } else if (password.equals(repeated)) {
+            state.setText("两次密码一致，可以安全保存。");
+            state.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
+        } else {
+            state.setText("两次密码暂不一致，请检查后重新输入。");
+            state.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+        }
+    }
+
     private RadioButton privacyPolicyRadio(Context context, String text, int policy) {
         RadioButton button = new RadioButton(context);
         button.setId(View.generateViewId());
         button.setText(text);
         button.setTag(policy);
         button.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        button.setPadding(AndroidUtilities.dp(6), AndroidUtilities.dp(2), AndroidUtilities.dp(8), AndroidUtilities.dp(2));
+        button.setBackground(privacyRoundedDrawable(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhite), getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), .05f),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .62f), 12, 1));
         return button;
     }
 
@@ -424,8 +525,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         input.setHint(hint);
         input.setSingleLine(true);
         input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
-        input.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputField));
-        input.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        input.setBackground(privacyRoundedDrawable(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteInputField), Color.WHITE, .18f),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .56f), 14, 1));
+        input.setPadding(AndroidUtilities.dp(15), 0, AndroidUtilities.dp(15), 0);
         return input;
     }
 
@@ -443,43 +545,44 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         if (context == null) {
             return;
         }
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(6), AndroidUtilities.dp(24), 0);
-        TextView description = new TextView(context);
-        description.setText(descriptionText);
-        description.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        description.setLineSpacing(AndroidUtilities.dp(3), 1f);
-        container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
-        EditTextBoldCursor password = privacyPasswordInput(context, "请输入访问密码");
+        LinearLayout container = createPrivacyCard(context);
+        container.addView(createPrivacyHero(context, title, descriptionText));
+        TextView rule = privacyHint(context);
         int policy = HuanghunPrivacyFolderHelper.getPolicy(context, currentAccount);
-        applyPrivacyPasswordPolicy(password, password, description, policy);
-        description.setText(descriptionText + "\n" + HuanghunPrivacyFolderHelper.policyHint(policy));
-        container.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
+        rule.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy) + " 连续输错 3 次将锁定 30 分钟。");
+        container.addView(rule, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 9));
+        EditTextBoldCursor password = privacyPasswordInput(context, "输入访问密码后继续");
+        applyPrivacyPasswordPolicy(password, password, rule, policy);
+        rule.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy) + " 连续输错 3 次将锁定 30 分钟。");
+        container.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(52)));
+        TextView status = privacyHint(context);
+        status.setText("密码仅在当前设备验证，不会上传或同步。");
+        container.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 9, 0, 0));
 
         AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
-                .setTitle(title)
+                .setTitle("安全验证")
                 .setView(container)
-                .setNegativeButton(getString(R.string.Cancel), null)
-                .setPositiveButton("解锁", null)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("验证并继续", null)
                 .create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             int result = HuanghunPrivacyFolderHelper.verifyPassword(context, currentAccount, password.getText().toString());
             if (result == HuanghunPrivacyFolderHelper.VERIFY_OK) {
+                status.setText("验证成功，正在继续…");
+                status.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
                 dialog.dismiss();
                 verified.run();
                 return;
             }
             if (result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED) {
-                password.setError(HuanghunPrivacyFolderHelper.getLockMessage(context, currentAccount));
-                return;
+                status.setText(HuanghunPrivacyFolderHelper.getLockMessage(context, currentAccount));
+            } else if (result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED) {
+                status.setText("需要先创建隐私文件夹。\n");
+            } else {
+                status.setText("密码错误。连续输错 3 次将锁定 30 分钟。");
             }
-            if (result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED) {
-                password.setError("需要先创建隐私文件夹。");
-                return;
-            }
-            password.setError("密码错误。连续输错 3 次将锁定 30 分钟。");
+            status.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+            password.setText("");
             password.requestFocus();
         }));
         showDialog(dialog);

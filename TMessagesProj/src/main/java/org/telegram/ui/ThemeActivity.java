@@ -876,7 +876,10 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     if (progressDialog.isShowing()) {
                         progressDialog.dismiss();
                     }
-                    showDynamicVideoWallpaperDialog("设置成功", "动态视频壁纸已保存。返回任意聊天后会立即播放；切换主题不会清除该视频壁纸。");
+                    if (listAdapter != null && dynamicVideoWallpaperRow >= 0) {
+                        listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+                    }
+                    showDynamicVideoWallpaperDialog("设置成功", "动态视频壁纸已保存并启用。返回任意聊天后会立即播放；切换主题不会清除该视频壁纸。");
                 });
             } catch (Throwable e) {
                 FileLog.e(e);
@@ -2766,7 +2769,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == dynamicVideoWallpaperRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        cell.setTextAndIcon("设置动态壁纸", R.drawable.msg_background, changeUserColor >= 0);
+                        boolean videoEnabled = DynamicVideoWallpaperHelper.getVideoPath(ApplicationLoader.applicationContext, currentAccount, 0L) != null;
+                        cell.setTextAndValueAndIcon("设置动态壁纸", videoEnabled ? "已启用" : "从相册选择视频", R.drawable.msg_background, changeUserColor >= 0);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);

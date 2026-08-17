@@ -1,6 +1,8 @@
 package tw.nekomimi.nekogram.settings;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -75,35 +77,86 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         return root;
     }
 
+    private int privacyBlend(int color1, int color2, float ratio) {
+        float r = Math.max(0f, Math.min(1f, ratio));
+        return Color.rgb(
+                (int) (Color.red(color1) * r + Color.red(color2) * (1f - r)),
+                (int) (Color.green(color1) * r + Color.green(color2) * (1f - r)),
+                (int) (Color.blue(color1) * r + Color.blue(color2) * (1f - r))
+        );
+    }
+
+    private GradientDrawable privacyShape(int color, int stroke, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(AndroidUtilities.dp(radiusDp));
+        drawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), stroke);
+        return drawable;
+    }
+
     private void showUnlockDialog(Context context) {
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(8), AndroidUtilities.dp(24), 0);
+        container.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(6));
+        container.setBackground(privacyShape(getThemedColor(Theme.key_windowBackgroundWhite),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .46f), 22));
 
+        LinearLayout hero = new LinearLayout(context);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(13), AndroidUtilities.dp(16), AndroidUtilities.dp(13));
+        hero.setBackground(privacyShape(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), getThemedColor(Theme.key_windowBackgroundWhite), .16f),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .70f), 17));
+        TextView tag = new TextView(context);
+        tag.setText("本机安全保护");
+        tag.setTextSize(12);
+        tag.setTypeface(AndroidUtilities.bold());
+        tag.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
+        hero.addView(tag, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        TextView heading = new TextView(context);
+        heading.setText("验证后查看隐私聊天");
+        heading.setTextSize(19);
+        heading.setTypeface(AndroidUtilities.bold());
+        heading.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        hero.addView(heading, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 4));
         TextView description = new TextView(context);
-        description.setText("此文件夹仅保存在本机。请输入访问密码后查看已保护的聊天。连续输错 3 次将锁定 30 分钟。\n" + HuanghunPrivacyFolderHelper.policyHint(HuanghunPrivacyFolderHelper.getPolicy(context, account)));
-        description.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        description.setTextSize(14);
-        description.setLineSpacing(AndroidUtilities.dp(3), 1f);
-        container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
+        description.setText("此文件夹仅保存在本机。输入正确的访问密码后才会显示已保护的聊天。");
+        description.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        description.setTextSize(13);
+        description.setLineSpacing(AndroidUtilities.dp(2), 1f);
+        hero.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        container.addView(hero, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+        int policy = HuanghunPrivacyFolderHelper.getPolicy(context, account);
+        TextView rule = new TextView(context);
+        rule.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy) + " 连续输错 3 次将锁定 30 分钟。");
+        rule.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        rule.setTextSize(13);
+        rule.setLineSpacing(AndroidUtilities.dp(2), 1f);
+        container.addView(rule, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 15, 0, 9));
         EditTextBoldCursor password = new EditTextBoldCursor(context);
-        password.setHint("请输入访问密码");
+        password.setHint("输入访问密码后继续");
         password.setSingleLine(true);
         password.setTextSize(16);
         password.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
         password.setHintTextColor(getThemedColor(Theme.key_dialogTextGray));
-        int policy = HuanghunPrivacyFolderHelper.getPolicy(context, account);
+        password.setPadding(AndroidUtilities.dp(15), 0, AndroidUtilities.dp(15), 0);
+        password.setBackground(privacyShape(privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteInputField), Color.WHITE, .18f),
+                privacyBlend(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), Color.WHITE, .56f), 14));
         password.setInputType(policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
                 ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
                 : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        container.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        container.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
+        TextView status = new TextView(context);
+        status.setText("密码只在当前设备验证，不会上传或同步。");
+        status.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        status.setTextSize(13);
+        container.addView(status, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 9, 0, 0));
 
         AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
-                .setTitle("验证隐私文件夹密码")
+                .setTitle("安全验证")
                 .setView(container)
                 .setNegativeButton("取消", null)
-                .setPositiveButton("解锁", null)
+                .setPositiveButton("验证并查看", null)
                 .create();
         dialog.setCanceledOnTouchOutside(false);
         dialog.setOnDismissListener(ignored -> {
@@ -121,12 +174,13 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
                 return;
             }
             if (result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED) {
-                password.setError(HuanghunPrivacyFolderHelper.getLockMessage(context, account));
+                status.setText(HuanghunPrivacyFolderHelper.getLockMessage(context, account));
             } else if (result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED) {
-                password.setError("隐私文件夹已不存在。\n");
+                status.setText("隐私文件夹已不存在，无法继续验证。");
             } else {
-                password.setError("密码错误。连续输错 3 次将锁定 30 分钟。\n");
+                status.setText("密码错误。连续输错 3 次将锁定 30 分钟。");
             }
+            status.setTextColor(getThemedColor(Theme.key_text_RedRegular));
             password.setText("");
             password.requestFocus();
         }));
