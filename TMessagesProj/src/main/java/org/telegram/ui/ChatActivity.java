@@ -598,10 +598,14 @@ public class ChatActivity extends BaseFragment implements
     public ChatActivityFragmentView contentView;
     private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener dynamicVideoWallpaperChangeListener = (account, changedDialogId) -> {
-        if (account == currentAccount && (changedDialogId == 0L || changedDialogId == dialog_id)) {
+        if (isDynamicWallpaperChangeForCurrentChat(account, changedDialogId)) {
             AndroidUtilities.runOnUIThread(this::refreshDynamicVideoWallpaper);
         }
     };
+
+    private boolean isDynamicWallpaperChangeForCurrentChat(int account, long changedDialogId) {
+        return account == currentAccount && (changedDialogId == 0L || changedDialogId == dialog_id);
+    }
     private boolean privacyChatUnlocked;
     private AlertDialog privacyChatLockDialog;
     private ChatBigEmptyView bigEmptyView;
