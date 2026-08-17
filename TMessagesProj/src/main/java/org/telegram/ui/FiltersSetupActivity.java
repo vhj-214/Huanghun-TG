@@ -31,6 +31,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
@@ -52,6 +53,7 @@ import org.telegram.ui.ActionBar.ThemeDescription;
 import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
+import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
@@ -74,6 +76,8 @@ import java.util.ArrayList;
 
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.folder.FolderIconHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.settings.HuanghunPrivacyFolderActivity;
 
 public class FiltersSetupActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
@@ -581,9 +585,16 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             if (listView != null) listView.forcedSections.add(AndroidUtilities.pack(start, items.size() - 1));
             items.add(ItemInner.asShadow(null));
         }
-        if (!dialogFilters.isEmpty()) {
+        final Context privacyContext = getContext() != null ? getContext() : ApplicationLoader.applicationContext;
+        final boolean hasPrivacyFolder = HuanghunPrivacyFolderHelper.isCreated(privacyContext, currentAccount);
+        if (!dialogFilters.isEmpty() || hasPrivacyFolder) {
             filtersSectionStart = items.size();
             items.add(ItemInner.asHeader(LocaleController.getString(R.string.Filters)));
+            if (hasPrivacyFolder) {
+                int protectedCount = HuanghunPrivacyFolderHelper.getProtectedDialogs(privacyContext, currentAccount).size();
+                items.add(ItemInner.asLocalFolder("隐私文件夹", "仅本机可见 · 已保护 " + protectedCount + " 个聊天"));
+            }
+            // 仅官方文件夹参与拖动排序，本机隐私文件夹固定在顶部。
             filtersStartPosition = items.size();
             for (int i = 0; i < dialogFilters.size(); ++i) {
                 items.add(ItemInner.asFilter(dialogFilters.get(i)));
@@ -713,6 +724,8 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
                 }));
                 ((TextCheckCell) view).setChecked(getMessagesController().folderTags);
                 adapter.notifyItemRangeChanged(filtersSectionStart, filtersSectionEnd - filtersSectionStart);
+            } else if (item.viewType == VIEW_TYPE_LOCAL_FOLDER) {
+                presentFragment(new HuanghunPrivacyFolderActivity(currentAccount));
             } else if (item.viewType == VIEW_TYPE_FILTER) {
                 MessagesController.DialogFilter filter = item.filter;
                 if (filter == null || filter.isDefault()) {
@@ -793,6 +806,7 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
     private static final int VIEW_TYPE_BUTTON = 4;
     private static final int VIEW_TYPE_FILTER_SUGGESTION = 5;
     private static final int VIEW_TYPE_CHECK = 6;
+    private static final int VIEW_TYPE_LOCAL_FOLDER = 7;
 
     private int shiftDp = -4;
 
@@ -802,6 +816,7 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         }
 
         CharSequence text;
+        CharSequence value;
         MessagesController.DialogFilter filter;
         int filterColor;
         TLRPC.TL_dialogFilterSuggested suggested;
@@ -823,6 +838,12 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             ItemInner i = new ItemInner(VIEW_TYPE_FILTER);
             i.filter = filter;
 //            i.filterColor = filter == null || !MessagesController.getInstance(UserConfig.selectedAccount).folderTags ? -1 : filter.color;
+            return i;
+        }
+        public static ItemInner asLocalFolder(CharSequence text, CharSequence value) {
+            ItemInner i = new ItemInner(VIEW_TYPE_LOCAL_FOLDER);
+            i.text = text;
+            i.value = value;
             return i;
         }
         public static ItemInner asButton(CharSequence text) {
@@ -853,8 +874,8 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             if (other.viewType != viewType) {
                 return false;
             }
-            if (viewType == VIEW_TYPE_HEADER || viewType == VIEW_TYPE_BUTTON || viewType == VIEW_TYPE_SHADOW || viewType == VIEW_TYPE_CHECK) {
-                if (!TextUtils.equals(text, other.text)) {
+            if (viewType == VIEW_TYPE_HEADER || viewType == VIEW_TYPE_BUTTON || viewType == VIEW_TYPE_SHADOW || viewType == VIEW_TYPE_CHECK || viewType == VIEW_TYPE_LOCAL_FOLDER) {
+                if (!TextUtils.equals(text, other.text) || (viewType == VIEW_TYPE_LOCAL_FOLDER && !TextUtils.equals(value, other.value))) {
                     return false;
                 }
             }
@@ -976,6 +997,9 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
                     });
                     view = filterCell;
                     break;
+                case VIEW_TYPE_LOCAL_FOLDER:
+                    view = new TextSettingsCell(mContext);
+                    break;
                 case VIEW_TYPE_SHADOW:
                     view = new TextInfoPrivacyCell(mContext);
                     break;
@@ -1068,6 +1092,11 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
                 case VIEW_TYPE_FILTER: {
                     FilterCell filterCell = (FilterCell) holder.itemView;
                     filterCell.setFilter(item.filter, divider, position);
+                    break;
+                }
+                case VIEW_TYPE_LOCAL_FOLDER: {
+                    TextSettingsCell cell = (TextSettingsCell) holder.itemView;
+                    cell.setTextAndValue(item.text, item.value, divider);
                     break;
                 }
                 case VIEW_TYPE_SHADOW: {

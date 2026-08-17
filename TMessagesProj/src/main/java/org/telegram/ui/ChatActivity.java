@@ -597,6 +597,7 @@ public class ChatActivity extends BaseFragment implements
     public ChatActivityFragmentView contentView;
     private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
     private boolean privacyChatUnlocked;
+    private AlertDialog privacyChatLockDialog;
     private ChatBigEmptyView bigEmptyView;
     private ArrayList<View> actionModeViews = new ArrayList<>();
     public ChatAvatarContainer avatarContainer;
@@ -5039,9 +5040,10 @@ public class ChatActivity extends BaseFragment implements
             chatListThanosEffect = null;
         }
         removingFromParent = false;
-        if (!privacyChatUnlocked && HuanghunPrivacyFolderHelper.isProtected(context, currentAccount, dialog_id)) {
-            return fragmentView = createProtectedChatLockView(context);
-        }
+        // 保护判断必须在任何入口都生效，但不能在此中断 ChatActivity 的完整初始化。
+        // 旧实现直接返回密码页，解锁后重建残缺的 Fragment 视图，连续打开多个受保护聊天时容易崩溃。
+        final boolean shouldShowPrivacyLock = !privacyChatUnlocked
+                && HuanghunPrivacyFolderHelper.isProtected(context, currentAccount, dialog_id);
         fragmentView = contentView = new ChatActivityFragmentView(context, parentLayout);
         invalidateBlurredSourcesView = new OnPostDrawView(context, true, this::invalidateMergedVisibleBlurredPositionsAndSourcesImpl);
         contentView.addView(invalidateBlurredSourcesView);
@@ -9516,6 +9518,9 @@ public class ChatActivity extends BaseFragment implements
         ViewCompat.setOnApplyWindowInsetsListener(fragmentView, this::onApplyWindowInsets);
         Timer.finish(t);
 
+        if (shouldShowPrivacyLock) {
+            showProtectedChatLockOverlay(context);
+        }
         return fragmentView;
     }
 
@@ -21280,10 +21285,26 @@ public class ChatActivity extends BaseFragment implements
         hideFieldPanel(false);
     }
 
+    private void showProtectedChatLockOverlay(Context context) {
+        if (privacyChatLockDialog != null || getParentActivity() == null) {
+            return;
+        }
+        privacyChatLockDialog = new AlertDialog.Builder(context, themeDelegate)
+                .setView(createProtectedChatLockView(context))
+                .create();
+        privacyChatLockDialog.setCanceledOnTouchOutside(false);
+        privacyChatLockDialog.setOnDismissListener(dialog -> {
+            boolean shouldExit = !privacyChatUnlocked;
+            privacyChatLockDialog = null;
+            // 取消或按返回键不能绕过密码验证，直接退出该聊天。
+            if (shouldExit && !isFinishing()) {
+                finishFragment();
+            }
+        });
+        showDialog(privacyChatLockDialog);
+    }
+
     private View createProtectedChatLockView(Context context) {
-        actionBar.setTitle("受保护聊天");
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -21339,7 +21360,13 @@ public class ChatActivity extends BaseFragment implements
             int result = HuanghunPrivacyFolderHelper.verifyPassword(context, currentAccount, password.getText().toString());
             if (result == HuanghunPrivacyFolderHelper.VERIFY_OK) {
                 privacyChatUnlocked = true;
-                getParentLayout().rebuildAllFragmentViews(true, true);
+                password.clearFocus();
+                AndroidUtilities.hideKeyboard(password);
+                if (privacyChatLockDialog != null) {
+                    privacyChatLockDialog.setOnDismissListener(null);
+                    privacyChatLockDialog.dismiss();
+                    privacyChatLockDialog = null;
+                }
                 return;
             }
             if (result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED) {
@@ -21353,8 +21380,7 @@ public class ChatActivity extends BaseFragment implements
             password.setText("");
             password.requestFocus();
         });
-        root.addView(card, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER, 18, 0, 18, 0));
-        return root;
+        return card;
     }
 
     private void refreshDynamicVideoWallpaper() {
@@ -31158,6 +31184,10 @@ public class ChatActivity extends BaseFragment implements
         }
         if (contentView != null) {
             contentView.onResume();
+            // 聊天在当前会话中被加入隐私文件夹后，返回或重新进入时也必须立刻锁定。
+            if (!privacyChatUnlocked && HuanghunPrivacyFolderHelper.isProtected(getContext(), currentAccount, dialog_id)) {
+                showProtectedChatLockOverlay(getContext());
+            }
         }
         // 重新读取本地视频背景配置：从外观设置返回或切换主题后也必须应用到当前聊天。
         refreshDynamicVideoWallpaper();

@@ -358,6 +358,7 @@ import tw.nekomimi.nekogram.filters.RegexChatFiltersListActivity;
 import tw.nekomimi.nekogram.filters.RegexFiltersSettingActivity;
 import tw.nekomimi.nekogram.filters.ShadowBanListActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.LocalNameHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -17774,6 +17775,16 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         ArrayList<Long> selectedDialogs = new ArrayList<>(1);
         selectedDialogs.add(getDialogId());
         FiltersListBottomSheet sheet = new FiltersListBottomSheet(ProfileActivity.this, selectedDialogs);
+        sheet.setPrivacyFolderDelegate(checked -> {
+            java.util.LinkedHashSet<Long> protectedDialogs = new java.util.LinkedHashSet<>(
+                    HuanghunPrivacyFolderHelper.getProtectedDialogs(getParentActivity(), currentAccount));
+            if (checked) {
+                protectedDialogs.removeAll(selectedDialogs);
+            } else {
+                protectedDialogs.addAll(selectedDialogs);
+            }
+            HuanghunPrivacyFolderHelper.saveProtectedDialogs(getParentActivity(), currentAccount, protectedDialogs);
+        });
         sheet.setDelegate((filter, checked) -> {
             ArrayList<Long> alwaysShow = FiltersListBottomSheet.getDialogsCount(ProfileActivity.this, filter, selectedDialogs, true, false);
             if (!checked) {

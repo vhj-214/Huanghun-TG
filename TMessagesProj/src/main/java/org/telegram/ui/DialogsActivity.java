@@ -290,6 +290,7 @@ import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
 import tw.nekomimi.nekogram.settings.GhostModeActivity;
@@ -4053,6 +4054,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     openAccountSelector(switchItem);
                 } else if (id == add_to_folder) {
                     FiltersListBottomSheet sheet = new FiltersListBottomSheet(DialogsActivity.this, selectedDialogs);
+                    sheet.setPrivacyFolderDelegate(checked -> {
+                        java.util.LinkedHashSet<Long> protectedDialogs = new java.util.LinkedHashSet<>(
+                                HuanghunPrivacyFolderHelper.getProtectedDialogs(getParentActivity(), currentAccount));
+                        if (checked) {
+                            protectedDialogs.removeAll(selectedDialogs);
+                        } else {
+                            protectedDialogs.addAll(selectedDialogs);
+                        }
+                        HuanghunPrivacyFolderHelper.saveProtectedDialogs(getParentActivity(), currentAccount, protectedDialogs);
+                        hideActionMode(true);
+                    });
                     sheet.setDelegate((filter, checked) -> {
                         ArrayList<Long> alwaysShow = FiltersListBottomSheet.getDialogsCount(DialogsActivity.this, filter, selectedDialogs, true, false);
                         if (!checked) {

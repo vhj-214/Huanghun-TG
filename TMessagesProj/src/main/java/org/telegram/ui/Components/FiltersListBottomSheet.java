@@ -39,8 +39,11 @@ import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import tw.nekomimi.nekogram.folder.FolderIconHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 
 public class FiltersListBottomSheet extends BottomSheet implements NotificationCenter.NotificationCenterDelegate {
 
@@ -54,11 +57,19 @@ public class FiltersListBottomSheet extends BottomSheet implements NotificationC
     private boolean ignoreLayout;
 
     private FiltersListBottomSheetDelegate delegate;
+    private PrivacyFolderDelegate privacyFolderDelegate;
 
     private ArrayList<MessagesController.DialogFilter> dialogFilters;
+    private boolean showPrivacyFolder;
+    private Set<Long> privacyDialogIds = new LinkedHashSet<>();
 
     public interface FiltersListBottomSheetDelegate {
         void didSelectFilter(MessagesController.DialogFilter filter, boolean checked);
+    }
+
+    /** 仅保存在本机的隐私文件夹，不会写入 Telegram 云端文件夹。 */
+    public interface PrivacyFolderDelegate {
+        void didSelectPrivacyFolder(boolean checked);
     }
 
     private final ArrayList<Long> selectedDialogs;
@@ -78,6 +89,10 @@ public class FiltersListBottomSheet extends BottomSheet implements NotificationC
             }
         }
         Context context = baseFragment.getParentActivity();
+        showPrivacyFolder = HuanghunPrivacyFolderHelper.isCreated(context, baseFragment.getCurrentAccount());
+        if (showPrivacyFolder) {
+            privacyDialogIds.addAll(HuanghunPrivacyFolderHelper.getProtectedDialogs(context, baseFragment.getCurrentAccount()));
+        }
 
         containerView = new FrameLayout(context) {
 
@@ -225,7 +240,16 @@ public class FiltersListBottomSheet extends BottomSheet implements NotificationC
             }
         });
         listView.setOnItemClickListener((view, position) -> {
-            delegate.didSelectFilter(adapter.getItem(position), view instanceof BottomSheet.BottomSheetCell ? ((BottomSheet.BottomSheetCell) view).isChecked() : false);
+            boolean checked = view instanceof BottomSheet.BottomSheetCell && ((BottomSheet.BottomSheetCell) view).isChecked();
+            if (delegate != null) {
+                if (adapter.isPrivacyFolder(position)) {
+                    if (privacyFolderDelegate != null) {
+                        privacyFolderDelegate.didSelectPrivacyFolder(checked);
+                    }
+                } else {
+                    delegate.didSelectFilter(adapter.getItem(position), checked);
+                }
+            }
             dismiss();
         });
         containerView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, 0, 48, 0, 0));
@@ -335,6 +359,10 @@ public class FiltersListBottomSheet extends BottomSheet implements NotificationC
         delegate = filtersListBottomSheetDelegate;
     }
 
+    public void setPrivacyFolderDelegate(PrivacyFolderDelegate delegate) {
+        privacyFolderDelegate = delegate;
+    }
+
     public static ArrayList<MessagesController.DialogFilter> getCanAddDialogFilters(BaseFragment fragment, Long dialogId) {
         var arrays = new ArrayList<Long>(1);
         arrays.add(dialogId);
@@ -388,16 +416,20 @@ public class FiltersListBottomSheet extends BottomSheet implements NotificationC
         }
 
         public MessagesController.DialogFilter getItem(int position) {
-            if (position < dialogFilters.size()) {
+            if (position >= 0 && position < dialogFilters.size()) {
                 return dialogFilters.get(position);
             }
             return null;
         }
 
+        public boolean isPrivacyFolder(int position) {
+            return showPrivacyFolder && position == dialogFilters.size();
+        }
+
         @Override
         public int getItemCount() {
-            int count = dialogFilters.size();
-            if (count < 10) {
+            int count = dialogFilters.size() + (showPrivacyFolder ? 1 : 0);
+            if (dialogFilters.size() < 10) {
                 count++;
             }
             return count;
@@ -438,6 +470,18 @@ public class FiltersListBottomSheet extends BottomSheet implements NotificationC
                     long did = selectedDialogs.get(i);
                     if (!filter.includesDialog(AccountInstance.getInstance(currentAccount), did)) {
                         isChecked = false;
+                    }
+                }
+                cell.setChecked(isChecked);
+            } else if (isPrivacyFolder(position)) {
+                cell.getImageView().setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4), PorterDuff.Mode.MULTIPLY));
+                cell.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+                cell.setTextAndIcon("隐私文件夹", 0, new FolderDrawable(getContext(), R.drawable.msg_folders, 5), false);
+                boolean isChecked = true;
+                for (int i = 0; i < selectedDialogs.size(); i++) {
+                    if (!privacyDialogIds.contains(selectedDialogs.get(i))) {
+                        isChecked = false;
+                        break;
                     }
                 }
                 cell.setChecked(isChecked);

@@ -43,23 +43,261 @@ public final class HuanghunOutfitVisuals {
         }
     }
 
-    /** 在 Telegram 原气泡背景之后、消息文字之前绘制完整的本地气泡外观。 */
+    /**
+     * 在 Telegram 原气泡背景之后、消息文字之前绘制完整的本地气泡外观。
+     *
+     * 不再使用“默认圆角矩形加一条渐变线”的方案。每个主题族都拥有自己的壳层、角标、
+     * 材质与低强度随动元素；中间保留干净的文字安全区，避免影响消息正文、时间与状态图标。
+     */
     public static void drawBubbleOverlay(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, RectF bubble, boolean outgoing) {
         if (item == null || bubble == null || bubble.width() <= 0 || bubble.height() <= 0) {
             return;
         }
         canvas.save();
-        float size = Math.min(bubble.width(), bubble.height());
-        float radius = Math.max(8f, size * .24f);
-        int family = (item.group + item.variant) % 10;
-
-        PAINT.setShader(new LinearGradient(bubble.left, bubble.top, bubble.right, bubble.bottom,
-                new int[]{item.primary, item.secondary, item.accent}, null, Shader.TileMode.MIRROR));
-        drawBubbleShell(canvas, bubble, radius, family, item, progress, PAINT);
-        PAINT.setShader(null);
-
-        drawBubbleDecoration(canvas, bubble, radius, family, item, progress, outgoing);
+        drawPremiumBubble(canvas, item, progress, bubble, outgoing);
         canvas.restore();
+    }
+
+    private static void drawPremiumBubble(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, RectF rect, boolean outgoing) {
+        final int family = item.group % 10;
+        final float h = Math.max(1f, rect.height());
+        final float corner = Math.max(10f, h * .26f);
+        final int lightPrimary = blend(item.primary, Color.WHITE, .66f);
+        final int lightSecondary = blend(item.secondary, Color.WHITE, .73f);
+        final int edgeColor = darken(blend(item.accent, item.primary, .42f), .18f);
+
+        // 先完整覆盖 Telegram 默认气泡，再在外缘加入主题阴影与尾巴。
+        RECT.set(rect.left, rect.top, rect.right, rect.bottom);
+        PAINT.setColor(withAlpha(darken(edgeColor, .32f), 72));
+        canvas.drawRoundRect(new RectF(rect.left, rect.top + h * .045f, rect.right, rect.bottom + h * .065f), corner, corner, PAINT);
+
+        int[] colors = new int[]{lightPrimary, lightSecondary, blend(item.accent, Color.WHITE, .79f)};
+        PAINT.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom, colors, null, Shader.TileMode.CLAMP));
+        drawPremiumShell(canvas, rect, corner, family, progress, PAINT);
+        PAINT.setShader(null);
+        drawBubbleTail(canvas, rect, item, outgoing, family);
+        drawPremiumBubbleDetails(canvas, rect, item, progress, family, corner, edgeColor);
+    }
+
+    private static void drawPremiumShell(Canvas canvas, RectF rect, float corner, int family, float progress, Paint paint) {
+        switch (family) {
+            case 0: // 赛博 HUD：两侧带接口凹槽的科技外壳。
+                buildTechBubble(rect, Math.max(7f, rect.height() * .14f));
+                canvas.drawPath(PATH, paint);
+                break;
+            case 1: // 镜面棱镜：上下错位的晶体切面。
+                buildCrystalBubble(rect, Math.max(7f, rect.height() * .17f));
+                canvas.drawPath(PATH, paint);
+                break;
+            case 2: // 机甲：明确的装甲切角，而不是普通圆角框。
+            case 7: // 像素街机：同样采用方形剪影。
+                buildCutCornerBubble(rect, Math.max(8f, rect.height() * .19f));
+                canvas.drawPath(PATH, paint);
+                break;
+            case 3: // 漫画：气泡边缘带有受控的爆裂波峰。
+                buildComicBubble(rect, Math.max(4f, rect.height() * .075f));
+                canvas.drawPath(PATH, paint);
+                break;
+            case 5: // 果冻：柔软起伏的胶质边缘。
+                buildJellyBubble(rect, progress);
+                canvas.drawPath(PATH, paint);
+                break;
+            case 6: // 街头贴纸：纸张撕口、折角和不对称边缘。
+                buildStickerBubble(rect, Math.max(6f, rect.height() * .15f));
+                canvas.drawPath(PATH, paint);
+                break;
+            case 8: // 毛球/猫系：耳朵属于气泡壳层，而不是另外贴一张图。
+                canvas.drawRoundRect(rect, corner, corner, paint);
+                float ear = rect.height() * .18f;
+                PATH.reset();
+                PATH.moveTo(rect.left + rect.width() * .17f, rect.top + ear * .30f);
+                PATH.lineTo(rect.left + rect.width() * .28f, rect.top - ear * 1.35f);
+                PATH.lineTo(rect.left + rect.width() * .40f, rect.top + ear * .30f);
+                PATH.close();
+                canvas.drawPath(PATH, paint);
+                PATH.reset();
+                PATH.moveTo(rect.right - rect.width() * .40f, rect.top + ear * .30f);
+                PATH.lineTo(rect.right - rect.width() * .28f, rect.top - ear * 1.35f);
+                PATH.lineTo(rect.right - rect.width() * .17f, rect.top + ear * .30f);
+                PATH.close();
+                canvas.drawPath(PATH, paint);
+                break;
+            case 9: // 国风：扇面弧线形成非矩形轮廓。
+                buildFanBubble(rect, progress);
+                canvas.drawPath(PATH, paint);
+                break;
+            default:
+                canvas.drawRoundRect(rect, corner, corner, paint);
+                break;
+        }
+    }
+
+    private static void drawBubbleTail(Canvas canvas, RectF rect, HuanghunOutfitConfig.OutfitItem item, boolean outgoing, int family) {
+        float h = rect.height();
+        float y = rect.bottom - h * .30f;
+        PAINT.setColor(blend(item.secondary, Color.WHITE, .67f));
+        PATH.reset();
+        if (outgoing) {
+            PATH.moveTo(rect.right - h * .16f, y);
+            PATH.lineTo(rect.right + h * .14f, y + h * .17f);
+            PATH.lineTo(rect.right - h * .08f, y + h * .34f);
+        } else {
+            PATH.moveTo(rect.left + h * .16f, y);
+            PATH.lineTo(rect.left - h * .14f, y + h * .17f);
+            PATH.lineTo(rect.left + h * .08f, y + h * .34f);
+        }
+        PATH.close();
+        canvas.drawPath(PATH, PAINT);
+        if (family == 2 || family == 7) {
+            STROKE.setStrokeWidth(Math.max(1f, h * .032f));
+            STROKE.setColor(withAlpha(darken(item.accent, .15f), 155));
+            canvas.drawPath(PATH, STROKE);
+        }
+    }
+
+    private static void drawPremiumBubbleDetails(Canvas canvas, RectF rect, HuanghunOutfitConfig.OutfitItem item, float progress, int family, float corner, int edgeColor) {
+        final float h = rect.height();
+        final float w = rect.width();
+        STROKE.setStrokeWidth(Math.max(1.5f, h * .038f));
+        STROKE.setColor(withAlpha(edgeColor, 190));
+        // drawBubbleTail 会复用 PATH；描边必须重新以气泡壳层为准，不能误描尾巴。
+        drawPremiumShell(canvas, rect, corner, family, progress, STROKE);
+        switch (family) {
+            case 0: // 赛博 HUD
+                PAINT.setColor(withAlpha(item.accent, 165));
+                RECT.set(rect.right - w * .22f, rect.top + h * .11f, rect.right - w * .08f, rect.top + h * .23f);
+                canvas.drawRoundRect(RECT, h * .05f, h * .05f, PAINT);
+                for (int i = 0; i < 3; i++) {
+                    PAINT.setColor(i == ((int) (progress * 5f) % 3) ? Color.WHITE : withAlpha(item.secondary, 175));
+                    canvas.drawCircle(rect.left + w * (.11f + i * .055f), rect.bottom - h * .15f, h * .035f, PAINT);
+                }
+                drawCornerGlow(canvas, rect, item.accent, progress, true);
+                break;
+            case 1: // 镜面棱镜
+                PAINT.setColor(withAlpha(Color.WHITE, 130));
+                PATH.reset();
+                PATH.moveTo(rect.left + w * .10f, rect.top + h * .12f);
+                PATH.lineTo(rect.left + w * .25f, rect.top + h * .12f);
+                PATH.lineTo(rect.left + w * .17f, rect.top + h * .36f);
+                PATH.close();
+                canvas.drawPath(PATH, PAINT);
+                PAINT.setColor(withAlpha(item.accent, 125));
+                canvas.drawCircle(rect.right - h * .22f, rect.bottom - h * .23f, h * (.075f + .018f * (float) Math.sin(progress * Math.PI * 2f)), PAINT);
+                break;
+            case 2: // 机甲甲片
+                STROKE.setStrokeWidth(Math.max(1f, h * .025f));
+                STROKE.setColor(withAlpha(item.accent, 185));
+                canvas.drawLine(rect.left + w * .12f, rect.top + h * .18f, rect.left + w * .38f, rect.top + h * .18f, STROKE);
+                canvas.drawLine(rect.right - w * .34f, rect.bottom - h * .17f, rect.right - w * .12f, rect.bottom - h * .17f, STROKE);
+                for (int i = 0; i < 4; i++) {
+                    PAINT.setColor(i == ((int) (progress * 6f) % 4) ? Color.WHITE : withAlpha(item.accent, 145));
+                    canvas.drawRect(rect.right - w * (.10f + i * .035f), rect.top + h * .14f, rect.right - w * (.08f + i * .035f), rect.top + h * .22f, PAINT);
+                }
+                break;
+            case 3: // 暗夜漫画分镜
+                drawComicBurst(canvas, rect, item, progress);
+                break;
+            case 4: // 星云玻璃
+                PAINT.setColor(withAlpha(item.accent, 118));
+                canvas.drawCircle(rect.right - h * .27f, rect.top + h * .30f, h * .16f, PAINT);
+                PAINT.setColor(withAlpha(Color.WHITE, 170));
+                canvas.drawCircle(rect.right - h * .33f, rect.top + h * .24f, h * .045f, PAINT);
+                for (int i = 0; i < 5; i++) {
+                    float x = rect.left + w * (.10f + fract(progress * .24f + i * .19f) * .68f);
+                    float y = rect.bottom - h * (.14f + (i % 3) * .12f);
+                    PAINT.setColor(withAlpha(i % 2 == 0 ? Color.WHITE : item.accent, 150));
+                    canvas.drawCircle(x, y, h * .025f, PAINT);
+                }
+                break;
+            case 5: // 果冻糖晶
+                STROKE.setColor(withAlpha(Color.WHITE, 205));
+                PAINT.setColor(withAlpha(Color.WHITE, 115));
+                canvas.drawOval(new RectF(rect.left + w * .10f, rect.top + h * .12f, rect.left + w * .39f, rect.top + h * .28f), PAINT);
+                for (int i = 0; i < 3; i++) {
+                    PAINT.setColor(withAlpha(item.accent, 135));
+                    canvas.drawCircle(rect.right - h * (.24f + i * .13f), rect.bottom - h * (.20f + (i % 2) * .10f), h * .055f, PAINT);
+                }
+                break;
+            case 6: // 街头贴纸
+                canvas.save();
+                canvas.rotate(-3f + 6f * (float) Math.sin(progress * Math.PI * 2f), rect.centerX(), rect.centerY());
+                STROKE.setColor(withAlpha(edgeColor, 205));
+                drawPremiumShell(canvas, rect, corner, family, progress, STROKE);
+                canvas.restore();
+                drawStickerPatch(canvas, rect, item, progress);
+                break;
+            case 7: // 像素街机
+                float px = Math.max(2f, h * .075f);
+                for (int i = 0; i < 4; i++) {
+                    PAINT.setColor(i == ((int) (progress * 8f) % 4) ? Color.WHITE : withAlpha(item.accent, 155));
+                    canvas.drawRect(rect.left + w * (.12f + i * .07f), rect.top + h * .13f, rect.left + w * (.12f + i * .07f) + px, rect.top + h * .13f + px, PAINT);
+                }
+                PAINT.setColor(withAlpha(item.secondary, 160));
+                canvas.drawCircle(rect.right - h * .25f, rect.bottom - h * .22f, h * .07f, PAINT);
+                canvas.drawCircle(rect.right - h * .12f, rect.bottom - h * .31f, h * .045f, PAINT);
+                break;
+            case 8: // 毛球猫爪
+                STROKE.setColor(withAlpha(edgeColor, 165));
+                drawPremiumShell(canvas, rect, corner, family, progress, STROKE);
+                drawPaw(canvas, rect.left + h * .25f, rect.bottom - h * .23f, h * .12f, item.accent);
+                drawPaw(canvas, rect.right - h * .24f, rect.top + h * .25f, h * .09f, withAlpha(item.secondary, 185));
+                break;
+            default: // 国风扇面
+                STROKE.setStrokeWidth(Math.max(1f, h * .022f));
+                STROKE.setColor(withAlpha(item.accent, 150));
+                for (int i = 0; i < 5; i++) {
+                    canvas.drawLine(rect.centerX(), rect.bottom - h * .12f, rect.left + w * (.20f + i * .15f), rect.top + h * .20f, STROKE);
+                }
+                drawCloudCurl(canvas, rect.left + w * .13f, rect.top + h * .25f, h * .09f, item.secondary);
+                break;
+        }
+    }
+
+    private static void drawCornerGlow(Canvas canvas, RectF rect, int color, float progress, boolean right) {
+        float h = rect.height();
+        float x = right ? rect.right - h * .17f : rect.left + h * .17f;
+        PAINT.setColor(withAlpha(color, 95));
+        canvas.drawCircle(x, rect.top + h * (.45f + .10f * (float) Math.sin(progress * Math.PI * 2f)), h * .12f, PAINT);
+    }
+
+    private static void drawComicBurst(Canvas canvas, RectF rect, HuanghunOutfitConfig.OutfitItem item, float progress) {
+        float cx = rect.right - rect.height() * .28f;
+        float cy = rect.top + rect.height() * .34f;
+        STROKE.setStrokeWidth(Math.max(1f, rect.height() * .027f));
+        STROKE.setColor(withAlpha(item.accent, 175));
+        for (int i = 0; i < 7; i++) {
+            double a = i * Math.PI * 2d / 7d + progress * .35d;
+            canvas.drawLine(cx, cy, cx + (float) Math.cos(a) * rect.height() * .18f, cy + (float) Math.sin(a) * rect.height() * .18f, STROKE);
+        }
+    }
+
+    private static void drawStickerPatch(Canvas canvas, RectF rect, HuanghunOutfitConfig.OutfitItem item, float progress) {
+        float s = rect.height() * .15f;
+        PAINT.setColor(withAlpha(item.accent, 195));
+        PATH.reset();
+        PATH.moveTo(rect.left + s, rect.top + s * .55f);
+        PATH.lineTo(rect.left + s * 1.45f, rect.top + s);
+        PATH.lineTo(rect.left + s * 2.05f, rect.top + s * .48f);
+        PATH.lineTo(rect.left + s * 1.58f, rect.top + s * 1.10f);
+        PATH.close();
+        canvas.drawPath(PATH, PAINT);
+        PAINT.setColor(withAlpha(Color.WHITE, 170));
+        canvas.drawCircle(rect.left + rect.width() * (.70f + .06f * (float) Math.sin(progress * Math.PI * 2f)), rect.bottom - rect.height() * .20f, s * .26f, PAINT);
+    }
+
+    private static void drawPaw(Canvas canvas, float cx, float cy, float size, int color) {
+        PAINT.setColor(color);
+        canvas.drawCircle(cx, cy, size, PAINT);
+        canvas.drawCircle(cx - size * .90f, cy - size * 1.05f, size * .44f, PAINT);
+        canvas.drawCircle(cx, cy - size * 1.38f, size * .44f, PAINT);
+        canvas.drawCircle(cx + size * .90f, cy - size * 1.05f, size * .44f, PAINT);
+    }
+
+    private static void drawCloudCurl(Canvas canvas, float cx, float cy, float size, int color) {
+        STROKE.setColor(withAlpha(color, 165));
+        STROKE.setStrokeWidth(Math.max(1f, size * .24f));
+        canvas.drawArc(cx - size, cy - size * .55f, cx + size, cy + size * .55f, 25f, 210f, false, STROKE);
+        canvas.drawArc(cx - size * .42f, cy - size * .15f, cx + size * 1.25f, cy + size * .90f, 205f, 150f, false, STROKE);
     }
 
     public static void drawBubble(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, float width, float height) {
@@ -378,109 +616,102 @@ public final class HuanghunOutfitVisuals {
         canvas.drawText("✓", width * .71f, y + PAINT.getTextSize() * .33f, PAINT);
     }
 
+    /**
+     * 群聊入场提示采用顶部轻量横幅：只占一行聊天空间，载具与粒子全部裁剪在横幅内，
+     * 不再创建遮挡消息内容的大型舞台卡片。显示动画为滑入、短暂停留、淡出。
+     */
     public static void drawJoinEffect(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, float width, float height, String groupName) {
+        if (item == null || width <= 0f || height <= 0f) {
+            return;
+        }
+        final int family = (item.group + item.variant) % 10;
+        final float enter = easeOut(Math.min(1f, progress / .14f));
+        final float leave = progress < .84f ? 1f : Math.max(0f, 1f - (progress - .84f) / .16f);
+        final float bannerHeight = Math.max(width * .125f, Math.min(width * .155f, height * .115f));
+        final float bannerWidth = width * .90f;
+        final float left = (width - bannerWidth) / 2f;
+        final float topRest = Math.max(width * .035f, height * .035f);
+        final float top = topRest - (1f - enter) * bannerHeight * 1.35f;
+        final RectF banner = new RectF(left, top, left + bannerWidth, top + bannerHeight);
+
+        canvas.saveLayerAlpha(0, 0, width, height, (int) (255 * leave));
+        PAINT.setColor(withAlpha(darken(item.primary, .46f), 92));
+        canvas.drawRoundRect(new RectF(banner.left, banner.top + bannerHeight * .07f, banner.right, banner.bottom + bannerHeight * .10f), bannerHeight * .36f, bannerHeight * .36f, PAINT);
+        PAINT.setShader(new LinearGradient(banner.left, banner.top, banner.right, banner.bottom,
+                new int[]{withAlpha(darken(item.primary, .52f), 248), withAlpha(darken(item.secondary, .60f), 248), withAlpha(darken(item.accent, .48f), 248)}, null, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(banner, bannerHeight * .34f, bannerHeight * .34f, PAINT);
+        PAINT.setShader(null);
+        STROKE.setStrokeWidth(Math.max(1.5f, bannerHeight * .027f));
+        STROKE.setColor(withAlpha(blend(item.accent, Color.WHITE, .48f), 218));
+        canvas.drawRoundRect(banner, bannerHeight * .34f, bannerHeight * .34f, STROKE);
+
         canvas.save();
-        int family = (item.group + item.variant) % 10;
-        float fly = progress < .72f ? easeOut(progress / .72f) : 1f;
-        float fade = progress < .82f ? 1f : Math.max(0f, 1f - (progress - .82f) / .18f);
-        canvas.saveLayerAlpha(0, 0, width, height, (int) (255 * fade));
-        drawJoinSky(canvas, item, progress, width, height, family);
-        drawJoinVehicle(canvas, item, fly, width, height, family);
-        drawJoinCard(canvas, item, progress, width, height, groupName);
+        canvas.clipRect(banner);
+        drawJoinBannerParticles(canvas, item, progress, banner, family);
+        drawJoinBannerVehicle(canvas, item, progress, banner, family);
         canvas.restore();
+        drawJoinBannerText(canvas, item, banner, groupName);
         canvas.restore();
     }
 
-    private static void drawJoinSky(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, float width, float height, int family) {
-        // 悬浮舞台只占聊天页上半部，不覆盖正常消息内容和输入框。
-        RECT.set(width * .04f, height * .10f, width * .96f, height * .62f);
-        PAINT.setShader(new LinearGradient(RECT.left, RECT.top, RECT.right, RECT.bottom, new int[]{withAlpha(darken(item.primary, .46f), 235), withAlpha(darken(item.secondary, .52f), 235)}, null, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(RECT, width * .055f, width * .055f, PAINT);
-        PAINT.setShader(null);
-        canvas.save();
-        canvas.clipRect(RECT);
-        for (int i = 0; i < 18; i++) {
-            float p = fract(progress * (0.55f + (i % 3) * .16f) + i * .083f);
-            float x = RECT.left + RECT.width() * fract(i * .37f + p * .33f);
-            float y = RECT.top + RECT.height() * fract(i * .19f + p * .79f);
-            PAINT.setColor(withAlpha(i % 2 == 0 ? item.accent : Color.WHITE, 55 + (i % 3) * 25));
-            canvas.drawCircle(x, y, width * (.006f + (i % 4) * .003f), PAINT);
+    private static void drawJoinBannerParticles(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, RectF banner, int family) {
+        final float h = banner.height();
+        for (int i = 0; i < 9; i++) {
+            float p = fract(progress * (.38f + (i % 3) * .10f) + i * .137f);
+            float x = banner.left + banner.width() * p;
+            float y = banner.top + h * (.16f + (i % 4) * .19f);
+            PAINT.setColor(withAlpha(i % 2 == 0 ? Color.WHITE : item.accent, 66 + (i % 3) * 26));
+            canvas.drawCircle(x, y, Math.max(1.2f, h * (.022f + (i % 3) * .010f)), PAINT);
         }
-        if (family == 4 || family == 7) {
-            STROKE.setColor(withAlpha(item.accent, 70));
-            STROKE.setStrokeWidth(Math.max(1f, width * .004f));
-            for (int i = -3; i < 8; i++) {
-                canvas.drawLine(RECT.left + RECT.width() * i / 5f, RECT.top, RECT.left + RECT.width() * (i + 2) / 5f, RECT.bottom, STROKE);
+        if (family == 0 || family == 4 || family == 7) {
+            STROKE.setColor(withAlpha(item.accent, 86));
+            STROKE.setStrokeWidth(Math.max(1f, h * .024f));
+            for (int i = -2; i < 5; i++) {
+                float offset = fract(progress * .22f + i * .17f);
+                canvas.drawLine(banner.left + banner.width() * (offset - .22f), banner.bottom,
+                        banner.left + banner.width() * (offset + .10f), banner.top, STROKE);
             }
         }
-        canvas.restore();
     }
 
-    private static void drawJoinVehicle(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float fly, float width, float height, int family) {
-        float x = -width * .22f + width * 1.28f * fly;
-        float y = height * (.34f + .04f * (float) Math.sin(fly * Math.PI));
-        float scale = Math.min(width, height) / 360f;
+    private static void drawJoinBannerVehicle(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, RectF banner, int family) {
+        final float cruise = .07f + .10f * (float) Math.sin(progress * Math.PI * 2f);
+        final float x = banner.left + banner.width() * (.18f + cruise);
+        final float y = banner.centerY() + banner.height() * .08f;
+        final float scale = banner.height() / 290f;
         canvas.save();
         canvas.translate(x, y);
         canvas.scale(scale, scale);
         switch (family) {
-            case 0:
-                drawSupercar(canvas, item, fly);
-                break;
-            case 1:
-                drawAirplane(canvas, item, fly);
-                break;
-            case 2:
-                drawRocket(canvas, item, fly);
-                break;
-            case 3:
-                drawMech(canvas, item, fly);
-                break;
-            case 4:
-                drawYacht(canvas, item, fly);
-                break;
-            case 5:
-                drawBalloon(canvas, item, fly);
-                break;
-            case 6:
-                drawSkateboard(canvas, item, fly);
-                break;
-            case 7:
-                drawUfo(canvas, item, fly);
-                break;
-            case 8:
-                drawTrain(canvas, item, fly);
-                break;
-            default:
-                drawDragonBoat(canvas, item, fly);
-                break;
+            case 0: drawSupercar(canvas, item, progress); break;
+            case 1: drawAirplane(canvas, item, progress); break;
+            case 2: drawRocket(canvas, item, progress); break;
+            case 3: drawMech(canvas, item, progress); break;
+            case 4: drawYacht(canvas, item, progress); break;
+            case 5: drawBalloon(canvas, item, progress); break;
+            case 6: drawSkateboard(canvas, item, progress); break;
+            case 7: drawUfo(canvas, item, progress); break;
+            case 8: drawTrain(canvas, item, progress); break;
+            default: drawDragonBoat(canvas, item, progress); break;
         }
         canvas.restore();
     }
 
-    private static void drawJoinCard(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, float width, float height, String groupName) {
-        float cardWidth = width * .78f;
-        float cardHeight = Math.max(62f, height * .14f);
-        float left = (width - cardWidth) / 2f;
-        float top = height * .54f + (1f - Math.min(1f, progress * 5f)) * height * .10f;
-        RECT.set(left, top, left + cardWidth, top + cardHeight);
-        PAINT.setColor(withAlpha(Color.WHITE, 242));
-        canvas.drawRoundRect(RECT, cardHeight * .28f, cardHeight * .28f, PAINT);
-        STROKE.setColor(withAlpha(item.accent, 225));
-        STROKE.setStrokeWidth(Math.max(2f, cardHeight * .035f));
-        canvas.drawRoundRect(RECT, cardHeight * .28f, cardHeight * .28f, STROKE);
-        PAINT.setTextAlign(Paint.Align.CENTER);
-        PAINT.setTypeface(Typeface.DEFAULT_BOLD);
-        PAINT.setTextSize(Math.max(13f, width * .048f));
-        PAINT.setColor(darken(item.primary, .48f));
-        canvas.drawText("黄昏进入了", width / 2f, top + cardHeight * .42f, PAINT);
-        PAINT.setTextSize(Math.max(14f, width * .056f));
-        PAINT.setColor(darken(item.secondary, .48f));
+    private static void drawJoinBannerText(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, RectF banner, String groupName) {
+        final float h = banner.height();
         String safeName = groupName == null || groupName.trim().isEmpty() ? "群聊" : groupName.trim();
-        if (safeName.length() > 14) {
-            safeName = safeName.substring(0, 14) + "…";
+        if (safeName.length() > 10) {
+            safeName = safeName.substring(0, 10) + "…";
         }
-        canvas.drawText(safeName, width / 2f, top + cardHeight * .75f, PAINT);
+        PAINT.setTextAlign(Paint.Align.LEFT);
+        PAINT.setTypeface(Typeface.DEFAULT_BOLD);
+        PAINT.setTextSize(Math.max(11f, h * .225f));
+        PAINT.setColor(Color.WHITE);
+        float textLeft = banner.left + banner.width() * .43f;
+        canvas.drawText("黄昏进入了", textLeft, banner.top + h * .43f, PAINT);
+        PAINT.setTextSize(Math.max(12f, h * .265f));
+        PAINT.setColor(blend(item.accent, Color.WHITE, .62f));
+        canvas.drawText("「" + safeName + "」", textLeft, banner.top + h * .72f, PAINT);
     }
 
     private static void drawSupercar(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float fly) {
@@ -584,6 +815,69 @@ public final class HuanghunOutfitVisuals {
         PATH.reset(); PATH.moveTo(x - 19, y); PATH.quadTo(x, y + 42 + 18 * (float) Math.sin(p * Math.PI * 2f), x + 19, y); PATH.close(); canvas.drawPath(PATH, PAINT);
     }
 
+    private static void buildTechBubble(RectF rect, float notch) {
+        PATH.reset();
+        PATH.moveTo(rect.left + notch, rect.top);
+        PATH.lineTo(rect.right - notch * 1.35f, rect.top);
+        PATH.lineTo(rect.right, rect.top + notch * .70f);
+        PATH.lineTo(rect.right - notch * .55f, rect.centerY() - notch * .52f);
+        PATH.lineTo(rect.right - notch * .55f, rect.centerY() + notch * .52f);
+        PATH.lineTo(rect.right, rect.bottom - notch * .70f);
+        PATH.lineTo(rect.right - notch * 1.35f, rect.bottom);
+        PATH.lineTo(rect.left + notch, rect.bottom);
+        PATH.lineTo(rect.left, rect.bottom - notch);
+        PATH.lineTo(rect.left + notch * .55f, rect.centerY() + notch * .42f);
+        PATH.lineTo(rect.left + notch * .55f, rect.centerY() - notch * .42f);
+        PATH.lineTo(rect.left, rect.top + notch);
+        PATH.close();
+    }
+
+    private static void buildCrystalBubble(RectF rect, float cut) {
+        PATH.reset();
+        PATH.moveTo(rect.left + cut * 1.35f, rect.top);
+        PATH.lineTo(rect.right - cut * .55f, rect.top);
+        PATH.lineTo(rect.right, rect.top + cut * .82f);
+        PATH.lineTo(rect.right - cut * .72f, rect.bottom - cut * .12f);
+        PATH.lineTo(rect.right - cut * 1.55f, rect.bottom);
+        PATH.lineTo(rect.left + cut * .42f, rect.bottom);
+        PATH.lineTo(rect.left, rect.bottom - cut * 1.18f);
+        PATH.lineTo(rect.left + cut * .68f, rect.top + cut * .25f);
+        PATH.close();
+    }
+
+    private static void buildComicBubble(RectF rect, float spike) {
+        PATH.reset();
+        int count = 12;
+        for (int i = 0; i < count; i++) {
+            float p = i / (float) (count - 1);
+            float x = rect.left + rect.width() * p;
+            float y = rect.top + (i % 2 == 0 ? 0f : spike);
+            if (i == 0) PATH.moveTo(x, y); else PATH.lineTo(x, y);
+        }
+        for (int i = count - 1; i >= 0; i--) {
+            float p = i / (float) (count - 1);
+            float x = rect.left + rect.width() * p;
+            float y = rect.bottom - (i % 2 == 0 ? 0f : spike);
+            PATH.lineTo(x, y);
+        }
+        PATH.close();
+    }
+
+    private static void buildStickerBubble(RectF rect, float cut) {
+        PATH.reset();
+        PATH.moveTo(rect.left + cut, rect.top);
+        PATH.lineTo(rect.right - cut * 1.4f, rect.top);
+        PATH.lineTo(rect.right, rect.top + cut * .72f);
+        PATH.lineTo(rect.right - cut * .55f, rect.top + cut * 1.45f);
+        PATH.lineTo(rect.right, rect.bottom - cut * .92f);
+        PATH.lineTo(rect.right - cut * 1.2f, rect.bottom);
+        PATH.lineTo(rect.left + cut * .65f, rect.bottom - cut * .18f);
+        PATH.lineTo(rect.left, rect.bottom - cut * 1.12f);
+        PATH.lineTo(rect.left + cut * .64f, rect.centerY());
+        PATH.lineTo(rect.left, rect.top + cut * .85f);
+        PATH.close();
+    }
+
     private static void buildPixelBubble(RectF rect, float step) {
         PATH.reset();
         PATH.moveTo(rect.left + step, rect.top);
@@ -669,5 +963,14 @@ public final class HuanghunOutfitVisuals {
 
     private static int withAlpha(int color, int alpha) {
         return (color & 0x00ffffff) | ((Math.max(0, Math.min(alpha, 255))) << 24);
+    }
+
+    private static int blend(int color1, int color2, float ratio) {
+        float r = Math.max(0f, Math.min(1f, ratio));
+        float inv = 1f - r;
+        int red = (int) (Color.red(color1) * r + Color.red(color2) * inv);
+        int green = (int) (Color.green(color1) * r + Color.green(color2) * inv);
+        int blue = (int) (Color.blue(color1) * r + Color.blue(color2) * inv);
+        return Color.rgb(red, green, blue);
     }
 }

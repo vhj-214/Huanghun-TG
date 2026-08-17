@@ -65,6 +65,12 @@ public final class HuanghunOutfitRuntime {
     private HuanghunOutfitRuntime() {
     }
 
+    /** 前后两档为静态造型，中间与末尾三档为动态材质、流光或粒子造型。 */
+    public static boolean shouldAnimateSelectedBubble() {
+        HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
+        return item != null && (item.variant == 1 || item.variant == 3 || item.variant == 4);
+    }
+
     public static void drawMessageBubbleOverlay(Canvas canvas, Rect bounds, boolean outgoing) {
         if (bounds == null || bounds.width() < AndroidUtilities.dp(40) || bounds.height() < AndroidUtilities.dp(22)) {
             return;

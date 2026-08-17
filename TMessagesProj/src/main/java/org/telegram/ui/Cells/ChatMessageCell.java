@@ -20912,6 +20912,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !currentMessageObject.shouldDrawWithoutBackground()) {
             // 黄昏本地气泡：在原始 Telegram 气泡背景之后、消息文字之前绘制，因此不改变消息内容和交互。
             HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), currentMessageObject.isOutOwner());
+            if (HuanghunOutfitRuntime.shouldAnimateSelectedBubble()) {
+                postInvalidateDelayed(48L);
+            }
         }
         if (currentMessageObject != null && currentMessageObject.isRoundVideo()) {
             currentBackgroundDrawable.setRoundingRadius(0);

@@ -8,9 +8,11 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
 import android.view.ViewGroup;
 
 import org.telegram.messenger.FileLog;
+import org.telegram.ui.Components.SizeNotifierFrameLayout;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -149,8 +151,22 @@ public final class DynamicVideoWallpaperHelper {
         TextureView textureView = new TextureView(context);
         textureView.setClickable(false);
         textureView.setFocusable(false);
-        textureView.setAlpha(0.82f);
-        parent.addView(textureView, 0, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        textureView.setOpaque(true);
+        textureView.setAlpha(0.88f);
+
+        // SizeNotifierFrameLayout 会把 Telegram 原始壁纸放在 backgroundView（索引 0）。
+        // 旧实现把 TextureView 也插到索引 0，导致官方静态壁纸被推到视频上层而完全遮住视频。
+        // 将视频准确放在 backgroundView 之后，随后创建或已有的消息列表仍位于视频之上。
+        int insertIndex = 0;
+        if (parent instanceof SizeNotifierFrameLayout) {
+            View backgroundView = ((SizeNotifierFrameLayout) parent).backgroundView;
+            if (backgroundView != null) {
+                int backgroundIndex = parent.indexOfChild(backgroundView);
+                insertIndex = backgroundIndex < 0 ? 0 : backgroundIndex + 1;
+            }
+        }
+        parent.addView(textureView, Math.min(insertIndex, parent.getChildCount()),
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         Player player = new Player(textureView, path);
         player.start();
         return player;
