@@ -66,6 +66,10 @@ public final class HuanghunOutfitRuntime {
     }
 
     /** 每组首款为完整静态收藏款；其余四款均有独立主体循环，仅重绘消息背景层。 */
+    public static boolean isMessageBubbleReplacementEnabled() {
+        return selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE) != null;
+    }
+
     public static boolean shouldAnimateSelectedBubble() {
         HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
         return item != null && item.variant != 0;

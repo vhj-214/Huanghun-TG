@@ -1321,9 +1321,17 @@ public class FilterTabsView extends FrameLayout {
 
     public void selectDefaultTab() {
         Tab defaultTab = findDefaultTab();
-        if (defaultTab == null) return;
-        if (defaultTab.id == getCurrentTabId()) return;
-        scrollToTab(defaultTab, defaultTab.id);
+        if (defaultTab == null || defaultTab.id == getCurrentTabId()) {
+            return;
+        }
+        // 标签 id 与水平列表 position 并不等价。首位插入本机隐私文件夹后，
+        // 默认“全部聊天”的 id 仍为 0，却已不是位置 0，必须查找实际位置。
+        for (int i = 0; i < tabs.size(); i++) {
+            if (tabs.get(i).id == defaultTab.id) {
+                scrollToTab(defaultTab, i);
+                return;
+            }
+        }
     }
 
     public boolean isFirstTab() {

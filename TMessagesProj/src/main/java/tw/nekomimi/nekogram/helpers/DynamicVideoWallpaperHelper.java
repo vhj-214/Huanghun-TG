@@ -217,6 +217,7 @@ public final class DynamicVideoWallpaperHelper {
         private final String path;
         private MediaPlayer mediaPlayer;
         private Surface surface;
+        private SurfaceTexture surfaceTexture;
         private boolean released;
         private int videoWidth;
         private int videoHeight;
@@ -239,21 +240,28 @@ public final class DynamicVideoWallpaperHelper {
             }
             releaseMediaPlayer();
             try {
+                this.surfaceTexture = surfaceTexture;
+                // 清除旧视频遗留的矩阵，避免换视频后继续沿用旧比例。
+                textureView.setTransform(new Matrix());
                 surface = new Surface(surfaceTexture);
                 mediaPlayer = new MediaPlayer();
                 mediaPlayer.setDataSource(path);
                 mediaPlayer.setSurface(surface);
+                // 明确要求播放器缩放以完整呈现内容，绝不使用裁切填满模式。
+                mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
                 mediaPlayer.setLooping(true);
                 mediaPlayer.setVolume(0f, 0f);
                 mediaPlayer.setOnVideoSizeChangedListener((player, width, height) -> {
                     videoWidth = width;
                     videoHeight = height;
+                    configureVideoBuffer();
                     textureView.post(this::applyFitCenter);
                 });
                 mediaPlayer.setOnPreparedListener(player -> {
                     if (!released) {
                         videoWidth = player.getVideoWidth();
                         videoHeight = player.getVideoHeight();
+                        configureVideoBuffer();
                         applyFitCenter();
                         textureView.animate().alpha(.96f).setDuration(220L).start();
                         player.start();
@@ -300,6 +308,21 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
 
+        /**
+         * 让 SurfaceTexture 使用视频自身的缓冲尺寸。若保留 MATCH_PARENT 的默认缓冲区，
+         * 部分设备会在 Surface 层先执行 cover 缩放，随后再由 Matrix 缩放一次，最终只剩视频局部。
+         */
+        private void configureVideoBuffer() {
+            if (surfaceTexture == null || videoWidth <= 0 || videoHeight <= 0) {
+                return;
+            }
+            try {
+                surfaceTexture.setDefaultBufferSize(videoWidth, videoHeight);
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        }
+
         private void releaseMediaPlayer() {
             if (mediaPlayer != null) {
                 try {
@@ -318,6 +341,7 @@ public final class DynamicVideoWallpaperHelper {
                 }
                 surface = null;
             }
+            surfaceTexture = null;
         }
 
         @Override
@@ -338,6 +362,7 @@ public final class DynamicVideoWallpaperHelper {
             if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
                 return;
             }
+            // 此矩阵严格采用较小比例：视频任一边都不会超过聊天背景可见区，四周留给原壁纸补足。
             float scale = Math.min(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
             float scaledWidth = videoWidth * scale;
             float scaledHeight = videoHeight * scale;

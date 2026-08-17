@@ -49,6 +49,7 @@ import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -3830,7 +3831,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 @Override
                 public boolean didSelectTab(FilterTabsView.TabView tabView, boolean selected) {
                     if (tabView.getId() == HUANGHUN_PRIVACY_TAB_ID) {
-                        // 固定本机标签不可被官方文件夹编辑、删除或重排流程处理。
+                        // 固定本机标签不参与官方文件夹切页；点击后直接进入由页面自身托管的密码验证流程。
+                        if (!selected) {
+                            AndroidUtilities.runOnUIThread(() -> presentFragment(new HuanghunPrivacyFolderActivity(currentAccount)));
+                        }
                         return false;
                     }
                     if (initialDialogsType != DIALOGS_TYPE_DEFAULT) {
@@ -7084,6 +7088,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     selectWithStableId = true;
                 }
                 filterTabsView.removeTabs();
+                // 本机隐私文件夹始终排在所有官方聊天文件夹之前，不能被普通文件夹重排覆盖。
+                if (hasLocalPrivacyFolder) {
+                    filterTabsView.addTab(HUANGHUN_PRIVACY_TAB_ID, HUANGHUN_PRIVACY_TAB_STABLE_ID, "隐私文件夹", "🔒", null, false, false, false);
+                }
                 boolean hasNormalTab = false;
                 for (int a = 0, N = filters.size(); a < N; a++) {
                     if (filters.get(a).isDefault()) {
@@ -7096,9 +7104,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         final MessagesController.DialogFilter filter = filters.get(a);
                         filterTabsView.addTab(a, filter.localId, filter.name, filter.emoticon, filter.entities, filter.title_noanimate, false, filters.get(a).locked);
                     }
-                }
-                if (hasLocalPrivacyFolder) {
-                    filterTabsView.addTab(HUANGHUN_PRIVACY_TAB_ID, HUANGHUN_PRIVACY_TAB_STABLE_ID, "隐私文件夹", "🔒", null, false, false, false);
                 }
                 if (NekoConfig.hideAllTab.Bool() && stableId <= 0) {
                     id = filterTabsView.getFirstTabId();
@@ -8471,36 +8476,77 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
+    private GradientDrawable createPrivacyBubbleDrawable(int fillColor, int strokeColor, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fillColor);
+        drawable.setCornerRadius(dp(radiusDp));
+        drawable.setStroke(Math.max(1, dp(1)), strokeColor);
+        return drawable;
+    }
+
     private void showPrivacyPrecheck(long dialogId, Runnable onVerified) {
         if (privacyPrecheckDialog != null || getParentActivity() == null) {
             return;
         }
+        final int panel = getThemedColor(Theme.key_windowBackgroundWhite);
+        final int accent = getThemedColor(Theme.key_windowBackgroundWhiteBlueText4);
         LinearLayout content = new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(24), dp(8), dp(24), 0);
+        content.setPadding(dp(18), dp(12), dp(18), dp(4));
+        content.setBackground(createPrivacyBubbleDrawable(panel, ColorUtils.blendARGB(panel, accent, .34f), 24));
+
+        LinearLayout hero = new LinearLayout(getContext());
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(dp(16), dp(13), dp(16), dp(13));
+        hero.setBackground(createPrivacyBubbleDrawable(ColorUtils.blendARGB(panel, accent, .12f), ColorUtils.blendARGB(panel, accent, .44f), 18));
+        TextView tag = new TextView(getContext());
+        tag.setText("本机隐私保护");
+        tag.setTypeface(AndroidUtilities.bold());
+        tag.setTextSize(12);
+        tag.setTextColor(accent);
+        hero.addView(tag, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        TextView heading = new TextView(getContext());
+        heading.setText("验证后进入受保护聊天");
+        heading.setTypeface(AndroidUtilities.bold());
+        heading.setTextSize(19);
+        heading.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        hero.addView(heading, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 4));
         TextView hint = new TextView(getContext());
-        hint.setText("当前聊天记录受到本机隐私文件夹保护。验证密码后才会进入聊天；取消不会打开聊天。");
-        hint.setTextSize(14);
-        hint.setLineSpacing(dp(3), 1f);
-        hint.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        content.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
+        hint.setText("当前聊天记录已加入本机隐私文件夹。验证密码后才会进入；取消不会打开聊天。");
+        hint.setTextSize(13);
+        hint.setLineSpacing(dp(2), 1f);
+        hint.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        hero.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        content.addView(hero, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        int policy = HuanghunPrivacyFolderHelper.getPolicy(getContext(), currentAccount);
+        TextView rule = new TextView(getContext());
+        rule.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy) + "  连续输错 3 次将锁定 30 分钟。");
+        rule.setTextSize(13);
+        rule.setLineSpacing(dp(2), 1f);
+        rule.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        content.addView(rule, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 14, 0, 9));
+
         EditText password = new EditText(getContext());
-        password.setHint("请输入访问密码");
+        password.setHint("输入访问密码后继续");
         password.setSingleLine(true);
         password.setTextSize(16);
-        int policy = HuanghunPrivacyFolderHelper.getPolicy(getContext(), currentAccount);
+        password.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        password.setHintTextColor(getThemedColor(Theme.key_dialogTextGray));
+        password.setPadding(dp(15), 0, dp(15), 0);
+        password.setBackground(createPrivacyBubbleDrawable(ColorUtils.blendARGB(panel, Color.WHITE, .28f), ColorUtils.blendARGB(panel, accent, .48f), 15));
         password.setInputType(policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
                 ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
                 : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        content.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        content.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
         TextView state = new TextView(getContext());
-        state.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy));
+        state.setText("密码仅在当前设备验证，不会上传或同步。");
         state.setTextSize(13);
         state.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
-        content.addView(state, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+        content.addView(state, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 9, 0, 0));
 
         AlertDialog dialog = new AlertDialog.Builder(getContext(), resourceProvider)
-                .setTitle("验证隐私聊天密码")
+                .setTitle("安全验证")
                 .setView(content)
                 .setNegativeButton("取消", null)
                 .setPositiveButton("验证并进入", null)

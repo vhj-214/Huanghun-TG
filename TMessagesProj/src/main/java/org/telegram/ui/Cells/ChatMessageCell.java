@@ -20346,7 +20346,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         drawBackgroundInternal(canvas, false);
         // 黄昏本地气泡只作为背景层：必须位于正文、图片、语音控件、时间和状态图标之前。
         // 当前边界完全由 Telegram 布局计算，因此聊天字体大小变化时会自动同步尺寸。
-        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !currentMessageObject.shouldDrawWithoutBackground() && currentMessageObject.isOutOwner()) {
+        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !mediaBackground && !currentMessageObject.shouldDrawWithoutBackground() && currentMessageObject.isOutOwner()) {
             HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), true);
             if (HuanghunOutfitRuntime.shouldAnimateSelectedBubble()) {
                 postInvalidateDelayed(48L);
@@ -20806,7 +20806,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             roundVideoPlayPipFloat.set(0, true);
         }
 
-        if ((drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
+        // 黄昏气泡会在原背景绘制之后完成自己的外壳；普通我方文本消息跳过官方绿色填充，
+        // 但仍保留 currentBackgroundDrawable 的边界计算供自定义气泡精确跟随字体尺寸。
+        final boolean replaceOutgoingBubble = currentMessageObject.isOutOwner() && !mediaBackground
+                && HuanghunOutfitRuntime.isMessageBubbleReplacementEnabled();
+        if (!replaceOutgoingBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
             float alphaInternal = this.alphaInternal;
             if (fromParent) {
                 alphaInternal *= getAlpha();

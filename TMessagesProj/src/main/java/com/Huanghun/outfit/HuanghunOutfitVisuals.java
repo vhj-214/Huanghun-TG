@@ -95,14 +95,20 @@ public final class HuanghunOutfitVisuals {
         if (item == null || bubble == null || bubble.width() <= 0 || bubble.height() <= 0) {
             return;
         }
+        final float h = Math.max(1f, bubble.height());
+        // 视觉外壳比 Telegram 的原消息背景略大，正文仍使用原布局，因此字体大小变化不会压缩内容。
+        final RectF shell = new RectF(bubble.left - h * .045f, bubble.top - h * .075f,
+                bubble.right + h * .085f, bubble.bottom + h * .075f);
         canvas.save();
+        // 官方底色已由 ChatMessageCell 在自定义装扮启用时跳过，此处只绘制本地外壳。
         if (item.group == 0 && item.variant == 0) {
-            drawLiquidGlassBubble(canvas, progress, bubble, outgoing);
+            drawLiquidGlassBubble(canvas, progress, shell, outgoing);
         } else {
-            drawPremiumBubble(canvas, item, progress, bubble, outgoing);
+            drawPremiumBubble(canvas, item, progress, shell, outgoing);
         }
         canvas.restore();
     }
+
 
     /**
      * 第 1 套：液态玻璃。只给消息文字提供透明白色背景，不添加角色、端部主物件或遮挡层。
@@ -150,28 +156,35 @@ public final class HuanghunOutfitVisuals {
 
     private static void drawPremiumBubble(Canvas canvas, HuanghunOutfitConfig.OutfitItem item, float progress, RectF rect, boolean outgoing) {
         final int family = item.group % 10;
+        // 每一个目录位置决定一个整体轮廓；同一组五款不再共用一条气泡壳，只换颜色或边角。
+        final int shellStyle = (item.group * 5 + item.variant) % 10;
         final float h = Math.max(1f, rect.height());
         final float corner = Math.max(10f, h * .26f);
         // 每组仅保留首款作为静态收藏级成品；其余四款均带独立动态部件与循环节奏。
         final boolean animated = item.variant != 0;
         final float visualProgress = animated ? progress : .18f;
-        // 录屏中的文字区普遍为深色/高对比芯层。端部才使用高饱和材质与光效，
-        // 这样白色消息文字、时间与状态图标不会被浅色渐变吞掉。
-        final int corePrimary = darken(blend(item.primary, Color.BLACK, .52f), .56f);
-        final int coreSecondary = darken(blend(item.secondary, Color.BLACK, .48f), .50f);
-        final int coreAccent = darken(blend(item.accent, Color.BLACK, .42f), .48f);
-        final int edgeColor = blend(item.accent, Color.WHITE, .52f);
+        // Telegram 当前主题在我方消息中使用深色正文；核心消息窗保持明亮，
+        // 让文字、时间和状态图标在所有装扮下都具备稳定对比度。
+        final int corePrimary = blend(item.primary, Color.WHITE, .90f);
+        final int coreSecondary = blend(item.secondary, Color.WHITE, .86f);
+        final int coreAccent = blend(item.accent, Color.WHITE, .88f);
+        final int edgeColor = blend(item.accent, Color.WHITE, .62f);
 
         RECT.set(rect.left, rect.top, rect.right, rect.bottom);
-        PAINT.setColor(withAlpha(Color.BLACK, 68));
-        canvas.drawRoundRect(new RectF(rect.left, rect.top + h * .055f, rect.right, rect.bottom + h * .080f), corner, corner, PAINT);
         PAINT.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom,
                 new int[]{corePrimary, coreSecondary, coreAccent}, null, Shader.TileMode.CLAMP));
-        drawPremiumShell(canvas, rect, corner, family, visualProgress, PAINT);
+        drawPremiumShell(canvas, rect, corner, shellStyle, visualProgress, PAINT);
         PAINT.setShader(null);
+        // 独立的明亮文字窗覆盖外壳中部；端部主题物件不能进入这一区域，避免遮挡正文。
+        final float safeInset = Math.min(rect.width() * .18f, h * .68f);
+        final RectF safeWindow = new RectF(rect.left + safeInset, rect.top + h * .16f,
+                rect.right - safeInset, rect.bottom - h * .16f);
+        if (safeWindow.width() > h * .72f) {
+            PAINT.setColor(withAlpha(Color.WHITE, 214));
+            canvas.drawRoundRect(safeWindow, Math.max(8f, h * .22f), Math.max(8f, h * .22f), PAINT);
+        }
         drawBubbleTail(canvas, rect, item, outgoing, family);
-        // 主题主视觉以完整横向资源承载：可拉伸的中心消息窗与固定比例的两端场景分开绘制。
-        // 不再使用一组抽象线条换色来伪装不同主题。
+        // 主题主视觉只固定在两端，中央永久保留给正文、图片、语音、时间与状态图标。
         if (!drawThemeAssetFrame(canvas, rect, family, item.variant)) {
             drawEndOrnaments(canvas, rect, item, visualProgress, family, animated);
             drawPremiumBubbleDetails(canvas, rect, item, visualProgress, family, corner, edgeColor);
@@ -241,17 +254,15 @@ public final class HuanghunOutfitVisuals {
             return false;
         }
         final float h = bubble.height();
-        final float cap = Math.min(bubble.width() * .27f, h * 1.05f);
-        final float top = bubble.top - h * .15f;
-        final float bottom = bubble.bottom + h * .15f;
+        final float cap = Math.min(bubble.width() * .20f, h * .78f);
+        final float top = bubble.top - h * .08f;
+        final float bottom = bubble.bottom + h * .08f;
         PAINT.setAlpha(255);
-        drawAssetSection(canvas, leftAsset, 0f, .40f,
-                new RectF(bubble.left - cap * .18f, top, bubble.left + cap, bottom));
-        // 中心仅绘制安全消息窗层；文字、图片、语音与时间随后由 Telegram 原流程绘制。
-        drawAssetSection(canvas, centerAsset, .36f, .64f,
-                new RectF(bubble.left + cap * .62f, top, bubble.right - cap * .62f, bottom));
-        drawAssetSection(canvas, rightAsset, .60f, 1f,
-                new RectF(bubble.right - cap, top, bubble.right + cap * .18f, bottom));
+        drawAssetSection(canvas, leftAsset, 0f, .34f,
+                new RectF(bubble.left - cap * .12f, top, bubble.left + cap, bottom));
+        // 中间资源过去会覆盖正文并把不同场景压成同一条深色边框；不再绘制。
+        drawAssetSection(canvas, rightAsset, .66f, 1f,
+                new RectF(bubble.right - cap, top, bubble.right + cap * .12f, bottom));
         return true;
     }
 
@@ -424,7 +435,7 @@ public final class HuanghunOutfitVisuals {
     private static void drawBubbleTail(Canvas canvas, RectF rect, HuanghunOutfitConfig.OutfitItem item, boolean outgoing, int family) {
         float h = rect.height();
         float y = rect.bottom - h * .30f;
-        PAINT.setColor(darken(blend(item.secondary, Color.BLACK, .46f), .54f));
+        PAINT.setColor(blend(item.secondary, Color.WHITE, .80f));
         PATH.reset();
         if (outgoing) {
             PATH.moveTo(rect.right - h * .16f, y);
@@ -1052,11 +1063,11 @@ public final class HuanghunOutfitVisuals {
         final int family = item.group % 10;
         final float enter = easeOut(Math.min(1f, progress / .14f));
         final float leave = progress < .84f ? 1f : Math.max(0f, 1f - (progress - .84f) / .16f);
-        // 常见 1080px / 3x 屏幕约为 50dp，高度固定克制，不遮挡聊天内容。
-        final float bannerHeight = Math.max(width * .14f, Math.min(width * .16f, height * .115f));
-        final float bannerWidth = width * .90f;
+        // 约 42–50dp 的顶部悬浮提示：不使用舞台卡片或背景阴影，不压住聊天内容。
+        final float bannerHeight = Math.max(width * .105f, Math.min(width * .122f, height * .082f));
+        final float bannerWidth = width * .84f;
         final float left = (width - bannerWidth) / 2f;
-        final float topRest = Math.max(width * .035f, height * .035f);
+        final float topRest = Math.max(width * .022f, height * .020f);
         final float top = topRest - (1f - enter) * bannerHeight * 1.35f;
         final RectF banner = new RectF(left, top, left + bannerWidth, top + bannerHeight);
 
@@ -1065,15 +1076,15 @@ public final class HuanghunOutfitVisuals {
             return;
         }
         canvas.saveLayerAlpha(0, 0, width, height, (int) (255 * leave));
-        PAINT.setColor(withAlpha(darken(item.primary, .46f), 92));
-        canvas.drawRoundRect(new RectF(banner.left, banner.top + bannerHeight * .07f, banner.right, banner.bottom + bannerHeight * .10f), bannerHeight * .36f, bannerHeight * .36f, PAINT);
+        // 浅透玻璃底板而非黑色投影卡片，保证顶部提示轻盈且可看清群聊画面。
         PAINT.setShader(new LinearGradient(banner.left, banner.top, banner.right, banner.bottom,
-                new int[]{withAlpha(darken(item.primary, .52f), 248), withAlpha(darken(item.secondary, .60f), 248), withAlpha(darken(item.accent, .48f), 248)}, null, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(banner, bannerHeight * .34f, bannerHeight * .34f, PAINT);
+                new int[]{withAlpha(blend(item.primary, Color.WHITE, .78f), 192), withAlpha(Color.WHITE, 210), withAlpha(blend(item.accent, Color.WHITE, .80f), 188)}, null, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(banner, bannerHeight * .42f, bannerHeight * .42f, PAINT);
         PAINT.setShader(null);
-        STROKE.setStrokeWidth(Math.max(1.5f, bannerHeight * .027f));
-        STROKE.setColor(withAlpha(blend(item.accent, Color.WHITE, .48f), 218));
-        canvas.drawRoundRect(banner, bannerHeight * .34f, bannerHeight * .34f, STROKE);
+        STROKE.setStrokeWidth(Math.max(1.2f, bannerHeight * .020f));
+        STROKE.setColor(withAlpha(blend(item.accent, Color.WHITE, .38f), 178));
+        canvas.drawRoundRect(new RectF(banner.left + bannerHeight * .015f, banner.top + bannerHeight * .015f,
+                banner.right - bannerHeight * .015f, banner.bottom - bannerHeight * .015f), bannerHeight * .40f, bannerHeight * .40f, STROKE);
 
         canvas.save();
         canvas.clipRect(banner);
@@ -1091,7 +1102,7 @@ public final class HuanghunOutfitVisuals {
     private static void drawLiquidGlassJoinBanner(Canvas canvas, RectF banner, float leave, String groupName) {
         final float h = banner.height();
         canvas.saveLayerAlpha(0, 0, banner.right, banner.bottom + h, (int) (255 * leave));
-        PAINT.setColor(withAlpha(Color.WHITE, 42));
+        PAINT.setColor(withAlpha(Color.WHITE, 126));
         canvas.drawRoundRect(banner, h * .34f, h * .34f, PAINT);
         STROKE.setStrokeWidth(Math.max(1.2f, h * .024f));
         STROKE.setColor(withAlpha(Color.WHITE, 210));
@@ -1103,7 +1114,7 @@ public final class HuanghunOutfitVisuals {
         PAINT.setTextAlign(Paint.Align.LEFT);
         PAINT.setTypeface(Typeface.DEFAULT_BOLD);
         PAINT.setTextSize(Math.max(12f, h * .255f));
-        PAINT.setColor(Color.WHITE);
+        PAINT.setColor(Color.rgb(30, 36, 48));
         String name = groupName == null || groupName.trim().isEmpty() ? "群聊" : groupName.trim();
         canvas.drawText("黄昏进入了「" + name + "」", banner.left + h * .66f, banner.centerY() + PAINT.getTextSize() * .35f, PAINT);
         canvas.restore();
@@ -1141,7 +1152,7 @@ public final class HuanghunOutfitVisuals {
         final int srcRight = Math.max(1, Math.round(asset.getWidth() * .43f));
         SRC.set(0, 0, srcRight, asset.getHeight());
         PAINT.setAlpha(255);
-        canvas.drawBitmap(asset, SRC, new RectF(slide, banner.top - h * .20f, slide + h * 1.55f, banner.bottom + h * .20f), PAINT);
+        canvas.drawBitmap(asset, SRC, new RectF(slide, banner.top + h * .06f, slide + h * 1.02f, banner.bottom - h * .06f), PAINT);
         return true;
     }
 
@@ -1208,12 +1219,12 @@ public final class HuanghunOutfitVisuals {
         }
         PAINT.setTextAlign(Paint.Align.LEFT);
         PAINT.setTypeface(Typeface.DEFAULT_BOLD);
-        PAINT.setTextSize(Math.max(12f, h * .255f));
-        PAINT.setColor(Color.WHITE);
-        float textLeft = banner.left + banner.width() * .34f;
+        PAINT.setTextSize(Math.max(12f, h * .265f));
+        PAINT.setColor(Color.rgb(30, 36, 48));
+        float textLeft = banner.left + banner.width() * .28f;
         canvas.drawText("黄昏进入了「" + safeName + "」", textLeft, banner.centerY() + PAINT.getTextSize() * .35f, PAINT);
         // 右端的一粒主题高光，使横幅在不增加高度的前提下保留入场提示的仪式感。
-        PAINT.setColor(withAlpha(blend(item.accent, Color.WHITE, .55f), 220));
+        PAINT.setColor(withAlpha(blend(item.accent, Color.WHITE, .38f), 205));
         canvas.drawCircle(banner.right - h * .22f, banner.centerY(), h * .055f, PAINT);
     }
 
