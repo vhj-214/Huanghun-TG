@@ -20346,8 +20346,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         drawBackgroundInternal(canvas, false);
         // 黄昏本地气泡只作为背景层：必须位于正文、图片、语音控件、时间和状态图标之前。
         // 当前边界完全由 Telegram 布局计算，因此聊天字体大小变化时会自动同步尺寸。
-        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !mediaBackground && !currentMessageObject.shouldDrawWithoutBackground() && currentMessageObject.isOutOwner()) {
-            HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), true);
+        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !mediaBackground
+                && !currentMessageObject.shouldDrawWithoutBackground()
+                && HuanghunOutfitRuntime.shouldReplaceMessageBubble(currentMessageObject.isOutOwner())) {
+            HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), currentMessageObject.isOutOwner());
             if (HuanghunOutfitRuntime.shouldAnimateSelectedBubble()) {
                 postInvalidateDelayed(48L);
             }
@@ -20808,8 +20810,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         // 启用黄昏气泡时，禁止绘制 Telegram 官方绿色底板；完整主题素材与液态玻璃消息窗
         // 会在相同边界内提供正文底板，从而保证文字、时间和状态图标仍有稳定对比度。
-        final boolean replaceOutgoingBubble = currentMessageObject.isOutOwner() && !mediaBackground
-                && HuanghunOutfitRuntime.isMessageBubbleReplacementEnabled();
+        final boolean replaceOutgoingBubble = !mediaBackground
+                && HuanghunOutfitRuntime.shouldReplaceMessageBubble(currentMessageObject.isOutOwner());
         if (!replaceOutgoingBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
             float alphaInternal = this.alphaInternal;
             if (fromParent) {

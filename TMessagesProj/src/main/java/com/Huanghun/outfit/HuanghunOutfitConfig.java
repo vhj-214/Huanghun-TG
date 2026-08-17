@@ -36,7 +36,7 @@ public final class HuanghunOutfitConfig {
     };
 
     private static final String[] BUBBLE_NAMES = new String[]{
-            "皇家徽章·静态收藏", "紫晶唱盘·律动", "黑金剧场·追光", "金属吊坠·摆动", "星光礼装·碎光",
+            "液态玻璃·默认气泡", "紫晶唱盘·律动", "黑金剧场·追光", "金属吊坠·摆动", "星光礼装·碎光",
             "冰晶星空·静态收藏", "雪板山谷·飘雪", "极光守卫·脉冲", "霜蓝路标·星轨", "雪夜信使·航线",
             "黑玫瑰·静态收藏", "铜币遗迹·沙尘", "沙岩拱门·微光", "夜金蔷薇·花瓣", "红宝石书信·呼吸",
             "街机机台·静态收藏", "全息频谱·律动", "像素飞船·巡航", "磁带舞台·光标", "霓虹存档·粒子",
@@ -122,7 +122,12 @@ public final class HuanghunOutfitConfig {
     }
 
     public static String getSelected(Context context, String category) {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_PREFIX + category, "");
+        String selected = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_PREFIX + category, "");
+        // 气泡首次使用或用户恢复本地默认效果时，固定回到第一个液态玻璃气泡。
+        if (CATEGORY_BUBBLE.equals(category) && (selected == null || selected.length() == 0)) {
+            return CATEGORY_BUBBLE + "_0";
+        }
+        return selected == null ? "" : selected;
     }
 
     public static void saveSelected(Context context, String category, String id) {
@@ -145,7 +150,7 @@ public final class HuanghunOutfitConfig {
     }
 
     public static String categoryDescription(String category) {
-        if (CATEGORY_BUBBLE.equals(category)) return "50 套独立场景气泡：仅我方消息显示，40 套完整动态、10 套静态收藏款";
+        if (CATEGORY_BUBBLE.equals(category)) return "默认使用第 1 个液态玻璃气泡；其余 49 套为本地主题装扮，文字区域始终清晰可读";
         if (CATEGORY_CALL.equals(category)) return "整屏动态来电视觉与本地铃声试听";
         if (CATEGORY_JOIN.equals(category)) return "50 套真实材质主题主物件的顶部群聊入场提示";
         return "仅在本机显示";

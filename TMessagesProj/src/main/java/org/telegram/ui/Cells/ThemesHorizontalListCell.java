@@ -743,6 +743,16 @@ public class ThemesHorizontalListCell extends RecyclerListView implements Notifi
             Theme.PatternsLoader.createLoader(false);
         }
 
+        if (fragment instanceof ThemeActivity) {
+            boolean nightTheme = currentType == ThemeActivity.THEME_TYPE_NIGHT;
+            Theme.ThemeInfo selectedTheme = nightTheme ? Theme.getCurrentNightTheme() : Theme.getCurrentTheme();
+            if (themeInfo == selectedTheme) {
+                return;
+            }
+            ((ThemeActivity) fragment).requestThemeRestart(themeInfo, themeInfo.currentAccentId, nightTheme);
+            return;
+        }
+
         SharedPreferences.Editor editor = ApplicationLoader.applicationContext.getSharedPreferences("themeconfig", Activity.MODE_PRIVATE).edit();
         editor.putString(currentType == ThemeActivity.THEME_TYPE_NIGHT || themeInfo.isDark() ? "lastDarkTheme" : "lastDayTheme", themeInfo.getKey());
         editor.apply();

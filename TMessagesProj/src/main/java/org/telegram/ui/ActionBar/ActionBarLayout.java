@@ -1444,7 +1444,11 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         lastFragment.setTitleOverlayTextIfActionBarAttached(titleOverlayText, titleOverlayTextId, overlayAction);
         lastFragment.attachSheets(containerViewBack);
         if (!lastFragment.hasOwnBackground && fragmentView.getBackground() == null) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            if (Theme.isDefaultThemeActive()) {
+                applyHuanghunContentSurface(lastFragment, fragmentView);
+            } else {
+                fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            }
         }
         lastFragment.onResume();
         if (themeAnimatorSet != null) {
@@ -2885,7 +2889,11 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             }
             currentActionBar = previousFragment.actionBar;
             if (!previousFragment.hasOwnBackground && fragmentView.getBackground() == null) {
-                fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                if (Theme.isDefaultThemeActive()) {
+                    applyHuanghunContentSurface(previousFragment, fragmentView);
+                } else {
+                    fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                }
             }
 
             if (needAnimation) {
@@ -3059,7 +3067,11 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         previousFragment.onBecomeFullyVisible();
         currentActionBar = previousFragment.actionBar;
         if (!previousFragment.hasOwnBackground && fragmentView.getBackground() == null) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            if (Theme.isDefaultThemeActive()) {
+                applyHuanghunContentSurface(previousFragment, fragmentView);
+            } else {
+                fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            }
         }
     }
 

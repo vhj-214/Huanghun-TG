@@ -2753,7 +2753,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         int padding = dp(7.5f);
         emojiButton.setPadding(padding, padding, padding, padding);
         emojiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        emojiButton.setBackground(createHuanghunGlassControlBackground());
+        applyHuanghunGlassControlBackground(emojiButton);
         emojiButton.setOnClickListener(v -> {
             if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress()) {
                 return;
@@ -2794,7 +2794,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         deleteRichDraftButton.setScaleType(ImageView.ScaleType.CENTER);
         deleteRichDraftButton.setImageResource(R.drawable.menu_delete_old);
         deleteRichDraftButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        deleteRichDraftButton.setBackground(createHuanghunGlassControlBackground());
+        applyHuanghunGlassControlBackground(deleteRichDraftButton);
         deleteRichDraftButton.setVisibility(View.GONE);
         deleteRichDraftButton.setContentDescription(getString(R.string.ArticleDeleteDraft));
         deleteRichDraftButton.setOnClickListener(v -> {
@@ -2833,7 +2833,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             notifyButton.setContentDescription(silent ? getString("AccDescrChanSilentOn", R.string.AccDescrChanSilentOn) : getString("AccDescrChanSilentOff", R.string.AccDescrChanSilentOff));
             notifyButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
             notifyButton.setScaleType(ImageView.ScaleType.CENTER);
-            notifyButton.setBackground(createHuanghunGlassControlBackground());
+            applyHuanghunGlassControlBackground(notifyButton);
             notifyButton.setVisibility(canWriteToChannel && (delegate == null || !delegate.hasScheduledMessages()) ? VISIBLE : GONE);
             attachLayout.addView(notifyButton, LayoutHelper.createLinear(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
             notifyButton.setOnClickListener(new OnClickListener() {
@@ -2867,7 +2867,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachButton.setScaleType(ImageView.ScaleType.CENTER);
             attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
             attachButton.setImageResource(R.drawable.msg_input_attach2);
-            attachButton.setBackground(createHuanghunGlassControlBackground());
+            applyHuanghunGlassControlBackground(attachButton);
             messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
             attachButton.setOnClickListener(v -> {
                 if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || attachLayoutPaddingAlpha == 0f) {
@@ -2883,7 +2883,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         aiButton.setImageDrawable(aiButtonIcon = new AiButtonDrawable(context));
         aiButton.setScaleType(ImageView.ScaleType.CENTER);
         aiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
-        aiButton.setBackground(createHuanghunGlassControlBackground());
+        applyHuanghunGlassControlBackground(aiButton);
         textFieldContainer.addView(aiButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.TOP | Gravity.LEFT, 0, 1, 0, 0));
         aiButton.setContentDescription(getString(R.string.AIEditor));
         ScaleStateListAnimator.apply(aiButton);
@@ -2950,7 +2950,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         richButton.setImageResource(R.drawable.iv_fullscreen);
         richButton.setScaleType(ImageView.ScaleType.CENTER);
         richButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
-        richButton.setBackground(createHuanghunGlassControlBackground());
+        applyHuanghunGlassControlBackground(richButton);
         textFieldContainer.addView(richButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.TOP | Gravity.RIGHT, 0, 1, 0, 0));
         richButton.setContentDescription(getString(R.string.ArticleEditor));
         ScaleStateListAnimator.apply(richButton);
@@ -4809,6 +4809,11 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     public void drawBackground(Canvas canvas, boolean withComposeShadowDrawable) {
         if (!shouldDrawBackground) {
+            return;
+        }
+        // 默认 iOS 玻璃主题只绘制输入胶囊本身，底部不再额外铺一整条半透明灰板。
+        // 这能避免底板、模糊层与胶囊材质同时叠加造成的阴影重影。
+        if (Theme.isDefaultThemeActive()) {
             return;
         }
         int top = animatedTop;
@@ -11504,21 +11509,66 @@ public class ChatActivityEnterView extends FrameLayout implements
         return trendingStickersAlert;
     }
 
+    /**
+     * 默认主题的聊天输入区只保留一个明亮白色玻璃胶囊。不能再以父级灰色遮罩、
+     * 输入框底板和多个子按钮底板叠加，否则会形成用户截图中的重影和多道白圈。
+     */
     private GradientDrawable createHuanghunGlassInputBackground() {
-        final int panel = getThemedColor(Theme.key_chat_messagePanelBackground);
-        final int tint = getThemedColor(Theme.key_chat_messagePanelSend);
-        return HuanghunLiquidGlass.createPill(panel, tint, dp(50));
+        if (!Theme.isDefaultThemeActive()) {
+            return HuanghunLiquidGlass.createPill(
+                    getThemedColor(Theme.key_chat_messagePanelBackground),
+                    getThemedColor(Theme.key_chat_messagePanelSend), dp(50));
+        }
+        int top = ColorUtils.setAlphaComponent(Color.WHITE, 232);
+        int bottom = ColorUtils.setAlphaComponent(Color.rgb(237, 247, 255), 212);
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
+        drawable.setCornerRadius(dp(26));
+        drawable.setStroke(dp(1), ColorUtils.setAlphaComponent(Color.WHITE, 220));
+        return drawable;
     }
 
-    private GradientDrawable createHuanghunGlassControlBackground() {
-        final int panel = getThemedColor(Theme.key_chat_messagePanelBackground);
-        final int tint = getThemedColor(Theme.key_chat_messagePanelSend);
-        return HuanghunLiquidGlass.createPill(panel, tint, dp(40));
+    private void clearHuanghunGlassControlBackground(View control) {
+        if (control != null) {
+            control.setBackground(null);
+        }
+    }
+
+    private void applyHuanghunGlassControlBackground(View control) {
+        if (control == null) {
+            return;
+        }
+        if (Theme.isDefaultThemeActive()) {
+            clearHuanghunGlassControlBackground(control);
+        } else {
+            control.setBackground(HuanghunLiquidGlass.createPill(
+                    getThemedColor(Theme.key_chat_messagePanelBackground),
+                    getThemedColor(Theme.key_chat_messagePanelSend), dp(40)));
+        }
     }
 
     private void updateHuanghunGlassInputBackground() {
-        if (messageEditTextContainer != null) {
-            messageEditTextContainer.setBackground(createHuanghunGlassInputBackground());
+        if (messageEditTextContainer == null) {
+            return;
+        }
+        messageEditTextContainer.setBackground(createHuanghunGlassInputBackground());
+        if (Theme.isDefaultThemeActive()) {
+            // 所有按钮直接置于同一胶囊内，避免一个按钮再叠一层圆形玻璃。
+            clearHuanghunGlassControlBackground(emojiButton);
+            clearHuanghunGlassControlBackground(deleteRichDraftButton);
+            clearHuanghunGlassControlBackground(notifyButton);
+            clearHuanghunGlassControlBackground(attachButton);
+            clearHuanghunGlassControlBackground(aiButton);
+            clearHuanghunGlassControlBackground(richButton);
+            clearHuanghunGlassControlBackground(audioVideoButtonContainer);
+        } else {
+            // 用户选择其他主题时恢复独立控件底板，不保留默认 iOS 玻璃的透明布局。
+            applyHuanghunGlassControlBackground(emojiButton);
+            applyHuanghunGlassControlBackground(deleteRichDraftButton);
+            applyHuanghunGlassControlBackground(notifyButton);
+            applyHuanghunGlassControlBackground(attachButton);
+            applyHuanghunGlassControlBackground(aiButton);
+            applyHuanghunGlassControlBackground(richButton);
+            applyHuanghunGlassControlBackground(audioVideoButtonContainer);
         }
     }
 
@@ -11569,9 +11619,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
         updateAudioVideoSendButtonColor();
         emojiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        emojiButton.setBackground(createHuanghunGlassControlBackground());
         deleteRichDraftButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        deleteRichDraftButton.setBackground(createHuanghunGlassControlBackground());
+        updateHuanghunGlassInputBackground();
         sendOutlineView.setColorFilter(getThemedColor(Theme.key_telegram_color), PorterDuff.Mode.SRC_IN);
     }
 
@@ -11585,8 +11634,12 @@ public class ChatActivityEnterView extends FrameLayout implements
                 ? getThemedColor(Theme.key_glass_defaultIcon)
                 : HuanghunLiquidGlass.readableTextColor(panel);
         audioVideoSendButton.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
-        // 发送、语音和输入菜单共用同一圆形玻璃承载层，避免状态切换时回退为普通实色或无底板。
-        audioVideoButtonContainer.setBackground(createHuanghunGlassControlBackground());
+        // 默认 iOS 输入栏内不再为发送/语音按钮额外叠加圆形底板，避免与主胶囊形成重影。
+        if (!Theme.isDefaultThemeActive()) {
+            audioVideoButtonContainer.setBackground(HuanghunLiquidGlass.createPill(
+                    getThemedColor(Theme.key_chat_messagePanelBackground),
+                    getThemedColor(Theme.key_chat_messagePanelSend), dp(40)));
+        }
     }
 
     private void updateRecordedDeleteIconColors() {

@@ -114,7 +114,11 @@ public class DefaultThemesPreviewCell extends LinearLayout {
                 }
             }
 
-            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.needSetDayNightTheme, info, false, null, accentId);
+            if (info != null && parentFragment instanceof ThemeActivity) {
+                ((ThemeActivity) parentFragment).requestThemeRestart(info, accentId, currentType == ThemeActivity.THEME_TYPE_NIGHT);
+            } else {
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.needSetDayNightTheme, info, false, null, accentId);
+            }
 
             selectedPosition = position;
             for (int i = 0; i < adapter.items.size(); i++) {

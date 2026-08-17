@@ -226,6 +226,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private int editThemeRow;
     @Keep
     private int createNewThemeRow;
+    private int huanghunDefaultThemeRow;
+    private int deleteCustomThemesRow;
     private int lastShadowRow;
     @Keep
     private int stickersRow;
@@ -615,6 +617,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         themePreviewRow = -1;
         editThemeRow = -1;
         createNewThemeRow = -1;
+        huanghunDefaultThemeRow = -1;
+        deleteCustomThemesRow = -1;
 
         appIconHeaderRow = -1;
         appIconSelectorRow = -1;
@@ -661,6 +665,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 editThemeRow = rowCount++;
             }
             createNewThemeRow = rowCount++;
+            huanghunDefaultThemeRow = rowCount++;
+            deleteCustomThemesRow = rowCount++;
             lastShadowRow = rowCount++;
         } else if (currentType == THEME_TYPE_BASIC) {
             textSizeHeaderRow = rowCount++;
@@ -1574,6 +1580,10 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 updateSunTime(null, true);
             } else if (position == createNewThemeRow) {
                 createNewTheme();
+            } else if (position == huanghunDefaultThemeRow) {
+                restoreHuanghunDefaultTheme();
+            } else if (position == deleteCustomThemesRow) {
+                confirmDeleteCustomThemes();
             } else if (position == editThemeRow) {
                 editTheme();
             } else if (position == stickersRow) {
@@ -1630,6 +1640,80 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         builder.setNegativeButton(getString("Cancel", R.string.Cancel), null);
         builder.setPositiveButton(getString("CreateTheme", R.string.CreateTheme), (dialog, which) -> AlertsCreator.createThemeCreateDialog(ThemeActivity.this, 0, null, null));
         showDialog(builder.create());
+    }
+
+    private void restoreHuanghunDefaultTheme() {
+        Theme.ThemeInfo defaultTheme = Theme.getDefaultTheme();
+        if (defaultTheme == null) {
+            return;
+        }
+        requestThemeRestart(defaultTheme, Theme.DEFALT_THEME_ACCENT_ID, false);
+    }
+
+    /**
+     * 主题资源会涉及大量页面 Drawable、缓存和动画。为避免在当前 Activity 中热替换时出现崩溃，
+     * 仅保存下次启动所需的选择，并让用户决定是否立即重启。
+     */
+    public void requestThemeRestart(Theme.ThemeInfo themeInfo, int accentId, boolean nightTheme) {
+        if (themeInfo == null || getParentActivity() == null) {
+            return;
+        }
+        if (accentId >= 0) {
+            themeInfo.setCurrentAccentId(accentId);
+        }
+        SharedPreferences.Editor editor = ApplicationLoader.applicationContext
+                .getSharedPreferences("themeconfig", Activity.MODE_PRIVATE).edit();
+        editor.putString(nightTheme || themeInfo.isDark() ? "lastDarkTheme" : "lastDayTheme", themeInfo.getKey());
+        editor.apply();
+        EmojiThemes.saveCustomTheme(themeInfo, accentId >= 0 ? accentId : themeInfo.currentAccentId);
+        if (!nightTheme && themeInfo == Theme.getDefaultTheme()) {
+            Theme.selectedAutoNightType = Theme.AUTO_NIGHT_TYPE_NONE;
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(getParentActivity())
+                .setTitle("主题已保存")
+                .setMessage("为避免切换主题时出现闪退，主题将在重新启动后加载。是否立即重启客户端？")
+                .setNegativeButton("稍后重启", null)
+                .setPositiveButton("立即重启", (d, which) -> restartApplication())
+                .create();
+        showDialog(dialog);
+    }
+
+    private void confirmDeleteCustomThemes() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        AlertDialog dialog = new AlertDialog.Builder(getParentActivity())
+                .setTitle("删除自定义主题")
+                .setMessage("将删除所有用户创建、导入或保存的自定义主题，并恢复黄昏定制版默认 iOS 液态玻璃主题。此操作不可撤销。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确认删除", (d, which) -> {
+                    int deleted = Theme.deleteAllCustomThemesForRestart();
+                    AlertDialog restartDialog = new AlertDialog.Builder(getParentActivity())
+                            .setTitle("已恢复默认主题")
+                            .setMessage("已清理 " + deleted + " 个自定义主题。为稳定加载默认 iOS 液态玻璃主题，请重启客户端。")
+                            .setNegativeButton("稍后重启", null)
+                            .setPositiveButton("立即重启", (dialogInterface, button) -> restartApplication())
+                            .create();
+                    showDialog(restartDialog);
+                })
+                .create();
+        showDialog(dialog);
+    }
+
+    private void restartApplication() {
+        Activity activity = getParentActivity();
+        if (activity == null) {
+            return;
+        }
+        Intent launchIntent = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+        if (launchIntent == null) {
+            return;
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        activity.startActivity(launchIntent);
+        activity.finishAffinity();
+        AndroidUtilities.runOnUIThread(() -> android.os.Process.killProcess(android.os.Process.myPid()), 250L);
     }
 
     @Override
@@ -2778,7 +2862,15 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == createNewThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        cell.setTextAndIcon(getString(R.string.CreateNewTheme), R.drawable.msg_colors, false);
+                        cell.setTextAndIcon(getString(R.string.CreateNewTheme), R.drawable.msg_colors, true);
+                    } else if (position == huanghunDefaultThemeRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
+                        cell.setTextAndIcon("默认主题", R.drawable.msg_theme, true);
+                    } else if (position == deleteCustomThemesRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_text_RedBold, Theme.key_text_RedRegular);
+                        cell.setTextAndIcon("删除自定义主题", R.drawable.msg_delete, false);
                     } else if (position == liteModeRow) {
                         cell.setColors(Theme.key_dialogIcon, Theme.key_windowBackgroundWhiteBlackText);
                         cell.setTextAndIcon(getString(R.string.LiteMode), R.drawable.msg2_animations, true);
@@ -2867,7 +2959,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             } else if (position == bubbleRadiusRow) {
                 return TYPE_BUBBLE_RADIUS;
             } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == editThemeRow || position == createNewThemeRow ||
-                        position == liteModeRow || position == stickersRow) {
+                        position == huanghunDefaultThemeRow || position == deleteCustomThemesRow || position == liteModeRow || position == stickersRow) {
                 return TYPE_TEXT_PREFERENCE;
             } else if (position == swipeGestureRow) {
                 return TYPE_SWIPE_GESTURE;

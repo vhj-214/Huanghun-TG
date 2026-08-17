@@ -7103,6 +7103,11 @@ public class Theme {
         return currentDayTheme != null ? currentDayTheme : defaultTheme;
     }
 
+    /** 黄昏定制版内置的明亮 iOS 液态玻璃默认主题。 */
+    public static ThemeInfo getDefaultTheme() {
+        return defaultTheme;
+    }
+
     public static ThemeInfo getCurrentNightTheme() {
         return currentNightTheme;
     }
@@ -7378,6 +7383,46 @@ public class Theme {
         file.delete();
         saveOtherThemes(true);
         return currentThemeDeleted;
+    }
+
+    /**
+     * 删除所有用户创建、导入或下载到本机的主题文件，并把下次启动的昼夜主题都恢复为内置默认主题。
+     * 不会删除任何内置主题、聊天记录或用户帐号数据。
+     */
+    public static int deleteAllCustomThemesForRestart() {
+        ArrayList<ThemeInfo> removableThemes = new ArrayList<>();
+        for (int i = 0; i < themes.size(); i++) {
+            ThemeInfo themeInfo = themes.get(i);
+            if (themeInfo != null && themeInfo != defaultTheme && themeInfo.pathToFile != null) {
+                removableThemes.add(themeInfo);
+            }
+        }
+        for (int i = 0; i < removableThemes.size(); i++) {
+            ThemeInfo themeInfo = removableThemes.get(i);
+            // 此处不调用 deleteTheme()，因为它会在当前界面立即热应用默认主题；
+            // 文件删除与主题切换分离，交由用户确认后的重启完成，避免资源正在使用时闪退。
+            themeInfo.removeObservers();
+            otherThemes.remove(themeInfo);
+            themesDict.remove(themeInfo.name);
+            if (themeInfo.overrideWallpaper != null) {
+                themeInfo.overrideWallpaper.delete();
+            }
+            themes.remove(themeInfo);
+            new File(themeInfo.pathToFile).delete();
+        }
+        currentDayTheme = defaultTheme;
+        currentTheme = defaultTheme;
+        currentNightTheme = themesDict.get("Night");
+        selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
+        SharedPreferences.Editor editor = ApplicationLoader.applicationContext
+                .getSharedPreferences("themeconfig", Activity.MODE_PRIVATE).edit();
+        editor.putString("lastDayTheme", defaultTheme.getKey());
+        if (currentNightTheme != null) {
+            editor.putString("lastDarkTheme", currentNightTheme.getKey());
+        }
+        editor.apply();
+        saveOtherThemes(true);
+        return removableThemes.size();
     }
 
     public static ThemeInfo createNewTheme(String name) {

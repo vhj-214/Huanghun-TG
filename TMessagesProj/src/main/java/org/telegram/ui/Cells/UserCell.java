@@ -782,11 +782,31 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         return super.drawChild(canvas, child, drawingTime);
     }
 
+    private Drawable huanghunGlassCardBackground;
+
     private void updateGlassBackground() {
         if (Theme.isDefaultThemeActive()) {
-            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18)));
+            // 卡片在 onDraw 中按内缩边界绘制；View 本身保持透明，给相邻行留下真实间隔。
+            setBackground(null);
+            huanghunGlassCardBackground = HuanghunLiquidGlass.createSurface(
+                    Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider),
+                    Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18));
         } else {
             setBackground(null);
+            huanghunGlassCardBackground = null;
+        }
+    }
+
+    private void drawHuanghunGlassCard(Canvas canvas) {
+        if (!Theme.isDefaultThemeActive()) {
+            return;
+        }
+        if (huanghunGlassCardBackground == null) {
+            updateGlassBackground();
+        }
+        if (huanghunGlassCardBackground != null) {
+            huanghunGlassCardBackground.setBounds(dp(8), dp(2), getWidth() - dp(8), getHeight() - dp(2));
+            huanghunGlassCardBackground.draw(canvas);
         }
     }
 
@@ -806,7 +826,8 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (needDivider) {
+        drawHuanghunGlassCard(canvas);
+        if (needDivider && !Theme.isDefaultThemeActive()) {
             canvas.drawLine(LocaleController.isRTL ? 0 : dp(68), getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? dp(68) : 0), getMeasuredHeight() - 1, Theme.dividerPaint);
         }
     }

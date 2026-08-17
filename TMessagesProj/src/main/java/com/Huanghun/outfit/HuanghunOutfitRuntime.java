@@ -70,6 +70,15 @@ public final class HuanghunOutfitRuntime {
         return selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE) != null;
     }
 
+    /**
+     * 第一个液态玻璃气泡是客户端默认材质，因此我方与对方的普通文本消息都使用它。
+     * 用户手动选择其余装扮时，仍遵循仅修饰我方消息的本地个性化规则。
+     */
+    public static boolean shouldReplaceMessageBubble(boolean outgoing) {
+        HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
+        return item != null && (outgoing || (item.group == 0 && item.variant == 0));
+    }
+
     public static boolean shouldAnimateSelectedBubble() {
         HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
         return item != null && item.variant != 0;

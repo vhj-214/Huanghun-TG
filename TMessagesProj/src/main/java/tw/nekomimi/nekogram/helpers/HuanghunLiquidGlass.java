@@ -42,16 +42,18 @@ public final class HuanghunLiquidGlass {
         return createSurface(backdropColor, tintColor, Math.max(1f, heightPx * .50f));
     }
 
-    /** 默认页面内容底板：保持轻度透光但不对消息正文、列表正文额外描边。 */
+    /**
+     * 默认页面内容底板采用稳定的明亮白玻璃基底。此前直接降低传入色的透明度，
+     * 在导航容器或壁纸先后重绘时会透出深灰旧层，造成页面白灰闪烁。
+     */
     public static GradientDrawable createContentSurface(int backdropColor) {
         if (!Theme.isDefaultThemeActive()) {
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(backdropColor);
             return drawable;
         }
-        final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
-        final int top = ColorUtils.setAlphaComponent(backdropColor, dark ? 58 : 52);
-        final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, Color.WHITE, dark ? .05f : .16f), dark ? 72 : 68);
+        final int top = ColorUtils.setAlphaComponent(Color.WHITE, 248);
+        final int bottom = ColorUtils.setAlphaComponent(blend(Color.WHITE, Color.rgb(231, 242, 255), .42f), 238);
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
         drawable.setCornerRadius(0f);
         return drawable;

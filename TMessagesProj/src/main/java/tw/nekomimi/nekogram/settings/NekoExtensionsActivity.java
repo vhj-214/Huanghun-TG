@@ -171,7 +171,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             action = HuanghunExtensionHelper.CleanupAction.ALL;
         }
         if (action != null) {
-            executeCleanupDirectly(action);
+            showCleanupConfirmation(action);
             return;
         }
 
@@ -182,54 +182,42 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         if (context == null) {
             return;
         }
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
-
-        TextView description = new TextView(context);
-        description.setText(getString(R.string.HuanghunCleanupConfirmMessage));
-        description.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        description.setGravity(Gravity.START);
-        container.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
-
-        EditTextBoldCursor input = new EditTextBoldCursor(context);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
-        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        input.setHintTextColor(getThemedColor(Theme.key_dialogTextHint));
-        input.setHint("清除");
-        input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        input.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputField));
-        input.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
-        container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(48)));
-
         AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
-                .setTitle(getString(R.string.HuanghunCleanupConfirmTitle))
-                .setView(container)
-                .setNegativeButton(getString(R.string.Cancel), null)
-                .setPositiveButton(getString(R.string.HuanghunCleanupConfirmAction), null)
+                .setTitle("确认清理")
+                .setMessage(getCleanupConfirmationMessage(action))
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确认清理", (d, which) -> executeCleanupDirectly(action))
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            if (!"清除".contentEquals(input.getText().toString().trim())) {
-                input.setError(getString(R.string.HuanghunCleanupConfirmInvalid));
-                input.requestFocus();
-                return;
-            }
-            dialog.dismiss();
-            AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
-            progress.setCanCancel(false);
-            progress.show();
-            HuanghunExtensionHelper.runCleanup(currentAccount, action, scheduled -> AndroidUtilities.runOnUIThread(() -> {
-                if (progress.isShowing()) {
-                    progress.dismiss();
-                }
-                BulletinFactory.of(NekoExtensionsActivity.this)
-                        .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
-                        .show();
-            }));
-        }));
         showDialog(dialog);
+    }
+
+    private String getCleanupConfirmationMessage(HuanghunExtensionHelper.CleanupAction action) {
+        String target;
+        switch (action) {
+            case BOT_INTERACTIONS:
+                target = "清除当前账号与机器人的全部交互数据";
+                break;
+            case GROUPS:
+                target = "删除群聊和频道的聊天记录，并尝试退出相关群组或频道";
+                break;
+            case CONTACTS:
+                target = "删除当前账号的所有联系人";
+                break;
+            case CHATS:
+                target = "删除当前账号的所有聊天记录";
+                break;
+            case PROFILE:
+                target = "清空当前账号的用户名、个人资料和动态信息";
+                break;
+            case DELETED_ACCOUNTS:
+                target = "删除已注销账号的聊天记录与会话";
+                break;
+            case ALL:
+            default:
+                target = "执行清理专区列出的全部清理操作";
+                break;
+        }
+        return "确认要" + target + "吗？\n\n点击“确认清理”后将立即开始执行；点击“取消”则不会进行任何清理。";
     }
 
     private void showKeywordsDialog() {
@@ -897,7 +885,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             int mode = rangeMode ? 1 : 0;
             int scope = sb3.isChecked() ? 0 : (sb2.isChecked() ? 2 : 1);
             dialog.dismiss();
-            executeTimeCleanup(mode, startTime, endTime, scope);
+            showTimeCleanupConfirmation(mode, startTime, endTime, scope);
         }));
         showDialog(dialog);
     }
@@ -936,6 +924,22 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         } catch (ParseException | NullPointerException ignored) {
             return 0L;
         }
+    }
+
+    private void showTimeCleanupConfirmation(int mode, long startTime, long endTime, int scope) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        String timeRange = mode == 0 ? "结束日期之前的记录" : formatDate(startTime) + " 至 " + formatDate(endTime) + "（包含当天）";
+        String scopeText = scope == 0 ? "群或频道和用户消息" : (scope == 1 ? "群或频道" : "用户消息（包含机器人）");
+        AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("确认清理指定时间记录")
+                .setMessage("确认要清理 " + timeRange + " 的 " + scopeText + " 吗？\n\n点击“确认清理”后将立即开始执行；点击“取消”则不会进行任何清理。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确认清理", (d, which) -> executeTimeCleanup(mode, startTime, endTime, scope))
+                .create();
+        showDialog(dialog);
     }
 
     private void executeTimeCleanup(int mode, long startTime, long endTime, int scope) {
