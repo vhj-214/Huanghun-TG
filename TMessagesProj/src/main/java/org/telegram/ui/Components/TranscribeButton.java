@@ -42,9 +42,12 @@ import org.telegram.messenger.R;
 import org.telegram.messenger.TranslateController;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
+import org.telegram.messenger.browser.Browser;
 import org.telegram.messenger.utils.DrawableUtils;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.AlertDialog;
+import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.ChatMessageCell;
 import org.telegram.ui.LaunchActivity;
@@ -680,6 +683,34 @@ public class TranscribeButton {
         );
     }
 
+    private static void showTranscribeConfigurationIfNeeded(Exception exception) {
+        String error = exception == null ? null : exception.getLocalizedMessage();
+        if (!TextUtils.equals(error, getString(R.string.CloudflareCredentialsNotSet))) {
+            if (exception == null) {
+                AndroidUtil.showErrorDialog("语音转文字暂时不可用，请稍后重试。");
+            } else {
+                AndroidUtil.showErrorDialog(exception);
+            }
+            return;
+        }
+        AndroidUtilities.runOnUIThread(() -> {
+            BaseFragment fragment = LaunchActivity.getSafeLastFragment();
+            if (fragment == null || fragment.getParentActivity() == null) {
+                AndroidUtil.showErrorDialog("当前未配置 API 密钥，请前往配置。已设定默认值，直接点击保存即可。");
+                return;
+            }
+            AlertDialog dialog = new AlertDialog.Builder(fragment.getParentActivity())
+                    .setTitle("语音转文字未配置")
+                    .setMessage("当前未配置 API 密钥，请前往配置。\n\n已设定默认值，直接点击保存即可。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("前往设置", (d, which) ->
+                            // nasettings 链接由当前客户端处理，直接定位到语音转文字服务配置项。
+                            Browser.openUrl(fragment.getParentActivity(), "https://t.me/nasettings/chat?r=TranscribeProviderShort"))
+                    .create();
+            fragment.showDialog(dialog);
+        });
+    }
+
     private static void transcribePressed(MessageObject messageObject, boolean open, ChatMessageCell.ChatMessageCellDelegate delegate) {
         if (messageObject == null || messageObject.messageOwner == null || !messageObject.isSent()) {
             return;
@@ -736,7 +767,7 @@ public class TranscribeButton {
                                 }
                                 NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.voiceTranscriptionUpdate, messageObject);
                                 NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.updateTranscriptionLock);
-                                AndroidUtil.showErrorDialog(exception);
+                                showTranscribeConfigurationIfNeeded(exception);
                             });
                         }
                     });
@@ -886,7 +917,7 @@ public class TranscribeButton {
                             }
                             NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.voiceTranscriptionUpdate, messageObject);
                             NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.updateTranscriptionLock);
-                            AndroidUtil.showErrorDialog(exception);
+                            showTranscribeConfigurationIfNeeded(exception);
                         });
                     }
                 });

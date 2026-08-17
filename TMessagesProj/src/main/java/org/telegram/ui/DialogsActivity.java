@@ -58,6 +58,7 @@ import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextPaint;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.text.style.ImageSpan;
 import android.util.LongSparseArray;
@@ -294,6 +295,7 @@ import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
 import tw.nekomimi.nekogram.settings.GhostModeActivity;
+import tw.nekomimi.nekogram.settings.HuanghunPrivacyFolderActivity;
 import tw.nekomimi.nekogram.ui.BookmarkManagerActivity;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -301,6 +303,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final int ADDITIONAL_LIST_HEIGHT_DP = Build.VERSION.SDK_INT >= 31 ? 48 : 0;
 
     private static final boolean TMP_DISABLE_TOPICS_TWO_COLUMNS = false;
+    /** 仅本机使用的固定聊天标签，不映射也不同步到 Telegram 云端文件夹。 */
+    private static final int HUANGHUN_PRIVACY_TAB_ID = -921731;
+    private static final int HUANGHUN_PRIVACY_TAB_STABLE_ID = -921731;
 
     public static final int MAIN_TABS_HEIGHT = MainTabsHelper.MAIN_TABS_HEIGHT;
     public static final int MAIN_TABS_MARGIN = MainTabsHelper.MAIN_TABS_MARGIN;
@@ -639,6 +644,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private boolean dialogsListFrozen;
 
     private AlertDialog permissionDialog;
+    // 受保护聊天必须在创建 ChatActivity 前完成本机验证，防止先进入聊天后再被锁屏遮挡。
+    private AlertDialog privacyPrecheckDialog;
+    private long privacyPrevalidatedDialogId = Long.MIN_VALUE;
+    private boolean previousHasLocalPrivacyFolder;
     private boolean askAboutContacts = true;
 
     private boolean closeSearchFieldOnHide;
@@ -3733,6 +3742,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
                 @Override
                 public void onPageSelected(FilterTabsView.Tab tab, boolean forward) {
+                    if (tab.id == HUANGHUN_PRIVACY_TAB_ID) {
+                        // 本机隐私标签不绑定普通对话数据页。等本次指示器回调结束后恢复默认标签，
+                        // 避免嵌套切换破坏顶部文件夹栏的动画状态。
+                        AndroidUtilities.runOnUIThread(() -> {
+                            if (filterTabsView != null && filterTabsView.getCurrentTabId() == HUANGHUN_PRIVACY_TAB_ID) {
+                                filterTabsView.selectDefaultTab();
+                                presentFragment(new HuanghunPrivacyFolderActivity(currentAccount));
+                            }
+                        });
+                        return;
+                    }
                     if (viewPages[0].selectedType == tab.id) {
                         return;
                     }
@@ -3787,6 +3807,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
                 @Override
                 public int getTabCounter(int tabId) {
+                    if (tabId == HUANGHUN_PRIVACY_TAB_ID) {
+                        return HuanghunPrivacyFolderHelper.getProtectedDialogs(getContext(), currentAccount).size();
+                    }
                     if (NaConfig.INSTANCE.getIgnoreUnreadCount().Int() == NekoConfig.DIALOG_FILTER_EXCLUDE_ALL) {
                         return 0;
                     }
@@ -3806,6 +3829,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
                 @Override
                 public boolean didSelectTab(FilterTabsView.TabView tabView, boolean selected) {
+                    if (tabView.getId() == HUANGHUN_PRIVACY_TAB_ID) {
+                        // 固定本机标签不可被官方文件夹编辑、删除或重排流程处理。
+                        return false;
+                    }
                     if (initialDialogsType != DIALOGS_TYPE_DEFAULT) {
                         return false;
                     }
@@ -7037,8 +7064,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             filterOptions = null;
         }
         final ArrayList<MessagesController.DialogFilter> filters = getMessagesController().getDialogFilters();
-        if (filters.size() > 1) {
-            if (force || filterTabsView.getVisibility() != View.VISIBLE) {
+        final boolean hasLocalPrivacyFolder = HuanghunPrivacyFolderHelper.isCreated(getContext(), currentAccount);
+        final boolean privacyFolderStateChanged = previousHasLocalPrivacyFolder != hasLocalPrivacyFolder;
+        previousHasLocalPrivacyFolder = hasLocalPrivacyFolder;
+        if (filters.size() > 1 || hasLocalPrivacyFolder) {
+            if (force || privacyFolderStateChanged || filterTabsView.getVisibility() != View.VISIBLE) {
                 boolean animatedUpdateItems = animated;
                 if (filterTabsView.getVisibility() != View.VISIBLE) {
                     animatedUpdateItems = false;
@@ -7054,13 +7084,21 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     selectWithStableId = true;
                 }
                 filterTabsView.removeTabs();
+                boolean hasNormalTab = false;
                 for (int a = 0, N = filters.size(); a < N; a++) {
                     if (filters.get(a).isDefault()) {
-                        if (filterTabsView.showAllChatsTab) filterTabsView.addTab(a, 0, LocaleController.getString(R.string.FilterAllChats), filters.get(a).emoticon, null, false, true, filters.get(a).locked);
+                        if (filterTabsView.showAllChatsTab || hasLocalPrivacyFolder && filters.size() == 1) {
+                            filterTabsView.addTab(a, 0, LocaleController.getString(R.string.FilterAllChats), filters.get(a).emoticon, null, false, true, filters.get(a).locked);
+                            hasNormalTab = true;
+                        }
                     } else {
+                        hasNormalTab = true;
                         final MessagesController.DialogFilter filter = filters.get(a);
                         filterTabsView.addTab(a, filter.localId, filter.name, filter.emoticon, filter.entities, filter.title_noanimate, false, filters.get(a).locked);
                     }
+                }
+                if (hasLocalPrivacyFolder) {
+                    filterTabsView.addTab(HUANGHUN_PRIVACY_TAB_ID, HUANGHUN_PRIVACY_TAB_STABLE_ID, "隐私文件夹", "🔒", null, false, false, false);
                 }
                 if (NekoConfig.hideAllTab.Bool() && stableId <= 0) {
                     id = filterTabsView.getFirstTabId();
@@ -7084,8 +7122,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
                 for (int a = 0; a < viewPages.length; a++) {
-                    if (viewPages[a].selectedType >= filters.size()) {
-                        viewPages[a].selectedType = filters.size() - 1;
+                    if (viewPages[a].selectedType >= filters.size() || viewPages[a].selectedType == HUANGHUN_PRIVACY_TAB_ID) {
+                        viewPages[a].selectedType = Math.max(0, filters.size() - 1);
                     }
                     viewPages[a].listView.setScrollingTouchSlop(RecyclerView.TOUCH_SLOP_PAGING);
                 }
@@ -8210,6 +8248,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return;
         }
 
+        // 从聊天列表、搜索结果等入口点击受保护聊天时，先在当前列表验证。
+        // 用户取消或按返回键只会关闭验证框，绝不会创建或短暂展示 ChatActivity。
+        if (!onlySelect && privacyPrevalidatedDialogId != dialogId
+                && HuanghunPrivacyFolderHelper.isProtected(getContext(), currentAccount, dialogId)) {
+            final long protectedDialogId = dialogId;
+            showPrivacyPrecheck(protectedDialogId, () -> {
+                privacyPrevalidatedDialogId = protectedDialogId;
+                onItemClick(view, position, adapter, x, y);
+                privacyPrevalidatedDialogId = Long.MIN_VALUE;
+            });
+            return;
+        }
+
         if (onlySelect) {
             if (!validateSlowModeDialog(dialogId)) {
                 return;
@@ -8281,6 +8332,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             boolean canOpenInRightSlidingView = !(LocaleController.isRTL || searching || (AndroidUtilities.isTablet() && folderId != 0)) && LiteMode.isEnabled(LiteMode.FLAG_CHAT_FORUM_TWOCOLUMN) && !TMP_DISABLE_TOPICS_TWO_COLUMNS && communityId == 0;
             args.putInt("dialog_folder_id", folderId);
             args.putInt("dialog_filter_id", filterId);
+            if (privacyPrevalidatedDialogId == dialogId) {
+                // 仅传递给本次新建的聊天页；页面离开后不保留任何免密状态。
+                args.putBoolean("huanghun_privacy_verified", true);
+            }
             if (AndroidUtilities.isTablet() && (!getMessagesController().isForum(dialogId) || !canOpenInRightSlidingView)) {
                 if (openedDialogId.dialogId == dialogId && (searchViewPager == null || adapter != searchViewPager.dialogsSearchAdapter)) {
                     if (getParentActivity() instanceof LaunchActivity) {
@@ -8414,6 +8469,64 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
         }
+    }
+
+    private void showPrivacyPrecheck(long dialogId, Runnable onVerified) {
+        if (privacyPrecheckDialog != null || getParentActivity() == null) {
+            return;
+        }
+        LinearLayout content = new LinearLayout(getContext());
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(24), dp(8), dp(24), 0);
+        TextView hint = new TextView(getContext());
+        hint.setText("当前聊天记录受到本机隐私文件夹保护。验证密码后才会进入聊天；取消不会打开聊天。");
+        hint.setTextSize(14);
+        hint.setLineSpacing(dp(3), 1f);
+        hint.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        content.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
+        EditText password = new EditText(getContext());
+        password.setHint("请输入访问密码");
+        password.setSingleLine(true);
+        password.setTextSize(16);
+        int policy = HuanghunPrivacyFolderHelper.getPolicy(getContext(), currentAccount);
+        password.setInputType(policy == HuanghunPrivacyFolderHelper.POLICY_DIGITS
+                ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        content.addView(password, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        TextView state = new TextView(getContext());
+        state.setText("验证规则：" + HuanghunPrivacyFolderHelper.policyHint(policy));
+        state.setTextSize(13);
+        state.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
+        content.addView(state, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+
+        AlertDialog dialog = new AlertDialog.Builder(getContext(), resourceProvider)
+                .setTitle("验证隐私聊天密码")
+                .setView(content)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("验证并进入", null)
+                .create();
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setOnDismissListener(ignored -> privacyPrecheckDialog = null);
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            int result = HuanghunPrivacyFolderHelper.verifyPassword(getContext(), currentAccount, password.getText().toString());
+            if (result == HuanghunPrivacyFolderHelper.VERIFY_OK) {
+                dialog.setOnDismissListener(null);
+                privacyPrecheckDialog = null;
+                dialog.dismiss();
+                onVerified.run();
+                return;
+            }
+            state.setText(result == HuanghunPrivacyFolderHelper.VERIFY_LOCKED
+                    ? HuanghunPrivacyFolderHelper.getLockMessage(getContext(), currentAccount)
+                    : result == HuanghunPrivacyFolderHelper.VERIFY_NOT_CREATED
+                    ? "隐私文件夹已不存在，无法进入聊天。"
+                    : "密码错误。连续输错 3 次将锁定 30 分钟。");
+            state.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+            password.setText("");
+            password.requestFocus();
+        }));
+        privacyPrecheckDialog = dialog;
+        showDialog(dialog);
     }
 
     private boolean isBotForumWithEmptyTopics(long dialogId) {

@@ -20344,6 +20344,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
 
         drawBackgroundInternal(canvas, false);
+        // 黄昏本地气泡只作为背景层：必须位于正文、图片、语音控件、时间和状态图标之前。
+        // 当前边界完全由 Telegram 布局计算，因此聊天字体大小变化时会自动同步尺寸。
+        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !currentMessageObject.shouldDrawWithoutBackground() && currentMessageObject.isOutOwner()) {
+            HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), true);
+            if (HuanghunOutfitRuntime.shouldAnimateSelectedBubble()) {
+                postInvalidateDelayed(48L);
+            }
+        }
         if (isHighlightedAnimated) {
             long newTime = System.currentTimeMillis();
             long dt = Math.abs(newTime - lastHighlightProgressTime);
@@ -20907,13 +20915,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         canvas.restore();
                     }
                 }
-            }
-        }
-        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !currentMessageObject.shouldDrawWithoutBackground()) {
-            // 黄昏本地气泡：在原始 Telegram 气泡背景之后、消息文字之前绘制，因此不改变消息内容和交互。
-            HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), currentMessageObject.isOutOwner());
-            if (HuanghunOutfitRuntime.shouldAnimateSelectedBubble()) {
-                postInvalidateDelayed(48L);
             }
         }
         if (currentMessageObject != null && currentMessageObject.isRoundVideo()) {

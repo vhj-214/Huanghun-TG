@@ -597,6 +597,11 @@ public class ChatActivity extends BaseFragment implements
     private BusinessLinksEmptyView businessLinksEmptyView;
     public ChatActivityFragmentView contentView;
     private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener dynamicVideoWallpaperChangeListener = (account, changedDialogId) -> {
+        if (account == currentAccount && (changedDialogId == 0L || changedDialogId == dialog_id)) {
+            AndroidUtilities.runOnUIThread(this::refreshDynamicVideoWallpaper);
+        }
+    };
     private boolean privacyChatUnlocked;
     private AlertDialog privacyChatLockDialog;
     private ChatBigEmptyView bigEmptyView;
@@ -1760,6 +1765,8 @@ public class ChatActivity extends BaseFragment implements
     private final static int save_to = 25;
     private final static int auto_delete_timer = 26;
     private final static int change_colors = 27;
+    private final static int set_chat_dynamic_video_wallpaper = 927;
+    private static final int REQUEST_CHAT_DYNAMIC_VIDEO_WALLPAPER = 9925;
     private final static int tag_message = 28;
     private final static int boost_group = 29;
 
@@ -2224,6 +2231,9 @@ public class ChatActivity extends BaseFragment implements
 
         @Override
         public void onMessageSend(CharSequence message, boolean notify, int scheduleDate, int scheduleRepeatPeriod, long payStars) {
+            if (!ensurePrivacyChatOperationAllowed()) {
+                return;
+            }
             if (chatListItemAnimator != null) {
                 chatActivityEnterViewAnimateFromTop = chatActivityEnterView.getBackgroundTop();
                 if (chatActivityEnterViewAnimateFromTop != 0) {
@@ -2296,6 +2306,9 @@ public class ChatActivity extends BaseFragment implements
         // NekoX
         @Override
         public void beforeMessageSend(CharSequence message, boolean notify, int scheduleDate, long payStars) {
+            if (!ensurePrivacyChatOperationAllowed()) {
+                return;
+            }
             ChatActivity.this.beforeMessageSend(notify, scheduleDate, true, payStars);
         }
 
@@ -2927,6 +2940,9 @@ public class ChatActivity extends BaseFragment implements
     public boolean onFragmentCreate() {
         final long chatId = arguments.getLong("chat_id", 0);
         final long userId = arguments.getLong("user_id", 0);
+        // 仅由聊天列表的预验证流程写入；未携带该标记的深链、搜索等入口仍会在页面内再次受保护。
+        privacyChatUnlocked = arguments.getBoolean("huanghun_privacy_verified", false);
+        DynamicVideoWallpaperHelper.addChangeListener(dynamicVideoWallpaperChangeListener);
         final int encId = arguments.getInt("enc_id", 0);
         dialogFolderId = arguments.getInt("dialog_folder_id", 0);
         dialogFilterId = arguments.getInt("dialog_filter_id", 0);
@@ -3622,6 +3638,7 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void onFragmentDestroy() {
+        DynamicVideoWallpaperHelper.removeChangeListener(dynamicVideoWallpaperChangeListener);
         super.onFragmentDestroy();
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.release();
@@ -4425,6 +4442,10 @@ public class ChatActivity extends BaseFragment implements
                     }
                 } else if (id == change_colors) {
                     showChatThemeBottomSheet();
+                } else if (id == set_chat_dynamic_video_wallpaper) {
+                    if (ensurePrivacyChatOperationAllowed()) {
+                        chooseCurrentChatDynamicVideoWallpaper();
+                    }
                 } else if (id == topic_close) {
                     if (forumTopic == null)
                         return;
@@ -4913,6 +4934,9 @@ public class ChatActivity extends BaseFragment implements
             }
             if (themeDelegate.isThemeChangeAvailable(true)) {
                 headerItem.lazilyAddSubItem(change_colors, R.drawable.msg_background, LocaleController.getString(R.string.SetWallpapers));
+            }
+            if (!isTopic && dialog_id != 0L) {
+                headerItem.lazilyAddSubItem(set_chat_dynamic_video_wallpaper, R.drawable.msg_background, "设置本聊天动态壁纸");
             }
             if (currentUser != null && currentUser.self && getDialogId() != UserObject.VERIFY) {
                 headerItem.lazilyAddSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
@@ -15537,6 +15561,9 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public void beforeMessageSend(boolean notify, int scheduleDate, boolean beforeSend, long payStars) {
+        if (!ensurePrivacyChatOperationAllowed()) {
+            return;
+        }
         if (beforeSend != NekoConfig.sendCommentAfterForward.Bool()) return;
         if (messagePreviewParams != null && messagePreviewParams.forwardMessages != null) {
             forbidForwardingWithDismiss = false;
@@ -15562,6 +15589,9 @@ public class ChatActivity extends BaseFragment implements
     private int fieldPanelShown;
 
     public void showFieldPanel(boolean show, MessageObject messageObjectToReply, MessageObject messageObjectToEdit, ArrayList<MessageObject> messageObjectsToForward, TLRPC.WebPage webPage, boolean notify, int scheduleDate, ReplyQuote quote, boolean cancel, long payStars, MessageSuggestionParams suggestionParams, boolean animated) {
+        if (show && !ensurePrivacyChatOperationAllowed()) {
+            return;
+        }
         if (chatActivityEnterView == null) {
             return;
         }
@@ -21245,6 +21275,9 @@ public class ChatActivity extends BaseFragment implements
         sendUriAsDocument(uri, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0);
     }
     private void sendUriAsDocument(Uri uri, boolean notify, int schedule_date) {
+        if (!ensurePrivacyChatOperationAllowed()) {
+            return;
+        }
         if (uri == null) {
             return;
         }
@@ -21284,6 +21317,15 @@ public class ChatActivity extends BaseFragment implements
             SendMessagesHelper.prepareSendingDocument(getAccountInstance(), tempPath, originalPath, null, null, null, dialog_id, replyingMessageObject, getThreadMessage(), null, replyingQuote, editingMessageObject, notify, schedule_date, null, quickReplyShortcut, getQuickReplyId(), false);
         }
         hideFieldPanel(false);
+    }
+
+    /** 受保护聊天未验证时，所有互动路径必须被拒绝；只有密码正确后才开放本次聊天操作。 */
+    private boolean ensurePrivacyChatOperationAllowed() {
+        if (!privacyChatUnlocked && HuanghunPrivacyFolderHelper.isProtected(getContext(), currentAccount, dialog_id)) {
+            showProtectedChatLockOverlay(getContext());
+            return false;
+        }
+        return true;
     }
 
     private void showProtectedChatLockOverlay(Context context) {
@@ -21423,8 +21465,75 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    private void chooseCurrentChatDynamicVideoWallpaper() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_CHAT_DYNAMIC_VIDEO_WALLPAPER);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            showCurrentChatDynamicWallpaperDialog("设置失败", "无法打开视频选择器，请稍后重试。");
+        }
+    }
+
+    private void saveCurrentChatDynamicVideoWallpaper(Uri source) {
+        if (source == null || getParentActivity() == null) {
+            showCurrentChatDynamicWallpaperDialog("设置失败", "未读取到所选视频，请重新选择。");
+            return;
+        }
+        AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setMessage("正在保存并切换本聊天动态壁纸，请稍候。 ");
+        progress.setCancelable(false);
+        showDialog(progress);
+        final Context appContext = ApplicationLoader.applicationContext;
+        Utilities.globalQueue.postRunnable(() -> {
+            try {
+                String path = DynamicVideoWallpaperHelper.importVideo(appContext, source);
+                DynamicVideoWallpaperHelper.saveVideo(appContext, currentAccount, dialog_id, path);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progress.isShowing()) {
+                        progress.dismiss();
+                    }
+                    // 监听器会同步释放旧视频层；此处再显式刷新一次，确保当前聊天无需退出就切换。
+                    refreshDynamicVideoWallpaper();
+                    showCurrentChatDynamicWallpaperDialog("设置成功", "已立即切换为本聊天专用动态壁纸。此聊天会优先使用该视频。");
+                });
+            } catch (Throwable e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (progress.isShowing()) {
+                        progress.dismiss();
+                    }
+                    showCurrentChatDynamicWallpaperDialog("设置失败", TextUtils.isEmpty(e.getMessage()) ? "所选视频无法播放或保存，请更换视频后重试。" : e.getMessage());
+                });
+            }
+        });
+    }
+
+    private void showCurrentChatDynamicWallpaperDialog(String title, String message) {
+        if (getParentActivity() == null) {
+            return;
+        }
+        showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(LocaleController.getString(R.string.OK), null)
+                .create());
+    }
+
     @Override
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_CHAT_DYNAMIC_VIDEO_WALLPAPER) {
+            if (resultCode == Activity.RESULT_OK) {
+                saveCurrentChatDynamicVideoWallpaper(data == null ? null : data.getData());
+            }
+            return;
+        }
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == 0 || requestCode == 2) {
                 createChatAttachView();

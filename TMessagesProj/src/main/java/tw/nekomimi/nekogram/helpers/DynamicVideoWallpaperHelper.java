@@ -31,6 +31,12 @@ public final class DynamicVideoWallpaperHelper {
     private static final String DIRECTORY = "huanghun_dynamic_video_wallpapers";
     private static final long MAX_VIDEO_SIZE_BYTES = 100L * 1024L * 1024L;
 
+    public interface WallpaperChangeListener {
+        void onDynamicWallpaperChanged(int account, long dialogId);
+    }
+
+    private static final java.util.concurrent.CopyOnWriteArrayList<WallpaperChangeListener> CHANGE_LISTENERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
     private DynamicVideoWallpaperHelper() {
     }
 
@@ -99,11 +105,42 @@ public final class DynamicVideoWallpaperHelper {
     public static void saveVideo(Context context, int account, long dialogId, String path) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String oldPath = preferences.getString(key(account, dialogId), null);
-        preferences.edit().putString(key(account, dialogId), path).apply();
+        // 使用同步提交确保通知当前聊天页刷新时，新路径已经可被立即读取。
+        preferences.edit().putString(key(account, dialogId), path).commit();
+        notifyWallpaperChanged(account, dialogId);
         if (oldPath != null && !oldPath.equals(path)) {
             try {
-                //noinspection ResultOfMethodCallIgnored
-                new File(oldPath).delete();
+                // 旧播放器会在监听回调中先被释放，再异步删除旧文件，避免替换瞬间仍解码旧视频。
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        //noinspection ResultOfMethodCallIgnored
+                        new File(oldPath).delete();
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                }, 350L);
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        }
+    }
+
+    public static void addChangeListener(WallpaperChangeListener listener) {
+        if (listener != null && !CHANGE_LISTENERS.contains(listener)) {
+            CHANGE_LISTENERS.add(listener);
+        }
+    }
+
+    public static void removeChangeListener(WallpaperChangeListener listener) {
+        if (listener != null) {
+            CHANGE_LISTENERS.remove(listener);
+        }
+    }
+
+    private static void notifyWallpaperChanged(int account, long dialogId) {
+        for (WallpaperChangeListener listener : CHANGE_LISTENERS) {
+            try {
+                listener.onDynamicWallpaperChanged(account, dialogId);
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -133,7 +170,8 @@ public final class DynamicVideoWallpaperHelper {
     public static void clearVideo(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String path = preferences.getString(key(account, dialogId), null);
-        preferences.edit().remove(key(account, dialogId)).apply();
+        preferences.edit().remove(key(account, dialogId)).commit();
+        notifyWallpaperChanged(account, dialogId);
         if (path != null) {
             try {
                 //noinspection ResultOfMethodCallIgnored
@@ -210,13 +248,13 @@ public final class DynamicVideoWallpaperHelper {
                 mediaPlayer.setOnVideoSizeChangedListener((player, width, height) -> {
                     videoWidth = width;
                     videoHeight = height;
-                    textureView.post(this::applyCenterCrop);
+                    textureView.post(this::applyFitCenter);
                 });
                 mediaPlayer.setOnPreparedListener(player -> {
                     if (!released) {
                         videoWidth = player.getVideoWidth();
                         videoHeight = player.getVideoHeight();
-                        applyCenterCrop();
+                        applyFitCenter();
                         textureView.animate().alpha(.96f).setDuration(220L).start();
                         player.start();
                     }
@@ -289,15 +327,18 @@ public final class DynamicVideoWallpaperHelper {
 
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-            applyCenterCrop();
+            applyFitCenter();
         }
 
-        /** 以中心裁切填满聊天背景，保留视频比例，不挤压人像或风景。 */
-        private void applyCenterCrop() {
+        /**
+         * 以完整比例显示原视频，不裁切、不放大局部。视频比例与聊天区不一致时保留完整画面，
+         * 周围通过底层原主题壁纸自然补足，而不是截掉视频边缘。
+         */
+        private void applyFitCenter() {
             if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
                 return;
             }
-            float scale = Math.max(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
+            float scale = Math.min(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
             float scaledWidth = videoWidth * scale;
             float scaledHeight = videoHeight * scale;
             Matrix matrix = new Matrix();

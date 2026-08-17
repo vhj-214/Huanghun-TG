@@ -225,6 +225,8 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         } else {
             args.putLong("chat_id", -dialog.id);
         }
+        // 列表入口已经完成文件夹验证，此标记仅用于本次新建聊天页。
+        args.putBoolean("huanghun_privacy_verified", true);
         presentFragment(new ChatActivity(args));
     }
 

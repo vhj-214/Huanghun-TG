@@ -65,10 +65,10 @@ public final class HuanghunOutfitRuntime {
     private HuanghunOutfitRuntime() {
     }
 
-    /** 前后两档为静态造型，中间与末尾三档为动态材质、流光或粒子造型。 */
+    /** 每组首款为完整静态收藏款；其余四款均有独立主体循环，仅重绘消息背景层。 */
     public static boolean shouldAnimateSelectedBubble() {
         HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
-        return item != null && (item.variant == 1 || item.variant == 3 || item.variant == 4);
+        return item != null && item.variant != 0;
     }
 
     public static void drawMessageBubbleOverlay(Canvas canvas, Rect bounds, boolean outgoing) {
@@ -82,7 +82,7 @@ public final class HuanghunOutfitRuntime {
         }
         float phase = (SystemClock.elapsedRealtime() % 3600L) / 3600f;
         RectF rect = new RectF(bounds.left, bounds.top, bounds.right, bounds.bottom);
-        // 使用不透明的主题化壳层完整覆盖 Telegram 默认气泡，文字与媒体仍在之后正常绘制。
+        // 仅在 Telegram 原气泡背景层之后绘制。消息正文、图片、语音控件、时间及状态始终在此层之上。
         HuanghunOutfitVisuals.drawBubbleOverlay(canvas, item, phase, rect, outgoing);
     }
 
