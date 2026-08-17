@@ -1,6 +1,9 @@
 package tw.nekomimi.nekogram.helpers;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -39,7 +42,9 @@ public final class HuanghunPrivacyFolderHelper {
     private static final String KEY_DIALOGS = "dialogs";
     private static final String KEY_FAILED_ATTEMPTS = "failed_attempts";
     private static final String KEY_LOCKED_UNTIL = "locked_until";
+    private static final String KEY_PASSWORD_RESET_AT = "password_reset_at";
     private static final long LOCK_DURATION_MS = 30L * 60L * 1000L;
+    public static final long PASSWORD_RESET_DELAY_MS = 24L * 60L * 60L * 1000L;
 
     private HuanghunPrivacyFolderHelper() {
     }
@@ -53,7 +58,57 @@ public final class HuanghunPrivacyFolderHelper {
     }
 
     public static boolean isCreated(Context context, int account) {
+        completePasswordResetIfDue(context, account);
         return prefs(context, account).getBoolean(KEY_CREATED, false);
+    }
+
+    /** 开始忘记密码后的 24 小时安全等待期；等待期内可随时取消。 */
+    public static boolean startPasswordReset(Context context, int account) {
+        completePasswordResetIfDue(context, account);
+        SharedPreferences preferences = prefs(context, account);
+        if (!preferences.getBoolean(KEY_CREATED, false)) {
+            return false;
+        }
+        long resetAt = preferences.getLong(KEY_PASSWORD_RESET_AT, 0L);
+        if (resetAt > System.currentTimeMillis()) {
+            return false;
+        }
+        resetAt = System.currentTimeMillis() + PASSWORD_RESET_DELAY_MS;
+        preferences.edit().putLong(KEY_PASSWORD_RESET_AT, resetAt).apply();
+        schedulePasswordReset(context, account, resetAt);
+        return true;
+    }
+
+    /** 返回倒计时终点；返回 0 表示当前不存在待执行的密码重置。 */
+    public static long getPasswordResetAt(Context context, int account) {
+        completePasswordResetIfDue(context, account);
+        return prefs(context, account).getLong(KEY_PASSWORD_RESET_AT, 0L);
+    }
+
+    public static long getPasswordResetRemaining(Context context, int account) {
+        long resetAt = getPasswordResetAt(context, account);
+        return Math.max(0L, resetAt - System.currentTimeMillis());
+    }
+
+    public static boolean cancelPasswordReset(Context context, int account) {
+        SharedPreferences preferences = prefs(context, account);
+        if (preferences.getLong(KEY_PASSWORD_RESET_AT, 0L) <= 0L) {
+            return false;
+        }
+        preferences.edit().remove(KEY_PASSWORD_RESET_AT).apply();
+        cancelScheduledPasswordReset(context, account);
+        return true;
+    }
+
+    /** 供广播接收器和每次本机访问调用；到期后清除密码、保护列表和本机目录。 */
+    public static boolean completePasswordResetIfDue(Context context, int account) {
+        SharedPreferences preferences = prefs(context, account);
+        long resetAt = preferences.getLong(KEY_PASSWORD_RESET_AT, 0L);
+        if (resetAt <= 0L || resetAt > System.currentTimeMillis()) {
+            return false;
+        }
+        clearPrivacyData(context, account);
+        return true;
     }
 
     public static boolean create(Context context, int account, int policy, String password) {
@@ -70,6 +125,7 @@ public final class HuanghunPrivacyFolderHelper {
         if (!localFolder.exists() && !localFolder.mkdirs()) {
             return false;
         }
+        cancelScheduledPasswordReset(context, account);
         prefs(context, account).edit()
                 .putBoolean(KEY_CREATED, true)
                 .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
@@ -78,6 +134,7 @@ public final class HuanghunPrivacyFolderHelper {
                 .putString(KEY_DIALOGS, "")
                 .putInt(KEY_FAILED_ATTEMPTS, 0)
                 .putLong(KEY_LOCKED_UNTIL, 0L)
+                .remove(KEY_PASSWORD_RESET_AT)
                 .apply();
         return true;
     }
@@ -92,12 +149,14 @@ public final class HuanghunPrivacyFolderHelper {
         if (hash == null) {
             return false;
         }
+        cancelScheduledPasswordReset(context, account);
         prefs(context, account).edit()
                 .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
                 .putString(KEY_PASSWORD_HASH, hash)
                 .putInt(KEY_POLICY, policy)
                 .putInt(KEY_FAILED_ATTEMPTS, 0)
                 .putLong(KEY_LOCKED_UNTIL, 0L)
+                .remove(KEY_PASSWORD_RESET_AT)
                 .apply();
         return true;
     }
@@ -178,6 +237,7 @@ public final class HuanghunPrivacyFolderHelper {
     }
 
     public static Set<Long> getProtectedDialogs(Context context, int account) {
+        completePasswordResetIfDue(context, account);
         LinkedHashSet<Long> result = new LinkedHashSet<>();
         String raw = prefs(context, account).getString(KEY_DIALOGS, "");
         if (TextUtils.isEmpty(raw)) {
@@ -212,12 +272,49 @@ public final class HuanghunPrivacyFolderHelper {
     }
 
     public static boolean delete(Context context, int account) {
-        if (!isCreated(context, account)) {
+        if (!prefs(context, account).getBoolean(KEY_CREATED, false)) {
             return false;
         }
+        clearPrivacyData(context, account);
+        return true;
+    }
+
+    private static void clearPrivacyData(Context context, int account) {
+        cancelScheduledPasswordReset(context, account);
         prefs(context, account).edit().clear().apply();
         deleteRecursively(folder(context, account));
-        return true;
+    }
+
+    private static void schedulePasswordReset(Context context, int account, long resetAt) {
+        try {
+            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager == null) {
+                return;
+            }
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, resetAt, passwordResetPendingIntent(context, account, PendingIntent.FLAG_UPDATE_CURRENT));
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
+    private static void cancelScheduledPasswordReset(Context context, int account) {
+        try {
+            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            PendingIntent pendingIntent = passwordResetPendingIntent(context, account, PendingIntent.FLAG_NO_CREATE);
+            if (alarmManager != null && pendingIntent != null) {
+                alarmManager.cancel(pendingIntent);
+                pendingIntent.cancel();
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
+    private static PendingIntent passwordResetPendingIntent(Context context, int account, int flag) {
+        Intent intent = new Intent(context, HuanghunPrivacyResetReceiver.class);
+        intent.setAction(context.getPackageName() + ".HUANGHUN_PRIVACY_RESET");
+        intent.putExtra(HuanghunPrivacyResetReceiver.EXTRA_ACCOUNT, account);
+        return PendingIntent.getBroadcast(context, 830000 + account, intent, PendingIntent.FLAG_IMMUTABLE | flag);
     }
 
     private static String hash(byte[] salt, String password) {

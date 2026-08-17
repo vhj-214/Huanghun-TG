@@ -3744,13 +3744,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 @Override
                 public void onPageSelected(FilterTabsView.Tab tab, boolean forward) {
                     if (tab.id == HUANGHUN_PRIVACY_TAB_ID) {
-                        // 本机隐私标签不绑定普通对话数据页。等本次指示器回调结束后恢复默认标签，
-                        // 避免嵌套切换破坏顶部文件夹栏的动画状态。
+                        // 本机隐私标签不绑定普通对话数据页。无论此前是否已解锁或进入过该页，
+                        // 都先恢复默认标签，再启动新的验证页，避免第二次点击因残留选中状态无响应。
                         AndroidUtilities.runOnUIThread(() -> {
-                            if (filterTabsView != null && filterTabsView.getCurrentTabId() == HUANGHUN_PRIVACY_TAB_ID) {
+                            if (filterTabsView != null) {
                                 filterTabsView.selectDefaultTab();
-                                presentFragment(new HuanghunPrivacyFolderActivity(currentAccount));
                             }
+                            presentFragment(new HuanghunPrivacyFolderActivity(currentAccount));
                         });
                         return;
                     }

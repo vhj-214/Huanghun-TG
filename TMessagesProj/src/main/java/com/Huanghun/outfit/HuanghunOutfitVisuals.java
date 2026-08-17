@@ -1138,10 +1138,16 @@ public final class HuanghunOutfitVisuals {
         final float sway = variant == 0 ? 0f : .012f * (float) Math.sin(progress * Math.PI * 2d);
         final float dx = banner.width() * sway;
         SRC.set(0, 0, asset.getWidth(), asset.getHeight());
+        // 主题资源在一条圆角横幅内连续延展，不让矩形贴图越过横幅边缘露出底板。
+        canvas.save();
+        PATH.reset();
+        PATH.addRoundRect(banner, h * .42f, h * .42f, Path.Direction.CW);
+        canvas.clipPath(PATH);
         PAINT.setAlpha(238);
         canvas.drawBitmap(asset, SRC, new RectF(banner.left + dx, banner.top + h * .035f,
                 banner.right + dx, banner.bottom - h * .035f), PAINT);
         PAINT.setAlpha(255);
+        canvas.restore();
         return true;
     }
 

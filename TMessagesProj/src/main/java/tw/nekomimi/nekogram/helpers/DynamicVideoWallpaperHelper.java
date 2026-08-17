@@ -2,15 +2,21 @@ package tw.nekomimi.nekogram.helpers;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 
 import org.telegram.messenger.FileLog;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
@@ -187,12 +193,21 @@ public final class DynamicVideoWallpaperHelper {
         if (path == null || parent == null) {
             return null;
         }
+        // 前景严格按完整比例显示视频；后景使用同一视频的柔焦首帧铺满，
+        // 因此纵横比不一致时不会露出原始静态壁纸，也不会裁切前景视频。
+        FrameLayout videoLayer = new FrameLayout(context);
+        videoLayer.setClipChildren(true);
+        videoLayer.setClipToPadding(true);
+        ImageView softBackdrop = createSoftVideoBackdrop(context, path);
+        videoLayer.addView(softBackdrop, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         TextureView textureView = new TextureView(context);
         textureView.setClickable(false);
         textureView.setFocusable(false);
         textureView.setOpaque(false);
         // 仅在播放器成功准备后显示，避免进入聊天时短暂出现黑色首帧。
         textureView.setAlpha(0f);
+        videoLayer.addView(textureView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         // SizeNotifierFrameLayout 会把 Telegram 原始壁纸放在 backgroundView（索引 0）。
         // 旧实现把 TextureView 也插到索引 0，导致官方静态壁纸被推到视频上层而完全遮住视频。
@@ -205,16 +220,43 @@ public final class DynamicVideoWallpaperHelper {
                 insertIndex = backgroundIndex < 0 ? 0 : backgroundIndex + 1;
             }
         }
-        parent.addView(textureView, Math.min(insertIndex, parent.getChildCount()),
+        parent.addView(videoLayer, Math.min(insertIndex, parent.getChildCount()),
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        Player player = new Player(textureView, path);
+        Player player = new Player(textureView, path, videoLayer);
         player.start();
         return player;
+    }
+
+    /** 作为等比前景视频的连续柔焦底图，避免顶部或底部露出旧主题壁纸。 */
+    private static ImageView createSoftVideoBackdrop(Context context, String path) {
+        ImageView backdrop = new ImageView(context);
+        backdrop.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        backdrop.setBackgroundColor(0xFF1E2632);
+        backdrop.setAlpha(.62f);
+        try {
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            try {
+                retriever.setDataSource(path);
+                Bitmap frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (frame != null) {
+                    backdrop.setImageBitmap(frame);
+                }
+            } finally {
+                retriever.release();
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                backdrop.setRenderEffect(RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP));
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        return backdrop;
     }
 
     public static final class Player implements TextureView.SurfaceTextureListener {
         private final TextureView textureView;
         private final String path;
+        private final View layerView;
         private MediaPlayer mediaPlayer;
         private Surface surface;
         private SurfaceTexture surfaceTexture;
@@ -222,9 +264,10 @@ public final class DynamicVideoWallpaperHelper {
         private int videoWidth;
         private int videoHeight;
 
-        private Player(TextureView textureView, String path) {
+        private Player(TextureView textureView, String path, View layerView) {
             this.textureView = textureView;
             this.path = path;
+            this.layerView = layerView;
         }
 
         private void start() {
@@ -303,8 +346,8 @@ public final class DynamicVideoWallpaperHelper {
             textureView.animate().cancel();
             textureView.setSurfaceTextureListener(null);
             releaseMediaPlayer();
-            if (textureView.getParent() instanceof ViewGroup) {
-                ((ViewGroup) textureView.getParent()).removeView(textureView);
+            if (layerView.getParent() instanceof ViewGroup) {
+                ((ViewGroup) layerView.getParent()).removeView(layerView);
             }
         }
 

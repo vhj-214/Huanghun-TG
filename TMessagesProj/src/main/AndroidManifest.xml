@@ -869,6 +869,9 @@
                 <action android:name="${applicationId}.CANCEL_SAVE_TO_DOWNLOAD" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name="tw.nekomimi.nekogram.helpers.HuanghunPrivacyResetReceiver"
+            android:exported="false" />
 
         <uses-library android:name="com.sec.android.app.multiwindow" android:required="false" />
         <meta-data android:name="com.sec.android.support.multiwindow" android:value="true" />

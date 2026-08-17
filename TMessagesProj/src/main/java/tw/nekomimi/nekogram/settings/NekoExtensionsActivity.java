@@ -64,6 +64,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int createPrivacyFolderRow;
     private int managePrivacyChatsRow;
     private int changePrivacyPasswordRow;
+    private int forgotPrivacyPasswordRow;
     private int deletePrivacyFolderRow;
     private int privacyNoticeRow;
     private int privacyEndRow;
@@ -93,6 +94,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         createPrivacyFolderRow = addRow();
         managePrivacyChatsRow = addRow();
         changePrivacyPasswordRow = addRow();
+        forgotPrivacyPasswordRow = addRow();
         deletePrivacyFolderRow = addRow();
         privacyNoticeRow = addRow();
         privacyEndRow = addRow();
@@ -127,6 +129,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         if (position == changePrivacyPasswordRow) {
             showChangePrivacyPassword();
+            return;
+        }
+        if (position == forgotPrivacyPasswordRow) {
+            showForgotPrivacyPassword();
             return;
         }
         if (position == deletePrivacyFolderRow) {
@@ -302,6 +308,52 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             return;
         }
         showPrivacyPasswordVerification("解锁隐私文件夹", "请输入访问密码后管理受保护聊天。", () -> presentFragment(new HuanghunPrivacyChatsActivity(currentAccount)));
+    }
+
+    private void showForgotPrivacyPassword() {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        if (!HuanghunPrivacyFolderHelper.isCreated(context, currentAccount)) {
+            showPrivacyInfo("无法重置", "当前账号尚未创建隐私文件夹，无需执行密码重置。\n");
+            return;
+        }
+        long remaining = HuanghunPrivacyFolderHelper.getPasswordResetRemaining(context, currentAccount);
+        if (remaining > 0L) {
+            String remainingText = formatPrivacyResetRemaining(remaining);
+            AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
+                    .setTitle("密码重置倒计时")
+                    .setMessage("已开始安全等待期。剩余 " + remainingText + " 后，系统会自动清除访问密码、受保护聊天列表和本机隐私文件夹。\n\n如果这不是你的操作，请立即取消重置。")
+                    .setNegativeButton("保留重置", null)
+                    .setPositiveButton("取消密码重置", (d, which) -> {
+                        HuanghunPrivacyFolderHelper.cancelPasswordReset(context, currentAccount);
+                        notifyPrivacyRows();
+                        BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "已取消密码重置，隐私文件夹继续保留。\n").show();
+                    })
+                    .create();
+            showDialog(dialog);
+            return;
+        }
+        AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("忘记隐私文件夹密码")
+                .setMessage("为保护你的本机隐私聊天，密码不会立即清除。点击开始后将进入 24 小时安全等待期；到期后系统自动清除访问密码、受保护聊天列表和本机隐私文件夹。\n\n在倒计时结束前，你可以随时返回这里取消重置。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("开始 24 小时倒计时", (d, which) -> {
+                    if (HuanghunPrivacyFolderHelper.startPasswordReset(context, currentAccount)) {
+                        notifyPrivacyRows();
+                        BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "密码重置倒计时已开始。24 小时内可随时取消。\n").show();
+                    }
+                })
+                .create();
+        showDialog(dialog);
+    }
+
+    private String formatPrivacyResetRemaining(long remaining) {
+        long totalMinutes = Math.max(0L, (remaining + 59_999L) / 60_000L);
+        long hours = totalMinutes / 60L;
+        long minutes = totalMinutes % 60L;
+        return String.format(Locale.CHINA, "%02d 小时 %02d 分", hours, minutes);
     }
 
     private void showDeletePrivacyFolder() {
@@ -657,6 +709,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setTextAndValue("管理隐私聊天", HuanghunPrivacyFolderHelper.isCreated(mContext, currentAccount) ? "已保护 " + count + " 个聊天" : "请先创建", true);
                 } else if (position == changePrivacyPasswordRow) {
                     cell.setText("设置隐私文件夹访问密码", true);
+                } else if (position == forgotPrivacyPasswordRow) {
+                    long remaining = HuanghunPrivacyFolderHelper.getPasswordResetRemaining(mContext, currentAccount);
+                    cell.setTextAndValue("忘记隐私文件夹密码", remaining > 0L ? "重置倒计时 " + formatPrivacyResetRemaining(remaining) : "24 小时安全重置", true);
                 } else if (position == deletePrivacyFolderRow) {
                     cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
                     cell.setText("删除当前隐私文件夹", false);
@@ -668,7 +723,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。" : getString(R.string.HuanghunBlockNotice)));
+                cell.setText(position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice)));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
