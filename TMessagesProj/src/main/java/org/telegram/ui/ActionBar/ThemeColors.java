@@ -320,11 +320,11 @@ public class ThemeColors {
         defaultColors[key_chat_muteIcon] = 0xff79817e;
         defaultColors[key_chat_inBubble] = LIQUID_GLASS_CHAT_IN;
         defaultColors[key_chat_inBubbleSelected] = LIQUID_GLASS_SURFACE;
-        defaultColors[key_chat_inBubbleShadow] = 0xff1d3753;
+        defaultColors[key_chat_inBubbleShadow] = 0x16000000;
         defaultColors[key_chat_outBubble] = LIQUID_GLASS_CHAT_OUT;
         defaultColors[key_chat_outBubbleGradientSelectedOverlay] = 0x14000000;
         defaultColors[key_chat_outBubbleSelected] = LIQUID_GLASS_SURFACE;
-        defaultColors[key_chat_outBubbleShadow] = 0xff1e750c;
+        defaultColors[key_chat_outBubbleShadow] = 0x16000000;
         defaultColors[key_chat_inMediaIcon] = 0xffffffff;
         defaultColors[key_chat_inMediaIconSelected] = 0xffeff8fe;
         defaultColors[key_chat_outMediaIcon] = 0xffefffde;
@@ -414,8 +414,8 @@ public class ThemeColors {
         defaultColors[key_chat_outAdminSelectedText] = 0xff70b15c;
         defaultColors[key_chat_inTimeText] = 0xffa1aab3;
         defaultColors[key_chat_inTimeSelectedText] = 0xff89b4c1;
-        defaultColors[key_chat_outTimeText] = 0xff70b15c;
-        defaultColors[key_chat_outTimeSelectedText] = 0xff70b15c;
+        defaultColors[key_chat_outTimeText] = 0xff6D7F8E;
+        defaultColors[key_chat_outTimeSelectedText] = 0xff5E7282;
         defaultColors[key_chat_inAudioPerformerText] = 0xff2f3438;
         defaultColors[key_chat_inAudioPerformerSelectedText] = 0xff2f3438;
         defaultColors[key_chat_outAudioPerformerText] = 0xff354234;

@@ -26,14 +26,14 @@ public final class HuanghunLiquidGlass {
             return drawable;
         }
         final boolean dark = ColorUtils.calculateLuminance(backdropColor) < .42d;
-        // 默认主题使用真正透光的液态玻璃：只保留淡淡折射，不再形成白色实底。
-        final int whiteMix = dark ? 34 : 82;
-        final int tintMix = dark ? 52 : 64;
+        // 默认主题使用真正透光的液态玻璃：卡片只有轻微白色折射，绝不形成灰色阴影面板。
+        final int whiteMix = dark ? 26 : 54;
+        final int tintMix = dark ? 38 : 42;
         final int top = ColorUtils.setAlphaComponent(blend(Color.WHITE, tintColor, .14f), whiteMix);
         final int bottom = ColorUtils.setAlphaComponent(blend(backdropColor, tintColor, .20f), tintMix);
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{top, bottom});
         drawable.setCornerRadius(Math.max(1f, radiusPx));
-        int outline = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 104 : 168);
+        int outline = ColorUtils.setAlphaComponent(Color.WHITE, dark ? 92 : 142);
         drawable.setStroke(Math.max(1, Math.round(radiusPx * .036f)), outline);
         return drawable;
     }
@@ -43,18 +43,16 @@ public final class HuanghunLiquidGlass {
     }
 
     /**
-     * 默认页面内容底板采用稳定的明亮白玻璃基底。此前直接降低传入色的透明度，
-     * 在导航容器或壁纸先后重绘时会透出深灰旧层，造成页面白灰闪烁。
+     * 默认页面内容层必须完全透光。此前这里使用接近不透明的白色渐变，导致所有功能页
+     * 看起来像一整块灰白阴影面板，也遮挡了聊天动态视频。具体控件由 createSurface() 单独提供玻璃折射。
      */
     public static GradientDrawable createContentSurface(int backdropColor) {
+        GradientDrawable drawable = new GradientDrawable();
         if (!Theme.isDefaultThemeActive()) {
-            GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(backdropColor);
-            return drawable;
+        } else {
+            drawable.setColor(Color.TRANSPARENT);
         }
-        final int top = ColorUtils.setAlphaComponent(Color.WHITE, 248);
-        final int bottom = ColorUtils.setAlphaComponent(blend(Color.WHITE, Color.rgb(231, 242, 255), .42f), 238);
-        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
         drawable.setCornerRadius(0f);
         return drawable;
     }

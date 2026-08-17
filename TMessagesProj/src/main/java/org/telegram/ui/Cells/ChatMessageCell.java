@@ -6803,8 +6803,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         isRoundVideo = messageObject != null && messageObject.isRoundVideo();
         mediaSpoilerRevealProgress = 0f;
         TLRPC.Message newReply = messageObject.hasValidReplyMessageObject() ? messageObject.replyMessageObject.messageOwner : null;
-        boolean messageIdChanged = currentMessageObject == null || currentMessageObject.getId() != messageObject.getId();
-        boolean messageChanged = currentMessageObject != messageObject || messageObject.forceUpdate || (isRoundVideo && isPlayingRound != (MediaController.getInstance().isPlayingMessage(currentMessageObject) && delegate != null && !delegate.keyboardIsOpened()));
+        // 消息 ID 只在单个会话内唯一。RecyclerView 复用时若只比较 ID，其他群同 ID 的服务消息
+        // 会保留在当前单元格，出现“通过邀请链接加入其他群”的错误提示。
+        final boolean dialogChanged = currentMessageObject != null && currentMessageObject.getDialogId() != messageObject.getDialogId();
+        boolean messageIdChanged = currentMessageObject == null || currentMessageObject.getId() != messageObject.getId() || dialogChanged;
+        boolean messageChanged = currentMessageObject != messageObject || dialogChanged || messageObject.forceUpdate || (isRoundVideo && isPlayingRound != (MediaController.getInstance().isPlayingMessage(currentMessageObject) && delegate != null && !delegate.keyboardIsOpened()));
         boolean dataChanged = currentMessageObject != null && currentMessageObject.getId() == messageObject.getId() && lastSendState == MessageObject.MESSAGE_SEND_STATE_EDITING && messageObject.isSent() ||
                 currentMessageObject == messageObject && (isUserDataChanged() || photoNotSet) ||
                 lastPostAuthor != messageObject.messageOwner.post_author ||
@@ -20344,8 +20347,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
 
         drawBackgroundInternal(canvas, false);
-        // 黄昏本地气泡只作为背景层：必须位于正文、图片、语音控件、时间和状态图标之前。
-        // 当前边界完全由 Telegram 布局计算，因此聊天字体大小变化时会自动同步尺寸。
+        // 非默认本地气泡仅作为背景层：必须位于正文、图片、语音控件、时间和状态图标之前。
+        // 默认透明款直接沿用 Telegram 官方气泡边界，因此聊天字体大小和消息类型会自然自适应。
         if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !mediaBackground
                 && !currentMessageObject.shouldDrawWithoutBackground()
                 && HuanghunOutfitRuntime.shouldReplaceMessageBubble(currentMessageObject.isOutOwner())) {
@@ -20808,8 +20811,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             roundVideoPlayPipFloat.set(0, true);
         }
 
-        // 启用黄昏气泡时，禁止绘制 Telegram 官方绿色底板；完整主题素材与液态玻璃消息窗
-        // 会在相同边界内提供正文底板，从而保证文字、时间和状态图标仍有稳定对比度。
+        // 只有非默认本地装扮跳过 Telegram 官方底板；默认透明款保留官方自适应形状，
+        // 并使用默认主题的低透明度白色气泡色阶提供玻璃材质。
         final boolean replaceOutgoingBubble = !mediaBackground
                 && HuanghunOutfitRuntime.shouldReplaceMessageBubble(currentMessageObject.isOutOwner());
         if (!replaceOutgoingBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {

@@ -71,17 +71,23 @@ public final class HuanghunOutfitRuntime {
     }
 
     /**
-     * 第一个液态玻璃气泡是客户端默认材质，因此我方与对方的普通文本消息都使用它。
-     * 用户手动选择其余装扮时，仍遵循仅修饰我方消息的本地个性化规则。
+     * 第一个液态玻璃款不再重绘额外外壳：它直接使用 Telegram 已为文字、文件和媒体算好的
+     * 官方消息边界、圆角和尾巴，默认主题颜色本身提供轻微玻璃材质，因此双方消息都会自然适配。
+     * 只有用户选择其他装扮时，才为我方消息启用自定义外壳覆盖层。
      */
     public static boolean shouldReplaceMessageBubble(boolean outgoing) {
         HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
-        return item != null && (outgoing || (item.group == 0 && item.variant == 0));
+        return item != null && outgoing && !(item.group == 0 && item.variant == 0);
+    }
+
+    public static boolean isDefaultLiquidGlassBubbleSelected() {
+        HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
+        return item != null && item.group == 0 && item.variant == 0;
     }
 
     public static boolean shouldAnimateSelectedBubble() {
         HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
-        return item != null && item.variant != 0;
+        return item != null && !(item.group == 0 && item.variant == 0) && item.variant != 0;
     }
 
     public static void drawMessageBubbleOverlay(Canvas canvas, Rect bounds, boolean outgoing) {

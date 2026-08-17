@@ -287,6 +287,7 @@ public final class DynamicVideoWallpaperHelper {
         private final ArrayList<SuppressedBackground> suppressedBackgrounds = new ArrayList<>();
         private final ArrayList<SuppressedAlpha> suppressedAlphas = new ArrayList<>();
         private boolean released;
+        private final View.OnLayoutChangeListener videoLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> applyFitCenter();
         private int videoWidth;
         private int videoHeight;
 
@@ -297,6 +298,7 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         private void start() {
+            textureView.addOnLayoutChangeListener(videoLayoutListener);
             textureView.setSurfaceTextureListener(this);
             if (textureView.isAvailable()) {
                 prepare(textureView.getSurfaceTexture());
@@ -405,6 +407,7 @@ public final class DynamicVideoWallpaperHelper {
         public void release() {
             released = true;
             textureView.animate().cancel();
+            textureView.removeOnLayoutChangeListener(videoLayoutListener);
             textureView.setSurfaceTextureListener(null);
             releaseMediaPlayer();
             if (suppressedContentBackground != null) {
@@ -491,8 +494,8 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         /**
-         * 以完整比例显示原视频，不裁切、不放大局部。视频比例与聊天区不一致时保留完整画面，
-         * 周围通过底层原主题壁纸自然补足，而不是截掉视频边缘。
+         * 以完整比例显示原视频，不裁切、不放大局部。每次顶部导航、底部输入区或设备窗口尺寸变化后
+         * 都会重新计算；比例不一致的空白区域由同源柔焦视频填充，因此既能完整看到视频，也不会露出旧壁纸。
          */
         private void applyFitCenter() {
             if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {

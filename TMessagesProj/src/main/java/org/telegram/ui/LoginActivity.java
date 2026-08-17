@@ -227,6 +227,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import kotlin.Unit;
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.NekoXConfig;
 import tw.nekomimi.nekogram.helpers.AppRestartHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
@@ -1221,10 +1222,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private void showProtocolLoginOptions() {
         Activity activity = getParentActivity();
         if (activity == null) return;
-        String[] options = {"session登录", "tdata登录", "外部通行密钥（第一接口）", "外部通信密钥（第二接口）"};
+        String[] options = {"会话文件登录", "TData 文件登录", "外部通行密钥（接口一）", "外部通信密钥（接口二）"};
         ProtocolLoginWarningView warningView = new ProtocolLoginWarningView(activity);
         new AlertDialog.Builder(activity)
-            .setTitle("协议登录【上传压缩包文件 .zip 格式】")
+            .setTitle("协议登录（请选择压缩包文件）")
             .aboveMessageView(warningView)
             .setItems(options, (dialog, which) -> {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -1267,9 +1268,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             warningText.setLineSpacing(AndroidUtilities.dp(2), 1.0f);
             addView(warningText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
 
-            backgroundPaint.setColor(0xFFFFF3C4);
+            backgroundPaint.setColor(0xE8FFF7D0);
             borderPaint.setStyle(Paint.Style.STROKE);
-            borderPaint.setStrokeWidth(AndroidUtilities.dp(2));
+            borderPaint.setColor(0xB8FFFFFF);
+            borderPaint.setStrokeWidth(AndroidUtilities.dp(1));
         }
 
         @Override
@@ -1278,21 +1280,15 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             float inset = AndroidUtilities.dp(1);
             float radius = AndroidUtilities.dp(12);
             borderRect.set(inset, inset, getWidth() - inset, getHeight() - inset);
-            float centerX = getWidth() / 2f;
-            float centerY = getHeight() / 2f;
             canvas.drawRoundRect(borderRect, radius, radius, backgroundPaint);
-            SweepGradient rainbow = new SweepGradient(centerX, centerY, RAINBOW_COLORS, null);
-            rainbowMatrix.setRotate(rainbowRotation, centerX, centerY);
-            rainbow.setLocalMatrix(rainbowMatrix);
-            borderPaint.setShader(rainbow);
-            canvas.drawRoundRect(borderRect, radius, radius, borderPaint);
+            // 登录页保持静态细高光，避免彩虹动画触发连续重绘造成整页闪烁。
             borderPaint.setShader(null);
+            canvas.drawRoundRect(borderRect, radius, radius, borderPaint);
         }
 
         @Override
         protected void onAttachedToWindow() {
             super.onAttachedToWindow();
-            startBorderAnimation();
         }
 
         @Override
@@ -2292,7 +2288,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             titleView = new TextView(context);
             titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
             titleView.setTypeface(AndroidUtilities.bold());
-            titleView.setText(getString(activityMode == MODE_CHANGE_PHONE_NUMBER ? R.string.ChangePhoneNewNumber : R.string.YourNumber));
+            titleView.setText(activityMode == MODE_CHANGE_PHONE_NUMBER ? "更换手机号码" : "你的手机号码");
             titleView.setGravity(Gravity.CENTER);
             titleView.setLineSpacing(dp(2), 1.0f);
             addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 32, 0, 32, 0));
@@ -2319,7 +2315,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             });
 
             subtitleView = new LinkSpanDrawable.LinksTextView(context);
-            subtitleView.setText(getString(activityMode == MODE_CHANGE_PHONE_NUMBER ? R.string.ChangePhoneHelp : R.string.StartText));
+            subtitleView.setText(activityMode == MODE_CHANGE_PHONE_NUMBER ? "请确认新的国家/地区代码并输入手机号码。" : "请确认国家/地区代码并输入你的手机号码。 ");
             subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             subtitleView.setGravity(Gravity.CENTER);
             subtitleView.setLineSpacing(dp(2), 1.0f);
@@ -2353,11 +2349,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             countryButtonLinearLayout.addView(chevronRight, LayoutHelper.createLinearRelatively(24, 24, 0, 0, 0, 14, 0));
 
             countryOutlineView = new OutlineTextContainerView(context);
-            countryOutlineView.setText(getString(R.string.Country));
+            countryOutlineView.setText("国家/地区");
             countryOutlineView.addView(countryButtonLinearLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 0, 0, 0));
             countryOutlineView.setForceUseCenter(true);
             countryOutlineView.setFocusable(true);
-            countryOutlineView.setContentDescription(getString(R.string.Country));
+            countryOutlineView.setContentDescription("国家/地区");
             countryOutlineView.setOnFocusChangeListener((v, hasFocus) -> countryOutlineView.animateSelection(hasFocus ? 1 : 0));
             addView(countryOutlineView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 58, 16, 24, 16, 14));
             countryOutlineView.setOnClickListener(view -> {
@@ -2376,7 +2372,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
             phoneOutlineView = new OutlineTextContainerView(context);
             phoneOutlineView.addView(linearLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 16, 8, 16, 8));
-            phoneOutlineView.setText(getString(R.string.PhoneNumber));
+            phoneOutlineView.setText("手机号码");
             addView(phoneOutlineView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 58, 16, 8, 16, 8));
 
             plusTextView = new TextView(context);
@@ -8894,7 +8890,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 public void onAnimationStart(Animator animation) {
                     floatingButton.setButtonVisible(false, false);
                     keyboardLinearLayout.setAlpha(0);
-                    fragmentView.setBackgroundColor(Color.TRANSPARENT);
+                    if (!Theme.isDefaultThemeActive()) {
+                        fragmentView.setBackgroundColor(Color.TRANSPARENT);
+                    }
                     startMessagingButton.setVisibility(View.INVISIBLE);
 
                     FrameLayout frameLayout = (FrameLayout) fragmentView;
@@ -8905,7 +8903,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 public void onAnimationEnd(Animator animation) {
                     keyboardLinearLayout.setAlpha(1);
                     startMessagingButton.setVisibility(View.VISIBLE);
-                    fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                    applyHuanghunLoginBackground();
                     floatingButton.setButtonVisible(true, false);
 
                     FrameLayout frameLayout = (FrameLayout) fragmentView;
@@ -8925,7 +8923,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             animator.addUpdateListener(animation -> {
                 float val = (float) animation.getAnimatedValue();
                 keyboardLinearLayout.setAlpha(val);
-                fragmentView.setBackgroundColor(ColorUtils.setAlphaComponent(bgColor, (int) (initialAlpha * val)));
+                // 默认液态玻璃使用固定内容材质；避免动画每帧把根容器改成不同透明度的灰底。
+                if (!Theme.isDefaultThemeActive()) {
+                    fragmentView.setBackgroundColor(ColorUtils.setAlphaComponent(bgColor, (int) (initialAlpha * val)));
+                }
 
                 float inverted = 1f - val;
                 slideViewsContainer.setTranslationY(AndroidUtilities.dp(20) * inverted);
@@ -8958,8 +8959,19 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         return null;
     }
 
+    private void applyHuanghunLoginBackground() {
+        if (fragmentView == null) {
+            return;
+        }
+        if (Theme.isDefaultThemeActive()) {
+            fragmentView.setBackground(HuanghunLiquidGlass.createContentSurface(Theme.getColor(Theme.key_windowBackgroundWhite)));
+        } else {
+            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        }
+    }
+
     private void updateColors() {
-        fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        applyHuanghunLoginBackground();
 
         backButtonView.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         backButtonView.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector)));

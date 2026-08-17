@@ -97,15 +97,16 @@ public final class HuanghunOutfitVisuals {
         }
         final float h = Math.max(1f, bubble.height());
         // 视觉外壳比 Telegram 的原消息背景略大，正文仍使用原布局，因此字体大小变化不会压缩内容。
+        // 第一个默认液态玻璃款直接交由 Telegram 官方背景绘制：它能依据文字、文件、媒体和字体大小
+        // 自动计算最自然的边界、圆角和尾巴。此处不允许再叠加外扩壳或额外白色描边。
+        if (item.group == 0 && item.variant == 0) {
+            return;
+        }
         final RectF shell = new RectF(bubble.left - h * .045f, bubble.top - h * .075f,
                 bubble.right + h * .085f, bubble.bottom + h * .075f);
         canvas.save();
-        // 官方底色已由 ChatMessageCell 在自定义装扮启用时跳过，此处只绘制本地外壳。
-        if (item.group == 0 && item.variant == 0) {
-            drawLiquidGlassBubble(canvas, progress, shell, outgoing);
-        } else {
-            drawPremiumBubble(canvas, item, progress, shell, outgoing);
-        }
+        // 仅其他自定义装扮在官方底板被跳过时绘制本地外壳。
+        drawPremiumBubble(canvas, item, progress, shell, outgoing);
         canvas.restore();
     }
 
@@ -129,10 +130,7 @@ public final class HuanghunOutfitVisuals {
         STROKE.setStrokeWidth(Math.max(1f, h * .022f));
         STROKE.setColor(withAlpha(Color.WHITE, 198));
         canvas.drawRoundRect(new RectF(rect.left + h * .018f, rect.top + h * .018f, rect.right - h * .018f, rect.bottom - h * .018f), corner, corner, STROKE);
-        // 液面高光只沿上沿经过，避开正文中心区域。
-        STROKE.setStrokeWidth(Math.max(1f, h * .045f));
-        STROKE.setColor(withAlpha(Color.WHITE, 110));
-        canvas.drawLine(rect.left + h * .26f, rect.top + h * .13f, rect.right - h * .32f, rect.top + h * .13f, STROKE);
+        // 不再绘制横向高光线：该线会在短消息和多行消息上压住正文，只保留圆角描边的边缘反光。
         // 使用非常克制的液滴呼吸；不跨越文字、图片或语音控件的中央内容区。
         float p = fract(progress * .26f);
         PAINT.setColor(withAlpha(Color.WHITE, 95));

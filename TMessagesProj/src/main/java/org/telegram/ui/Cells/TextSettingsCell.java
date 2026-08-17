@@ -16,6 +16,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -35,6 +36,7 @@ import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RLottieImageView;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 import java.util.ArrayList;
 
@@ -60,6 +62,7 @@ public class TextSettingsCell extends FrameLayout {
     private int changeProgressStartDelay;
 
     Paint paint;
+    private Drawable glassCardBackground;
 
     public TextSettingsCell(Context context) {
         this(context, 21);
@@ -120,7 +123,8 @@ public class TextSettingsCell extends FrameLayout {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), AndroidUtilities.dp(50) + (needDivider ? 1 : 0));
+        final boolean defaultGlass = Theme.isDefaultThemeActive();
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), AndroidUtilities.dp(defaultGlass ? 56 : 50) + (needDivider && !defaultGlass ? 1 : 0));
 
         int availableWidth = getMeasuredWidth() - getPaddingLeft() - getPaddingRight() - AndroidUtilities.dp(34);
         int width = betterLayout ? availableWidth : availableWidth / 2;
@@ -370,9 +374,22 @@ public class TextSettingsCell extends FrameLayout {
             invalidate();
         }
         valueTextView.setAlpha(1f - drawLoadingProgress);
+        if (Theme.isDefaultThemeActive()) {
+            if (glassCardBackground == null) {
+                glassCardBackground = HuanghunLiquidGlass.createSurface(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider),
+                        Theme.getColor(Theme.key_actionBarDefault, resourcesProvider),
+                        AndroidUtilities.dp(16));
+            }
+            glassCardBackground.setBounds(AndroidUtilities.dp(12), AndroidUtilities.dp(3),
+                    getMeasuredWidth() - AndroidUtilities.dp(12), getMeasuredHeight() - AndroidUtilities.dp(3));
+            glassCardBackground.draw(canvas);
+        } else {
+            glassCardBackground = null;
+        }
         super.dispatchDraw(canvas);
 
-        if (needDivider) {
+        if (needDivider && !Theme.isDefaultThemeActive()) {
             int offset = AndroidUtilities.dp(imageView.getVisibility() == View.VISIBLE ? 71 : 20);
             canvas.drawLine(LocaleController.isRTL ? 0 : offset, getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? offset : 0), getMeasuredHeight() - 1, Theme.dividerPaint);
         }
