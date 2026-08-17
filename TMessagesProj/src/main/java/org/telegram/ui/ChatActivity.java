@@ -96,6 +96,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
@@ -21464,8 +21465,21 @@ public class ChatActivity extends BaseFragment implements
             dynamicVideoWallpaperPlayer.release();
             dynamicVideoWallpaperPlayer = null;
         }
-        if (contentView != null) {
-            dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, contentView.getContext(), currentAccount, dialog_id);
+        if (contentView == null) {
+            return;
+        }
+        // ActionBarLayout 会在 createView 返回后才把聊天内容与顶部栏一并加入 containerView。
+        // 因此先等待内容视图附着，再把视频插到聊天内容之前，作为整页（含顶部栏和输入区）背景。
+        ViewParent rootParent = contentView.getParent();
+        if (rootParent instanceof ViewGroup) {
+            dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach((ViewGroup) rootParent, contentView,
+                    contentView.getContext(), currentAccount, dialog_id);
+        } else {
+            contentView.post(() -> {
+                if (contentView != null && dynamicVideoWallpaperPlayer == null) {
+                    refreshDynamicVideoWallpaper();
+                }
+            });
         }
     }
 

@@ -189,6 +189,14 @@ public final class DynamicVideoWallpaperHelper {
     }
 
     public static Player attach(ViewGroup parent, Context context, int account, long dialogId) {
+        return attach(parent, null, context, account, dialogId);
+    }
+
+    /**
+     * 将动态壁纸插入指定聊天根容器，并可通过 contentAnchor 保证视频位于聊天片段与顶部栏共同下方。
+     * 这样视频不会只局限在消息列表，顶部导航、翻译栏与底部输入区也能看到同一段背景。
+     */
+    public static Player attach(ViewGroup parent, View contentAnchor, Context context, int account, long dialogId) {
         String path = getVideoPath(context, account, dialogId);
         if (path == null || parent == null) {
             return null;
@@ -213,7 +221,11 @@ public final class DynamicVideoWallpaperHelper {
         // 旧实现把 TextureView 也插到索引 0，导致官方静态壁纸被推到视频上层而完全遮住视频。
         // 将视频准确放在 backgroundView 之后，随后创建或已有的消息列表仍位于视频之上。
         int insertIndex = 0;
-        if (parent instanceof SizeNotifierFrameLayout) {
+        if (contentAnchor != null) {
+            int anchorIndex = parent.indexOfChild(contentAnchor);
+            // 完整根容器中，视频要在 ChatActivity 内容与 ActionBar 之前，才能成为整页背景。
+            insertIndex = anchorIndex < 0 ? 0 : anchorIndex;
+        } else if (parent instanceof SizeNotifierFrameLayout) {
             View backgroundView = ((SizeNotifierFrameLayout) parent).backgroundView;
             if (backgroundView != null) {
                 int backgroundIndex = parent.indexOfChild(backgroundView);
@@ -223,6 +235,15 @@ public final class DynamicVideoWallpaperHelper {
         parent.addView(videoLayer, Math.min(insertIndex, parent.getChildCount()),
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         Player player = new Player(textureView, path, videoLayer);
+        // 视频已提升到导航容器后，聊天内容内的官方静态背景会成为遮挡层；
+        // 将它暂时透明化，释放播放器时再恢复，保证视频作为完整页面背景可见。
+        if (contentAnchor instanceof SizeNotifierFrameLayout) {
+            View originalBackground = ((SizeNotifierFrameLayout) contentAnchor).backgroundView;
+            if (originalBackground != null) {
+                originalBackground.setAlpha(0f);
+                player.setSuppressedContentBackground(originalBackground);
+            }
+        }
         player.start();
         return player;
     }
@@ -260,6 +281,7 @@ public final class DynamicVideoWallpaperHelper {
         private MediaPlayer mediaPlayer;
         private Surface surface;
         private SurfaceTexture surfaceTexture;
+        private View suppressedContentBackground;
         private boolean released;
         private int videoWidth;
         private int videoHeight;
@@ -341,11 +363,19 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
 
+        private void setSuppressedContentBackground(View background) {
+            suppressedContentBackground = background;
+        }
+
         public void release() {
             released = true;
             textureView.animate().cancel();
             textureView.setSurfaceTextureListener(null);
             releaseMediaPlayer();
+            if (suppressedContentBackground != null) {
+                suppressedContentBackground.setAlpha(1f);
+                suppressedContentBackground = null;
+            }
             if (layerView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) layerView.getParent()).removeView(layerView);
             }
