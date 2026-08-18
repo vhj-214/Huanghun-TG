@@ -556,8 +556,25 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private View cachedFragmentView;
+
+    /**
+     * 登录流程必须始终使用官方稳定的明亮主题，避免旧安装遗留的自动夜间主题或自定义
+     * 配色使表单背景变黑、文字与分页层的对比度失效。该操作只调整未登录入口的视觉主题，
+     * 不触碰协议登录、账号导入或任何扩展功能逻辑。
+     */
+    private void restoreOfficialLoginTheme() {
+        Theme.ThemeInfo defaultTheme = Theme.getDefaultTheme();
+        if (defaultTheme == null) {
+            return;
+        }
+        Theme.selectedAutoNightType = Theme.AUTO_NIGHT_TYPE_NONE;
+        Theme.applyTheme(defaultTheme, true, false);
+        Theme.saveAutoNightThemeConfig();
+    }
+
     @Override
     public View createView(Context context) {
+        restoreOfficialLoginTheme();
         if (cachedFragmentView != null) {
             fragmentView = cachedFragmentView;
             cachedFragmentView = null;
@@ -632,6 +649,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             }
         });
         fragmentView = sizeNotifierFrameLayout;
+        // 直接由登录页持有官方实体背景，避免导航容器或设备深色窗口背景透入。
+        sizeNotifierFrameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
         ScrollView scrollView = new ScrollView(context) {
             @Override
