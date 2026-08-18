@@ -31362,8 +31362,13 @@ public class ChatActivity extends BaseFragment implements
                 showProtectedChatLockOverlay(getContext());
             }
         }
-        // 重新读取本地视频背景配置：从外观设置返回或切换主题后也必须应用到当前聊天。
-        refreshDynamicVideoWallpaper();
+        // 配置更新由动态壁纸监听器处理。页面恢复时绝不重复释放并重建播放器，
+        // 否则快速浏览聊天会反复创建 MediaPlayer，造成明显掉帧和卡顿。
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.resume();
+        } else {
+            refreshDynamicVideoWallpaper();
+        }
         if (currentChat != null) {
             HuanghunOutfitRuntime.playJoinEffect(contentView, currentAccount, dialog_id);
         }
@@ -31586,11 +31591,10 @@ public class ChatActivity extends BaseFragment implements
         if (contentView != null) {
             contentView.onPause();
         }
-        // 动态壁纸层挂在导航容器中。进入群资料、成员页等内部 Fragment 时，聊天 Fragment 会暂停，
-        // 但视频层仍在前台页面下方可见；此处暂停会导致资料页只保留首帧，因此不在片段切换时停播。
-        // 播放器仅在聊天销毁或替换壁纸时释放，返回聊天页时仍由 refreshDynamicVideoWallpaper() 统一刷新。
+        // 离开聊天页时暂停旧播放器，避免资料页或其他页面同时解码多个视频。
+        // 群资料页拥有独立背景播放器；返回聊天后 onResume() 仅恢复当前播放器。
         if (dynamicVideoWallpaperPlayer != null) {
-            dynamicVideoWallpaperPlayer.resume();
+            dynamicVideoWallpaperPlayer.pause();
         }
         if (chatMode == 0 || chatMode == MODE_SAVED && getUserConfig().getClientUserId() == getSavedDialogId() || chatMode == MODE_SUGGESTIONS && ChatObject.isMonoForum(currentChat)) {
             saveDraft();

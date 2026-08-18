@@ -1223,7 +1223,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private void showProtocolLoginOptions() {
         Activity activity = getParentActivity();
         if (activity == null) return;
-        String[] options = {"会话文件登录", "TData 文件登录", "外部通行密钥（接口一）", "外部通信密钥（接口二）"};
+        String[] options = {"Session Login", "TData Login", "Passkey Login", "Passkey Bridge Login"};
         ProtocolLoginWarningView warningView = new ProtocolLoginWarningView(activity);
         AlertDialog protocolDialog = new AlertDialog.Builder(activity)
             .setTitle("协议登录（请选择压缩包文件）")

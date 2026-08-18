@@ -151,7 +151,6 @@ import me.vkryl.android.animator.BoolAnimator;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
@@ -355,37 +354,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
     }
 
-    private Drawable huanghunGlassCardBackground;
-
-    private void updateGlassBackground() {
-        if (Theme.isDefaultThemeActive()) {
-            // 使用 View 内缩的独立卡片，而非全宽背景，保证相邻聊天行之间有透明留白。
-            setBackground(null);
-            huanghunGlassCardBackground = HuanghunLiquidGlass.createSurface(
-                    Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider),
-                    Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(20));
-        } else {
-            setBackground(null);
-            huanghunGlassCardBackground = null;
-        }
-    }
-
-    private void drawHuanghunGlassCard(Canvas canvas) {
-        if (!Theme.isDefaultThemeActive()) {
-            return;
-        }
-        if (huanghunGlassCardBackground == null) {
-            updateGlassBackground();
-        }
-        if (huanghunGlassCardBackground != null) {
-            huanghunGlassCardBackground.setBounds(dp(8), dp(2), getWidth() - dp(8), getHeight() - dp(2));
-            huanghunGlassCardBackground.draw(canvas);
-        }
-    }
-
     @Override
     public void updateColors() {
-        updateGlassBackground();
     }
 
     private CommunityArrowDrawable communityArrowDrawable;
@@ -731,7 +701,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         super(context);
         storyParams.allowLongress = true;
         this.resourcesProvider = resourcesProvider;
-        updateGlassBackground();
         parentFragment = fragment;
         Theme.createDialogsResources(context);
         drawMonoforumAvatar = false;
@@ -3912,7 +3881,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             return;
         }
 
-        drawHuanghunGlassCard(canvas);
         boolean needInvalidate = false;
 
         if (drawArchive && (currentDialogFolderId != 0 || isTopic && forumTopic != null && forumTopic.id == 1) && archivedChatsDrawable != null && archivedChatsDrawable.outProgress == 0.0f && translationX == 0.0f) {
@@ -4920,7 +4888,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 left = dp(messagePaddingStart);
             }
 
-            if (rightFragmentOpenedProgress != 1 && !Theme.isDefaultThemeActive()) {
+            if (rightFragmentOpenedProgress != 1) {
                 int alpha = Theme.dividerPaint.getAlpha();
                 if (rightFragmentOpenedProgress != 0) {
                     Theme.dividerPaint.setAlpha((int) (alpha * (1f - rightFragmentOpenedProgress)));

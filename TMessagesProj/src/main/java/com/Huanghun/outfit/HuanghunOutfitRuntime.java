@@ -85,9 +85,12 @@ public final class HuanghunOutfitRuntime {
         return item != null && item.group == 0 && item.variant == 0;
     }
 
+    /**
+     * 消息列表中的每个可见单元格都以 48ms 频率独立重绘会严重拖慢 RecyclerView，
+     * 因此聊天内气泡保持静态外观；预览与单独页面仍可展示动画，不影响正常消息滚动。
+     */
     public static boolean shouldAnimateSelectedBubble() {
-        HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
-        return item != null && !(item.group == 0 && item.variant == 0) && item.variant != 0;
+        return false;
     }
 
     public static void drawMessageBubbleOverlay(Canvas canvas, Rect bounds, boolean outgoing) {
