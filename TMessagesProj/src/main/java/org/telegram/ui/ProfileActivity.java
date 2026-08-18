@@ -6260,13 +6260,26 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
-        // 仅在用户显式设置动态视频壁纸时让资料页根层透出视频；信息行仍保持官方原生背景和可读性。
+        // 仅在用户显式设置动态视频壁纸时让资料页根层透出视频；卡片与成员区始终使用独立低透明玻璃表面。
         if (profileHasDynamicVideoWallpaper) {
             contentView.setBackgroundColor(Color.TRANSPARENT);
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
         }
+        if (sharedMediaLayout != null) {
+            sharedMediaLayout.setHuanghunProfileVideoGlass(true);
+        }
+        // 视频播放器、成员数据和主题描述可能在创建流程结束后才写入背景。
+        // 下一帧再次绑定最终玻璃层，确保动态和静态壁纸使用一致的透明资料页表面。
+        contentView.post(() -> {
+            if (listAdapter != null) {
+                listAdapter.notifyDataSetChanged();
+            }
+            if (sharedMediaLayout != null) {
+                sharedMediaLayout.setHuanghunProfileVideoGlass(true);
+            }
+        });
         if (profileHasDynamicVideoWallpaper) {
             profileDynamicVideoWallpaperPlayer.resume();
         }
@@ -13892,13 +13905,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         /**
          * 资料详情卡使用普通 GradientDrawable 和 InsetDrawable，兼容项目支持的所有 Android
-         * 版本，不依赖 RenderEffect、模糊 API 或任何设备厂商实现。仅在官方默认主题或
-         * 已设置动态视频壁纸时启用，避免覆盖用户后来手动选择的外部主题。
+         * 版本，不依赖 RenderEffect、模糊 API 或任何设备厂商实现。资料页卡片始终走低透明表面，
+         * 因此静态与动态壁纸都不会回退为实体白色面板。
          */
-        private boolean shouldUseHuanghunLiquidGlassCards() {
-            return profileHasDynamicVideoWallpaper || Theme.getActiveTheme() == Theme.getDefaultTheme();
-        }
-
         private boolean isHuanghunLiquidGlassInfoCard(int viewType) {
             return viewType == VIEW_TYPE_TEXT_DETAIL
                     || viewType == VIEW_TYPE_TEXT_DETAIL_MULTILINE
@@ -13916,17 +13925,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         private Drawable createHuanghunLiquidGlassCardDrawable() {
-            GradientDrawable cardDrawable = new GradientDrawable();
-            cardDrawable.setShape(GradientDrawable.RECTANGLE);
-            // 视频壁纸上提高表面不透明度，普通默认页则保留更多灰底层次。
-            cardDrawable.setColor(profileHasDynamicVideoWallpaper ? 0x66FFFFFF : 0x4AFFFFFF);
-            cardDrawable.setCornerRadius(AndroidUtilities.dp(18));
-            cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x88FFFFFF);
-            return new InsetDrawable(cardDrawable, AndroidUtilities.dp(8), AndroidUtilities.dp(2), AndroidUtilities.dp(8), AndroidUtilities.dp(2));
+            GradientDrawable cardDrawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
+                    0x32FFFFFF,
+                    0x20EAF4FF
+            });
+            cardDrawable.setCornerRadius(AndroidUtilities.dp(20));
+            cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x78FFFFFF);
+            return new InsetDrawable(cardDrawable, AndroidUtilities.dp(8), AndroidUtilities.dp(3), AndroidUtilities.dp(8), AndroidUtilities.dp(3));
         }
 
         public void setBackground(View view, int viewType) {
-            if (shouldUseHuanghunLiquidGlassCards() && isHuanghunLiquidGlassInfoCard(viewType)) {
+            if (view != null && isHuanghunLiquidGlassInfoCard(viewType)) {
                 view.setBackground(createHuanghunLiquidGlassCardDrawable());
             }
         }

@@ -336,6 +336,10 @@ public class Theme {
             if (currentType == TYPE_PREVIEW) {
                 return Theme.getColor(key);
             }
+            int glassBubbleColor = getHuanghunLiquidGlassBubbleColor(key);
+            if (glassBubbleColor != Integer.MIN_VALUE) {
+                return glassBubbleColor;
+            }
             return resourcesProvider != null ? resourcesProvider.getCurrentColor(key) : Theme.currentColors.get(key);
         }
 
@@ -9692,7 +9696,39 @@ public class Theme {
         return getColor(key, isDefault, false);
     }
 
+    /**
+     * 黄昏默认液态玻璃消息气泡的全局最终取色规则。
+     *
+     * 普通会话、群组、频道和机器人并不一定经过 ChatActivity 的局部主题委托，
+     * 因此必须在 Theme 的最终入口先统一这组键，避免回退到导入主题或官方默认的绿色/实体白色。
+     * 仅替换气泡表面色、选中层、阴影和渐变；原生 MessageDrawable 仍负责尺寸、尾巴与文字布局。
+     */
+    private static int getHuanghunLiquidGlassBubbleColor(int key) {
+        if (key == key_chat_inBubble || key == key_chat_outBubble) {
+            return 0x36FFFFFF;
+        }
+        if (key == key_chat_inBubbleSelected || key == key_chat_outBubbleSelected) {
+            return 0x4AFFFFFF;
+        }
+        if (key == key_chat_inBubbleSelectedOverlay
+                || key == key_chat_outBubbleSelectedOverlay
+                || key == key_chat_inBubbleShadow
+                || key == key_chat_outBubbleShadow
+                || key == key_chat_outBubbleGradient1
+                || key == key_chat_outBubbleGradient2
+                || key == key_chat_outBubbleGradient3
+                || key == key_chat_outBubbleGradientSelectedOverlay
+                || key == key_chat_outBubbleGradientAnimated) {
+            return Color.TRANSPARENT;
+        }
+        return Integer.MIN_VALUE;
+    }
+
     public static int getColor(int key, boolean[] isDefault, boolean ignoreAnimation) {
+        int glassBubbleColor = getHuanghunLiquidGlassBubbleColor(key);
+        if (glassBubbleColor != Integer.MIN_VALUE) {
+            return glassBubbleColor;
+        }
         if (!ignoreAnimation && animatingColors != null) {
             int index = animatingColors.indexOfKey(key);
             if (index >= 0) {

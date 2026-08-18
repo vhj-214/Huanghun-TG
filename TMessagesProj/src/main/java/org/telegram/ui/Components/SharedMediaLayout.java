@@ -30,6 +30,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -1582,6 +1583,30 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     }
 
     private final @NonNull BlurredBackgroundSourceColor iBlur3SourceColor;
+    // 仅由 ProfileActivity 在已挂载动态视频壁纸时开启；不会影响独立媒体页或其他设置页面。
+    private boolean huanghunProfileVideoGlass;
+
+    /**
+     * 成员列表使用独立的低透明圆角表面，而不是将整个 RecyclerView 铺成白色。
+     * 仅使用基础 Drawable，兼容全部项目支持的 Android 版本。
+     */
+    private Drawable createHuanghunProfileMemberGlassDrawable() {
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
+                0x2EFFFFFF,
+                0x1CEAF4FF
+        });
+        drawable.setCornerRadius(dp(18));
+        drawable.setStroke(Math.max(1, dp(1)), 0x70FFFFFF);
+        return new InsetDrawable(drawable, dp(8), dp(2), dp(8), dp(2));
+    }
+
+    private void applyHuanghunProfileMemberGlass(View child) {
+        if (child instanceof UserCell || child instanceof ManageChatUserCell) {
+            child.setBackground(createHuanghunProfileMemberGlassDrawable());
+        } else {
+            child.setBackgroundColor(Color.TRANSPARENT);
+        }
+    }
 
     public SharedMediaLayout(Context context, long did, SharedMediaPreloader preloader, int commonGroupsCount, ArrayList<Integer> sortedUsers, TLRPC.ChatFull chatInfo, TLRPC.UserFull userInfo, int initialTab, int initialStoryAlbumId, BaseFragment parent, Delegate delegate, int viewType, Theme.ResourcesProvider resourcesProvider) {
         this(context, did, preloader, commonGroupsCount, sortedUsers, chatInfo, userInfo, initialTab, initialStoryAlbumId, parent, delegate, viewType, resourcesProvider, null);
@@ -3655,7 +3680,7 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
 
                 @Override
                 protected void onDraw(Canvas canvas) {
-                    backgroundPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    backgroundPaint.setColor(huanghunProfileVideoGlass ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
                     canvas.drawRect(0, 0, getMeasuredWidth(), getMeasuredHeight(), backgroundPaint);
                     super.onDraw(canvas);
                 }
@@ -3891,6 +3916,51 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     public int mediaPageTopMargin() {
         return 0;
 //        return customTabs() ? 0 : (48 /*+ 42*/);
+    }
+
+    /**
+     * 群资料页已经挂载动态聊天壁纸时，SharedMediaLayout 仍会以 windowBackgroundWhite
+     * 作为模糊源色，造成成员页看起来是一整块白色面板。此开关只清理这条真实父层，
+     * 不修改成员行的官方绑定、触摸、搜索和复用逻辑。
+     */
+    public void setHuanghunProfileVideoGlass(boolean enabled) {
+        if (viewType != VIEW_TYPE_PROFILE_ACTIVITY) {
+            return;
+        }
+        // 成员数据、静态壁纸和动态播放器均可能异步写入背景；重复调用必须重新应用玻璃层。
+        huanghunProfileVideoGlass = enabled;
+        iBlur3SourceColor.setColor(enabled ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
+        setBackgroundColor(Color.TRANSPARENT);
+        if (scrollSlidingTextTabStrip != null) {
+            scrollSlidingTextTabStrip.setBackgroundColor(Color.TRANSPARENT);
+        }
+        if (actionModeLayout != null) {
+            actionModeLayout.setBackgroundColor(Color.TRANSPARENT);
+        }
+        for (MediaPage mediaPage : mediaPages) {
+            if (mediaPage == null) {
+                continue;
+            }
+            mediaPage.setBackgroundColor(Color.TRANSPARENT);
+            if (mediaPage.listView != null) {
+                mediaPage.listView.setBackgroundColor(Color.TRANSPARENT);
+                for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
+                    applyHuanghunProfileMemberGlass(mediaPage.listView.getChildAt(i));
+                }
+                RecyclerView.Adapter adapter = mediaPage.listView.getAdapter();
+                if (adapter != null) {
+                    adapter.notifyDataSetChanged();
+                }
+            }
+            if (mediaPage.animationSupportingListView != null) {
+                mediaPage.animationSupportingListView.setBackgroundColor(Color.TRANSPARENT);
+            }
+            if (mediaPage.progressView != null) {
+                mediaPage.progressView.setBackgroundColor(Color.TRANSPARENT);
+            }
+        }
+        invalidateBlur();
+        invalidate();
     }
 
     protected void invalidateBlur() {
@@ -6816,12 +6886,6 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     }
 
     public void updateAdapters() {
-        for (MediaPage mediaPage : mediaPages) {
-            if (mediaPage != null && (mediaPage.listView.isComputingLayout() || mediaPage.animationSupportingListView.isComputingLayout())) {
-                post(this::updateAdapters);
-                return;
-            }
-        }
         if (photoVideoAdapter != null) {
             photoVideoAdapter.notifyDataSetChanged();
         }
@@ -11017,6 +11081,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 return new RecyclerListView.Holder(emptyStubView);
             }
             View view = new UserCell(mContext, 9, 0, true, false, resourcesProvider);
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileMemberGlass(view);
+            } else {
+                view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            }
             view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return new RecyclerListView.Holder(view);
         }
@@ -11300,7 +11369,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             ManageChatUserCell view = new ManageChatUserCell(mContext, 9, 5, true, resourcesProvider);
-            view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileMemberGlass(view);
+            } else {
+                view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            }
             view.setDelegate((cell, click) -> {
                 TLObject object = getItem((Integer) cell.getTag());
                 if (object instanceof TLRPC.ChannelParticipant) {
