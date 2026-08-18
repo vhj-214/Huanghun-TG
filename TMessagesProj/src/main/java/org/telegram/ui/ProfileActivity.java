@@ -1418,15 +1418,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             int y1 = (int) (v * (1.0f - mediaHeaderAnimationProgress));
 
             if (y1 != 0) {
-                paint.setColor(currentColor);
-                updateBackgroundPaint();
-                final float progressToGradient = (playProfileAnimation == 0 ? 1f : avatarAnimationProgress) * hasColorAnimated.set(hasColorById);
-                if (progressToGradient < 1) {
+                // 动态壁纸资料页不再画实体主题色或大面积渐变，保证视频在标题区持续透出；
+                // 仅保留一层轻微白色高光，使文字、返回按钮和头像区仍具有晶莹玻璃层次。
+                if (profileHasDynamicVideoWallpaper) {
+                    paint.setColor(0x26ffffff);
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
-                }
-                if (progressToGradient > 0) {
-                    backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
-                    canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
+                } else {
+                    paint.setColor(currentColor);
+                    updateBackgroundPaint();
+                    final float progressToGradient = (playProfileAnimation == 0 ? 1f : avatarAnimationProgress) * hasColorAnimated.set(hasColorById);
+                    if (progressToGradient < 1) {
+                        canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
+                    }
+                    if (progressToGradient > 0) {
+                        backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
+                        canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
+                    }
                 }
                 if (hasEmoji) {
                     final float loadedScale = emojiLoadedT.set(isEmojiLoaded());
@@ -1453,10 +1460,16 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             if (y1 != v && !openAnimationInProgress) {
-                int color = getThemedColor(Theme.key_windowBackgroundWhite);
-                paint.setColor(color);
                 blurBounds.set(0, y1, getMeasuredWidth(), (int) v);
-                contentView.drawBlurRect(canvas, getY(), blurBounds, paint, true);
+                if (profileHasDynamicVideoWallpaper) {
+                    // 媒体页标题下方同样保持透光，避免玻璃模糊回退成不透明白板。
+                    paint.setColor(0x22ffffff);
+                    canvas.drawRect(blurBounds, paint);
+                } else {
+                    int color = getThemedColor(Theme.key_windowBackgroundWhite);
+                    paint.setColor(color);
+                    contentView.drawBlurRect(canvas, getY(), blurBounds, paint, true);
+                }
             }
         }
 
@@ -6241,9 +6254,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
         if (profileHasDynamicVideoWallpaper) {
-            // 保留动态壁纸功能：仅在用户为当前会话配置视频时临时移除资料页实体底色。
+            // 保留动态壁纸功能：根、列表、顶部和导航都不再以实体主题面板遮住视频。
             contentView.setBackgroundColor(Color.TRANSPARENT);
             listView.setBackgroundColor(Color.TRANSPARENT);
+            topView.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
             profileDynamicVideoWallpaperPlayer.resume();
         }
         return fragmentView;

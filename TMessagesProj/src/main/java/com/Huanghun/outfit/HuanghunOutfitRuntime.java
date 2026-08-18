@@ -76,8 +76,9 @@ public final class HuanghunOutfitRuntime {
      * 只有用户选择其他装扮时，才为我方消息启用自定义外壳覆盖层。
      */
     public static boolean shouldReplaceMessageBubble(boolean outgoing) {
-        HuanghunOutfitConfig.OutfitItem item = selected(ApplicationLoader.applicationContext, HuanghunOutfitConfig.CATEGORY_BUBBLE);
-        return item != null && outgoing && !(item.group == 0 && item.variant == 0);
+        // 聊天区统一交给 Telegram 原生气泡 Drawable 绘制。这样文字、文件、媒体、转发和
+        // 不同字体大小都会沿用官方测量、圆角和尾巴，不再在消息外侧叠加装饰壳层。
+        return false;
     }
 
     public static boolean isDefaultLiquidGlassBubbleSelected() {
