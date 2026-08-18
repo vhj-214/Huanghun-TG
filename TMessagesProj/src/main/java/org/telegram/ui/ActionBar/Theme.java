@@ -1700,12 +1700,10 @@ public class Theme {
             // 默认黄昏主题直接复用 Telegram 官方 MessageDrawable 的绘制、圆角和自适应测量；
             // 在主题真正加载完成的最后一步覆盖可能由 .attheme、壁纸或动态配色写回的实体气泡色。
             // 这不是叠加气泡视图，文字、媒体和文件仍由原生气泡自身绘制，只让背景视频透过低透明白色材质。
-            // 主题文件加载期间 currentTheme 可能尚未切换完成，因此同时用实际加载的内置 Blue
-            // 主题资源识别默认玻璃主题，避免仅依赖 currentTheme 导致透明色根本没有写入。
-            final boolean huanghunDefaultGlassTheme = isDefaultThemeActive()
-                    || isDefaultThemeSelected()
-                    || info != null && "bluebubbles.attheme".equals(info.assetName);
-            if (huanghunDefaultGlassTheme) {
+            // 用户当前使用的是明亮聊天主题时，直接保留透明白色官方气泡；不依赖主题文件
+            // 加载时尚未同步的 ThemeInfo 状态，确保动态壁纸场景的真实运行时颜色必然生效。
+            final boolean huanghunLiquidGlassBubblesEnabled = !isCurrentThemeDark();
+            if (huanghunLiquidGlassBubblesEnabled) {
                 final int liquidGlassBubble = 0x66FFFFFF;
                 final int liquidGlassBubbleSelected = 0x7AFFFFFF;
                 currentColors.put(key_chat_inBubble, liquidGlassBubble);
