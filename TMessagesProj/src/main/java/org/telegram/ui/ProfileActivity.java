@@ -6261,8 +6261,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
-        if (profileHasDynamicVideoWallpaper) {
-            // 保留动态壁纸功能：根、列表、顶部和导航都不再以实体主题面板遮住视频。
+        // 黄昏默认主题和动态视频资料页都必须让根、信息列表及成员分页透出聊天背景。
+        // 具体信息行仍由 ListAdapter 的独立玻璃卡片绘制，避免形成截图中的整块白色面板。
+        boolean useHuanghunProfileGlass = profileHasDynamicVideoWallpaper || Theme.isDefaultThemeSelected();
+        if (useHuanghunProfileGlass) {
             contentView.setBackgroundColor(Color.TRANSPARENT);
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
@@ -6273,6 +6275,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (listAdapter != null) {
                 listAdapter.notifyDataSetChanged();
             }
+        }
+        if (profileHasDynamicVideoWallpaper) {
             profileDynamicVideoWallpaperPlayer.resume();
         }
         return fragmentView;
@@ -13920,7 +13924,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         public void setBackground(View view, int viewType) {
-            if (view == null || !Theme.isDefaultThemeActive() || !isDynamicVideoGlassInfoRow(viewType)) {
+            if (view == null || !Theme.isDefaultThemeSelected() || !isDynamicVideoGlassInfoRow(viewType)) {
                 return;
             }
             // 黄昏默认主题的资料页信息行使用低透明圆角玻璃卡片。动态视频存在时可透出视频；

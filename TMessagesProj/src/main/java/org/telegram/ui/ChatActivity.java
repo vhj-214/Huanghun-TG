@@ -45607,7 +45607,7 @@ public class ChatActivity extends BaseFragment implements
          * 自适应绘制；这里仅返回与 ThemeColors 一致的颜色，不添加额外绘制层。
          */
         private int getHuanghunDefaultBubbleColor(int key) {
-            if (!Theme.isDefaultThemeActive()) {
+            if (!Theme.isDefaultThemeSelected()) {
                 return Integer.MIN_VALUE;
             }
             if (key == Theme.key_chat_inBubble || key == Theme.key_chat_outBubble) {

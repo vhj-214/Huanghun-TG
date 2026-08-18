@@ -4813,7 +4813,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
         // 默认 iOS 玻璃主题只绘制输入胶囊本身，底部不再额外铺一整条半透明灰板。
         // 这能避免底板、模糊层与胶囊材质同时叠加造成的阴影重影。
-        if (Theme.isDefaultThemeActive()) {
+        if (Theme.isDefaultThemeSelected()) {
             return;
         }
         int top = animatedTop;
@@ -11514,7 +11514,7 @@ public class ChatActivityEnterView extends FrameLayout implements
      * 输入框底板和多个子按钮底板叠加，否则会形成用户截图中的重影和多道白圈。
      */
     private GradientDrawable createHuanghunGlassInputBackground() {
-        if (!Theme.isDefaultThemeActive()) {
+        if (!Theme.isDefaultThemeSelected()) {
             return HuanghunLiquidGlass.createPill(
                     getThemedColor(Theme.key_chat_messagePanelBackground),
                     getThemedColor(Theme.key_chat_messagePanelSend), dp(50));
@@ -11539,7 +11539,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         if (control == null) {
             return;
         }
-        if (Theme.isDefaultThemeActive()) {
+        if (Theme.isDefaultThemeSelected()) {
             clearHuanghunGlassControlBackground(control);
         } else {
             control.setBackground(HuanghunLiquidGlass.createPill(
@@ -11553,7 +11553,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             return;
         }
         messageEditTextContainer.setBackground(createHuanghunGlassInputBackground());
-        if (Theme.isDefaultThemeActive()) {
+        if (Theme.isDefaultThemeSelected()) {
             // 所有按钮直接置于同一胶囊内，避免一个按钮再叠一层圆形玻璃。
             clearHuanghunGlassControlBackground(emojiButton);
             clearHuanghunGlassControlBackground(deleteRichDraftButton);
@@ -11637,7 +11637,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 : HuanghunLiquidGlass.readableTextColor(panel);
         audioVideoSendButton.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
         // 默认 iOS 输入栏内不再为发送/语音按钮额外叠加圆形底板，避免与主胶囊形成重影。
-        if (!Theme.isDefaultThemeActive()) {
+        if (!Theme.isDefaultThemeSelected()) {
             audioVideoButtonContainer.setBackground(HuanghunLiquidGlass.createPill(
                     getThemedColor(Theme.key_chat_messagePanelBackground),
                     getThemedColor(Theme.key_chat_messagePanelSend), dp(40)));

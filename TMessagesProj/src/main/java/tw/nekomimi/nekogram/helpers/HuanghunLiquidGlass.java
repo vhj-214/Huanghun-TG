@@ -21,7 +21,7 @@ public final class HuanghunLiquidGlass {
     private static boolean isHuanghunGlassThemeActive() {
         // 默认主题不再依赖 Blue 资源文件；只以当前实际激活的黄昏默认主题为准，
         // 不对用户手动选择的其他主题施加液态玻璃材质。
-        return Theme.isDefaultThemeActive();
+        return Theme.isDefaultThemeSelected();
     }
 
     public static GradientDrawable createSurface(int backdropColor, int tintColor, float radiusPx) {
