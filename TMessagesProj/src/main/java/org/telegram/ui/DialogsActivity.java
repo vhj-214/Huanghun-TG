@@ -4222,9 +4222,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         ContentView contentView = new ContentView(context);
         fragmentView = contentView;
-        // 默认液态玻璃主题下，聊天列表根容器不再铺设整块白色底板；
-        // 每个 DialogCell 自己绘制圆角玻璃卡片，卡片之间的间隔即可自然透出背景。
-        contentView.setBackgroundColor(Theme.isDefaultThemeActive() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
 
         viewPositionWatcher = new ViewPositionWatcher(contentView);
         iBlur3FactoryFrostedLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
@@ -4266,7 +4263,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             contentView.addView(viewPage, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
             viewPage.dialogsType = initialDialogsType;
             viewPages[a] = viewPage;
-            viewPage.setBackgroundColor(Theme.isDefaultThemeActive() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
 
             viewPage.progressView = new FlickerLoadingView(context);
             viewPage.progressView.setViewType(FlickerLoadingView.DIALOG_CELL_TYPE);
@@ -4281,7 +4277,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             viewPage.listView.setAnimateEmptyView(true, RecyclerListView.EMPTY_VIEW_ANIMATION_TYPE_ALPHA);
             viewPage.listView.setClipToPadding(false);
             viewPage.listView.setPivotY(0);
-            viewPage.listView.setBackgroundColor(Theme.isDefaultThemeActive() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
             if (initialDialogsType == DIALOGS_TYPE_BOT_REQUEST_PEER) {
                 viewPage.listView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
             }
@@ -12409,20 +12404,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public ArrayList<ThemeDescription> getThemeDescriptions() {
         ThemeDescription.ThemeDescriptionDelegate cellDelegate = () -> {
-            final int dialogsSurface = Theme.isDefaultThemeActive() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray);
-            if (fragmentView != null) {
-                fragmentView.setBackgroundColor(dialogsSurface);
-            }
-            if (viewPages != null) {
-                for (ViewPage page : viewPages) {
-                    if (page != null) {
-                        page.setBackgroundColor(dialogsSurface);
-                        if (page.listView != null) {
-                            page.listView.setBackgroundColor(dialogsSurface);
-                        }
-                    }
-                }
-            }
             for (int b = 0; b < 3; b++) {
                 RecyclerListView list;
                 if (b == 2) {

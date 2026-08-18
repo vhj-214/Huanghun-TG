@@ -11519,13 +11519,11 @@ public class ChatActivityEnterView extends FrameLayout implements
                     getThemedColor(Theme.key_chat_messagePanelBackground),
                     getThemedColor(Theme.key_chat_messagePanelSend), dp(50));
         }
-        // 整条官方输入胶囊只保留轻微折射：表情、文字、附件和更多操作区共用这一层，
-        // 不再以近不透明白色填充遮挡用户的视频或图片聊天壁纸。
-        int top = ColorUtils.setAlphaComponent(Color.WHITE, 94);
-        int bottom = ColorUtils.setAlphaComponent(Color.rgb(237, 247, 255), 70);
+        int top = ColorUtils.setAlphaComponent(Color.WHITE, 232);
+        int bottom = ColorUtils.setAlphaComponent(Color.rgb(237, 247, 255), 212);
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
         drawable.setCornerRadius(dp(26));
-        drawable.setStroke(dp(1), ColorUtils.setAlphaComponent(Color.WHITE, 146));
+        drawable.setStroke(dp(1), ColorUtils.setAlphaComponent(Color.WHITE, 220));
         return drawable;
     }
 
