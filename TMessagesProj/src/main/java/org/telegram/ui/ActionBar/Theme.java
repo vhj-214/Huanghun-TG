@@ -5137,6 +5137,12 @@ public class Theme {
         } else {
             currentDayTheme = applyingTheme;
         }
+        // 黄昏默认主题固定为明亮液态玻璃。不能让系统自动夜间策略把 currentTheme
+        // 临时切到 Night，否则聊天局部主题、顶部栏和输入栏都会错误回退到实体色分支。
+        if (currentDayTheme == defaultTheme) {
+            selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
+            applyingTheme = defaultTheme;
+        }
 
         if (preferences.contains("overrideThemeWallpaper") || preferences.contains("selectedBackground2")) {
             boolean override = preferences.getBoolean("overrideThemeWallpaper", false);
@@ -6592,7 +6598,12 @@ public class Theme {
             }
             if (!nightTheme && previousTheme == null) {
                 currentDayTheme = themeInfo;
-                if (isCurrentThemeNight()) {
+                if (themeInfo == defaultTheme) {
+                    // 用户切回黄昏默认主题时立即退出自动夜间切换，保证整页始终保持明亮
+                    // 透光玻璃状态；选择其他主题时仍保留其原有的自动昼夜逻辑。
+                    selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
+                    cancelAutoNightThemeCallbacks();
+                } else if (isCurrentThemeNight()) {
                     switchNightThemeDelay = 2000;
                     lastDelayUpdateTime = SystemClock.elapsedRealtime();
                     AndroidUtilities.runOnUIThread(Theme::checkAutoNightThemeConditions, 2100);
@@ -6704,7 +6715,10 @@ public class Theme {
                         }
                         if (!nightTheme && previousTheme == null) {
                             currentDayTheme = themeInfo;
-                            if (isCurrentThemeNight()) {
+                            if (themeInfo == defaultTheme) {
+                                selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
+                                cancelAutoNightThemeCallbacks();
+                            } else if (isCurrentThemeNight()) {
                                 switchNightThemeDelay = 2000;
                                 lastDelayUpdateTime = SystemClock.elapsedRealtime();
                                 AndroidUtilities.runOnUIThread(Theme::checkAutoNightThemeConditions, 2100);
@@ -6749,7 +6763,10 @@ public class Theme {
             }
             if (!nightTheme && previousTheme == null) {
                 currentDayTheme = themeInfo;
-                if (isCurrentThemeNight()) {
+                if (themeInfo == defaultTheme) {
+                    selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
+                    cancelAutoNightThemeCallbacks();
+                } else if (isCurrentThemeNight()) {
                     switchNightThemeDelay = 2000;
                     lastDelayUpdateTime = SystemClock.elapsedRealtime();
                     AndroidUtilities.runOnUIThread(Theme::checkAutoNightThemeConditions, 2100);
