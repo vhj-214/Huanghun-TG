@@ -7132,6 +7132,14 @@ public class Theme {
         return currentTheme != null && currentTheme == defaultTheme;
     }
 
+    /**
+     * 默认主题被用户选中时，即使自动夜间策略临时激活了夜间配色，首次欢迎和登录流程
+     * 仍应维持黄昏定制版的稳定明亮外观，不能在白色与深灰之间切换。
+     */
+    public static boolean isDefaultThemeSelected() {
+        return currentTheme == defaultTheme || currentDayTheme == defaultTheme;
+    }
+
     private static long getAutoNightSwitchThemeDelay() {
         long newTime = SystemClock.elapsedRealtime();
         if (Math.abs(lastThemeSwitchTime - newTime) >= LIGHT_SENSOR_THEME_SWITCH_NEAR_THRESHOLD) {

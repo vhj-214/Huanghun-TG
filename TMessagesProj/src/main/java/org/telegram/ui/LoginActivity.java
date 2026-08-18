@@ -80,6 +80,8 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -250,6 +252,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             AUTH_TYPE_FRAGMENT_SMS = 15,
             AUTH_TYPE_WORD = 16,
             AUTH_TYPE_PHRASE = 17;
+
+    // 登录流程独立使用稳定的明亮白色基底，不能让透明层透出旧的深灰窗口背景。
+    private static final int HUANGHUN_LOGIN_BASE_COLOR = 0xFFF9FAFF;
 
     private final static int MODE_LOGIN = 0,
             MODE_CANCEL_ACCOUNT_DELETION = 1,
@@ -557,9 +562,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private View cachedFragmentView;
     @Override
     public View createView(Context context) {
+        applyHuanghunLoginWindowAppearance();
         if (cachedFragmentView != null) {
             fragmentView = cachedFragmentView;
             cachedFragmentView = null;
+            applyHuanghunLoginBackground();
             return fragmentView;
         }
 
@@ -980,6 +987,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     @Override
     public void onResume() {
         super.onResume();
+        applyHuanghunLoginWindowAppearance();
+        applyHuanghunLoginBackground();
         if (newAccount) {
             ConnectionsManager.getInstance(currentAccount).setAppPaused(false, false);
         }
@@ -1224,7 +1233,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         if (activity == null) return;
         String[] options = {"会话文件登录", "TData 文件登录", "外部通行密钥（接口一）", "外部通信密钥（接口二）"};
         ProtocolLoginWarningView warningView = new ProtocolLoginWarningView(activity);
-        new AlertDialog.Builder(activity)
+        AlertDialog protocolDialog = new AlertDialog.Builder(activity)
             .setTitle("协议登录（请选择压缩包文件）")
             .aboveMessageView(warningView)
             .setItems(options, (dialog, which) -> {
@@ -1234,7 +1243,17 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed"});
                 startActivityForResult(intent, 5000 + which);
             })
-            .show();
+            .create();
+        protocolDialog.setOnShowListener(ignored -> {
+            // 提示卡自身的黄色和红字保持不变；只将外围调光降至极浅，避免整页变黑。
+            if (Theme.isDefaultThemeSelected() && protocolDialog.getWindow() != null) {
+                WindowManager.LayoutParams params = protocolDialog.getWindow().getAttributes();
+                params.flags |= WindowManager.LayoutParams.FLAG_DIM_BEHIND;
+                params.dimAmount = 0.08f;
+                protocolDialog.getWindow().setAttributes(params);
+            }
+        });
+        showDialog(protocolDialog);
     }
 
     /**
@@ -8890,7 +8909,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 public void onAnimationStart(Animator animation) {
                     floatingButton.setButtonVisible(false, false);
                     keyboardLinearLayout.setAlpha(0);
-                    if (!Theme.isDefaultThemeActive()) {
+                    if (!Theme.isDefaultThemeSelected()) {
                         fragmentView.setBackgroundColor(Color.TRANSPARENT);
                     }
                     startMessagingButton.setVisibility(View.INVISIBLE);
@@ -8924,7 +8943,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 float val = (float) animation.getAnimatedValue();
                 keyboardLinearLayout.setAlpha(val);
                 // 默认液态玻璃使用固定内容材质；避免动画每帧把根容器改成不同透明度的灰底。
-                if (!Theme.isDefaultThemeActive()) {
+                if (!Theme.isDefaultThemeSelected()) {
                     fragmentView.setBackgroundColor(ColorUtils.setAlphaComponent(bgColor, (int) (initialAlpha * val)));
                 }
 
@@ -8959,18 +8978,54 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         return null;
     }
 
+    private void applyHuanghunLoginWindowAppearance() {
+        if (!Theme.isDefaultThemeSelected()) {
+            return;
+        }
+        Activity activity = getParentActivity();
+        if (activity == null || activity.getWindow() == null) {
+            return;
+        }
+        Window window = activity.getWindow();
+        window.setStatusBarColor(HUANGHUN_LOGIN_BASE_COLOR);
+        window.setNavigationBarColor(HUANGHUN_LOGIN_BASE_COLOR);
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        int systemUiVisibility = window.getDecorView().getSystemUiVisibility();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        window.getDecorView().setSystemUiVisibility(systemUiVisibility);
+    }
+
     private void applyHuanghunLoginBackground() {
         if (fragmentView == null) {
             return;
         }
-        if (Theme.isDefaultThemeActive()) {
+        if (Theme.isDefaultThemeSelected()) {
+            // 页面本身保持透明液态玻璃；白色仅留在系统窗口最底层，绝不形成可见实心页面。
             fragmentView.setBackground(HuanghunLiquidGlass.createContentSurface(Theme.getColor(Theme.key_windowBackgroundWhite)));
+            if (keyboardLinearLayout != null) {
+                keyboardLinearLayout.setBackgroundColor(Color.TRANSPARENT);
+            }
+            if (slideViewsContainer != null) {
+                slideViewsContainer.setBackgroundColor(Color.TRANSPARENT);
+            }
         } else {
             fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            if (keyboardLinearLayout != null) {
+                keyboardLinearLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            }
+            if (slideViewsContainer != null) {
+                slideViewsContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            }
         }
     }
 
     private void updateColors() {
+        applyHuanghunLoginWindowAppearance();
         applyHuanghunLoginBackground();
 
         backButtonView.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));

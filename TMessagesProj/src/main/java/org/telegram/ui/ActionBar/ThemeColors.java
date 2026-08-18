@@ -24,8 +24,10 @@ public class ThemeColors {
     private static final int LIQUID_GLASS_MUTED = 0x42EEF1F8;
     private static final int LIQUID_GLASS_NAVIGATION = 0x4AEAF0FF;
     private static final int LIQUID_GLASS_FIELD = 0x60FBFCFF;
-    private static final int LIQUID_GLASS_CHAT_IN = 0x50F9FBFF;
-    private static final int LIQUID_GLASS_CHAT_OUT = 0x4CE5F2FF;
+    // 默认消息气泡直接复用 Telegram 原生自适应轮廓，只保留无色相的低不透明度白色玻璃。
+    // 不再向出站消息注入蓝绿底色，避免看起来像额外叠加的一层装饰外壳。
+    private static final int LIQUID_GLASS_CHAT_IN = 0x54FFFFFF;
+    private static final int LIQUID_GLASS_CHAT_OUT = 0x54FFFFFF;
     private static final int LIQUID_GLASS_DIVIDER = 0x667187A5;
 
     private static SparseArray<String> colorKeysMap;
@@ -320,11 +322,12 @@ public class ThemeColors {
         defaultColors[key_chat_muteIcon] = 0xff79817e;
         defaultColors[key_chat_inBubble] = LIQUID_GLASS_CHAT_IN;
         defaultColors[key_chat_inBubbleSelected] = LIQUID_GLASS_SURFACE;
-        defaultColors[key_chat_inBubbleShadow] = 0x16000000;
+        // 默认玻璃气泡不再增加外投阴影或着色渐变，消息只呈现官方轮廓内的透明白玻璃。
+        defaultColors[key_chat_inBubbleShadow] = 0x00000000;
         defaultColors[key_chat_outBubble] = LIQUID_GLASS_CHAT_OUT;
-        defaultColors[key_chat_outBubbleGradientSelectedOverlay] = 0x14000000;
+        defaultColors[key_chat_outBubbleGradientSelectedOverlay] = 0x00000000;
         defaultColors[key_chat_outBubbleSelected] = LIQUID_GLASS_SURFACE;
-        defaultColors[key_chat_outBubbleShadow] = 0x16000000;
+        defaultColors[key_chat_outBubbleShadow] = 0x00000000;
         defaultColors[key_chat_inMediaIcon] = 0xffffffff;
         defaultColors[key_chat_inMediaIconSelected] = 0xffeff8fe;
         defaultColors[key_chat_outMediaIcon] = 0xffefffde;

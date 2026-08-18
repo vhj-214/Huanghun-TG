@@ -19,7 +19,7 @@ public final class HuanghunLiquidGlass {
     }
 
     public static GradientDrawable createSurface(int backdropColor, int tintColor, float radiusPx) {
-        if (!Theme.isDefaultThemeActive()) {
+        if (!Theme.isDefaultThemeSelected()) {
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(backdropColor);
             drawable.setCornerRadius(Math.max(1f, radiusPx));
@@ -48,7 +48,7 @@ public final class HuanghunLiquidGlass {
      */
     public static GradientDrawable createContentSurface(int backdropColor) {
         GradientDrawable drawable = new GradientDrawable();
-        if (!Theme.isDefaultThemeActive()) {
+        if (!Theme.isDefaultThemeSelected()) {
             drawable.setColor(backdropColor);
         } else {
             drawable.setColor(Color.TRANSPARENT);
@@ -59,7 +59,7 @@ public final class HuanghunLiquidGlass {
 
     /** 全宽导航和工具栏使用的液态玻璃：保留透光与高光，避免把系统顶部栏错误做成圆角卡片。 */
     public static GradientDrawable createNavigationSurface(int backdropColor) {
-        if (!Theme.isDefaultThemeActive()) {
+        if (!Theme.isDefaultThemeSelected()) {
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(backdropColor);
             return drawable;

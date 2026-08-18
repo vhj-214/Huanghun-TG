@@ -358,6 +358,7 @@ import tw.nekomimi.nekogram.filters.RegexChatFiltersListActivity;
 import tw.nekomimi.nekogram.filters.RegexFiltersSettingActivity;
 import tw.nekomimi.nekogram.filters.ShadowBanListActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.LocalNameHelper;
@@ -468,7 +469,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int listContentHeight;
     private boolean openingAvatar;
     private boolean fragmentViewAttached;
-
+    /**
+     * 群资料页是独立 Fragment，不能依赖已被它覆盖的聊天页背景层。
+     * 因此在资料页根容器中单独挂载同一会话的视频壁纸，并在销毁时释放。
+     */
+    private DynamicVideoWallpaperHelper.Player profileDynamicVideoWallpaperPlayer;
     private boolean doNotSetForeground;
     public boolean hasMainTabs;
 
@@ -2418,6 +2423,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onFragmentDestroy() {
+        if (profileDynamicVideoWallpaperPlayer != null) {
+            profileDynamicVideoWallpaperPlayer.release();
+            profileDynamicVideoWallpaperPlayer = null;
+        }
         super.onFragmentDestroy();
         if (sharedMediaLayout != null) {
             sharedMediaLayout.onDestroy();
@@ -4150,6 +4159,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
+        // 资料页自身不能再绘制实体底色，否则会完全遮挡后续插入的动态视频层。
+        contentView.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundGray)));
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -6223,6 +6234,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
 
         ViewCompat.setOnApplyWindowInsetsListener(fragmentView, this::onApplyWindowInsets);
+        // ProfileActivity 覆盖在 ChatActivity 之上时，聊天页根容器中的视频会被当前 Fragment 完全遮住。
+        // 在当前资料页根容器索引 0 单独挂载视频层，使群资料和内嵌成员列表也能显示并循环播放同一会话壁纸。
+        if (profileDynamicVideoWallpaperPlayer != null) {
+            profileDynamicVideoWallpaperPlayer.release();
+        }
+        profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
+        if (profileDynamicVideoWallpaperPlayer != null) {
+            profileDynamicVideoWallpaperPlayer.resume();
+        }
         return fragmentView;
     }
 
@@ -9894,6 +9914,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (flagSecure != null) {
             flagSecure.attach();
         }
+        if (profileDynamicVideoWallpaperPlayer != null) {
+            profileDynamicVideoWallpaperPlayer.resume();
+        }
         updateItemsUsername();
         needLayout(false);
     }
@@ -12375,6 +12398,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 ((ProfileHoursCell) view).updateColors();
             } else if (view instanceof ProfileChannelCell) {
                 ((ProfileChannelCell) view).updateColors();
+            } else if (view instanceof UserCell) {
+                ((UserCell) view).updateColors();
             }
             final int viewType = listAdapter.getItemViewType(listView.getChildAdapterPosition(view));
             listAdapter.setBackground(view, viewType);
