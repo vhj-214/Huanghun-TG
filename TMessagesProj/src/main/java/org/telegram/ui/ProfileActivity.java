@@ -13890,8 +13890,45 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             return new RecyclerListView.Holder(view);
         }
 
+        /**
+         * 资料详情卡使用普通 GradientDrawable 和 InsetDrawable，兼容项目支持的所有 Android
+         * 版本，不依赖 RenderEffect、模糊 API 或任何设备厂商实现。仅在官方默认主题或
+         * 已设置动态视频壁纸时启用，避免覆盖用户后来手动选择的外部主题。
+         */
+        private boolean shouldUseHuanghunLiquidGlassCards() {
+            return profileHasDynamicVideoWallpaper || Theme.getActiveTheme() == Theme.getDefaultTheme();
+        }
+
+        private boolean isHuanghunLiquidGlassInfoCard(int viewType) {
+            return viewType == VIEW_TYPE_TEXT_DETAIL
+                    || viewType == VIEW_TYPE_TEXT_DETAIL_MULTILINE
+                    || viewType == VIEW_TYPE_TEXT_DETAIL_MULTILINE_2
+                    || viewType == VIEW_TYPE_ABOUT_LINK
+                    || viewType == VIEW_TYPE_LINKED_COMMUNITY
+                    || viewType == VIEW_TYPE_TEXT
+                    || viewType == VIEW_TYPE_NOTIFICATIONS_CHECK
+                    || viewType == VIEW_TYPE_NOTIFICATIONS_CHECK_SIMPLE
+                    || viewType == VIEW_TYPE_USER
+                    || viewType == VIEW_TYPE_ADDTOGROUP_INFO
+                    || viewType == VIEW_TYPE_LOCATION
+                    || viewType == VIEW_TYPE_HOURS
+                    || viewType == VIEW_TYPE_CHANNEL;
+        }
+
+        private Drawable createHuanghunLiquidGlassCardDrawable() {
+            GradientDrawable cardDrawable = new GradientDrawable();
+            cardDrawable.setShape(GradientDrawable.RECTANGLE);
+            // 视频壁纸上提高表面不透明度，普通默认页则保留更多灰底层次。
+            cardDrawable.setColor(profileHasDynamicVideoWallpaper ? 0x66FFFFFF : 0x4AFFFFFF);
+            cardDrawable.setCornerRadius(AndroidUtilities.dp(18));
+            cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x88FFFFFF);
+            return new InsetDrawable(cardDrawable, AndroidUtilities.dp(8), AndroidUtilities.dp(2), AndroidUtilities.dp(8), AndroidUtilities.dp(2));
+        }
+
         public void setBackground(View view, int viewType) {
-            // 保持官方资料页的原生背景、分隔和测量逻辑。
+            if (shouldUseHuanghunLiquidGlassCards() && isHuanghunLiquidGlassInfoCard(viewType)) {
+                view.setBackground(createHuanghunLiquidGlassCardDrawable());
+            }
         }
 
         @Override

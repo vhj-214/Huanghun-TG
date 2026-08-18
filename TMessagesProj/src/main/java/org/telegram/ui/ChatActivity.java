@@ -45598,8 +45598,37 @@ public class ChatActivity extends BaseFragment implements
             }
         }
 
+        /**
+         * 消息单元格会经由本地主题委托读取这些气泡键。仅替换气泡表面色，
+         * 保留 Telegram 原生 MessageDrawable 的尺寸、圆角、尾巴、媒体与文字布局。
+         */
+        private int getHuanghunLiquidGlassBubbleColor(int key) {
+            if (key == Theme.key_chat_inBubble || key == Theme.key_chat_outBubble) {
+                return 0x66FFFFFF;
+            }
+            if (key == Theme.key_chat_inBubbleSelected || key == Theme.key_chat_outBubbleSelected) {
+                return 0x7AFFFFFF;
+            }
+            if (key == Theme.key_chat_inBubbleSelectedOverlay
+                    || key == Theme.key_chat_outBubbleSelectedOverlay
+                    || key == Theme.key_chat_inBubbleShadow
+                    || key == Theme.key_chat_outBubbleShadow
+                    || key == Theme.key_chat_outBubbleGradient1
+                    || key == Theme.key_chat_outBubbleGradient2
+                    || key == Theme.key_chat_outBubbleGradient3
+                    || key == Theme.key_chat_outBubbleGradientSelectedOverlay
+                    || key == Theme.key_chat_outBubbleGradientAnimated) {
+                return Color.TRANSPARENT;
+            }
+            return Integer.MIN_VALUE;
+        }
+
         @Override
         public int getColor(int key) {
+            int glassBubbleColor = getHuanghunLiquidGlassBubbleColor(key);
+            if (glassBubbleColor != Integer.MIN_VALUE) {
+                return glassBubbleColor;
+            }
             if (animatingColors != null) {
                 int index = animatingColors.indexOfKey(key);
                 if (index >= 0) {
@@ -45630,6 +45659,10 @@ public class ChatActivity extends BaseFragment implements
         }
 
         public int getCurrentColor(int key, boolean ignoreAnimation) {
+            int glassBubbleColor = getHuanghunLiquidGlassBubbleColor(key);
+            if (glassBubbleColor != Integer.MIN_VALUE) {
+                return glassBubbleColor;
+            }
             if (chatTheme == null && backgroundDrawable == null) {
                 return Theme.getColor(key);
             }
