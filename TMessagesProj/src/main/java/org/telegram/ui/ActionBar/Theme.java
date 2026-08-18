@@ -1697,6 +1697,27 @@ public class Theme {
                 currentColors.put(key_chat_inBubbleSelected, Theme.blendOver(inBubble, inOverlay));
             }
 
+            // 默认黄昏主题直接复用 Telegram 官方 MessageDrawable 的绘制、圆角和自适应测量；
+            // 在主题真正加载完成的最后一步覆盖可能由 .attheme、壁纸或动态配色写回的实体气泡色。
+            // 这不是叠加气泡视图，文字、媒体和文件仍由原生气泡自身绘制，只让背景视频透过低透明白色材质。
+            if (isDefaultThemeActive()) {
+                final int liquidGlassBubble = 0x66FFFFFF;
+                final int liquidGlassBubbleSelected = 0x7AFFFFFF;
+                currentColors.put(key_chat_inBubble, liquidGlassBubble);
+                currentColors.put(key_chat_inBubbleSelected, liquidGlassBubbleSelected);
+                currentColors.put(key_chat_inBubbleSelectedOverlay, 0x00000000);
+                currentColors.put(key_chat_inBubbleShadow, 0x00000000);
+                currentColors.put(key_chat_outBubble, liquidGlassBubble);
+                currentColors.put(key_chat_outBubbleSelected, liquidGlassBubbleSelected);
+                currentColors.put(key_chat_outBubbleSelectedOverlay, 0x00000000);
+                currentColors.put(key_chat_outBubbleGradient1, 0x00000000);
+                currentColors.put(key_chat_outBubbleGradient2, 0x00000000);
+                currentColors.put(key_chat_outBubbleGradient3, 0x00000000);
+                currentColors.put(key_chat_outBubbleGradientAnimated, 0x00000000);
+                currentColors.put(key_chat_outBubbleGradientSelectedOverlay, 0x00000000);
+                currentColors.put(key_chat_outBubbleShadow, 0x00000000);
+            }
+
             if (!isDarkTheme) {
                 currentColors.put(key_chat_inTextSelectionHighlight, textSelectionBackground(false, inBubble, accentColor));
                 currentColors.put(key_chat_outTextSelectionHighlight, textSelectionBackground(true, outBubble, accentColor));

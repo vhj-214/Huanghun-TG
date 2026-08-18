@@ -6262,7 +6262,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
             if (sharedMediaLayout != null) {
-                sharedMediaLayout.setBackgroundColor(Color.TRANSPARENT);
+                sharedMediaLayout.setHuanghunProfileVideoGlass(true);
             }
             if (listAdapter != null) {
                 listAdapter.notifyDataSetChanged();
