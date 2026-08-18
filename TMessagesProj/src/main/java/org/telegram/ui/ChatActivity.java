@@ -45602,8 +45602,39 @@ public class ChatActivity extends BaseFragment implements
             }
         }
 
+        /**
+         * 仅黄昏默认主题需要屏蔽聊天局部主题的实体气泡色。消息仍由官方 MessageDrawable
+         * 自适应绘制；这里仅返回与 ThemeColors 一致的颜色，不添加额外绘制层。
+         */
+        private int getHuanghunDefaultBubbleColor(int key) {
+            if (!Theme.isDefaultThemeActive()) {
+                return Integer.MIN_VALUE;
+            }
+            if (key == Theme.key_chat_inBubble || key == Theme.key_chat_outBubble) {
+                return 0x78FFFFFF;
+            }
+            if (key == Theme.key_chat_inBubbleSelected || key == Theme.key_chat_outBubbleSelected) {
+                return 0x8AFFFFFF;
+            }
+            if (key == Theme.key_chat_inBubbleSelectedOverlay
+                    || key == Theme.key_chat_outBubbleSelectedOverlay
+                    || key == Theme.key_chat_inBubbleShadow
+                    || key == Theme.key_chat_outBubbleShadow
+                    || key == Theme.key_chat_outBubbleGradient1
+                    || key == Theme.key_chat_outBubbleGradient2
+                    || key == Theme.key_chat_outBubbleGradient3
+                    || key == Theme.key_chat_outBubbleGradientSelectedOverlay) {
+                return Color.TRANSPARENT;
+            }
+            return Integer.MIN_VALUE;
+        }
+
         @Override
         public int getColor(int key) {
+            int huanghunBubbleColor = getHuanghunDefaultBubbleColor(key);
+            if (huanghunBubbleColor != Integer.MIN_VALUE) {
+                return huanghunBubbleColor;
+            }
             if (animatingColors != null) {
                 int index = animatingColors.indexOfKey(key);
                 if (index >= 0) {
@@ -45634,6 +45665,10 @@ public class ChatActivity extends BaseFragment implements
         }
 
         public int getCurrentColor(int key, boolean ignoreAnimation) {
+            int huanghunBubbleColor = getHuanghunDefaultBubbleColor(key);
+            if (huanghunBubbleColor != Integer.MIN_VALUE) {
+                return huanghunBubbleColor;
+            }
             if (chatTheme == null && backgroundDrawable == null) {
                 return Theme.getColor(key);
             }

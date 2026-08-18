@@ -4672,11 +4672,12 @@ public class Theme {
         SharedPreferences themeConfig = ApplicationLoader.applicationContext.getSharedPreferences("themeconfig", Activity.MODE_PRIVATE);
 
         ThemeInfo themeInfo = new ThemeInfo();
-        themeInfo.name = "Blue";
-        themeInfo.assetName = "bluebubbles.attheme";
-        themeInfo.previewBackgroundColor = 0xff95beec;
-        themeInfo.previewInColor = 0xffffffff;
-        themeInfo.previewOutColor = 0xffd0e6ff;
+        // 黄昏默认主题直接使用 ThemeColors 的液态玻璃色表，不再加载 Blue 的实体主题资源。
+        themeInfo.name = "黄昏 iOS 液态玻璃";
+        themeInfo.assetName = null;
+        themeInfo.previewBackgroundColor = 0xffedf5fb;
+        themeInfo.previewInColor = 0x78ffffff;
+        themeInfo.previewOutColor = 0x78ffffff;
         themeInfo.firstAccentIsDefault = true;
         themeInfo.currentAccentId = DEFALT_THEME_ACCENT_ID;
         themeInfo.sortIndex = 1;
@@ -4695,6 +4696,8 @@ public class Theme {
                 );
         sortAccents(themeInfo);
         themes.add(currentDayTheme = defaultTheme = themeInfo);
+        themesDict.put(themeInfo.name, themeInfo);
+        // 兼容旧版本在偏好设置中保存的 Blue 键，确保升级后仍会落到黄昏默认主题。
         themesDict.put("Blue", themeInfo);
 
         themeInfo = new ThemeInfo();
@@ -4890,6 +4893,11 @@ public class Theme {
                 themeConfig.edit().remove("themes").commit();
             }
         }
+
+        // 早期版本若通过 t.me/addtheme/wechatv8 导入“小而美 8.0”，其外部主题记录会
+        // 随应用数据保留并覆盖新版默认主题。启动时只清理这个已明确指定的主题，并将
+        // 正在使用它的昼夜选择安全回退为内置主题；其他用户导入主题不受影响。
+        removeWechatV8ImportedTheme(themeConfig);
 
         sortThemes();
 
@@ -7039,6 +7047,78 @@ public class Theme {
             }
         }
         theme.prevAccentId = -1;
+    }
+
+    private static boolean isWechatV8ImportedTheme(ThemeInfo themeInfo) {
+        if (themeInfo == null) {
+            return false;
+        }
+        if ("wechatv8".equalsIgnoreCase(themeInfo.slug)
+                || themeInfo.info != null && "wechatv8".equalsIgnoreCase(themeInfo.info.slug)) {
+            return true;
+        }
+        if (TextUtils.isEmpty(themeInfo.name)) {
+            return false;
+        }
+        String name = themeInfo.name.trim();
+        return "wechatv8".equalsIgnoreCase(name)
+                || "wechatv8.attheme".equalsIgnoreCase(name)
+                || "小而美 8.0".equals(name)
+                || "小而美 8.0.attheme".equals(name);
+    }
+
+    /**
+     * 清理历史版本由 Telegram 外部链接导入的“小而美 8.0”（wechatv8）主题。
+     * 该清理只针对明确的 slug 与名称，不删除用户的其他自定义主题、聊天记录或帐号数据。
+     */
+    private static void removeWechatV8ImportedTheme(SharedPreferences themeConfig) {
+        ArrayList<String> removedKeys = new ArrayList<>();
+        for (int i = otherThemes.size() - 1; i >= 0; i--) {
+            ThemeInfo themeInfo = otherThemes.get(i);
+            if (!isWechatV8ImportedTheme(themeInfo)) {
+                continue;
+            }
+            removedKeys.add(themeInfo.getKey());
+            themeInfo.removeObservers();
+            if (themeInfo.overrideWallpaper != null) {
+                themeInfo.overrideWallpaper.delete();
+            }
+            if (!TextUtils.isEmpty(themeInfo.pathToFile)) {
+                new File(themeInfo.pathToFile).delete();
+            }
+            otherThemes.remove(i);
+            themes.remove(themeInfo);
+            themesDict.remove(themeInfo.getKey());
+        }
+        if (removedKeys.isEmpty()) {
+            return;
+        }
+
+        SharedPreferences globalSettings = MessagesController.getGlobalMainSettings();
+        SharedPreferences.Editor globalEditor = globalSettings.edit();
+        String selectedTheme = globalSettings.getString("theme", null);
+        String selectedNightTheme = globalSettings.getString("nighttheme", null);
+        if (removedKeys.contains(selectedTheme)) {
+            globalEditor.putString("theme", defaultTheme.getKey());
+        }
+        if (removedKeys.contains(selectedNightTheme)) {
+            ThemeInfo nightTheme = themesDict.get("Night");
+            globalEditor.putString("nighttheme", nightTheme != null ? nightTheme.getKey() : defaultTheme.getKey());
+        }
+        globalEditor.apply();
+
+        SharedPreferences.Editor configEditor = themeConfig.edit();
+        String lastDayTheme = themeConfig.getString("lastDayTheme", null);
+        String lastDarkTheme = themeConfig.getString("lastDarkTheme", null);
+        if (removedKeys.contains(lastDayTheme)) {
+            configEditor.putString("lastDayTheme", defaultTheme.getKey());
+        }
+        if (removedKeys.contains(lastDarkTheme)) {
+            ThemeInfo nightTheme = themesDict.get("Night");
+            configEditor.putString("lastDarkTheme", nightTheme != null ? nightTheme.getKey() : defaultTheme.getKey());
+        }
+        configEditor.apply();
+        saveOtherThemes(true);
     }
 
     private static void saveOtherThemes(boolean full) {

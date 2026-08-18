@@ -13920,11 +13920,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         public void setBackground(View view, int viewType) {
-            if (view == null || !profileHasDynamicVideoWallpaper || !isDynamicVideoGlassInfoRow(viewType)) {
+            if (view == null || !Theme.isDefaultThemeActive() || !isDynamicVideoGlassInfoRow(viewType)) {
                 return;
             }
-            // 仅在群资料页已有动态视频壁纸时替换遮挡视频的纯白资料面板；
-            // 使用低透明圆角玻璃卡片，官方行内文本、图标、点击和测量逻辑保持不变。
+            // 黄昏默认主题的资料页信息行使用低透明圆角玻璃卡片。动态视频存在时可透出视频；
+            // 官方行内文本、图标、点击和测量逻辑保持不变，其他自选主题不受影响。
             view.setBackground(new InsetDrawable(
                     HuanghunLiquidGlass.createSurface(
                             getThemedColor(Theme.key_windowBackgroundWhite),
