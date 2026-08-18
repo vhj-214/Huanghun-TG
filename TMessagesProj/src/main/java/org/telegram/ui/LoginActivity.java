@@ -229,7 +229,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import kotlin.Unit;
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.NekoXConfig;
 import tw.nekomimi.nekogram.helpers.AppRestartHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
@@ -252,9 +251,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             AUTH_TYPE_FRAGMENT_SMS = 15,
             AUTH_TYPE_WORD = 16,
             AUTH_TYPE_PHRASE = 17;
-
-    // 登录流程独立使用稳定的明亮白色基底，不能让透明层透出旧的深灰窗口背景。
-    private static final int HUANGHUN_LOGIN_BASE_COLOR = 0xFFF9FAFF;
 
     private final static int MODE_LOGIN = 0,
             MODE_CANCEL_ACCOUNT_DELETION = 1,
@@ -562,11 +558,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private View cachedFragmentView;
     @Override
     public View createView(Context context) {
-        applyHuanghunLoginWindowAppearance();
         if (cachedFragmentView != null) {
             fragmentView = cachedFragmentView;
             cachedFragmentView = null;
-            applyHuanghunLoginBackground();
             return fragmentView;
         }
 
@@ -987,8 +981,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     @Override
     public void onResume() {
         super.onResume();
-        applyHuanghunLoginWindowAppearance();
-        applyHuanghunLoginBackground();
         if (newAccount) {
             ConnectionsManager.getInstance(currentAccount).setAppPaused(false, false);
         }
@@ -8909,9 +8901,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 public void onAnimationStart(Animator animation) {
                     floatingButton.setButtonVisible(false, false);
                     keyboardLinearLayout.setAlpha(0);
-                    if (!Theme.isDefaultThemeSelected()) {
-                        fragmentView.setBackgroundColor(Color.TRANSPARENT);
-                    }
+                    fragmentView.setBackgroundColor(Color.TRANSPARENT);
                     startMessagingButton.setVisibility(View.INVISIBLE);
 
                     FrameLayout frameLayout = (FrameLayout) fragmentView;
@@ -8922,7 +8912,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 public void onAnimationEnd(Animator animation) {
                     keyboardLinearLayout.setAlpha(1);
                     startMessagingButton.setVisibility(View.VISIBLE);
-                    applyHuanghunLoginBackground();
+                    fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
                     floatingButton.setButtonVisible(true, false);
 
                     FrameLayout frameLayout = (FrameLayout) fragmentView;
@@ -8942,10 +8932,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             animator.addUpdateListener(animation -> {
                 float val = (float) animation.getAnimatedValue();
                 keyboardLinearLayout.setAlpha(val);
-                // 默认液态玻璃使用固定内容材质；避免动画每帧把根容器改成不同透明度的灰底。
-                if (!Theme.isDefaultThemeSelected()) {
-                    fragmentView.setBackgroundColor(ColorUtils.setAlphaComponent(bgColor, (int) (initialAlpha * val)));
-                }
+                fragmentView.setBackgroundColor(ColorUtils.setAlphaComponent(bgColor, (int) (initialAlpha * val)));
 
                 float inverted = 1f - val;
                 slideViewsContainer.setTranslationY(AndroidUtilities.dp(20) * inverted);
@@ -8978,55 +8965,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         return null;
     }
 
-    private void applyHuanghunLoginWindowAppearance() {
-        if (!Theme.isDefaultThemeSelected()) {
-            return;
-        }
-        Activity activity = getParentActivity();
-        if (activity == null || activity.getWindow() == null) {
-            return;
-        }
-        Window window = activity.getWindow();
-        window.setStatusBarColor(HUANGHUN_LOGIN_BASE_COLOR);
-        window.setNavigationBarColor(HUANGHUN_LOGIN_BASE_COLOR);
-        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        int systemUiVisibility = window.getDecorView().getSystemUiVisibility();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        }
-        window.getDecorView().setSystemUiVisibility(systemUiVisibility);
-    }
-
-    private void applyHuanghunLoginBackground() {
-        if (fragmentView == null) {
-            return;
-        }
-        if (Theme.isDefaultThemeSelected()) {
-            // 页面本身保持透明液态玻璃；白色仅留在系统窗口最底层，绝不形成可见实心页面。
-            fragmentView.setBackground(HuanghunLiquidGlass.createContentSurface(Theme.getColor(Theme.key_windowBackgroundWhite)));
-            if (keyboardLinearLayout != null) {
-                keyboardLinearLayout.setBackgroundColor(Color.TRANSPARENT);
-            }
-            if (slideViewsContainer != null) {
-                slideViewsContainer.setBackgroundColor(Color.TRANSPARENT);
-            }
-        } else {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-            if (keyboardLinearLayout != null) {
-                keyboardLinearLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-            }
-            if (slideViewsContainer != null) {
-                slideViewsContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-            }
-        }
-    }
-
     private void updateColors() {
-        applyHuanghunLoginWindowAppearance();
-        applyHuanghunLoginBackground();
+        fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
         backButtonView.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         backButtonView.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector)));
