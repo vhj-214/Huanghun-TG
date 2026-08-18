@@ -474,6 +474,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
      * 因此在资料页根容器中单独挂载同一会话的视频壁纸，并在销毁时释放。
      */
     private DynamicVideoWallpaperHelper.Player profileDynamicVideoWallpaperPlayer;
+    private boolean profileHasDynamicVideoWallpaper;
     private boolean doNotSetForeground;
     public boolean hasMainTabs;
 
@@ -4159,8 +4160,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
-        // 资料页自身不能再绘制实体底色，否则会完全遮挡后续插入的动态视频层。
-        contentView.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundGray)));
+        // 无视频时使用全局 iOS 冷白玻璃底层；设置视频后会在播放器挂载处切换为透明内容层。
+        contentView.setBackground(HuanghunLiquidGlass.createPageBackdrop(getThemedColor(Theme.key_windowBackgroundGray)));
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -6240,7 +6241,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             profileDynamicVideoWallpaperPlayer.release();
         }
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
-        if (profileDynamicVideoWallpaperPlayer != null) {
+        profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
+        if (profileHasDynamicVideoWallpaper) {
+            // 视频位于根容器最底层；根与列表都必须使用强制透明内容层，
+            // 不能因当前主题判断回退为实体白色并遮住视频。
+            contentView.setBackground(HuanghunLiquidGlass.createVideoContentSurface());
+            listView.setBackground(HuanghunLiquidGlass.createVideoContentSurface());
             profileDynamicVideoWallpaperPlayer.resume();
         }
         return fragmentView;
@@ -15828,7 +15834,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ((UserCell) child).update(0);
                     }
                 }
-                listView.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundGray)));
+                listView.setBackground(profileHasDynamicVideoWallpaper
+                        ? HuanghunLiquidGlass.createVideoContentSurface()
+                        : HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundGray)));
+                if (contentView != null) {
+                    contentView.setBackground(profileHasDynamicVideoWallpaper
+                            ? HuanghunLiquidGlass.createVideoContentSurface()
+                            : HuanghunLiquidGlass.createPageBackdrop(getThemedColor(Theme.key_windowBackgroundGray)));
+                }
             }
             if (!isPulledDown) {
                 if (onlineTextView[1] != null) {

@@ -20,15 +20,15 @@ public class ThemeColors {
      * 仅用于内置默认主题；用户选择其他 Telegram 主题后，由其主题文件的颜色定义接管。
      */
     // 默认主题不保留白色、灰色或绿色实底；所有层都为低不透明度的透明液态玻璃。
-    private static final int LIQUID_GLASS_SURFACE = 0x52F8FAFF;
-    private static final int LIQUID_GLASS_MUTED = 0x42EEF1F8;
-    private static final int LIQUID_GLASS_NAVIGATION = 0x4AEAF0FF;
-    private static final int LIQUID_GLASS_FIELD = 0x60FBFCFF;
+    private static final int LIQUID_GLASS_SURFACE = 0x8AF9FCFF;
+    private static final int LIQUID_GLASS_MUTED = 0x6EE7EEF9;
+    private static final int LIQUID_GLASS_NAVIGATION = 0x92F5F9FF;
+    private static final int LIQUID_GLASS_FIELD = 0xB5FCFDFF;
     // 默认消息气泡直接复用 Telegram 原生自适应轮廓，只保留无色相的低不透明度白色玻璃。
     // 不再向出站消息注入蓝绿底色，避免看起来像额外叠加的一层装饰外壳。
-    private static final int LIQUID_GLASS_CHAT_IN = 0x54FFFFFF;
-    private static final int LIQUID_GLASS_CHAT_OUT = 0x54FFFFFF;
-    private static final int LIQUID_GLASS_DIVIDER = 0x667187A5;
+    private static final int LIQUID_GLASS_CHAT_IN = 0x78FFFFFF;
+    private static final int LIQUID_GLASS_CHAT_OUT = 0x78FFFFFF;
+    private static final int LIQUID_GLASS_DIVIDER = 0x7A90A3BD;
 
     private static SparseArray<String> colorKeysMap;
     private static HashMap<String, Integer> colorKeysStringMap;

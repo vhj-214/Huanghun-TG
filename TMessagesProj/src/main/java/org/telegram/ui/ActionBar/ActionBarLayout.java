@@ -124,6 +124,8 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     private void refreshHuanghunContentSurfaces() {
+        // 透明页面共用导航容器的全局冷白玻璃底层；不触碰各 Fragment 的测量和内容绘制。
+        setBackground(HuanghunLiquidGlass.createPageBackdrop(Theme.getColor(Theme.key_windowBackgroundWhite)));
         for (Iterator<Map.Entry<View, Boolean>> iterator = huanghunContentSurfaces.entrySet().iterator(); iterator.hasNext(); ) {
             View surface = iterator.next().getKey();
             if (surface == null || surface.getParent() == null) {
@@ -725,6 +727,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         super(context);
         parentActivity = (Activity) context;
         this.main = main;
+        setBackground(HuanghunLiquidGlass.createPageBackdrop(Theme.getColor(Theme.key_windowBackgroundWhite)));
 
         if (layerShadowDrawable == null) {
             layerShadowDrawable = getResources().getDrawable(R.drawable.layer_shadow);

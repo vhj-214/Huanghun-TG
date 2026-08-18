@@ -57,6 +57,37 @@ public final class HuanghunLiquidGlass {
         return drawable;
     }
 
+    /**
+     * 页面最底层采用不透明的冷白渐变，而不是透明根视图直接露出系统窗口的纯白底。
+     * 列表、导航、输入框和弹窗继续以低透明度白色材质叠在其上，形成稳定的 iOS 液态玻璃层次，
+     * 同时不改变 RecyclerView 子项的测量、绘制和复用行为。
+     */
+    public static GradientDrawable createPageBackdrop(int fallbackColor) {
+        if (!Theme.isDefaultThemeSelected()) {
+            GradientDrawable drawable = new GradientDrawable();
+            drawable.setColor(fallbackColor);
+            return drawable;
+        }
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
+                0xFFF4F8FF,
+                0xFFE5EFFD,
+                0xFFF8FBFF
+        });
+        drawable.setCornerRadius(0f);
+        return drawable;
+    }
+
+    /**
+     * 动态视频存在时必须使用该透明内容层，不能受主题选择状态影响而退回实体背景。
+     * 具体列表项仍使用 ThemeColors 中的低透明白色材质，保证文字可读。
+     */
+    public static GradientDrawable createVideoContentSurface() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Color.TRANSPARENT);
+        drawable.setCornerRadius(0f);
+        return drawable;
+    }
+
     /** 全宽导航和工具栏使用的液态玻璃：保留透光与高光，避免把系统顶部栏错误做成圆角卡片。 */
     public static GradientDrawable createNavigationSurface(int backdropColor) {
         if (!Theme.isDefaultThemeSelected()) {
