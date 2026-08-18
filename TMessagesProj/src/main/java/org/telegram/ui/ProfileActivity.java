@@ -3403,9 +3403,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (iBlur3SourceGlass != null && !iBlur3SourceGlass.inRecording()) {
                         //if (iBlur3SourceGlass.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
                         final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
-                        c.drawColor(getThemedColor(Theme.key_windowBackgroundGray));
-                        if (SharedConfig.chatBlurEnabled()) {
-                            scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
+                        if (profileHasDynamicVideoWallpaper) {
+                            // 动态视频资料页不能把灰白默认底层写进玻璃模糊源，否则成员区会
+                            // 再次显示为实体白板。保持空白源即可让底层视频参与真实透光效果。
+                            c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                        } else {
+                            c.drawColor(getThemedColor(Theme.key_windowBackgroundGray));
+                            if (SharedConfig.chatBlurEnabled()) {
+                                scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
+                            }
                         }
                         iBlur3SourceGlass.endRecording();
                         //}

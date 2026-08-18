@@ -18,8 +18,15 @@ public final class HuanghunLiquidGlass {
     private HuanghunLiquidGlass() {
     }
 
+    private static boolean isHuanghunGlassThemeActive() {
+        Theme.ThemeInfo activeTheme = Theme.getActiveTheme();
+        return Theme.isDefaultThemeActive()
+                || Theme.isDefaultThemeSelected()
+                || activeTheme != null && "bluebubbles.attheme".equals(activeTheme.assetName);
+    }
+
     public static GradientDrawable createSurface(int backdropColor, int tintColor, float radiusPx) {
-        if (!Theme.isDefaultThemeSelected()) {
+        if (!isHuanghunGlassThemeActive()) {
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(backdropColor);
             drawable.setCornerRadius(Math.max(1f, radiusPx));
@@ -48,7 +55,7 @@ public final class HuanghunLiquidGlass {
      */
     public static GradientDrawable createContentSurface(int backdropColor) {
         GradientDrawable drawable = new GradientDrawable();
-        if (!Theme.isDefaultThemeSelected()) {
+        if (!isHuanghunGlassThemeActive()) {
             drawable.setColor(backdropColor);
         } else {
             drawable.setColor(Color.TRANSPARENT);
@@ -63,7 +70,7 @@ public final class HuanghunLiquidGlass {
      * 同时不改变 RecyclerView 子项的测量、绘制和复用行为。
      */
     public static GradientDrawable createPageBackdrop(int fallbackColor) {
-        if (!Theme.isDefaultThemeSelected()) {
+        if (!isHuanghunGlassThemeActive()) {
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(fallbackColor);
             return drawable;
@@ -90,7 +97,7 @@ public final class HuanghunLiquidGlass {
 
     /** 全宽导航和工具栏使用的液态玻璃：保留透光与高光，避免把系统顶部栏错误做成圆角卡片。 */
     public static GradientDrawable createNavigationSurface(int backdropColor) {
-        if (!Theme.isDefaultThemeSelected()) {
+        if (!isHuanghunGlassThemeActive()) {
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(backdropColor);
             return drawable;
