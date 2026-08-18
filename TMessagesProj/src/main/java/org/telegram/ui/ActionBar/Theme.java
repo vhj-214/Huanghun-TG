@@ -4672,8 +4672,10 @@ public class Theme {
         SharedPreferences themeConfig = ApplicationLoader.applicationContext.getSharedPreferences("themeconfig", Activity.MODE_PRIVATE);
 
         ThemeInfo themeInfo = new ThemeInfo();
-        themeInfo.name = "Blue";
-        themeInfo.assetName = "bluebubbles.attheme";
+        themeInfo.name = "黄昏 iOS 液态玻璃";
+        // 黄昏默认主题不再加载内置 Blue 主题文件，避免该文件将聊天/资料页颜色
+        // 回写为实体白色或绿色。默认主题色完全由 ThemeColors 的液态玻璃色表提供。
+        themeInfo.assetName = null;
         themeInfo.previewBackgroundColor = 0xff95beec;
         themeInfo.previewInColor = 0xffffffff;
         themeInfo.previewOutColor = 0xffd0e6ff;
@@ -4695,6 +4697,8 @@ public class Theme {
                 );
         sortAccents(themeInfo);
         themes.add(currentDayTheme = defaultTheme = themeInfo);
+        themesDict.put(themeInfo.name, themeInfo);
+        // 兼容旧版本已保存的 lastDayTheme=Blue；用户界面只展示新的黄昏主题名称。
         themesDict.put("Blue", themeInfo);
 
         themeInfo = new ThemeInfo();
