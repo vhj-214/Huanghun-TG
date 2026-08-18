@@ -390,7 +390,6 @@ import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
 import tw.nekomimi.nekogram.filters.RegexFilterEditActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
-import com.Huanghun.outfit.HuanghunOutfitRuntime;
 
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
@@ -31369,9 +31368,6 @@ public class ChatActivity extends BaseFragment implements
         } else {
             refreshDynamicVideoWallpaper();
         }
-        if (currentChat != null) {
-            HuanghunOutfitRuntime.playJoinEffect(contentView, currentAccount, dialog_id);
-        }
         checkChecksHint();
 
         Bulletin.addDelegate(this, bulletinDelegate = new Bulletin.Delegate() {
@@ -45561,9 +45557,6 @@ public class ChatActivity extends BaseFragment implements
     public class ThemeDelegate implements Theme.ResourcesProvider, ChatActionCell.ThemeDelegate, MessagePreviewView.ResourcesDelegate {
 
         private final HashMap<String, Drawable> currentDrawables = new HashMap<>();
-        // ChatMessageCell 会在最终绘制前按 key_drawable_msg* 向本委托索取气泡 Drawable。
-        // 该专用缓存与聊天主题资源分离，确保任何官方/外部/专属聊天主题都不能换回实体气泡。
-        private final HashMap<String, Drawable> huanghunGlassBubbleDrawables = new HashMap<>();
         private final HashMap<String, Paint> currentPaints = new HashMap<>();
         private final Matrix actionMatrix = new Matrix();
 
@@ -45605,39 +45598,8 @@ public class ChatActivity extends BaseFragment implements
             }
         }
 
-        /**
-         * 仅黄昏默认主题需要屏蔽聊天局部主题的实体气泡色。消息仍由官方 MessageDrawable
-         * 自适应绘制；这里仅返回与 ThemeColors 一致的颜色，不添加额外绘制层。
-         */
-        private int getHuanghunDefaultBubbleColor(int key) {
-            // 所有聊天类型都强制使用同一套官方 MessageDrawable 的液态玻璃取色，
-            // 不再保留主题、聊天专属主题或导入主题的实体消息颜色。
-            if (key == Theme.key_chat_inBubble || key == Theme.key_chat_outBubble) {
-                return 0x78FFFFFF;
-            }
-            if (key == Theme.key_chat_inBubbleSelected || key == Theme.key_chat_outBubbleSelected) {
-                return 0x8AFFFFFF;
-            }
-            if (key == Theme.key_chat_inBubbleSelectedOverlay
-                    || key == Theme.key_chat_outBubbleSelectedOverlay
-                    || key == Theme.key_chat_inBubbleShadow
-                    || key == Theme.key_chat_outBubbleShadow
-                    || key == Theme.key_chat_outBubbleGradient1
-                    || key == Theme.key_chat_outBubbleGradient2
-                    || key == Theme.key_chat_outBubbleGradient3
-                    || key == Theme.key_chat_outBubbleGradientSelectedOverlay
-                    || key == Theme.key_chat_outBubbleGradientAnimated) {
-                return Color.TRANSPARENT;
-            }
-            return Integer.MIN_VALUE;
-        }
-
         @Override
         public int getColor(int key) {
-            int huanghunBubbleColor = getHuanghunDefaultBubbleColor(key);
-            if (huanghunBubbleColor != Integer.MIN_VALUE) {
-                return huanghunBubbleColor;
-            }
             if (animatingColors != null) {
                 int index = animatingColors.indexOfKey(key);
                 if (index >= 0) {
@@ -45668,10 +45630,6 @@ public class ChatActivity extends BaseFragment implements
         }
 
         public int getCurrentColor(int key, boolean ignoreAnimation) {
-            int huanghunBubbleColor = getHuanghunDefaultBubbleColor(key);
-            if (huanghunBubbleColor != Integer.MIN_VALUE) {
-                return huanghunBubbleColor;
-            }
             if (chatTheme == null && backgroundDrawable == null) {
                 return Theme.getColor(key);
             }
@@ -45726,70 +45684,8 @@ public class ChatActivity extends BaseFragment implements
             return backgroundDrawable != null ? serviceShader != null : Theme.hasGradientService();
         }
 
-        private Drawable getHuanghunGlassBubbleDrawable(String drawableKey) {
-            final boolean out;
-            final boolean selected;
-            final int type;
-            switch (drawableKey) {
-                case Theme.key_drawable_msgOut:
-                    out = true;
-                    selected = false;
-                    type = Theme.MessageDrawable.TYPE_TEXT;
-                    break;
-                case Theme.key_drawable_msgOutSelected:
-                    out = true;
-                    selected = true;
-                    type = Theme.MessageDrawable.TYPE_TEXT;
-                    break;
-                case Theme.key_drawable_msgOutMedia:
-                    out = true;
-                    selected = false;
-                    type = Theme.MessageDrawable.TYPE_MEDIA;
-                    break;
-                case Theme.key_drawable_msgOutMediaSelected:
-                    out = true;
-                    selected = true;
-                    type = Theme.MessageDrawable.TYPE_MEDIA;
-                    break;
-                case Theme.key_drawable_msgIn:
-                    out = false;
-                    selected = false;
-                    type = Theme.MessageDrawable.TYPE_TEXT;
-                    break;
-                case Theme.key_drawable_msgInSelected:
-                    out = false;
-                    selected = true;
-                    type = Theme.MessageDrawable.TYPE_TEXT;
-                    break;
-                case Theme.key_drawable_msgInMedia:
-                    out = false;
-                    selected = false;
-                    type = Theme.MessageDrawable.TYPE_MEDIA;
-                    break;
-                case Theme.key_drawable_msgInMediaSelected:
-                    out = false;
-                    selected = true;
-                    type = Theme.MessageDrawable.TYPE_MEDIA;
-                    break;
-                default:
-                    return null;
-            }
-            Drawable drawable = huanghunGlassBubbleDrawables.get(drawableKey);
-            if (drawable == null) {
-                drawable = new Theme.MessageDrawable(type, out, selected, this);
-                huanghunGlassBubbleDrawables.put(drawableKey, drawable);
-            }
-            return drawable;
-        }
-
         @Override
         public Drawable getDrawable(String drawableKey) {
-            // 这是 ChatMessageCell 的最终气泡 Drawable 获取点。优先返回由本 ThemeDelegate
-            // 驱动的官方 MessageDrawable，彻底阻断全局和聊天专属主题的绿色/实体色资源。
-            Drawable glassBubble = getHuanghunGlassBubbleDrawable(drawableKey);
-            if (glassBubble != null) {
-                return glassBubble;
-            }
             return !currentDrawables.isEmpty() ? currentDrawables.get(drawableKey) : null;
         }
 

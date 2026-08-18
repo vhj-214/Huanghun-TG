@@ -151,9 +151,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
-import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
-import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -1695,30 +1693,6 @@ public class Theme {
                 int inOverlay = bubbleSelectedOverlay(inBubble, accentColor);
                 currentColors.put(key_chat_inBubbleSelectedOverlay, inOverlay);
                 currentColors.put(key_chat_inBubbleSelected, Theme.blendOver(inBubble, inOverlay));
-            }
-
-            // 默认黄昏主题直接复用 Telegram 官方 MessageDrawable 的绘制、圆角和自适应测量；
-            // 在主题真正加载完成的最后一步覆盖可能由 .attheme、壁纸或动态配色写回的实体气泡色。
-            // 这不是叠加气泡视图，文字、媒体和文件仍由原生气泡自身绘制，只让背景视频透过低透明白色材质。
-            // 用户当前使用的是明亮聊天主题时，直接保留透明白色官方气泡；不依赖主题文件
-            // 加载时尚未同步的 ThemeInfo 状态，确保动态壁纸场景的真实运行时颜色必然生效。
-            final boolean huanghunLiquidGlassBubblesEnabled = !isCurrentThemeDark();
-            if (huanghunLiquidGlassBubblesEnabled) {
-                final int liquidGlassBubble = 0x66FFFFFF;
-                final int liquidGlassBubbleSelected = 0x7AFFFFFF;
-                currentColors.put(key_chat_inBubble, liquidGlassBubble);
-                currentColors.put(key_chat_inBubbleSelected, liquidGlassBubbleSelected);
-                currentColors.put(key_chat_inBubbleSelectedOverlay, 0x00000000);
-                currentColors.put(key_chat_inBubbleShadow, 0x00000000);
-                currentColors.put(key_chat_outBubble, liquidGlassBubble);
-                currentColors.put(key_chat_outBubbleSelected, liquidGlassBubbleSelected);
-                currentColors.put(key_chat_outBubbleSelectedOverlay, 0x00000000);
-                currentColors.put(key_chat_outBubbleGradient1, 0x00000000);
-                currentColors.put(key_chat_outBubbleGradient2, 0x00000000);
-                currentColors.put(key_chat_outBubbleGradient3, 0x00000000);
-                currentColors.put(key_chat_outBubbleGradientAnimated, 0x00000000);
-                currentColors.put(key_chat_outBubbleGradientSelectedOverlay, 0x00000000);
-                currentColors.put(key_chat_outBubbleShadow, 0x00000000);
             }
 
             if (!isDarkTheme) {
@@ -4672,12 +4646,11 @@ public class Theme {
         SharedPreferences themeConfig = ApplicationLoader.applicationContext.getSharedPreferences("themeconfig", Activity.MODE_PRIVATE);
 
         ThemeInfo themeInfo = new ThemeInfo();
-        // 黄昏默认主题直接使用 ThemeColors 的液态玻璃色表，不再加载 Blue 的实体主题资源。
-        themeInfo.name = "黄昏 iOS 液态玻璃";
-        themeInfo.assetName = null;
-        themeInfo.previewBackgroundColor = 0xffedf5fb;
-        themeInfo.previewInColor = 0x78ffffff;
-        themeInfo.previewOutColor = 0x78ffffff;
+        themeInfo.name = "Blue";
+        themeInfo.assetName = "bluebubbles.attheme";
+        themeInfo.previewBackgroundColor = 0xff95beec;
+        themeInfo.previewInColor = 0xffffffff;
+        themeInfo.previewOutColor = 0xffd0e6ff;
         themeInfo.firstAccentIsDefault = true;
         themeInfo.currentAccentId = DEFALT_THEME_ACCENT_ID;
         themeInfo.sortIndex = 1;
@@ -4696,8 +4669,6 @@ public class Theme {
                 );
         sortAccents(themeInfo);
         themes.add(currentDayTheme = defaultTheme = themeInfo);
-        themesDict.put(themeInfo.name, themeInfo);
-        // 兼容旧版本在偏好设置中保存的 Blue 键，确保升级后仍会落到黄昏默认主题。
         themesDict.put("Blue", themeInfo);
 
         themeInfo = new ThemeInfo();
@@ -4893,11 +4864,6 @@ public class Theme {
                 themeConfig.edit().remove("themes").commit();
             }
         }
-
-        // 早期版本若通过 t.me/addtheme/wechatv8 导入“小而美 8.0”，其外部主题记录会
-        // 随应用数据保留并覆盖新版默认主题。启动时只清理这个已明确指定的主题，并将
-        // 正在使用它的昼夜选择安全回退为内置主题；其他用户导入主题不受影响。
-        removeWechatV8ImportedTheme(themeConfig);
 
         sortThemes();
 
@@ -5136,12 +5102,6 @@ public class Theme {
             applyingTheme = defaultTheme;
         } else {
             currentDayTheme = applyingTheme;
-        }
-        // 黄昏默认主题固定为明亮液态玻璃。不能让系统自动夜间策略把 currentTheme
-        // 临时切到 Night，否则聊天局部主题、顶部栏和输入栏都会错误回退到实体色分支。
-        if (currentDayTheme == defaultTheme) {
-            selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
-            applyingTheme = defaultTheme;
         }
 
         if (preferences.contains("overrideThemeWallpaper") || preferences.contains("selectedBackground2")) {
@@ -6598,12 +6558,7 @@ public class Theme {
             }
             if (!nightTheme && previousTheme == null) {
                 currentDayTheme = themeInfo;
-                if (themeInfo == defaultTheme) {
-                    // 用户切回黄昏默认主题时立即退出自动夜间切换，保证整页始终保持明亮
-                    // 透光玻璃状态；选择其他主题时仍保留其原有的自动昼夜逻辑。
-                    selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
-                    cancelAutoNightThemeCallbacks();
-                } else if (isCurrentThemeNight()) {
+                if (isCurrentThemeNight()) {
                     switchNightThemeDelay = 2000;
                     lastDelayUpdateTime = SystemClock.elapsedRealtime();
                     AndroidUtilities.runOnUIThread(Theme::checkAutoNightThemeConditions, 2100);
@@ -6715,10 +6670,7 @@ public class Theme {
                         }
                         if (!nightTheme && previousTheme == null) {
                             currentDayTheme = themeInfo;
-                            if (themeInfo == defaultTheme) {
-                                selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
-                                cancelAutoNightThemeCallbacks();
-                            } else if (isCurrentThemeNight()) {
+                            if (isCurrentThemeNight()) {
                                 switchNightThemeDelay = 2000;
                                 lastDelayUpdateTime = SystemClock.elapsedRealtime();
                                 AndroidUtilities.runOnUIThread(Theme::checkAutoNightThemeConditions, 2100);
@@ -6763,10 +6715,7 @@ public class Theme {
             }
             if (!nightTheme && previousTheme == null) {
                 currentDayTheme = themeInfo;
-                if (themeInfo == defaultTheme) {
-                    selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
-                    cancelAutoNightThemeCallbacks();
-                } else if (isCurrentThemeNight()) {
+                if (isCurrentThemeNight()) {
                     switchNightThemeDelay = 2000;
                     lastDelayUpdateTime = SystemClock.elapsedRealtime();
                     AndroidUtilities.runOnUIThread(Theme::checkAutoNightThemeConditions, 2100);
@@ -7066,78 +7015,6 @@ public class Theme {
         theme.prevAccentId = -1;
     }
 
-    private static boolean isWechatV8ImportedTheme(ThemeInfo themeInfo) {
-        if (themeInfo == null) {
-            return false;
-        }
-        if ("wechatv8".equalsIgnoreCase(themeInfo.slug)
-                || themeInfo.info != null && "wechatv8".equalsIgnoreCase(themeInfo.info.slug)) {
-            return true;
-        }
-        if (TextUtils.isEmpty(themeInfo.name)) {
-            return false;
-        }
-        String name = themeInfo.name.trim();
-        return "wechatv8".equalsIgnoreCase(name)
-                || "wechatv8.attheme".equalsIgnoreCase(name)
-                || "小而美 8.0".equals(name)
-                || "小而美 8.0.attheme".equals(name);
-    }
-
-    /**
-     * 清理历史版本由 Telegram 外部链接导入的“小而美 8.0”（wechatv8）主题。
-     * 该清理只针对明确的 slug 与名称，不删除用户的其他自定义主题、聊天记录或帐号数据。
-     */
-    private static void removeWechatV8ImportedTheme(SharedPreferences themeConfig) {
-        ArrayList<String> removedKeys = new ArrayList<>();
-        for (int i = otherThemes.size() - 1; i >= 0; i--) {
-            ThemeInfo themeInfo = otherThemes.get(i);
-            if (!isWechatV8ImportedTheme(themeInfo)) {
-                continue;
-            }
-            removedKeys.add(themeInfo.getKey());
-            themeInfo.removeObservers();
-            if (themeInfo.overrideWallpaper != null) {
-                themeInfo.overrideWallpaper.delete();
-            }
-            if (!TextUtils.isEmpty(themeInfo.pathToFile)) {
-                new File(themeInfo.pathToFile).delete();
-            }
-            otherThemes.remove(i);
-            themes.remove(themeInfo);
-            themesDict.remove(themeInfo.getKey());
-        }
-        if (removedKeys.isEmpty()) {
-            return;
-        }
-
-        SharedPreferences globalSettings = MessagesController.getGlobalMainSettings();
-        SharedPreferences.Editor globalEditor = globalSettings.edit();
-        String selectedTheme = globalSettings.getString("theme", null);
-        String selectedNightTheme = globalSettings.getString("nighttheme", null);
-        if (removedKeys.contains(selectedTheme)) {
-            globalEditor.putString("theme", defaultTheme.getKey());
-        }
-        if (removedKeys.contains(selectedNightTheme)) {
-            ThemeInfo nightTheme = themesDict.get("Night");
-            globalEditor.putString("nighttheme", nightTheme != null ? nightTheme.getKey() : defaultTheme.getKey());
-        }
-        globalEditor.apply();
-
-        SharedPreferences.Editor configEditor = themeConfig.edit();
-        String lastDayTheme = themeConfig.getString("lastDayTheme", null);
-        String lastDarkTheme = themeConfig.getString("lastDarkTheme", null);
-        if (removedKeys.contains(lastDayTheme)) {
-            configEditor.putString("lastDayTheme", defaultTheme.getKey());
-        }
-        if (removedKeys.contains(lastDarkTheme)) {
-            ThemeInfo nightTheme = themesDict.get("Night");
-            configEditor.putString("lastDarkTheme", nightTheme != null ? nightTheme.getKey() : defaultTheme.getKey());
-        }
-        configEditor.apply();
-        saveOtherThemes(true);
-    }
-
     private static void saveOtherThemes(boolean full) {
         saveOtherThemes(full, false);
     }
@@ -7224,9 +7101,27 @@ public class Theme {
         return currentDayTheme != null ? currentDayTheme : defaultTheme;
     }
 
-    /** 黄昏定制版内置的明亮 iOS 液态玻璃默认主题。 */
+    /** 返回官方初始化的昼间默认主题，供主题管理页的恢复操作使用。 */
     public static ThemeInfo getDefaultTheme() {
         return defaultTheme;
+    }
+
+    /**
+     * 清理用户创建或导入的主题文件；内置官方主题及其资源不会被删除。
+     * 返回实际清理的主题数量，调用方可在下次启动时重新加载默认主题。
+     */
+    public static int deleteAllCustomThemesForRestart() {
+        if (otherThemes == null || otherThemes.isEmpty()) {
+            return 0;
+        }
+        ArrayList<ThemeInfo> removable = new ArrayList<>(otherThemes);
+        int deleted = 0;
+        for (ThemeInfo info : removable) {
+            if (info != null && info.pathToFile != null && deleteTheme(info)) {
+                deleted++;
+            }
+        }
+        return deleted;
     }
 
     public static ThemeInfo getCurrentNightTheme() {
@@ -7243,22 +7138,6 @@ public class Theme {
 
     public static ThemeInfo getActiveTheme() {
         return currentTheme;
-    }
-
-    /**
-     * 黄昏定制默认采用液态玻璃；一旦用户在主题设置中选择其他主题，
-     * 相关界面应恢复使用该主题自己的实色、壁纸和材质定义。
-     */
-    public static boolean isDefaultThemeActive() {
-        return currentTheme != null && currentTheme == defaultTheme;
-    }
-
-    /**
-     * 默认主题被用户选中时，即使自动夜间策略临时激活了夜间配色，首次欢迎和登录流程
-     * 仍应维持黄昏定制版的稳定明亮外观，不能在白色与深灰之间切换。
-     */
-    public static boolean isDefaultThemeSelected() {
-        return currentTheme == defaultTheme || currentDayTheme == defaultTheme;
     }
 
     private static long getAutoNightSwitchThemeDelay() {
@@ -7512,46 +7391,6 @@ public class Theme {
         file.delete();
         saveOtherThemes(true);
         return currentThemeDeleted;
-    }
-
-    /**
-     * 删除所有用户创建、导入或下载到本机的主题文件，并把下次启动的昼夜主题都恢复为内置默认主题。
-     * 不会删除任何内置主题、聊天记录或用户帐号数据。
-     */
-    public static int deleteAllCustomThemesForRestart() {
-        ArrayList<ThemeInfo> removableThemes = new ArrayList<>();
-        for (int i = 0; i < themes.size(); i++) {
-            ThemeInfo themeInfo = themes.get(i);
-            if (themeInfo != null && themeInfo != defaultTheme && themeInfo.pathToFile != null) {
-                removableThemes.add(themeInfo);
-            }
-        }
-        for (int i = 0; i < removableThemes.size(); i++) {
-            ThemeInfo themeInfo = removableThemes.get(i);
-            // 此处不调用 deleteTheme()，因为它会在当前界面立即热应用默认主题；
-            // 文件删除与主题切换分离，交由用户确认后的重启完成，避免资源正在使用时闪退。
-            themeInfo.removeObservers();
-            otherThemes.remove(themeInfo);
-            themesDict.remove(themeInfo.name);
-            if (themeInfo.overrideWallpaper != null) {
-                themeInfo.overrideWallpaper.delete();
-            }
-            themes.remove(themeInfo);
-            new File(themeInfo.pathToFile).delete();
-        }
-        currentDayTheme = defaultTheme;
-        currentTheme = defaultTheme;
-        currentNightTheme = themesDict.get("Night");
-        selectedAutoNightType = AUTO_NIGHT_TYPE_NONE;
-        SharedPreferences.Editor editor = ApplicationLoader.applicationContext
-                .getSharedPreferences("themeconfig", Activity.MODE_PRIVATE).edit();
-        editor.putString("lastDayTheme", defaultTheme.getKey());
-        if (currentNightTheme != null) {
-            editor.putString("lastDarkTheme", currentNightTheme.getKey());
-        }
-        editor.apply();
-        saveOtherThemes(true);
-        return removableThemes.size();
     }
 
     public static ThemeInfo createNewTheme(String name) {
@@ -8772,49 +8611,6 @@ public class Theme {
         dialogs_tagTextPaint.setTextSize(dp(10));
         dialogs_searchNamePaint.setTextSize(dp(16));
         dialogs_searchNameEncryptedPaint.setTextSize(dp(16));
-        applyHuanghunDialogsTypeface();
-    }
-
-    /** Avoids expensive layout invalidation when a paint already uses the selected font. */
-    private static void applyHuanghunTypefaceIfNeeded(TextPaint paint, Typeface typeface) {
-        if (paint != null && paint.getTypeface() != typeface) {
-            paint.setTypeface(typeface);
-        }
-    }
-
-    /** Applies the selected Huanghun family to all list and search text paints. */
-    private static void applyHuanghunDialogsTypeface() {
-        if (NekoConfig.huanghunCustomTypeface.Int() == 0) {
-            return;
-        }
-        Typeface normal = TypefaceHelper.getHuanghunTypeface(false);
-        Typeface bold = TypefaceHelper.getHuanghunTypeface(true);
-        if (normal == null || bold == null) {
-            return;
-        }
-        TextPaint[] normalPaints = new TextPaint[] {
-                dialogs_messagePaint != null ? dialogs_messagePaint[0] : null,
-                dialogs_messagePaint != null ? dialogs_messagePaint[1] : null,
-                dialogs_messagePrintingPaint != null ? dialogs_messagePrintingPaint[0] : null,
-                dialogs_messagePrintingPaint != null ? dialogs_messagePrintingPaint[1] : null,
-                dialogs_timePaint, dialogs_onlinePaint, dialogs_offlinePaint
-        };
-        for (TextPaint paint : normalPaints) {
-            applyHuanghunTypefaceIfNeeded(paint, normal);
-        }
-        TextPaint[] boldPaints = new TextPaint[] {
-                dialogs_namePaint != null ? dialogs_namePaint[0] : null,
-                dialogs_namePaint != null ? dialogs_namePaint[1] : null,
-                dialogs_nameEncryptedPaint != null ? dialogs_nameEncryptedPaint[0] : null,
-                dialogs_nameEncryptedPaint != null ? dialogs_nameEncryptedPaint[1] : null,
-                dialogs_countTextPaint, dialogs_countTextPaint2, dialogs_searchNamePaint,
-                dialogs_searchNameEncryptedPaint, dialogs_messageNamePaint, dialogs_timePaintBold,
-                dialogs_timePaintBoldAccent, dialogs_archiveTextPaint, dialogs_archiveTextPaintSmall,
-                dialogs_tagTextPaint
-        };
-        for (TextPaint paint : boldPaints) {
-            applyHuanghunTypefaceIfNeeded(paint, bold);
-        }
     }
 
     public static void applyDialogsTheme() {
@@ -8958,38 +8754,6 @@ public class Theme {
             chat_msgTextCodePaint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 1), SharedConfig.fontSize - 2)));
             chat_msgTextCode2Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 3)));
             chat_msgTextCode3Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 5)));
-            applyHuanghunMessageTypeface();
-        }
-    }
-
-    private static void applyHuanghunMessageTypeface() {
-        if (NekoConfig.huanghunCustomTypeface.Int() == 0) {
-            return;
-        }
-        Typeface normal = TypefaceHelper.getHuanghunTypeface(false);
-        Typeface bold = TypefaceHelper.getHuanghunTypeface(true);
-        if (normal == null || bold == null) {
-            return;
-        }
-        TextPaint[] normalPaints = new TextPaint[] {
-                chat_msgTextPaint, chat_msgGameTextPaint, chat_replyTextPaint, chat_quoteTextPaint,
-                chat_explanationTextPaint, chat_titleLabelTextPaint, chat_forwardNamePaint,
-                chat_adminPaint, chat_timePaint, chat_ephemeralPaint, chat_infoPaint,
-                chat_locationAddressPaint, chat_audioPerformerPaint, chat_contactPhonePaint,
-                chat_durationPaint, chat_shipmentPaint, chat_contextResult_descriptionTextPaint
-        };
-        for (TextPaint paint : normalPaints) {
-            applyHuanghunTypefaceIfNeeded(paint, normal);
-        }
-        TextPaint[] boldPaints = new TextPaint[] {
-                chat_msgBotButtonPaint, chat_namePaint, chat_replyNamePaint, chat_topicTextPaint,
-                chat_infoBoldPaint, chat_stickerCommentCountPaint, chat_docNamePaint,
-                chat_locationTitlePaint, chat_audioTitlePaint, chat_botButtonPaint,
-                chat_contactNamePaint, chat_gamePaint, chat_actionTextPaint,
-                chat_actionTextPaint2, chat_actionTextPaint3, chat_contextResult_titleTextPaint
-        };
-        for (TextPaint paint : boldPaints) {
-            applyHuanghunTypefaceIfNeeded(paint, bold);
         }
     }
 
@@ -9099,7 +8863,6 @@ public class Theme {
             addChatPaint(key_paint_chatComposeBackground, chat_composeBackgroundPaint, key_chat_messagePanelBackground);
             addChatPaint(key_paint_chatTimeBackground, chat_timeBackgroundPaint, key_chat_mediaTimeBackground);
         }
-        applyHuanghunMessageTypeface();
     }
 
     public static void createChatResources(Context context, boolean fontsOnly) {

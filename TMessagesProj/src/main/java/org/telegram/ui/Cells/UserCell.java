@@ -63,7 +63,6 @@ import org.telegram.ui.Stories.StoriesListPlaceProvider;
 import org.telegram.ui.Stories.StoriesUtilities;
 
 import tw.nekomimi.nekogram.NekoConfig;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 public class UserCell extends FrameLayout implements NotificationCenter.NotificationCenterDelegate, Theme.Colorable {
 
@@ -106,9 +105,6 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     private int statusOnlineColor;
 
     public boolean needDivider;
-    private Drawable huanghunGlassCard;
-    private int huanghunGlassBackdropColor = Integer.MIN_VALUE;
-    private int huanghunGlassTintColor = Integer.MIN_VALUE;
     public StoriesUtilities.AvatarStoryParams storyParams = new StoriesUtilities.AvatarStoryParams(false) {
         @Override
         public void openStory(long dialogId, Runnable onDone) {
@@ -797,25 +793,10 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         return false;
     }
 
-    private void drawHuanghunGlassCard(Canvas canvas) {
-        final int backdropColor = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
-        final int tintColor = Theme.getColor(Theme.key_actionBarDefault, resourcesProvider);
-        if (huanghunGlassCard == null || huanghunGlassBackdropColor != backdropColor || huanghunGlassTintColor != tintColor) {
-            huanghunGlassBackdropColor = backdropColor;
-            huanghunGlassTintColor = tintColor;
-            huanghunGlassCard = HuanghunLiquidGlass.createSurface(backdropColor, tintColor, dp(18));
-        }
-        // 保留左右和上下空隙，让 RecyclerView 的每一个成员/联系人行成为独立玻璃卡片。
-        huanghunGlassCard.setBounds(dp(8), dp(3), getWidth() - dp(8), getHeight() - dp(3));
-        huanghunGlassCard.draw(canvas);
-    }
-
     @Override
     protected void onDraw(Canvas canvas) {
-        drawHuanghunGlassCard(canvas);
         if (needDivider) {
-            // 卡片之间已有透明留白，内部不再绘制贯穿整行的实体分隔线。
-            canvas.drawLine(LocaleController.isRTL ? dp(16) : dp(76), getMeasuredHeight() - dp(4), getMeasuredWidth() - (LocaleController.isRTL ? dp(76) : dp(16)), getMeasuredHeight() - dp(4), Theme.dividerPaint);
+            canvas.drawLine(LocaleController.isRTL ? 0 : dp(68), getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? dp(68) : 0), getMeasuredHeight() - 1, Theme.dividerPaint);
         }
     }
 

@@ -1263,7 +1263,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             .create();
         protocolDialog.setOnShowListener(ignored -> {
             // 提示卡自身的黄色和红字保持不变；只将外围调光降至极浅，避免整页变黑。
-            if (Theme.isDefaultThemeSelected() && protocolDialog.getWindow() != null) {
+            if (protocolDialog.getWindow() != null) {
                 WindowManager.LayoutParams params = protocolDialog.getWindow().getAttributes();
                 params.flags |= WindowManager.LayoutParams.FLAG_DIM_BEHIND;
                 params.dimAmount = 0.08f;

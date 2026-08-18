@@ -19,8 +19,6 @@ import static org.telegram.messenger.LocaleController.getString;
 import static org.telegram.messenger.MessageObject.getMedia;
 import static org.telegram.messenger.MessageObject.replaceWithLink;
 
-import com.Huanghun.outfit.HuanghunOutfitRuntime;
-
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
@@ -20347,16 +20345,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
 
         drawBackgroundInternal(canvas, false);
-        // 非默认本地气泡仅作为背景层：必须位于正文、图片、语音控件、时间和状态图标之前。
-        // 默认透明款直接沿用 Telegram 官方气泡边界，因此聊天字体大小和消息类型会自然自适应。
-        if (currentBackgroundDrawable != null && currentMessageObject != null && drawBackground && !mediaBackground
-                && !currentMessageObject.shouldDrawWithoutBackground()
-                && HuanghunOutfitRuntime.shouldReplaceMessageBubble(currentMessageObject.isOutOwner())) {
-            HuanghunOutfitRuntime.drawMessageBubbleOverlay(canvas, currentBackgroundDrawable.getBounds(), currentMessageObject.isOutOwner());
-            if (HuanghunOutfitRuntime.shouldAnimateSelectedBubble()) {
-                postInvalidateDelayed(48L);
-            }
-        }
         if (isHighlightedAnimated) {
             long newTime = System.currentTimeMillis();
             long dt = Math.abs(newTime - lastHighlightProgressTime);
@@ -20811,11 +20799,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             roundVideoPlayPipFloat.set(0, true);
         }
 
-        // 只有非默认本地装扮跳过 Telegram 官方底板；默认透明款保留官方自适应形状，
-        // 并使用默认主题的低透明度白色气泡色阶提供玻璃材质。
-        final boolean replaceOutgoingBubble = !mediaBackground
-                && HuanghunOutfitRuntime.shouldReplaceMessageBubble(currentMessageObject.isOutOwner());
-        if (!replaceOutgoingBubble && (drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
+        if ((drawBackground || transitionParams.animateDrawBackground) && currentBackgroundDrawable != null && (currentPosition == null || isDrawSelectionBackground() && (currentMessageObject.isMusic() || currentMessageObject.isDocument())) && !(enterTransitionInProgress && !currentMessageObject.isVoice())) {
             float alphaInternal = this.alphaInternal;
             if (fromParent) {
                 alphaInternal *= getAlpha();

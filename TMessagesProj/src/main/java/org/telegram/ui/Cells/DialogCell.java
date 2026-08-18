@@ -137,8 +137,6 @@ import org.telegram.ui.Stories.StoryViewer;
 import org.telegram.ui.community.CommunityArrowDrawable;
 import org.telegram.ui.community.CommunitySheet;
 
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -698,9 +696,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     }
 
     private final Theme.ResourcesProvider resourcesProvider;
-    private Drawable huanghunGlassCard;
-    private int huanghunGlassBackdropColor = Integer.MIN_VALUE;
-    private int huanghunGlassTintColor = Integer.MIN_VALUE;
 
     public DialogCell(DialogsActivity fragment, Context context, boolean needCheck, boolean forceThreeLines, int account, Theme.ResourcesProvider resourcesProvider) {
         super(context);
@@ -3876,19 +3871,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private GradientDrawable archiveFadeGradientDrawable;
     private int archiveFadeGradientDrawableColor;
 
-    private void drawHuanghunGlassCard(Canvas canvas) {
-        final int backdropColor = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
-        final int tintColor = Theme.getColor(Theme.key_actionBarDefault, resourcesProvider);
-        if (huanghunGlassCard == null || huanghunGlassBackdropColor != backdropColor || huanghunGlassTintColor != tintColor) {
-            huanghunGlassBackdropColor = backdropColor;
-            huanghunGlassTintColor = tintColor;
-            huanghunGlassCard = HuanghunLiquidGlass.createSurface(backdropColor, tintColor, dp(20));
-        }
-        // 每一行左右各保留 8dp、上下各保留 3dp，形成独立圆角玻璃框和自然透明间隔。
-        huanghunGlassCard.setBounds(dp(8), dp(3), getWidth() - dp(8), getHeight() - dp(3));
-        huanghunGlassCard.draw(canvas);
-    }
-
     @SuppressLint("DrawAllocation")
     @Override
     protected void onDraw(Canvas canvas) {
@@ -3900,11 +3882,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
 
         boolean needInvalidate = false;
-
-        // 归档拉出和左右滑动保留官方的整行反馈层，静止时则由独立玻璃卡片承载聊天内容。
-        if (!drawArchive && translationX == 0.0f && cornerProgress == 0.0f) {
-            drawHuanghunGlassCard(canvas);
-        }
 
         if (drawArchive && (currentDialogFolderId != 0 || isTopic && forumTopic != null && forumTopic.id == 1) && archivedChatsDrawable != null && archivedChatsDrawable.outProgress == 0.0f && translationX == 0.0f) {
             canvas.save();

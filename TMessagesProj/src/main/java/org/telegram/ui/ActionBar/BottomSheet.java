@@ -79,8 +79,6 @@ import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.LaunchActivity;
 
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
-
 import java.util.ArrayList;
 
 public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
@@ -1355,11 +1353,7 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
                     onContainerTranslationYChanged(translationY);
                 }
             };
-            // 底部操作面板不再使用不透明的传统抽屉底板，统一为圆角液态玻璃；
-            // 外层 container 仍保留原有暗幕和拖拽手势处理。
-            containerView.setBackground(HuanghunLiquidGlass.createSurface(
-                    getThemedColor(Theme.key_dialogBackground),
-                    getThemedColor(Theme.key_dialogButton), dp(26)));
+            containerView.setBackgroundDrawable(shadowDrawable);
             containerView.setPadding(backgroundPaddingLeft, (applyTopPadding ? dp(8) : 0) + backgroundPaddingTop - 1, backgroundPaddingLeft, (applyBottomPadding ? dp(8) : 0));
         }
         containerView.setVisibility(View.INVISIBLE);

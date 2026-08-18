@@ -1685,13 +1685,13 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         }
         AlertDialog dialog = new AlertDialog.Builder(getParentActivity())
                 .setTitle("删除自定义主题")
-                .setMessage("将删除所有用户创建、导入或保存的自定义主题，并恢复黄昏定制版默认 iOS 液态玻璃主题。此操作不可撤销。")
+                .setMessage("将删除所有用户创建、导入或保存的自定义主题，并恢复黄昏定制版官方默认主题。此操作不可撤销。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("确认删除", (d, which) -> {
                     int deleted = Theme.deleteAllCustomThemesForRestart();
                     AlertDialog restartDialog = new AlertDialog.Builder(getParentActivity())
                             .setTitle("已恢复默认主题")
-                            .setMessage("已清理 " + deleted + " 个自定义主题。为稳定加载默认 iOS 液态玻璃主题，请重启客户端。")
+                            .setMessage("已清理 " + deleted + " 个自定义主题。为稳定加载官方默认主题，请重启客户端。")
                             .setNegativeButton("稍后重启", null)
                             .setPositiveButton("立即重启", (dialogInterface, button) -> restartApplication())
                             .create();

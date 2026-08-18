@@ -75,7 +75,6 @@ import java.util.ArrayList;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.NekoXConfig;
 import tw.nekomimi.nekogram.folder.FolderIconHelper;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 @SuppressLint("ViewConstructor")
 public class FilterTabsView extends FrameLayout {
@@ -1017,10 +1016,6 @@ public class FilterTabsView extends FrameLayout {
     public FilterTabsView(Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
-        int glassBase = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
-        int glassTint = Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4, resourcesProvider);
-        setBackground(HuanghunLiquidGlass.createPill(glassBase, glassTint, dp(48)));
-        setPadding(dp(5), dp(3), dp(5), dp(3));
         textCounterPaint.setTextSize(dpf2(11f));
         textCounterPaint.setTypeface(AndroidUtilities.bold());
         textPaint.setTextSize(dpf2(14f));
@@ -1326,17 +1321,9 @@ public class FilterTabsView extends FrameLayout {
 
     public void selectDefaultTab() {
         Tab defaultTab = findDefaultTab();
-        if (defaultTab == null || defaultTab.id == getCurrentTabId()) {
-            return;
-        }
-        // 标签 id 与水平列表 position 并不等价。首位插入本机隐私文件夹后，
-        // 默认“全部聊天”的 id 仍为 0，却已不是位置 0，必须查找实际位置。
-        for (int i = 0; i < tabs.size(); i++) {
-            if (tabs.get(i).id == defaultTab.id) {
-                scrollToTab(defaultTab, i);
-                return;
-            }
-        }
+        if (defaultTab == null) return;
+        if (defaultTab.id == getCurrentTabId()) return;
+        scrollToTab(defaultTab, defaultTab.id);
     }
 
     public boolean isFirstTab() {
@@ -1846,23 +1833,17 @@ public class FilterTabsView extends FrameLayout {
             MessagesStorage.getInstance(UserConfig.selectedAccount).saveDialogFiltersOrder();
             TLRPC.TL_messages_updateDialogFiltersOrder req = new TLRPC.TL_messages_updateDialogFiltersOrder();
             ArrayList<MessagesController.DialogFilter> filters = MessagesController.getInstance(UserConfig.selectedAccount).getDialogFilters();
-            MessagesController messagesController = MessagesController.getInstance(UserConfig.selectedAccount);
             for (int a = 0, N = filters.size(); a < N; a++) {
                 MessagesController.DialogFilter filter = filters.get(a);
-                if (messagesController.isHuanghunLocalOnlyFilter(filter)) {
-                    continue;
-                }
                 if (filter.isDefault()) {
                     req.order.add(0);
                 } else {
                     req.order.add(filter.id);
                 }
             }
-            messagesController.lockFiltersInternal();
-            if (!req.order.isEmpty()) {
-                ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req, (response, error) -> {
-                });
-            }
+            MessagesController.getInstance(UserConfig.selectedAccount).lockFiltersInternal();
+            ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req, (response, error) -> {
+            });
             orderChanged = false;
         }
     }

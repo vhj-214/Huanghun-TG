@@ -58,7 +58,6 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     private BackupImageView backupImageView;
     private Theme.ResourcesProvider resourcesProvider;
     private final Paint paintCounterBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint paintGlassOutline = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final AnimatedTextView.AnimatedTextDrawable counter;
 
     private static final int ANIMATOR_ID_IS_SELECTED = 0;
@@ -84,7 +83,6 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         addView(imageView, LayoutHelper.createFrame(44, 44, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, -6, 0, 0));
 
         imageView.setColorFilter(new PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN));
-        paintGlassOutline.setStyle(Paint.Style.STROKE);
 
         textView = new TextView(context);
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12f);
@@ -156,25 +154,13 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         if (selectedFactor > 0 && !skipDrawSelector) {
             final float alpha = AnimatorUtils.DECELERATE_INTERPOLATOR.getInterpolation(selectedFactor);
 
+            paintCounterBackground.setColor(Theme.multAlpha(colorSelected, 0.09f * alpha));
             tmpRectF.set(0, 0, viewWidth, getHeight());
             final float r = Math.min(tmpRectF.width(), tmpRectF.height()) / 2f;
             final float s = lerp(0.6f, 1, selectedFactor) * MathUtils.clamp(attachScale, 0, 1);
             canvas.save();
             canvas.scale(s, s, tmpRectF.centerX(), tmpRectF.centerY());
-            if (Theme.isDefaultThemeActive()) {
-                // 默认主题的选中标签不再使用灰色实心块，只留下透明玻璃折射和高光外沿。
-                paintCounterBackground.setColor(Theme.multAlpha(colorSelected, 0.018f * alpha));
-                canvas.drawRoundRect(tmpRectF, r, r, paintCounterBackground);
-                paintGlassOutline.setStrokeWidth(dpf2(.85f));
-                paintGlassOutline.setColor(ColorUtils.setAlphaComponent(Color.WHITE, (int) (168 * alpha)));
-                canvas.drawRoundRect(tmpRectF, r, r, paintGlassOutline);
-                paintGlassOutline.setStrokeWidth(dpf2(.45f));
-                paintGlassOutline.setColor(ColorUtils.setAlphaComponent(colorSelected, (int) (102 * alpha)));
-                canvas.drawRoundRect(new RectF(tmpRectF.left + dpf2(1), tmpRectF.top + dpf2(1), tmpRectF.right - dpf2(1), tmpRectF.bottom - dpf2(1)), r, r, paintGlassOutline);
-            } else {
-                paintCounterBackground.setColor(Theme.multAlpha(colorSelected, 0.09f * alpha));
-                canvas.drawRoundRect(tmpRectF, r, r, paintCounterBackground);
-            }
+            canvas.drawRoundRect(tmpRectF, r, r, paintCounterBackground);
             canvas.restore();
         }
 

@@ -83,8 +83,6 @@ import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Stars.BalanceCloud;
 import org.telegram.ui.Stars.StarsIntroActivity;
 
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
-
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -660,11 +658,7 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
             } else {
                 containerView.setBackground(null);
                 containerView.setPadding(0, 0, 0, 0);
-                // 通用确认、密码和设置弹窗的主体使用同一块普通液态玻璃，
-                // 避免上层导航已玻璃化而弹窗仍回退为不透明实色卡片。
-                containerView.setBackground(HuanghunLiquidGlass.createSurface(
-                        getThemedColor(Theme.key_dialogBackground),
-                        getThemedColor(Theme.key_dialogButton), dp(20)));
+                containerView.setBackground(shadowDrawable);
 
                 containerView.setOutlineProvider(ViewOutlineProviderImpl.boundsWithPaddingRoundRect(dp(8), dp(20)));
                 containerView.setClipToOutline(true);

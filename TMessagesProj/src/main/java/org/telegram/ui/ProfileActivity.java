@@ -361,7 +361,6 @@ import tw.nekomimi.nekogram.filters.ShadowBanListActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.LocalNameHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -6261,20 +6260,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
-        // 黄昏默认主题和动态视频资料页都必须让根、信息列表及成员分页透出聊天背景。
-        // 具体信息行仍由 ListAdapter 的独立玻璃卡片绘制，避免形成截图中的整块白色面板。
-        boolean useHuanghunProfileGlass = profileHasDynamicVideoWallpaper || Theme.isDefaultThemeSelected();
-        if (useHuanghunProfileGlass) {
+        // 仅在用户显式设置动态视频壁纸时让资料页根层透出视频；信息行仍保持官方原生背景和可读性。
+        if (profileHasDynamicVideoWallpaper) {
             contentView.setBackgroundColor(Color.TRANSPARENT);
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
-            if (sharedMediaLayout != null) {
-                sharedMediaLayout.setHuanghunProfileVideoGlass(true);
-            }
-            if (listAdapter != null) {
-                listAdapter.notifyDataSetChanged();
-            }
         }
         if (profileHasDynamicVideoWallpaper) {
             profileDynamicVideoWallpaperPlayer.resume();
@@ -13899,44 +13890,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             return new RecyclerListView.Holder(view);
         }
 
-        private boolean isDynamicVideoGlassInfoRow(int viewType) {
-            switch (viewType) {
-                case VIEW_TYPE_TEXT_DETAIL:
-                case VIEW_TYPE_TEXT_DETAIL_MULTILINE:
-                case VIEW_TYPE_TEXT_DETAIL_MULTILINE_2:
-                case VIEW_TYPE_ABOUT_LINK:
-                case VIEW_TYPE_TEXT:
-                case VIEW_TYPE_NOTIFICATIONS_CHECK:
-                case VIEW_TYPE_NOTIFICATIONS_CHECK_SIMPLE:
-                case VIEW_TYPE_ADDTOGROUP_INFO:
-                case VIEW_TYPE_PREMIUM_TEXT_CELL:
-                case VIEW_TYPE_LOCATION:
-                case VIEW_TYPE_HOURS:
-                case VIEW_TYPE_CHANNEL:
-                case VIEW_TYPE_STARS_TEXT_CELL:
-                case VIEW_TYPE_BOT_APP:
-                case VIEW_TYPE_COLORFUL_TEXT:
-                case VIEW_TYPE_LINKED_COMMUNITY:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
         public void setBackground(View view, int viewType) {
-            if (view == null || !Theme.isDefaultThemeSelected() || !isDynamicVideoGlassInfoRow(viewType)) {
-                return;
-            }
-            // 黄昏默认主题的资料页信息行使用低透明圆角玻璃卡片。动态视频存在时可透出视频；
-            // 官方行内文本、图标、点击和测量逻辑保持不变，其他自选主题不受影响。
-            view.setBackground(new InsetDrawable(
-                    HuanghunLiquidGlass.createSurface(
-                            getThemedColor(Theme.key_windowBackgroundWhite),
-                            getThemedColor(Theme.key_actionBarDefault),
-                            dp(20)
-                    ),
-                    dp(8), dp(3), dp(8), dp(3)
-            ));
+            // 保持官方资料页的原生背景、分隔和测量逻辑。
         }
 
         @Override

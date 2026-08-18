@@ -49,7 +49,6 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -234,8 +233,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import kotlin.Unit;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
-import tw.nekomimi.nekogram.settings.NekoTranslatorSettingsActivity;
 import tw.nekomimi.nekogram.llm.LlmConfig;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import tw.nekomimi.nekogram.utils.StringUtils;
@@ -2732,9 +2729,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         };
         frameLayout.setClipChildren(false);
-        // 输入、表情、附件和更多按钮保持在同一个胶囊容器内；背景由下方聊天模糊层透出。
-        frameLayout.setBackground(createHuanghunGlassInputBackground());
-        textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 8, 0, DEFAULT_HEIGHT, 4));
+        textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, DEFAULT_HEIGHT, 0));
 
         emojiButton = new ChatActivityEnterViewAnimatedIconView(context) {
             @Override
@@ -2753,7 +2748,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         int padding = dp(7.5f);
         emojiButton.setPadding(padding, padding, padding, padding);
         emojiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        applyHuanghunGlassControlBackground(emojiButton);
+        emojiButton.setBackground(Theme.createInsetRoundRectDrawable(getThemedColor(Theme.key_listSelector), dp(19), dp(1), dp(3)));
         emojiButton.setOnClickListener(v -> {
             if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress()) {
                 return;
@@ -2794,7 +2789,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         deleteRichDraftButton.setScaleType(ImageView.ScaleType.CENTER);
         deleteRichDraftButton.setImageResource(R.drawable.menu_delete_old);
         deleteRichDraftButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        applyHuanghunGlassControlBackground(deleteRichDraftButton);
+        deleteRichDraftButton.setBackground(Theme.createInsetRoundRectDrawable(getThemedColor(Theme.key_listSelector), dp(19), dp(1), dp(3)));
         deleteRichDraftButton.setVisibility(View.GONE);
         deleteRichDraftButton.setContentDescription(getString(R.string.ArticleDeleteDraft));
         deleteRichDraftButton.setOnClickListener(v -> {
@@ -2833,7 +2828,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             notifyButton.setContentDescription(silent ? getString("AccDescrChanSilentOn", R.string.AccDescrChanSilentOn) : getString("AccDescrChanSilentOff", R.string.AccDescrChanSilentOff));
             notifyButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
             notifyButton.setScaleType(ImageView.ScaleType.CENTER);
-            applyHuanghunGlassControlBackground(notifyButton);
+            notifyButton.setBackgroundDrawable(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
             notifyButton.setVisibility(canWriteToChannel && (delegate == null || !delegate.hasScheduledMessages()) ? VISIBLE : GONE);
             attachLayout.addView(notifyButton, LayoutHelper.createLinear(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
             notifyButton.setOnClickListener(new OnClickListener() {
@@ -2867,7 +2862,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachButton.setScaleType(ImageView.ScaleType.CENTER);
             attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
             attachButton.setImageResource(R.drawable.msg_input_attach2);
-            applyHuanghunGlassControlBackground(attachButton);
+            attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
             messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
             attachButton.setOnClickListener(v -> {
                 if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || attachLayoutPaddingAlpha == 0f) {
@@ -2883,7 +2878,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         aiButton.setImageDrawable(aiButtonIcon = new AiButtonDrawable(context));
         aiButton.setScaleType(ImageView.ScaleType.CENTER);
         aiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
-        applyHuanghunGlassControlBackground(aiButton);
+        aiButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP, dp(16)));
         textFieldContainer.addView(aiButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.TOP | Gravity.LEFT, 0, 1, 0, 0));
         aiButton.setContentDescription(getString(R.string.AIEditor));
         ScaleStateListAnimator.apply(aiButton);
@@ -2950,7 +2945,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         richButton.setImageResource(R.drawable.iv_fullscreen);
         richButton.setScaleType(ImageView.ScaleType.CENTER);
         richButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
-        applyHuanghunGlassControlBackground(richButton);
+        richButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP, dp(16)));
         textFieldContainer.addView(richButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.TOP | Gravity.RIGHT, 0, 1, 0, 0));
         richButton.setContentDescription(getString(R.string.ArticleEditor));
         ScaleStateListAnimator.apply(richButton);
@@ -4811,11 +4806,6 @@ public class ChatActivityEnterView extends FrameLayout implements
         if (!shouldDrawBackground) {
             return;
         }
-        // 默认 iOS 玻璃主题只绘制输入胶囊本身，底部不再额外铺一整条半透明灰板。
-        // 这能避免底板、模糊层与胶囊材质同时叠加造成的阴影重影。
-        if (Theme.isDefaultThemeSelected()) {
-            return;
-        }
         int top = animatedTop;
         top += Theme.chat_composeShadowDrawable.getIntrinsicHeight() * (1f - composeShadowAlpha);
         if (topView != null && topView.getVisibility() == View.VISIBLE) {
@@ -4830,9 +4820,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
 
         if (allowBlur) {
-            // 底部承接聊天背景的真实模糊，胶囊容器仅叠加半透明玻璃与高光描边。
-            int composeColor = getThemedColor(Theme.key_chat_messagePanelBackground);
-            backgroundPaint.setColor(ColorUtils.setAlphaComponent(composeColor, 132));
+            backgroundPaint.setColor(getThemedColor(Theme.key_chat_messagePanelBackground));
             if (SharedConfig.chatBlurEnabled() && sizeNotifierLayout != null) {
                 blurBounds.set(0, bottom, getWidth(), getHeight());
                 sizeNotifierLayout.drawBlurRect(canvas, getTop(), blurBounds, backgroundPaint, false);
@@ -5074,20 +5062,6 @@ public class ChatActivityEnterView extends FrameLayout implements
             cell.setMinimumWidth(AndroidUtilities.dp(196));
             menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
 
-            // Huanghun translation settings — this is the normal typed-message long-press popup.
-            cell = new ActionBarMenuSubItem(getContext(), false, false);
-            cell.setTextAndIcon(getString(R.string.HuanghunTranslateSettings), R.drawable.msg2_language);
-            cell.setOnClickListener(v -> {
-                if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
-                    menuPopupWindow.dismiss();
-                }
-                if (parentFragment != null) {
-                    parentFragment.presentFragment(new NekoTranslatorSettingsActivity());
-                }
-            });
-            cell.setMinimumWidth(AndroidUtilities.dp(196));
-            menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
-
             // Replace Text
             cell = new ActionBarMenuSubItem(getContext(), false, false);
             cell.setTextAndIcon(getString(R.string.ReplaceText), R.drawable.msg_edit);
@@ -5256,9 +5230,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                         if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
                             sendPopupWindow.dismiss();
                         }
-                        Translator.showTargetLangSelect(view1, true, (locale) -> {
-                            if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
-                                sendPopupWindow.dismiss();
+                        Translator.showTargetLangSelect(view, true, (locale) -> {
+                            if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
+                                menuPopupWindow.dismiss();
                             }
                             translateComment(locale, Translator.providerLLMTranslator);
                             Translator.setInputTranslateLangForChat(chatId, TranslatorKt.getLocale2code(locale));
@@ -5285,9 +5259,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                         if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
                             sendPopupWindow.dismiss();
                         }
-                        Translator.showTargetLangSelect(view1, true, (locale) -> {
-                            if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
-                                sendPopupWindow.dismiss();
+                        Translator.showTargetLangSelect(view, true, (locale) -> {
+                            if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
+                                menuPopupWindow.dismiss();
                             }
                             translateComment(locale);
                             Translator.setInputTranslateLangForChat(chatId, TranslatorKt.getLocale2code(locale));
@@ -5296,19 +5270,6 @@ public class ChatActivityEnterView extends FrameLayout implements
                         return true;
                     });
                     sendPopupLayout.addView(preSendTranslateButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
-
-                    ActionBarMenuSubItem translateSettingsButton = new ActionBarMenuSubItem(getContext(), false, false, resourcesProvider);
-                    translateSettingsButton.setTextAndIcon(getString(R.string.HuanghunTranslateSettings), R.drawable.msg2_language);
-                    translateSettingsButton.setMinimumWidth(AndroidUtilities.dp(196));
-                    translateSettingsButton.setOnClickListener(v -> {
-                        if (sendPopupWindow != null && sendPopupWindow.isShowing()) {
-                            sendPopupWindow.dismiss();
-                        }
-                        if (parentFragment != null) {
-                            parentFragment.presentFragment(new NekoTranslatorSettingsActivity());
-                        }
-                    });
-                    sendPopupLayout.addView(translateSettingsButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
                 }
                 sendPopupLayout.setupRadialSelectors(getThemedColor(Theme.key_dialogButtonSelector));
 
@@ -6734,78 +6695,6 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     // --- Input Menu Start---
-    private boolean outgoingAutoTranslationPending;
-
-    private boolean tryAutoTranslateOutgoingMessage(CharSequence message, boolean notify, int scheduleDate, int scheduleRepeatPeriod, long payStars, SendMessageInternalParams internalParams) {
-        if (outgoingAutoTranslationPending) {
-            return true;
-        }
-        if (!NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool() || internalParams.skipOutgoingAutoTranslate || editingMessageObject != null || TextUtils.isEmpty(message)) {
-            return false;
-        }
-        if (messageEditText == null) {
-            return false;
-        }
-        final String original = message.toString();
-        // The first setting is the language the message will be sent in. The second
-        // setting is the original-input language and may be left blank for auto detection.
-        String sendLanguageCode = NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().String();
-        final String originalLanguageCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
-        if (TextUtils.isEmpty(sendLanguageCode)) {
-            sendLanguageCode = NekoConfig.translateToLang.String();
-        }
-        if (TextUtils.isEmpty(sendLanguageCode)) {
-            sendLanguageCode = "en";
-        }
-        final Locale source = TextUtils.isEmpty(originalLanguageCode)
-                ? new Locale("")
-                : TranslatorKt.getCode2Locale(originalLanguageCode);
-        final int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
-        final Locale target = TranslatorKt.getCode2Locale(sendLanguageCode);
-        if (!Translator.isFullTelegramLanguageLocale(target)) {
-            BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateUnsupportedTarget)).show();
-            return false;
-        }
-        if (!TextUtils.isEmpty(originalLanguageCode) && source.equals(target)) {
-            return false;
-        }
-        outgoingAutoTranslationPending = true;
-        Translator.translateFromWithFallback(source, target, original, provider, new Translator.Companion.TranslateCallBack() {
-            @Override
-            public void onSuccess(@NotNull String translation) {
-                outgoingAutoTranslationPending = false;
-                if (messageEditText == null || TextUtils.isEmpty(translation) || !TextUtils.equals(original, messageEditText.getTextToUse().toString())) {
-                    BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
-                    return;
-                }
-                String messageToSend = translation;
-                if (NaConfig.INSTANCE.getOutgoingAutoTranslateIncludeOriginal().Bool()) {
-                    messageToSend = original + "\n\n--------------------\n\n" + translation;
-                }
-                if (messageToSend.length() > accountInstance.getMessagesController().getMaxMessageLength()) {
-                    BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
-                    return;
-                }
-                internalParams.skipOutgoingAutoTranslate = true;
-                messageEditText.setText(messageToSend);
-                sendMessageInternal(notify, scheduleDate, scheduleRepeatPeriod, payStars, false, internalParams);
-            }
-
-            @Override
-            public void onFailed(boolean unsupported, @NotNull String error) {
-                outgoingAutoTranslationPending = false;
-                BulletinFactory.of(parentFragment).createSimpleBulletin(R.raw.info, getString(R.string.OutgoingAutoTranslateFailed)).show();
-                // Translation must never leave the normal send button inert. If the draft has not
-                // changed while waiting, deliver the original text through the guarded send path.
-                if (messageEditText != null && TextUtils.equals(original, messageEditText.getTextToUse().toString())) {
-                    internalParams.skipOutgoingAutoTranslate = true;
-                    sendMessageInternal(notify, scheduleDate, scheduleRepeatPeriod, payStars, false, internalParams);
-                }
-            }
-        });
-        return true;
-    }
-
     private void translateComment(Locale target) {
         translateComment(target, 0);
     }
@@ -6838,7 +6727,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                 @Override
                 public void onSuccess(@NotNull TLRPC.TL_textWithEntities finalText) {
                     status.dismiss();
-                    showInputTranslationDetails(origin, finalText.text, start, end);
+                    String translation = finalText.text;
+                    if (start == end) messageEditText.replaceTextInternal(0, messageEditText.getText().length(), translation);
+                    else messageEditText.replaceTextInternal(start, end, translation);
                 }
 
                 @Override
@@ -6852,7 +6743,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
             });
         } else {
-            Translator.translateFromWithFallback(new Locale(""), target, origin, provider, new Translator.Companion.TranslateCallBack() {
+            Translator.translate(target, origin, provider, new Translator.Companion.TranslateCallBack() {
 
                 final AtomicBoolean cancel = new AtomicBoolean();
                 AlertDialog status = AlertUtil.showProgress(parentActivity);
@@ -6870,7 +6761,8 @@ public class ChatActivityEnterView extends FrameLayout implements
                 @Override
                 public void onSuccess(@NotNull String translation) {
                     status.dismiss();
-                    showInputTranslationDetails(origin, translation, start, end);
+                    if (start == end) messageEditText.replaceTextInternal(0, messageEditText.getText().length(), translation);
+                    else messageEditText.replaceTextInternal(start, end, translation);
                 }
 
                 @Override
@@ -6879,33 +6771,12 @@ public class ChatActivityEnterView extends FrameLayout implements
                     AlertUtil.showTransFailedDialog(parentActivity, unsupported, message, () -> {
                         status = AlertUtil.showProgress(parentActivity);
                         status.show();
-                        Translator.translateFromWithFallback(new Locale(""), target, origin, provider, this);
+                        Translator.translate(target, origin, 0, this);
                     });
                 }
 
             });
         }
-    }
-
-    private void showInputTranslationDetails(String original, String translation, int start, int end) {
-        if (messageEditText == null || parentActivity == null || parentFragment == null) {
-            return;
-        }
-        AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
-        builder.setTitle(getString(R.string.OutgoingAutoTranslateDetails));
-        builder.setMessage(LocaleController.formatString(R.string.OutgoingAutoTranslateDetailsText, original, translation));
-        builder.setNegativeButton(getString(R.string.Cancel), null);
-        builder.setPositiveButton(getString(R.string.OutgoingAutoTranslateApply), (dialogInterface, which) -> {
-            if (messageEditText == null) {
-                return;
-            }
-            if (start == end) {
-                messageEditText.replaceTextInternal(0, messageEditText.getText().length(), translation);
-            } else {
-                messageEditText.replaceTextInternal(start, end, translation);
-            }
-        });
-        parentFragment.showDialog(builder.create());
     }
 
     @Nullable
@@ -8416,9 +8287,6 @@ public class ChatActivityEnterView extends FrameLayout implements
             if (checkPremiumAnimatedEmoji(currentAccount, dialog_id, parentFragment, null, message)) {
                 return;
             }
-            if (tryAutoTranslateOutgoingMessage(message, notify, scheduleDate, scheduleRepeatPeriod, payStars, internalParams)) {
-                return;
-            }
             if (!TextUtils.isEmpty(message)) {
                 if (delegate != null) {
                     delegate.beforeMessageSend(message, notify, scheduleDate, payStars);
@@ -8488,7 +8356,6 @@ public class ChatActivityEnterView extends FrameLayout implements
         public Boolean withMarkdown = null;
         public boolean withGame = true;
         public Boolean canUsePangu = null;
-        public boolean skipOutgoingAutoTranslate;
 
         public static SendMessageInternalParams markdown(Boolean withMarkdown) {
             SendMessageInternalParams params = new SendMessageInternalParams();
@@ -11509,74 +11376,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         return trendingStickersAlert;
     }
 
-    /**
-     * 默认主题的聊天输入区只保留一个明亮白色玻璃胶囊。不能再以父级灰色遮罩、
-     * 输入框底板和多个子按钮底板叠加，否则会形成用户截图中的重影和多道白圈。
-     */
-    private GradientDrawable createHuanghunGlassInputBackground() {
-        if (!Theme.isDefaultThemeSelected()) {
-            return HuanghunLiquidGlass.createPill(
-                    getThemedColor(Theme.key_chat_messagePanelBackground),
-                    getThemedColor(Theme.key_chat_messagePanelSend), dp(50));
-        }
-        // 整条官方输入胶囊只保留轻微折射；表情、文本、附件和更多操作区共用这一层，
-        // 不再用近不透明白底遮住用户正在使用的视频或图片聊天壁纸。
-        int top = ColorUtils.setAlphaComponent(Color.WHITE, 94);
-        int bottom = ColorUtils.setAlphaComponent(Color.rgb(237, 247, 255), 70);
-        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, bottom});
-        drawable.setCornerRadius(dp(26));
-        drawable.setStroke(dp(1), ColorUtils.setAlphaComponent(Color.WHITE, 146));
-        return drawable;
-    }
-
-    private void clearHuanghunGlassControlBackground(View control) {
-        if (control != null) {
-            control.setBackground(null);
-        }
-    }
-
-    private void applyHuanghunGlassControlBackground(View control) {
-        if (control == null) {
-            return;
-        }
-        if (Theme.isDefaultThemeSelected()) {
-            clearHuanghunGlassControlBackground(control);
-        } else {
-            control.setBackground(HuanghunLiquidGlass.createPill(
-                    getThemedColor(Theme.key_chat_messagePanelBackground),
-                    getThemedColor(Theme.key_chat_messagePanelSend), dp(40)));
-        }
-    }
-
-    private void updateHuanghunGlassInputBackground() {
-        if (messageEditTextContainer == null) {
-            return;
-        }
-        messageEditTextContainer.setBackground(createHuanghunGlassInputBackground());
-        if (Theme.isDefaultThemeSelected()) {
-            // 所有按钮直接置于同一胶囊内，避免一个按钮再叠一层圆形玻璃。
-            clearHuanghunGlassControlBackground(emojiButton);
-            clearHuanghunGlassControlBackground(deleteRichDraftButton);
-            clearHuanghunGlassControlBackground(notifyButton);
-            clearHuanghunGlassControlBackground(attachButton);
-            clearHuanghunGlassControlBackground(aiButton);
-            clearHuanghunGlassControlBackground(richButton);
-            clearHuanghunGlassControlBackground(audioVideoButtonContainer);
-        } else {
-            // 用户选择其他主题时恢复独立控件底板，不保留默认 iOS 玻璃的透明布局。
-            applyHuanghunGlassControlBackground(emojiButton);
-            applyHuanghunGlassControlBackground(deleteRichDraftButton);
-            applyHuanghunGlassControlBackground(notifyButton);
-            applyHuanghunGlassControlBackground(attachButton);
-            applyHuanghunGlassControlBackground(aiButton);
-            applyHuanghunGlassControlBackground(richButton);
-            applyHuanghunGlassControlBackground(audioVideoButtonContainer);
-        }
-    }
-
     @Override
     public void updateColors() {
-        updateHuanghunGlassInputBackground();
         if (messageEditText != null) {
             messageEditText.setHintColor(getThemedColor(Theme.key_chat_messagePanelHint));
         }
@@ -11621,8 +11422,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
         updateAudioVideoSendButtonColor();
         emojiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
+        emojiButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
         deleteRichDraftButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
-        updateHuanghunGlassInputBackground();
+        deleteRichDraftButton.setBackground(Theme.createInsetRoundRectDrawable(getThemedColor(Theme.key_listSelector), dp(19), dp(1), dp(3)));
         sendOutlineView.setColorFilter(getThemedColor(Theme.key_telegram_color), PorterDuff.Mode.SRC_IN);
     }
 
@@ -11631,17 +11433,13 @@ public class ChatActivityEnterView extends FrameLayout implements
             return;
         }
         boolean isMenuState = audioVideoSendButton.getCurrentState() == ChatActivityEnterViewAnimatedIconView.State.MENU;
-        int panel = getThemedColor(Theme.key_chat_messagePanelBackground);
         int color = audioVideoButtonContainerForbidden || isMenuState
                 ? getThemedColor(Theme.key_glass_defaultIcon)
-                : HuanghunLiquidGlass.readableTextColor(panel);
+                : Color.WHITE;
         audioVideoSendButton.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
-        // 默认 iOS 输入栏内不再为发送/语音按钮额外叠加圆形底板，避免与主胶囊形成重影。
-        if (!Theme.isDefaultThemeSelected()) {
-            audioVideoButtonContainer.setBackground(HuanghunLiquidGlass.createPill(
-                    getThemedColor(Theme.key_chat_messagePanelBackground),
-                    getThemedColor(Theme.key_chat_messagePanelSend), dp(40)));
-        }
+        audioVideoButtonContainer.setBackground(isMenuState
+                ? Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector))
+                : null);
     }
 
     private void updateRecordedDeleteIconColors() {

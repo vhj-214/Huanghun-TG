@@ -305,15 +305,13 @@ public class ThemeColors {
         defaultColors[key_chat_outGreenCall] = 0xff00c853;
         defaultColors[key_chat_lockIcon] = 0xff222222;
         defaultColors[key_chat_muteIcon] = 0xff79817e;
-        // 双方消息继续使用官方 ChatMessageCell 的自适应轮廓；只调整官方主题取色，
-        // 让文字、媒体、文件和不同字号都以同一层低透明白色玻璃气泡自然适配。
-        defaultColors[key_chat_inBubble] = 0x78ffffff;
-        defaultColors[key_chat_inBubbleSelected] = 0x8affffff;
-        defaultColors[key_chat_inBubbleShadow] = 0x00000000;
-        defaultColors[key_chat_outBubble] = 0x78ffffff;
-        defaultColors[key_chat_outBubbleGradientSelectedOverlay] = 0x00000000;
-        defaultColors[key_chat_outBubbleSelected] = 0x8affffff;
-        defaultColors[key_chat_outBubbleShadow] = 0x00000000;
+        defaultColors[key_chat_inBubble] = 0xffffffff;
+        defaultColors[key_chat_inBubbleSelected] = 0xffecf7fd;
+        defaultColors[key_chat_inBubbleShadow] = 0xff1d3753;
+        defaultColors[key_chat_outBubble] = 0xffefffde;
+        defaultColors[key_chat_outBubbleGradientSelectedOverlay] = 0x14000000;
+        defaultColors[key_chat_outBubbleSelected] = 0xffd9f7c5;
+        defaultColors[key_chat_outBubbleShadow] = 0xff1e750c;
         defaultColors[key_chat_inMediaIcon] = 0xffffffff;
         defaultColors[key_chat_inMediaIconSelected] = 0xffeff8fe;
         defaultColors[key_chat_outMediaIcon] = 0xffefffde;

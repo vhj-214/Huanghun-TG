@@ -155,7 +155,6 @@ import java.util.Set;
 import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import tw.nekomimi.nekogram.NekoConfig;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
@@ -386,8 +385,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
         listView.adapter.setApplyBackground(false);
-        listView.listenReorder(this::onHuanghunAccountsReordered);
-        listView.allowReorder(true);
         listView.setSections();
         listView.setPadding(0, AndroidUtilities.statusBarHeight + dp(12), 0, AndroidUtilities.navigationBarHeight + additionNavigationBarHeight);
         listView.setClipToPadding(false);
@@ -657,73 +654,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
     }
 
-    private static final String HUANGHUN_ACCOUNT_ORDER_PREFS = "huanghun_account_order";
-    private static final String HUANGHUN_ACCOUNT_ORDER_KEY = "account_order_v1";
-    private static final int HUANGHUN_CONTINUE_ADD_ACCOUNT_ID = 10001;
-    private final ArrayList<Integer> accountNumbers = new ArrayList<>();
-    private int huanghunAccountsReorderSectionId = -1;
-
-    private ArrayList<Integer> getHuanghunAccountOrder() {
-        ArrayList<Integer> order = new ArrayList<>();
-        String savedOrder = ApplicationLoader.applicationContext
-                .getSharedPreferences(HUANGHUN_ACCOUNT_ORDER_PREFS, Context.MODE_PRIVATE)
-                .getString(HUANGHUN_ACCOUNT_ORDER_KEY, "");
-        if (TextUtils.isEmpty(savedOrder)) {
-            return order;
-        }
-        for (String value : savedOrder.split(",")) {
-            try {
-                int account = Integer.parseInt(value);
-                if (!order.contains(account)) {
-                    order.add(account);
-                }
-            } catch (NumberFormatException ignore) {
-            }
-        }
-        return order;
-    }
-
-    private int findHuanghunAvailableAccountSlot() {
-        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
-            if (!UserConfig.getInstance(account).isClientActivated()) {
-                return account;
-            }
-        }
-        return -1;
-    }
-
-    private void openHuanghunContinueAddAccount() {
-        int accountSlot = findHuanghunAvailableAccountSlot();
-        if (accountSlot >= 0) {
-            presentFragment(new LoginActivity(accountSlot));
-        }
-    }
-
-    private void saveHuanghunAccountOrder(ArrayList<Integer> order) {
-        ApplicationLoader.applicationContext
-                .getSharedPreferences(HUANGHUN_ACCOUNT_ORDER_PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putString(HUANGHUN_ACCOUNT_ORDER_KEY, TextUtils.join(",", order))
-                .apply();
-    }
-
-    private void onHuanghunAccountsReordered(int sectionId, ArrayList<UItem> reorderedItems) {
-        if (sectionId != huanghunAccountsReorderSectionId) {
-            return;
-        }
-        ArrayList<Integer> order = new ArrayList<>();
-        for (UItem item : reorderedItems) {
-            if (item.instanceOf(AccountCell.Factory.class) && !order.contains(item.intValue)) {
-                order.add(item.intValue);
-            }
-        }
-        if (!order.isEmpty()) {
-            accountNumbers.clear();
-            accountNumbers.addAll(order);
-            saveHuanghunAccountOrder(order);
-        }
-    }
-
+    private ArrayList<Integer> accountNumbers = new ArrayList<>();
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (searchItem.isSearchFieldVisible2()) {
             items.add(UItem.asSpace(ActionBar.getCurrentActionBarHeight()));
@@ -740,19 +671,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 accountNumbers.add(a);
             }
         }
-        ArrayList<Integer> savedAccountOrder = getHuanghunAccountOrder();
         Collections.sort(accountNumbers, (o1, o2) -> {
-            int index1 = savedAccountOrder.indexOf(o1);
-            int index2 = savedAccountOrder.indexOf(o2);
-            if (index1 >= 0 || index2 >= 0) {
-                if (index1 < 0) {
-                    return 1;
-                } else if (index2 < 0) {
-                    return -1;
-                } else if (index1 != index2) {
-                    return Integer.compare(index1, index2);
-                }
-            }
             long l1 = UserConfig.getInstance(o1).loginTime;
             long l2 = UserConfig.getInstance(o2).loginTime;
             if (l1 > l2) {
@@ -804,19 +723,14 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         if (accountNumbers.size() > 0) {
-            items.add(AccountHeaderCell.Factory.of(findHuanghunAvailableAccountSlot() >= 0));
-            huanghunAccountsReorderSectionId = adapter.reorderSectionStart();
+            items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
             for (int i = 0; i < accountNumbers.size(); ++i) {
                 items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
             }
-            adapter.reorderSectionEnd();
             items.add(UItem.asShadow(null));
-        } else {
-            huanghunAccountsReorderSectionId = -1;
         }
 
         items.add(SettingCell.Factory.of(100, 0xFF3CCFFF, 0xFF007AFF, R.drawable.filled_profile_settings, getString(R.string.NekoSettings)));
-        items.add(SettingCell.Factory.of(102, 0xFF9FB18A, 0xFF62735B, R.drawable.msg_info, "联系作者", "打开作者联系页面"));
         items.add(UItem.asShadow(null));
 
         items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
@@ -937,12 +851,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
             return;
         }
-        if (item.instanceOf(AccountHeaderCell.Factory.class)) {
-            if (item.id == HUANGHUN_CONTINUE_ADD_ACCOUNT_ID && item.intValue != 0) {
-                openHuanghunContinueAddAccount();
-            }
-            return;
-        }
         if (item.instanceOf(AccountCell.Factory.class)) {
             final int account = item.intValue;
             if (LaunchActivity.instance != null) {
@@ -1042,18 +950,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 presentFragment(new NekoSettingsActivity());
                 break;
             }
-            case 102: {
-                presentFragment(new com.Huanghun.ContactAuthorActivity());
-                break;
-            }
         }
     }
 
     private boolean onLongClick(UItem item, View view, int position, float x, float y) {
-        if (item.instanceOf(AccountCell.Factory.class)) {
-            // 账号条目由 UniversalRecyclerView 的长按拖拽排序机制处理。
-            return false;
-        }
         if (item.object instanceof TLRPC.TL_attachMenuBot) {
             TLRPC.TL_attachMenuBot attachMenuBot = (TLRPC.TL_attachMenuBot) item.object;
             BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, () -> listView.adapter.update(true));
@@ -1109,7 +1009,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     public String getVersionName() {
-        return "黄昏定制版本  @NBABB1314";
+        return AndroidUtil.getVersionText();
     }
 
     @Override
@@ -1131,81 +1031,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         final int statusBarHeight = systemInsets.top;
         listView.setPadding(0, statusBarHeight + dp(12), 0, navigationBarHeight + additionNavigationBarHeight);
         return WindowInsetsCompat.CONSUMED;
-    }
-
-    public static class AccountHeaderCell extends FrameLayout implements Theme.Colorable {
-
-        private final Theme.ResourcesProvider resourcesProvider;
-        private final TextView titleView;
-        private final TextView continueView;
-
-        public AccountHeaderCell(Context context, Theme.ResourcesProvider resourcesProvider) {
-            super(context);
-            this.resourcesProvider = resourcesProvider;
-            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18)));
-
-            titleView = new TextView(context);
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-            titleView.setTypeface(AndroidUtilities.bold());
-            titleView.setGravity(Gravity.CENTER_VERTICAL | (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT));
-            addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 18, 0, 120, 0));
-
-            continueView = new TextView(context);
-            continueView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-            continueView.setTypeface(AndroidUtilities.bold());
-            continueView.setGravity(Gravity.CENTER_VERTICAL | (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT));
-            addView(continueView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT, 18, 0, 18, 0));
-            updateColors();
-        }
-
-        public void setCanContinueAdding(boolean canContinueAdding) {
-            titleView.setText(getString(R.string.SettingsAccounts));
-            continueView.setText(getString(R.string.HuanghunContinueAddAccount));
-            continueView.setVisibility(canContinueAdding ? View.VISIBLE : View.GONE);
-        }
-
-        @Override
-        public void updateColors() {
-            setBackground(HuanghunLiquidGlass.createSurface(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18)));
-            titleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader, resourcesProvider));
-            continueView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourcesProvider));
-        }
-
-        @Override
-        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(42), MeasureSpec.EXACTLY));
-        }
-
-        public static class Factory extends UItem.UItemFactory<AccountHeaderCell> {
-            static { setup(new Factory()); }
-
-            @Override
-            public AccountHeaderCell createView(Context context, RecyclerListView listView, int currentAccount, int classGuid, Theme.ResourcesProvider resourcesProvider) {
-                return new AccountHeaderCell(context, resourcesProvider);
-            }
-
-            @Override
-            public void bindView(View view, UItem item, boolean divider, UniversalAdapter adapter, UniversalRecyclerView listView) {
-                ((AccountHeaderCell) view).setCanContinueAdding(item.intValue != 0);
-            }
-
-            public static UItem of(boolean canContinueAdding) {
-                UItem item = UItem.ofFactory(AccountHeaderCell.Factory.class);
-                item.id = HUANGHUN_CONTINUE_ADD_ACCOUNT_ID;
-                item.intValue = canContinueAdding ? 1 : 0;
-                return item;
-            }
-
-            @Override
-            public boolean equals(UItem a, UItem b) {
-                return a.id == b.id;
-            }
-
-            @Override
-            public boolean contentsEquals(UItem a, UItem b) {
-                return a.intValue == b.intValue;
-            }
-        }
     }
 
     public static class AccountCell extends LinearLayout implements Theme.Colorable {
@@ -1790,9 +1615,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         builder.setItems(items, (dialog, which) -> {
             if (which == 0) { // Import Contacts
-                // Contact syncing is permanently disabled in Huanghun.
-                getUserConfig().syncContacts = false;
+                getUserConfig().syncContacts = true;
                 getUserConfig().saveConfig(false);
+                getContactsController().forceImportContacts();
             } else if (which == 1) { // Reload Contacts
                 getContactsController().loadContacts(false, 0);
             } else if (which == 2) { // Reset Imported Contacts

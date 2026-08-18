@@ -1582,8 +1582,6 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     }
 
     private final @NonNull BlurredBackgroundSourceColor iBlur3SourceColor;
-    // 仅由 ProfileActivity 在已挂载动态视频壁纸时开启；不会影响独立媒体页或其他设置页面。
-    private boolean huanghunProfileVideoGlass;
 
     public SharedMediaLayout(Context context, long did, SharedMediaPreloader preloader, int commonGroupsCount, ArrayList<Integer> sortedUsers, TLRPC.ChatFull chatInfo, TLRPC.UserFull userInfo, int initialTab, int initialStoryAlbumId, BaseFragment parent, Delegate delegate, int viewType, Theme.ResourcesProvider resourcesProvider) {
         this(context, did, preloader, commonGroupsCount, sortedUsers, chatInfo, userInfo, initialTab, initialStoryAlbumId, parent, delegate, viewType, resourcesProvider, null);
@@ -3893,44 +3891,6 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     public int mediaPageTopMargin() {
         return 0;
 //        return customTabs() ? 0 : (48 /*+ 42*/);
-    }
-
-    /**
-     * 群资料页已经挂载动态聊天壁纸时，SharedMediaLayout 仍会以 windowBackgroundWhite
-     * 作为模糊源色，造成成员页看起来是一整块白色面板。此开关只清理这条真实父层，
-     * 不修改成员行的官方绑定、触摸、搜索和复用逻辑。
-     */
-    public void setHuanghunProfileVideoGlass(boolean enabled) {
-        if (viewType != VIEW_TYPE_PROFILE_ACTIVITY || huanghunProfileVideoGlass == enabled) {
-            return;
-        }
-        huanghunProfileVideoGlass = enabled;
-        iBlur3SourceColor.setColor(enabled ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
-        setBackgroundColor(Color.TRANSPARENT);
-        for (MediaPage mediaPage : mediaPages) {
-            if (mediaPage == null) {
-                continue;
-            }
-            mediaPage.setBackgroundColor(Color.TRANSPARENT);
-            if (mediaPage.listView != null) {
-                mediaPage.listView.setBackgroundColor(Color.TRANSPARENT);
-                for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
-                    mediaPage.listView.getChildAt(i).setBackgroundColor(Color.TRANSPARENT);
-                }
-                RecyclerView.Adapter adapter = mediaPage.listView.getAdapter();
-                if (adapter != null) {
-                    adapter.notifyDataSetChanged();
-                }
-            }
-            if (mediaPage.animationSupportingListView != null) {
-                mediaPage.animationSupportingListView.setBackgroundColor(Color.TRANSPARENT);
-            }
-            if (mediaPage.progressView != null) {
-                mediaPage.progressView.setBackgroundColor(Color.TRANSPARENT);
-            }
-        }
-        invalidateBlur();
-        invalidate();
     }
 
     protected void invalidateBlur() {
@@ -6856,6 +6816,12 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     }
 
     public void updateAdapters() {
+        for (MediaPage mediaPage : mediaPages) {
+            if (mediaPage != null && (mediaPage.listView.isComputingLayout() || mediaPage.animationSupportingListView.isComputingLayout())) {
+                post(this::updateAdapters);
+                return;
+            }
+        }
         if (photoVideoAdapter != null) {
             photoVideoAdapter.notifyDataSetChanged();
         }
@@ -11051,7 +11017,6 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 return new RecyclerListView.Holder(emptyStubView);
             }
             View view = new UserCell(mContext, 9, 0, true, false, resourcesProvider);
-            view.setBackgroundColor(huanghunProfileVideoGlass ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
             view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return new RecyclerListView.Holder(view);
         }
@@ -11335,7 +11300,7 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             ManageChatUserCell view = new ManageChatUserCell(mContext, 9, 5, true, resourcesProvider);
-            view.setBackgroundColor(huanghunProfileVideoGlass ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
+            view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
             view.setDelegate((cell, click) -> {
                 TLObject object = getItem((Integer) cell.getTag());
                 if (object instanceof TLRPC.ChannelParticipant) {

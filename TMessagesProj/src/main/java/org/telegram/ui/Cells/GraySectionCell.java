@@ -28,7 +28,6 @@ import org.telegram.ui.Components.AnimatedTextView;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 import java.util.List;
 
@@ -52,7 +51,7 @@ public class GraySectionCell extends FrameLayout implements Theme.Colorable {
         super(context);
         this.resourcesProvider = resourcesProvider;
 
-        applyGlassBackground();
+        setBackgroundColor(getThemedColor(Theme.key_graySection));
 
         textView = new AnimatedEmojiSpan.TextViewEmojis(getContext());
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -84,19 +83,9 @@ public class GraySectionCell extends FrameLayout implements Theme.Colorable {
     }
 
     public void updateColors() {
-        applyGlassBackground();
+        setBackgroundColor(noBackground ? 0 : getThemedColor(Theme.key_graySection));
         textView.setTextColor(getThemedColor(Theme.key_graySectionText));
         rightTextView.setTextColor(getThemedColor(Theme.key_graySectionText));
-    }
-
-    private void applyGlassBackground() {
-        if (noBackground) {
-            setBackgroundColor(0);
-        } else if (Theme.isDefaultThemeActive()) {
-            setBackground(HuanghunLiquidGlass.createSurface(getThemedColor(Theme.key_graySection), getThemedColor(Theme.key_actionBarDefault), dp(14)));
-        } else {
-            setBackgroundColor(getThemedColor(Theme.key_graySection));
-        }
     }
 
     @Override

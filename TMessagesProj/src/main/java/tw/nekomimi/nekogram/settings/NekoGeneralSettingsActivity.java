@@ -35,7 +35,6 @@ import org.telegram.ui.Components.UndoView;
 import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Cells.TextSettingsCell;
 
-import com.Huanghun.outfit.HuanghunOutfitCenterActivity;
 
 import java.io.File;
 import java.util.Locale;
@@ -204,7 +203,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             getString(R.string.HuanghunTypefaceZhuqueFangsong)
     };
     private final AbstractConfigCell huanghunCustomTypefaceRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomTypeface", NekoConfig.huanghunCustomTypeface, huanghunTypefaceNames, null));
-    private final AbstractConfigCell huanghunOutfitRow = cellGroup.appendCell(new ConfigCellCustom("HuanghunOutfit", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
     private final AbstractConfigCell hideDividers = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDividers()));
     private final AbstractConfigCell alwaysShowDownloadIconRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getAlwaysShowDownloadIcon()));
     private final AbstractConfigCell showStickersInTopLevelRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getShowStickersRowToplevel()));
@@ -450,13 +448,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     }
 
     @Override
-    protected void onCustomCellClick(View view, int position, float x, float y) {
-        if (position == cellGroup.rows.indexOf(huanghunOutfitRow)) {
-            presentFragment(new HuanghunOutfitCenterActivity());
-        }
-    }
-
-    @Override
     protected boolean onItemLongClick(View view, int position, float x, float y) {
         AbstractConfigCell a = cellGroup.rows.get(position);
         if (a == pushServiceTypeUnifiedGatewayRow) {
@@ -489,13 +480,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
 
         public ListAdapter(Context context) {
             super(context);
-        }
-
-        @Override
-        protected void onBindCustomViewHolder(RecyclerView.ViewHolder holder, int position) {
-            if (position == cellGroup.rows.indexOf(huanghunOutfitRow) && holder.itemView instanceof TextSettingsCell cell) {
-                cell.setTextAndValue("黄昏个性装扮", "气泡 · 挂件 · 来电铃声 · 进群特效", true);
-            }
         }
 
         @Override
