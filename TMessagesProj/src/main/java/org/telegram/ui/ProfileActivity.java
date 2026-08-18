@@ -62,6 +62,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.net.Uri;
@@ -360,6 +361,7 @@ import tw.nekomimi.nekogram.filters.ShadowBanListActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.LocalNameHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -13877,36 +13879,51 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (viewType != VIEW_TYPE_SHARED_MEDIA) {
                 view.setLayoutParams(new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT));
             }
+            setBackground(view, viewType);
             return new RecyclerListView.Holder(view);
         }
 
+        private boolean isHuanghunGlassInfoRow(int viewType) {
+            switch (viewType) {
+                case VIEW_TYPE_TEXT_DETAIL:
+                case VIEW_TYPE_TEXT_DETAIL_MULTILINE:
+                case VIEW_TYPE_TEXT_DETAIL_MULTILINE_2:
+                case VIEW_TYPE_ABOUT_LINK:
+                case VIEW_TYPE_TEXT:
+                case VIEW_TYPE_NOTIFICATIONS_CHECK:
+                case VIEW_TYPE_NOTIFICATIONS_CHECK_SIMPLE:
+                case VIEW_TYPE_ADDTOGROUP_INFO:
+                case VIEW_TYPE_PREMIUM_TEXT_CELL:
+                case VIEW_TYPE_LOCATION:
+                case VIEW_TYPE_HOURS:
+                case VIEW_TYPE_CHANNEL:
+                case VIEW_TYPE_STARS_TEXT_CELL:
+                case VIEW_TYPE_BOT_APP:
+                case VIEW_TYPE_COLORFUL_TEXT:
+                case VIEW_TYPE_LINKED_COMMUNITY:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public void setBackground(View view, int viewType) {
-//            switch (viewType) {
-//                case VIEW_TYPE_BOT_APP:
-//                case VIEW_TYPE_CHANNEL:
-//                case VIEW_TYPE_STARS_TEXT_CELL:
-//                case VIEW_TYPE_PREMIUM_TEXT_CELL:
-//                case VIEW_TYPE_LOCATION:
-//                case VIEW_TYPE_HOURS:
-//                case VIEW_TYPE_ADDTOGROUP_INFO:
-//                case VIEW_TYPE_HEADER_EMPTY:
-//                case VIEW_TYPE_USER:
-//                case VIEW_TYPE_COLORFUL_TEXT:
-//                case VIEW_TYPE_NOTIFICATIONS_CHECK_SIMPLE:
-//                case VIEW_TYPE_NOTIFICATIONS_CHECK:
-//                case VIEW_TYPE_DIVIDER:
-//                case VIEW_TYPE_TEXT:
-//                case VIEW_TYPE_ABOUT_LINK:
-//                case VIEW_TYPE_HEADER:
-//                case VIEW_TYPE_TEXT_DETAIL_MULTILINE:
-//                case VIEW_TYPE_TEXT_DETAIL_MULTILINE_2:
-//                case VIEW_TYPE_TEXT_DETAIL:
-//                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
-//                    break;
-//                case VIEW_TYPE_VERSION:
-//                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
-//                    break;
-//            }
+            if (view == null || !isHuanghunGlassInfoRow(viewType)) {
+                return;
+            }
+            if (!Theme.isDefaultThemeActive() && !profileHasDynamicVideoWallpaper) {
+                // 用户切换到其他主题后，资料页回退为该主题的常规内容色。
+                view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                return;
+            }
+            // 资料页的信息行不再使用整块白色背景。卡片本身只有轻微白色折射和高光边缘，
+            // 四周留出透明间隔，使动态视频壁纸能连续透出到邀请链接、说明和频道信息区域。
+            final int backdrop = getThemedColor(Theme.key_windowBackgroundWhite);
+            final int tint = getThemedColor(Theme.key_actionBarDefault);
+            view.setBackground(new InsetDrawable(
+                    HuanghunLiquidGlass.createSurface(backdrop, tint, dp(20)),
+                    dp(8), dp(3), dp(8), dp(3)
+            ));
         }
 
         @Override
