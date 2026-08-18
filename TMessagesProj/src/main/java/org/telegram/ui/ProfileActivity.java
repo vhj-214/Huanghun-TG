@@ -360,7 +360,6 @@ import tw.nekomimi.nekogram.filters.ShadowBanListActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.LocalNameHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -4160,8 +4159,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
-        // 无视频时使用全局 iOS 冷白玻璃底层；设置视频后会在播放器挂载处切换为透明内容层。
-        contentView.setBackground(HuanghunLiquidGlass.createPageBackdrop(getThemedColor(Theme.key_windowBackgroundGray)));
+        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -4296,7 +4294,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
         listView.setSections();
         listView.applyPaddingToSections = false;
-        listView.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundGray)));
+        listView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
         listView.setVerticalScrollBarEnabled(false);
         final IBlur3Capture listViewCapture = new ViewGroupPartRenderer(listView, (ViewGroup) fragmentView, (canvas, child, drawingTime) -> {
             if (child == sharedMediaLayout) {
@@ -6243,10 +6241,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
         if (profileHasDynamicVideoWallpaper) {
-            // 视频位于根容器最底层；根与列表都必须使用强制透明内容层，
-            // 不能因当前主题判断回退为实体白色并遮住视频。
-            contentView.setBackground(HuanghunLiquidGlass.createVideoContentSurface());
-            listView.setBackground(HuanghunLiquidGlass.createVideoContentSurface());
+            // 保留动态壁纸功能：仅在用户为当前会话配置视频时临时移除资料页实体底色。
+            contentView.setBackgroundColor(Color.TRANSPARENT);
+            listView.setBackgroundColor(Color.TRANSPARENT);
             profileDynamicVideoWallpaperPlayer.resume();
         }
         return fragmentView;
@@ -6677,7 +6674,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         needLayoutText(Math.min(1f, diff));
 
         if (showStatusButton != null) {
-            showStatusButton.setBackgroundColor(Theme.isDefaultThemeActive() ? ColorUtils.setAlphaComponent(Color.WHITE, 52) : ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
+            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
         }
 
         nameTextView[1].setTextColor(peerColor != null ? Color.WHITE : ColorUtils.blendARGB(getThemedColor(Theme.key_profile_title), Color.WHITE, currentExpandAnimatorValue));
@@ -12361,7 +12358,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             onlineTextView[1].setTextColor(ColorUtils.blendARGB(applyPeerColor(statusColor, true, isOnline[0]), 0xB3FFFFFF, currentExpandAnimatorValue));
         }
         if (showStatusButton != null) {
-            showStatusButton.setBackgroundColor(Theme.isDefaultThemeActive() ? ColorUtils.setAlphaComponent(Color.WHITE, 52) : ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
+            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
         }
         if (actionBar != null) {
             actionBar.setItemsColor(ColorUtils.blendARGB(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon), getThemedColor(Theme.key_actionBarActionModeDefaultIcon), mediaHeaderAnimationProgress), false);
@@ -15834,13 +15831,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ((UserCell) child).update(0);
                     }
                 }
-                listView.setBackground(profileHasDynamicVideoWallpaper
-                        ? HuanghunLiquidGlass.createVideoContentSurface()
-                        : HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundGray)));
+                listView.setBackgroundColor(profileHasDynamicVideoWallpaper
+                        ? Color.TRANSPARENT
+                        : getThemedColor(Theme.key_windowBackgroundGray));
                 if (contentView != null) {
-                    contentView.setBackground(profileHasDynamicVideoWallpaper
-                            ? HuanghunLiquidGlass.createVideoContentSurface()
-                            : HuanghunLiquidGlass.createPageBackdrop(getThemedColor(Theme.key_windowBackgroundGray)));
+                    contentView.setBackgroundColor(profileHasDynamicVideoWallpaper
+                            ? Color.TRANSPARENT
+                            : getThemedColor(Theme.key_windowBackgroundGray));
                 }
             }
             if (!isPulledDown) {
@@ -16121,9 +16118,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 color2 = applyPeerColor2(color2);
                 iconColor = Color.WHITE;
             }
-            Drawable actionSurface = Theme.isDefaultThemeActive()
-                    ? HuanghunLiquidGlass.createPill(color1, getThemedColor(Theme.key_actionBarDefault), AndroidUtilities.dp(56))
-                    : Theme.createSimpleSelectorCircleDrawable(AndroidUtilities.dp(56), color1, color2);
+            Drawable actionSurface = Theme.createSimpleSelectorCircleDrawable(AndroidUtilities.dp(56), color1, color2);
             CombinedDrawable combinedDrawable = new CombinedDrawable(shadowDrawable, actionSurface, 0, 0);
             combinedDrawable.setIconSize(AndroidUtilities.dp(56), AndroidUtilities.dp(56));
             writeButton.setBackground(combinedDrawable);
@@ -16610,7 +16605,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (showStatusButton == null) {
             showStatusButton = new ShowDrawable(LocaleController.getString(R.string.StatusHiddenShow));
             showStatusButton.setAlpha((int) (0xFF * Math.min(1f, extraHeight / getHeaderExtraHeight())));
-            showStatusButton.setBackgroundColor(Theme.isDefaultThemeActive() ? ColorUtils.setAlphaComponent(Color.WHITE, 52) : ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
+            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f), 0x23ffffff, currentExpandAnimatorValue));
         }
         return showStatusButton;
     }

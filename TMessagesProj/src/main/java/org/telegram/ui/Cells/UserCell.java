@@ -63,7 +63,6 @@ import org.telegram.ui.Stories.StoriesListPlaceProvider;
 import org.telegram.ui.Stories.StoriesUtilities;
 
 import tw.nekomimi.nekogram.NekoConfig;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 public class UserCell extends FrameLayout implements NotificationCenter.NotificationCenterDelegate, Theme.Colorable {
 
@@ -144,7 +143,6 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     public UserCell(Context context, int padding, int checkbox, boolean admin, boolean needAddButton, Theme.ResourcesProvider resourcesProvider, boolean needMutualIcon) {
         super(context);
         this.resourcesProvider = resourcesProvider;
-        updateGlassBackground();
 
         int additionalPadding;
         if (needAddButton) {
@@ -513,10 +511,9 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        final int glassSpacing = Theme.isDefaultThemeSelected() ? dp(6) : 0;
         super.onMeasure(
             MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(dp(callCellStyle ? 56 : 58) + glassSpacing + (needDivider ? 1 : 0), MeasureSpec.EXACTLY));
+            MeasureSpec.makeMeasureSpec(dp(callCellStyle ? 56 : 58) + (needDivider ? 1 : 0), MeasureSpec.EXACTLY));
     }
 
     public void setStatusColors(int color, int onlineColor) {
@@ -783,38 +780,8 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         return super.drawChild(canvas, child, drawingTime);
     }
 
-    private Drawable huanghunGlassCardBackground;
-
-    private void updateGlassBackground() {
-        if (Theme.isDefaultThemeSelected()) {
-            // 卡片在 onDraw 中按内缩边界绘制；View 本身保持透明，给相邻行留下真实间隔。
-            setBackground(null);
-            huanghunGlassCardBackground = HuanghunLiquidGlass.createSurface(
-                    Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider),
-                    Theme.getColor(Theme.key_actionBarDefault, resourcesProvider), dp(18));
-        } else {
-            setBackground(null);
-            huanghunGlassCardBackground = null;
-        }
-    }
-
-    private void drawHuanghunGlassCard(Canvas canvas) {
-        if (!Theme.isDefaultThemeSelected()) {
-            return;
-        }
-        if (huanghunGlassCardBackground == null) {
-            updateGlassBackground();
-        }
-        if (huanghunGlassCardBackground != null) {
-            // 横向留出 8dp，纵向留出 3dp；成员行之间形成可见的透明间隔，而不是连成整块面板。
-            huanghunGlassCardBackground.setBounds(dp(8), dp(3), getWidth() - dp(8), getHeight() - dp(3));
-            huanghunGlassCardBackground.draw(canvas);
-        }
-    }
-
     @Override
     public void updateColors() {
-        updateGlassBackground();
     }
 
     public void setSelfAsSavedMessages(boolean value) {
@@ -828,8 +795,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
 
     @Override
     protected void onDraw(Canvas canvas) {
-        drawHuanghunGlassCard(canvas);
-        if (needDivider && !Theme.isDefaultThemeSelected()) {
+        if (needDivider) {
             canvas.drawLine(LocaleController.isRTL ? 0 : dp(68), getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? dp(68) : 0), getMeasuredHeight() - 1, Theme.dividerPaint);
         }
     }

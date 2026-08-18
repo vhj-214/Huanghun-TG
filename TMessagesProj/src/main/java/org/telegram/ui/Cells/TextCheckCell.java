@@ -43,7 +43,6 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RLottieImageView;
 import org.telegram.ui.Components.Switch;
 import org.telegram.ui.Components.ViewHelper;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 
 import java.util.ArrayList;
 import java.util.Locale;
@@ -70,7 +69,6 @@ public class TextCheckCell extends FrameLayout {
     private Theme.ResourcesProvider resourcesProvider;
     ImageView imageView;
     private boolean isRTL;
-    private Drawable glassCardBackground;
 
     public static final Property<TextCheckCell, Float> ANIMATION_PROGRESS = new AnimationProperties.FloatProperty<TextCheckCell>("animationProgress") {
         @Override
@@ -129,7 +127,6 @@ public class TextCheckCell extends FrameLayout {
         addView(checkBox, LayoutHelper.createFrame(38, 22, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
 
         setClipChildren(false);
-        setWillNotDraw(false);
         isRTL = LocaleController.isRTL;
     }
 
@@ -152,9 +149,7 @@ public class TextCheckCell extends FrameLayout {
         if (isMultiline) {
             super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
         } else {
-            final boolean defaultGlass = Theme.isDefaultThemeActive();
-            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(AndroidUtilities.dp((valueTextView.getVisibility() == VISIBLE ? 64 : height) + (defaultGlass ? 6 : 0)) + (needDivider && !defaultGlass ? 3 : 0), MeasureSpec.EXACTLY));
+            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(valueTextView.getVisibility() == VISIBLE ? 64 : height) + (needDivider ? 3 : 0), MeasureSpec.EXACTLY));
         }
     }
 
@@ -166,7 +161,7 @@ public class TextCheckCell extends FrameLayout {
 
     public void setDivider(boolean divider) {
         needDivider = divider;
-        setWillNotDraw(!divider && !Theme.isDefaultThemeActive());
+        setWillNotDraw(!divider);
     }
 
     public void setTextAndCheck(CharSequence text, boolean checked, boolean divider) {
@@ -195,7 +190,7 @@ public class TextCheckCell extends FrameLayout {
         layoutParams.height = LayoutParams.MATCH_PARENT;
         layoutParams.topMargin = 0;
         textView.setLayoutParams(layoutParams);
-        setWillNotDraw(!divider && !Theme.isDefaultThemeActive());
+        setWillNotDraw(!divider);
     }
 
     public void updateRTL() {
@@ -283,7 +278,7 @@ public class TextCheckCell extends FrameLayout {
         layoutParams.height = LayoutParams.WRAP_CONTENT;
         layoutParams.topMargin = AndroidUtilities.dp(10);
         textView.setLayoutParams(layoutParams);
-        setWillNotDraw(!divider && !Theme.isDefaultThemeActive());
+        setWillNotDraw(!divider);
     }
 
     public void setTextAndValue(String text, String value, boolean multiline, boolean divider) {
@@ -311,7 +306,7 @@ public class TextCheckCell extends FrameLayout {
         layoutParams.height = LayoutParams.WRAP_CONTENT;
         layoutParams.topMargin = AndroidUtilities.dp(10);
         textView.setLayoutParams(layoutParams);
-        setWillNotDraw(!divider && !Theme.isDefaultThemeActive());
+        setWillNotDraw(!divider);
     }
 
     public void setEnabled(boolean value, ArrayList<Animator> animators) {
@@ -428,19 +423,6 @@ public class TextCheckCell extends FrameLayout {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (Theme.isDefaultThemeActive()) {
-            if (glassCardBackground == null) {
-                glassCardBackground = HuanghunLiquidGlass.createSurface(
-                        Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider),
-                        Theme.getColor(Theme.key_actionBarDefault, resourcesProvider),
-                        AndroidUtilities.dp(16));
-            }
-            glassCardBackground.setBounds(AndroidUtilities.dp(12), AndroidUtilities.dp(3),
-                    getWidth() - AndroidUtilities.dp(12), getHeight() - AndroidUtilities.dp(3));
-            glassCardBackground.draw(canvas);
-        } else {
-            glassCardBackground = null;
-        }
         if (animatedColorBackground != 0) {
             float tx = getLastTouchX();
             float rad = Math.max(tx, getMeasuredWidth() - tx) + AndroidUtilities.dp(40);
@@ -449,7 +431,7 @@ public class TextCheckCell extends FrameLayout {
             float animatedRad = rad * animationProgress;
             canvas.drawCircle(cx, cy, animatedRad, animationPaint);
         }
-        if (needDivider && !Theme.isDefaultThemeActive()) {
+        if (needDivider) {
             Paint dividerPaint = resourcesProvider != null ? resourcesProvider.getPaint(Theme.key_paint_divider) : Theme.dividerPaint;
             if (dividerPaint != null) {
                 if (imageView != null) {

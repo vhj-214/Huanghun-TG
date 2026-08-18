@@ -290,7 +290,6 @@ import me.vkryl.android.util.ClickHelper;
 
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
-import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
@@ -4222,9 +4221,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         });
 
         ContentView contentView = new ContentView(context);
-        // 聊天列表的玻璃效果只由页面底层与 ThemeColors 的透明材质提供，
-        // 不再为每个 DialogCell 额外叠加背景，避免破坏 RecyclerView 的官方复用与行高。
-        contentView.setBackground(HuanghunLiquidGlass.createPageBackdrop(getThemedColor(Theme.key_windowBackgroundWhite)));
         fragmentView = contentView;
 
         viewPositionWatcher = new ViewPositionWatcher(contentView);
@@ -7787,7 +7783,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             setDialogsListFrozen(true);
             viewPages[0].listView.setVerticalScrollBarEnabled(false);
             if (searchViewPager != null) {
-                searchViewPager.setBackground(HuanghunLiquidGlass.createContentSurface(getThemedColor(Theme.key_windowBackgroundWhite)));
+                searchViewPager.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
             }
             searchAnimator = new AnimatorSet();
             ArrayList<Animator> animators = new ArrayList<>();
