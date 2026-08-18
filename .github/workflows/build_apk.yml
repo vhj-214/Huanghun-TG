@@ -4,6 +4,11 @@ on:
     branches: [ main, master, dev ]
   workflow_dispatch:
 
+# 同一分支只保留最新一次 Android 构建，避免相同提交的手动和自动任务重复占用队列。
+concurrency:
+  group: huanghun-android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,10 +20,19 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
+      - name: Restore native build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            TMessagesProj/.cxx
+            TMessagesProj/build/intermediates/cxx
+          key: ${{ runner.os }}-android-native-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'build.gradle', 'settings.gradle', 'TMessagesProj/build.gradle', 'TMessagesProj/jni/**') }}
+          restore-keys: |
+            ${{ runner.os }}-android-native-
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew :TMessagesProj:assembleDebug -PnativeTarget=arm64-v8a --no-daemon
+        run: ./gradlew :TMessagesProj:assembleDebug -PnativeTarget=arm64-v8a --no-daemon --parallel --build-cache
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
