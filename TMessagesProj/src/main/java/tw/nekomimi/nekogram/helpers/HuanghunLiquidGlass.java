@@ -19,9 +19,10 @@ public final class HuanghunLiquidGlass {
     }
 
     private static boolean isHuanghunGlassThemeActive() {
-        // 默认主题已不再加载 Blue 主题资源。只要当前为明亮主题，即使用低透明白色
-        // 资料卡，避免聊天背景/动态视频被资料页的实体白色面板覆盖。
-        return !Theme.getActiveTheme().isDark();
+        Theme.ThemeInfo activeTheme = Theme.getActiveTheme();
+        return Theme.isDefaultThemeActive()
+                || Theme.isDefaultThemeSelected()
+                || activeTheme != null && "bluebubbles.attheme".equals(activeTheme.assetName);
     }
 
     public static GradientDrawable createSurface(int backdropColor, int tintColor, float radiusPx) {
