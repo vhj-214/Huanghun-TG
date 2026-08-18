@@ -6266,12 +6266,16 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
+            if (listAdapter != null) {
+                listAdapter.notifyDataSetChanged();
+            }
         }
+        // 成员标签栏、成员容器和成员行在无壁纸、静态壁纸和动态视频下都使用相同玻璃表面。
         if (sharedMediaLayout != null) {
             sharedMediaLayout.setHuanghunProfileVideoGlass(true);
         }
-        // 视频播放器、成员数据和主题描述可能在创建流程结束后才写入背景。
-        // 下一帧再次绑定最终玻璃层，确保动态和静态壁纸使用一致的透明资料页表面。
+        // 视频播放器、成员数据和主题描述可能在当前创建流程结束后才写入背景。
+        // 下一帧再次绑定最终玻璃层，确保三种壁纸状态都不会回退为实体白色。
         contentView.post(() -> {
             if (listAdapter != null) {
                 listAdapter.notifyDataSetChanged();

@@ -3927,7 +3927,8 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         if (viewType != VIEW_TYPE_PROFILE_ACTIVITY) {
             return;
         }
-        // 成员数据、静态壁纸和动态播放器均可能异步写入背景；重复调用必须重新应用玻璃层。
+        // 动态视频挂载、静态壁纸、成员数据和主题描述均可能异步写入背景；
+        // 即使状态没有变化也必须重新应用，避免后创建的标签栏、列表或成员行保留实体白色背景。
         huanghunProfileVideoGlass = enabled;
         iBlur3SourceColor.setColor(enabled ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
         setBackgroundColor(Color.TRANSPARENT);
