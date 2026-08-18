@@ -45609,24 +45609,22 @@ public class ChatActivity extends BaseFragment implements
             if (isDark) {
                 return Integer.MIN_VALUE;
             }
-            switch (key) {
-                case Theme.key_chat_inBubble:
-                case Theme.key_chat_outBubble:
-                    return 0x66FFFFFF;
-                case Theme.key_chat_inBubbleSelected:
-                case Theme.key_chat_outBubbleSelected:
-                    return 0x7AFFFFFF;
-                case Theme.key_chat_inBubbleSelectedOverlay:
-                case Theme.key_chat_outBubbleSelectedOverlay:
-                case Theme.key_chat_inBubbleShadow:
-                case Theme.key_chat_outBubbleShadow:
-                case Theme.key_chat_outBubbleGradient1:
-                case Theme.key_chat_outBubbleGradient2:
-                case Theme.key_chat_outBubbleGradient3:
-                    return Color.TRANSPARENT;
-                default:
-                    return Integer.MIN_VALUE;
+            if (key == Theme.key_chat_inBubble || key == Theme.key_chat_outBubble) {
+                return 0x66FFFFFF;
             }
+            if (key == Theme.key_chat_inBubbleSelected || key == Theme.key_chat_outBubbleSelected) {
+                return 0x7AFFFFFF;
+            }
+            if (key == Theme.key_chat_inBubbleSelectedOverlay
+                    || key == Theme.key_chat_outBubbleSelectedOverlay
+                    || key == Theme.key_chat_inBubbleShadow
+                    || key == Theme.key_chat_outBubbleShadow
+                    || key == Theme.key_chat_outBubbleGradient1
+                    || key == Theme.key_chat_outBubbleGradient2
+                    || key == Theme.key_chat_outBubbleGradient3) {
+                return Color.TRANSPARENT;
+            }
+            return Integer.MIN_VALUE;
         }
 
         @Override
