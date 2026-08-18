@@ -47,6 +47,7 @@ import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
@@ -1242,7 +1243,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private void showProtocolLoginOptions() {
         Activity activity = getParentActivity();
         if (activity == null) return;
-        String[] options = {"Session Login", "TData Login", "Passkey Login", "Passkey Bridge Login"};
+        String[] options = {
+                "session登录",
+                "tdata登录",
+                "使用机器人备份的通行密钥登录【第1接口】",
+                "使用机器人备份的通行密钥登录【第2接口】"
+        };
         ProtocolLoginWarningView warningView = new ProtocolLoginWarningView(activity);
         AlertDialog protocolDialog = new AlertDialog.Builder(activity)
             .setTitle("协议登录（请选择压缩包文件）")
@@ -1262,6 +1268,14 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 params.flags |= WindowManager.LayoutParams.FLAG_DIM_BEHIND;
                 params.dimAmount = 0.08f;
                 protocolDialog.getWindow().setAttributes(params);
+            }
+            if (protocolDialog.getWindow() != null) {
+                // 选择区采用独立浅色玻璃底与蓝色描边，避免与登录页背景融为一体。
+                GradientDrawable dialogFrame = new GradientDrawable();
+                dialogFrame.setColor(0xF7FFFFFF);
+                dialogFrame.setCornerRadius(AndroidUtilities.dp(20));
+                dialogFrame.setStroke(AndroidUtilities.dp(2), 0xFF339FEA);
+                protocolDialog.getWindow().setBackgroundDrawable(dialogFrame);
             }
         });
         showDialog(protocolDialog);
