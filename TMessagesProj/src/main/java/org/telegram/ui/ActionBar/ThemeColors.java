@@ -305,13 +305,14 @@ public class ThemeColors {
         defaultColors[key_chat_outGreenCall] = 0xff00c853;
         defaultColors[key_chat_lockIcon] = 0xff222222;
         defaultColors[key_chat_muteIcon] = 0xff79817e;
-        // 双方消息共用原生自适应轮廓；仅以半透明白色区分于视频或图片壁纸，不保留绿色等实体底色。
-        defaultColors[key_chat_inBubble] = 0xccffffff;
-        defaultColors[key_chat_inBubbleSelected] = 0xe6ffffff;
+        // 双方消息继续使用官方 ChatMessageCell 的自适应轮廓；只调整官方主题取色，
+        // 让文字、媒体、文件和不同字号都以同一层低透明白色玻璃气泡自然适配。
+        defaultColors[key_chat_inBubble] = 0x78ffffff;
+        defaultColors[key_chat_inBubbleSelected] = 0x8affffff;
         defaultColors[key_chat_inBubbleShadow] = 0x00000000;
-        defaultColors[key_chat_outBubble] = 0xccffffff;
+        defaultColors[key_chat_outBubble] = 0x78ffffff;
         defaultColors[key_chat_outBubbleGradientSelectedOverlay] = 0x00000000;
-        defaultColors[key_chat_outBubbleSelected] = 0xe6ffffff;
+        defaultColors[key_chat_outBubbleSelected] = 0x8affffff;
         defaultColors[key_chat_outBubbleShadow] = 0x00000000;
         defaultColors[key_chat_inMediaIcon] = 0xffffffff;
         defaultColors[key_chat_inMediaIconSelected] = 0xffeff8fe;

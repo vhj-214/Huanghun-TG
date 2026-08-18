@@ -62,6 +62,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.net.Uri;
@@ -360,6 +361,7 @@ import tw.nekomimi.nekogram.filters.ShadowBanListActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunLiquidGlass;
 import tw.nekomimi.nekogram.helpers.LocalNameHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -6259,6 +6261,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
+            if (sharedMediaLayout != null) {
+                sharedMediaLayout.setBackgroundColor(Color.TRANSPARENT);
+            }
+            if (listAdapter != null) {
+                listAdapter.notifyDataSetChanged();
+            }
             profileDynamicVideoWallpaperPlayer.resume();
         }
         return fragmentView;
@@ -13877,36 +13885,48 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (viewType != VIEW_TYPE_SHARED_MEDIA) {
                 view.setLayoutParams(new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT));
             }
+            setBackground(view, viewType);
             return new RecyclerListView.Holder(view);
         }
 
+        private boolean isDynamicVideoGlassInfoRow(int viewType) {
+            switch (viewType) {
+                case VIEW_TYPE_TEXT_DETAIL:
+                case VIEW_TYPE_TEXT_DETAIL_MULTILINE:
+                case VIEW_TYPE_TEXT_DETAIL_MULTILINE_2:
+                case VIEW_TYPE_ABOUT_LINK:
+                case VIEW_TYPE_TEXT:
+                case VIEW_TYPE_NOTIFICATIONS_CHECK:
+                case VIEW_TYPE_NOTIFICATIONS_CHECK_SIMPLE:
+                case VIEW_TYPE_ADDTOGROUP_INFO:
+                case VIEW_TYPE_PREMIUM_TEXT_CELL:
+                case VIEW_TYPE_LOCATION:
+                case VIEW_TYPE_HOURS:
+                case VIEW_TYPE_CHANNEL:
+                case VIEW_TYPE_STARS_TEXT_CELL:
+                case VIEW_TYPE_BOT_APP:
+                case VIEW_TYPE_COLORFUL_TEXT:
+                case VIEW_TYPE_LINKED_COMMUNITY:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public void setBackground(View view, int viewType) {
-//            switch (viewType) {
-//                case VIEW_TYPE_BOT_APP:
-//                case VIEW_TYPE_CHANNEL:
-//                case VIEW_TYPE_STARS_TEXT_CELL:
-//                case VIEW_TYPE_PREMIUM_TEXT_CELL:
-//                case VIEW_TYPE_LOCATION:
-//                case VIEW_TYPE_HOURS:
-//                case VIEW_TYPE_ADDTOGROUP_INFO:
-//                case VIEW_TYPE_HEADER_EMPTY:
-//                case VIEW_TYPE_USER:
-//                case VIEW_TYPE_COLORFUL_TEXT:
-//                case VIEW_TYPE_NOTIFICATIONS_CHECK_SIMPLE:
-//                case VIEW_TYPE_NOTIFICATIONS_CHECK:
-//                case VIEW_TYPE_DIVIDER:
-//                case VIEW_TYPE_TEXT:
-//                case VIEW_TYPE_ABOUT_LINK:
-//                case VIEW_TYPE_HEADER:
-//                case VIEW_TYPE_TEXT_DETAIL_MULTILINE:
-//                case VIEW_TYPE_TEXT_DETAIL_MULTILINE_2:
-//                case VIEW_TYPE_TEXT_DETAIL:
-//                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
-//                    break;
-//                case VIEW_TYPE_VERSION:
-//                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
-//                    break;
-//            }
+            if (view == null || !profileHasDynamicVideoWallpaper || !isDynamicVideoGlassInfoRow(viewType)) {
+                return;
+            }
+            // 仅在群资料页已有动态视频壁纸时替换遮挡视频的纯白资料面板；
+            // 使用低透明圆角玻璃卡片，官方行内文本、图标、点击和测量逻辑保持不变。
+            view.setBackground(new InsetDrawable(
+                    HuanghunLiquidGlass.createSurface(
+                            getThemedColor(Theme.key_windowBackgroundWhite),
+                            getThemedColor(Theme.key_actionBarDefault),
+                            dp(20)
+                    ),
+                    dp(8), dp(3), dp(8), dp(3)
+            ));
         }
 
         @Override
@@ -13929,6 +13949,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, @SuppressLint("RecyclerView") int position) {
+            setBackground(holder.itemView, holder.getItemViewType());
             switch (holder.getItemViewType()) {
                 case VIEW_TYPE_HEADER:
                     HeaderCell headerCell = (HeaderCell) holder.itemView;
