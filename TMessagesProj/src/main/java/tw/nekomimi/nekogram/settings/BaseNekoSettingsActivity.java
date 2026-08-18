@@ -6,6 +6,7 @@ import static org.telegram.messenger.LocaleController.getString;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.text.SpannableStringBuilder;
@@ -100,7 +101,9 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         fragmentView = new BlurContentView(context);
-        fragmentView.setBackgroundColor(HuanghunLiquidGlass.glassBackdropColor(getThemedColor(Theme.key_windowBackgroundGray)));
+        // 设置/扩展页没有聊天视频层可透出时，透明根视图会落到系统黑色窗口底板。
+        // 使用明亮页面底层承接低透明玻璃卡片，既不会出现黑底，又保留卡片本身的透光和高光。
+        fragmentView.setBackground(HuanghunLiquidGlass.createPageBackdrop(getThemedColor(Theme.key_windowBackgroundGray)));
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
 
         actionBar.setDrawBlurBackground(frameLayout);
@@ -113,6 +116,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             }
         });
         listView.additionalClipBottom = dp(200);
+        listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         listView.setVerticalScrollBarEnabled(false);
 
@@ -162,7 +166,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         ActionBar actionBar = super.createActionBar(context);
         if (hasWhiteActionBar()) {
             int glassBase = getThemedColor(Theme.key_windowBackgroundWhite);
-            actionBar.setBackgroundColor(HuanghunLiquidGlass.glassBackdropColor(glassBase));
+            actionBar.setBackground(HuanghunLiquidGlass.createNavigationSurface(glassBase));
             actionBar.setItemsColor(HuanghunLiquidGlass.readableTextColor(glassBase), false);
             actionBar.setTitleColor(HuanghunLiquidGlass.readableTextColor(glassBase));
             actionBar.setCastShadows(false);

@@ -187,7 +187,11 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .setMessage(getCleanupConfirmationMessage(action))
                 .setNegativeButton("取消", null)
                 .setPositiveButton("确认清理", (d, which) -> executeCleanupDirectly(action))
+                // 确认操作必须与页面内容清楚分层，不能使用会透出文字的透明弹窗。
+                .setDimAlpha(0.58f)
                 .create();
+        dialog.setBackgroundColor(0xFFF8FBFF);
+        dialog.setTextColor(0xFF1B1F28);
         showDialog(dialog);
     }
 
