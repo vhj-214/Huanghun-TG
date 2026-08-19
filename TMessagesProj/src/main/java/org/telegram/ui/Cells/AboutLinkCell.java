@@ -139,7 +139,8 @@ public class AboutLinkCell extends FrameLayout {
 
         bottomShadow = new FrameLayout(context);
         Drawable shadowDrawable = context.getResources().getDrawable(R.drawable.gradient_bottom).mutate();
-        shadowDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), PorterDuff.Mode.SRC_ATOP));
+        // 简介卡内部渐变使用低透明高光，不能再以主题实体白色覆盖外层玻璃卡。
+        shadowDrawable.setColorFilter(new PorterDuffColorFilter(0x24FFFFFF, PorterDuff.Mode.SRC_ATOP));
         bottomShadow.setBackground(shadowDrawable);
         addView(bottomShadow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 12, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL, 16, 0, 16, 0));
 
@@ -182,7 +183,7 @@ public class AboutLinkCell extends FrameLayout {
         showMoreTextView.setPadding(dp(2), 0, dp(2), 0);
         showMoreTextBackgroundView = new FrameLayout(context);
         showMoreBackgroundDrawable = context.getResources().getDrawable(R.drawable.gradient_left).mutate();
-        showMoreBackgroundDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), PorterDuff.Mode.MULTIPLY));
+        showMoreBackgroundDrawable.setColorFilter(new PorterDuffColorFilter(0x20FFFFFF, PorterDuff.Mode.SRC_ATOP));
         showMoreTextBackgroundView.setBackground(showMoreBackgroundDrawable);
         showMoreTextBackgroundView.setPadding(
             showMoreTextBackgroundView.getPaddingLeft() + dp(4),
@@ -192,7 +193,7 @@ public class AboutLinkCell extends FrameLayout {
         );
         showMoreTextBackgroundView.addView(showMoreTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         addView(showMoreTextBackgroundView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.BOTTOM, 18 - showMoreTextBackgroundView.getPaddingLeft() / AndroidUtilities.density, 0, 18 - showMoreTextBackgroundView.getPaddingRight() / AndroidUtilities.density, 6));
-        backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
+        backgroundPaint.setColor(0x24FFFFFF);
 
         setWillNotDraw(false);
     }

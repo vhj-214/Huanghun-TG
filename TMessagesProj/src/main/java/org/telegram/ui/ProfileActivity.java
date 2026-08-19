@@ -5491,7 +5491,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         topView = new TopView(context);
         topView.setBackgroundColorId(peerColor, false);
-        topView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        // 群/用户资料顶部与壁纸共用透明层，不再以灰色或白色实体底板覆盖背景。
+        topView.setBackgroundColor(Color.TRANSPARENT);
         frameLayout.addView(topView);
         contentView.blurBehindViews.add(topView);
 
@@ -6231,9 +6232,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         bottomButton2Container = new FrameLayout(context);
-        bottomButton2Container.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        bottomButton2Container.setBackgroundColor(Color.TRANSPARENT);
         View buttonShadow = new View(context);
-        buttonShadow.setBackgroundColor(getThemedColor(Theme.key_divider));
+        buttonShadow.setBackgroundColor(0x54FFFFFF);
         bottomButton2Container.addView(buttonShadow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1.0f / AndroidUtilities.density, Gravity.TOP | Gravity.FILL_HORIZONTAL, 0, 0, 0, 0));
         bottomButton2 = new ButtonWithCounterView(context, resourcesProvider);
         bottomButton2.setText(getString(R.string.Save), false);
@@ -13925,7 +13926,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     || viewType == VIEW_TYPE_ADDTOGROUP_INFO
                     || viewType == VIEW_TYPE_LOCATION
                     || viewType == VIEW_TYPE_HOURS
-                    || viewType == VIEW_TYPE_CHANNEL;
+                    || viewType == VIEW_TYPE_CHANNEL
+                    || viewType == VIEW_TYPE_PREMIUM_TEXT_CELL
+                    || viewType == VIEW_TYPE_STARS_TEXT_CELL
+                    || viewType == VIEW_TYPE_BOT_APP;
         }
 
         private Drawable createHuanghunLiquidGlassCardDrawable() {
@@ -14748,6 +14752,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     ((TextInfoPrivacyCell) holder.itemView).setText(AndroidUtil.getVersionText());
                     break;
             }
+            // 部分资料单元格会在 setText/setChat 后刷新自身背景；在内容绑定结束后再覆盖一次，
+            // 使个人简介、群组卡和其他信息卡始终保留低透明玻璃而不会回退为实体白色。
+            setBackground(holder.itemView, holder.getItemViewType());
         }
 
         private CharSequence alsoUsernamesString(String originalUsername, ArrayList<TLRPC.TL_username> alsoUsernames, CharSequence fallback) {
