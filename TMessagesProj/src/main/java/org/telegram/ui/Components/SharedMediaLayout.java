@@ -1591,12 +1591,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
      * 仅使用基础 Drawable，兼容全部项目支持的 Android 版本。
      */
     private Drawable createHuanghunProfileMemberGlassDrawable() {
-        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
-                0x2EFFFFFF,
-                0x1CEAF4FF
-        });
+        // 与资料页其它卡片保持同一套中性、单层玻璃，避免浅色壁纸上产生蓝紫偏色或白板感。
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0x20FFFFFF);
         drawable.setCornerRadius(dp(18));
-        drawable.setStroke(Math.max(1, dp(1)), 0x70FFFFFF);
+        drawable.setStroke(Math.max(1, dp(1)), 0x5CFFFFFF);
         return new InsetDrawable(drawable, dp(8), dp(2), dp(8), dp(2));
     }
 
@@ -3937,18 +3936,21 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             actionModeLayout.setBackgroundColor(backgroundColor);
         }
         for (MediaPage mediaPage : mediaPages) {
-            if (mediaPage == null || mediaPage.selectedType != TAB_GROUPUSERS) {
+            if (mediaPage == null) {
                 continue;
             }
+            // 所有资料详情标签页只替换自身承接底层；不重建适配器、不通知数据集。
             mediaPage.setBackgroundColor(backgroundColor);
             if (mediaPage.listView != null) {
                 mediaPage.listView.setBackgroundColor(backgroundColor);
-                for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
-                    View child = mediaPage.listView.getChildAt(i);
-                    if (enabled) {
-                        applyHuanghunProfileMemberGlass(child);
-                    } else {
-                        child.setBackgroundColor(backgroundColor);
+                if (mediaPage.selectedType == TAB_GROUPUSERS) {
+                    for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
+                        View child = mediaPage.listView.getChildAt(i);
+                        if (enabled) {
+                            applyHuanghunProfileMemberGlass(child);
+                        } else {
+                            child.setBackgroundColor(backgroundColor);
+                        }
                     }
                 }
             }
@@ -7224,6 +7226,17 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         int a = animated ? 1 : 0;
         FrameLayout.LayoutParams layoutParams = (LayoutParams) mediaPages[a].getLayoutParams();
         layoutParams.topMargin = dp(mediaPageTopMargin());
+        if (huanghunProfileVideoGlass) {
+            // 标签页切换只同步容器背景；列表绑定与消息/成员数据刷新完全不受影响。
+            mediaPages[a].setBackgroundColor(Color.TRANSPARENT);
+            mediaPages[a].listView.setBackgroundColor(Color.TRANSPARENT);
+            if (mediaPages[a].animationSupportingListView != null) {
+                mediaPages[a].animationSupportingListView.setBackgroundColor(Color.TRANSPARENT);
+            }
+            if (mediaPages[a].progressView != null) {
+                mediaPages[a].progressView.setBackgroundColor(Color.TRANSPARENT);
+            }
+        }
 //        mediaPages[a].setBackground(null);
         // layoutParams.leftMargin = layoutParams.rightMargin = 0;
         boolean fastScrollVisible = false;

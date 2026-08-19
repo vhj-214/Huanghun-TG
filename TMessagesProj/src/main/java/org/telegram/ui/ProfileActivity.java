@@ -13979,16 +13979,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     || viewType == VIEW_TYPE_CHANNEL
                     || viewType == VIEW_TYPE_PREMIUM_TEXT_CELL
                     || viewType == VIEW_TYPE_STARS_TEXT_CELL
-                    || viewType == VIEW_TYPE_BOT_APP;
+                    || viewType == VIEW_TYPE_BOT_APP
+                    || viewType == VIEW_TYPE_SHADOW_TEXT
+                    || viewType == VIEW_TYPE_SUGGESTION
+                    || viewType == VIEW_TYPE_COLORFUL_TEXT;
         }
 
         private Drawable createHuanghunLiquidGlassCardDrawable() {
-            GradientDrawable cardDrawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
-                    0x32FFFFFF,
-                    0x20EAF4FF
-            });
+            // 中性单层表面：不使用蓝紫渐变，避免在浅色壁纸上重新变成实体白板。
+            GradientDrawable cardDrawable = new GradientDrawable();
+            cardDrawable.setColor(0x20FFFFFF);
             cardDrawable.setCornerRadius(AndroidUtilities.dp(20));
-            cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x78FFFFFF);
+            cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x5CFFFFFF);
             return new InsetDrawable(cardDrawable, AndroidUtilities.dp(8), AndroidUtilities.dp(3), AndroidUtilities.dp(8), AndroidUtilities.dp(3));
         }
 
