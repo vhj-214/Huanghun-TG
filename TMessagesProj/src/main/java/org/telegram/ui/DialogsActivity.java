@@ -14727,17 +14727,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     /**
-     * 主会话列表的固定承接层。它不读取列表内容、不建立模糊捕获、也不在消息通知中重设背景，
-     * 因而不会与 RecyclerView 的项目复用或 notifyDataSetChanged 竞争绘制。
+     * 主会话列表的承接层必须完全透明。视频壁纸已固定在 ContentView 的底层；如果这里使用
+     * Theme 颜色混合得到的实体色，即使视觉上接近浅灰，也会把视频完全遮住，形成截图中的
+     * 上方能看到壁纸、会话列表却发白的断层。行级玻璃继续自行绘制半透明填充与边框，
+     * 因而不需要在 ViewPage 再叠加任何底色。
      */
     private GradientDrawable createHuanghunDialogsGlassBaseDrawable() {
-        final int neutralBase = ColorUtils.blendARGB(
-                getThemedColor(Theme.key_windowBackgroundGray),
-                getThemedColor(Theme.key_windowBackgroundWhite),
-                0.20f
-        );
         final GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(neutralBase);
+        drawable.setColor(Color.TRANSPARENT);
         return drawable;
     }
 
