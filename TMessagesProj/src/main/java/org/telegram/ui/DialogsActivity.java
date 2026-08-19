@@ -4261,6 +4261,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         viewPages = new ViewPage[pagesCount];
         for (int a = 0; a < pagesCount; a++) {
             final ViewPage viewPage = new ViewPage(context);
+            // 固定在列表容器底部：仅在页面创建或主题切换时更新，绝不跟随消息刷新或 RecyclerView 复用重绘。
+            if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT) {
+                viewPage.setBackground(createHuanghunDialogsGlassBaseDrawable());
+            }
             contentView.addView(viewPage, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
             viewPage.dialogsType = initialDialogsType;
             viewPages[a] = viewPage;
@@ -12520,6 +12524,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
 
             iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            updateHuanghunDialogsGlassBase();
             if (topPanelLayout != null) {
                 topPanelLayout.updateColors();
             }
@@ -14655,6 +14660,32 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final RectF iBlur3PositionMainTabs = new RectF(); {
         iBlur3Positions.add(iBlur3PositionActionBar);
         iBlur3Positions.add(iBlur3PositionMainTabs);
+    }
+
+    /**
+     * 主会话列表的固定承接层。它不读取列表内容、不建立模糊捕获、也不在消息通知中重设背景，
+     * 因而不会与 RecyclerView 的项目复用或 notifyDataSetChanged 竞争绘制。
+     */
+    private GradientDrawable createHuanghunDialogsGlassBaseDrawable() {
+        final int neutralBase = ColorUtils.blendARGB(
+                getThemedColor(Theme.key_windowBackgroundGray),
+                getThemedColor(Theme.key_windowBackgroundWhite),
+                0.20f
+        );
+        final GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(neutralBase);
+        return drawable;
+    }
+
+    private void updateHuanghunDialogsGlassBase() {
+        if (onlySelect || initialDialogsType != DIALOGS_TYPE_DEFAULT || viewPages == null) {
+            return;
+        }
+        for (ViewPage page : viewPages) {
+            if (page != null) {
+                page.setBackground(createHuanghunDialogsGlassBaseDrawable());
+            }
+        }
     }
 
     private void blur3_InvalidateBlur() {
