@@ -4804,11 +4804,11 @@ public class ChatActivityEnterView extends FrameLayout implements
      */
     private Drawable createHuanghunLiquidGlassComposerDrawable() {
         GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
-                0x18FFFFFF,
-                0x0CEAF4FF
+                0x38FFFFFF,
+                0x20EAF4FF
         });
         drawable.setCornerRadius(dp(24));
-        drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
+        drawable.setStroke(Math.max(1, dp(1)), 0x78FFFFFF);
         return new InsetDrawable(drawable, dp(8), dp(2), dp(8), dp(2));
     }
 
@@ -4831,11 +4831,14 @@ public class ChatActivityEnterView extends FrameLayout implements
         }
         int bottom = top + Theme.chat_composeShadowDrawable.getIntrinsicHeight();
 
-        // 官方阴影位图是全局共享 Drawable，且会因主题着色形成实体色带。
-        // 此输入框实例不绘制该位图，避免遮住静态或动态壁纸；其它页面仍保持官方阴影行为。
+        if (withComposeShadowDrawable) {
+            Theme.chat_composeShadowDrawable.setAlpha((int) (composeShadowAlpha * 0xFF));
+            Theme.chat_composeShadowDrawable.setBounds(0, top, getMeasuredWidth(), bottom);
+            Theme.chat_composeShadowDrawable.draw(canvas);
+        }
 
-        // 输入框外层只保留极低透明高光，避免主题色在容器空白区域形成实体白色底板。
-        backgroundPaint.setColor(0x0CFFFFFF);
+        // 输入框外层也使用低透明表面，避免主题色在容器空白区域形成实体白色底板。
+        backgroundPaint.setColor(0x1AFFFFFF);
         if (allowBlur && SharedConfig.chatBlurEnabled() && sizeNotifierLayout != null) {
             blurBounds.set(0, bottom, getWidth(), getHeight());
             sizeNotifierLayout.drawBlurRect(canvas, getTop(), blurBounds, backgroundPaint, false);
