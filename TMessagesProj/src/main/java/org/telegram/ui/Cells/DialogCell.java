@@ -3870,6 +3870,17 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     private GradientDrawable archiveFadeGradientDrawable;
     private int archiveFadeGradientDrawableColor;
+    // 仅由登录后的聊天列表显式启用；默认保持官方会话行绘制，避免影响其它复用入口。
+    private boolean huanghunLiquidGlass;
+    private final Paint huanghunLiquidGlassFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint huanghunLiquidGlassStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    public void setHuanghunLiquidGlass(boolean enabled) {
+        if (huanghunLiquidGlass != enabled) {
+            huanghunLiquidGlass = enabled;
+            invalidate();
+        }
+    }
 
     @SuppressLint("DrawAllocation")
     @Override
@@ -4097,6 +4108,18 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             canvas.save();
             canvas.translate(translationX, 0);
             gtx += translationX;
+        }
+
+        if (huanghunLiquidGlass) {
+            // 单层中性玻璃：不使用蓝紫渐变，也不覆盖文本、头像或滑动操作背景。
+            rect.set(dp(8), dp(2), getMeasuredWidth() - dp(8), getMeasuredHeight() - dp(2));
+            huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
+            huanghunLiquidGlassFillPaint.setColor(0x38FFFFFF);
+            canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassFillPaint);
+            huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
+            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(1)));
+            huanghunLiquidGlassStrokePaint.setColor(0x66FFFFFF);
+            canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassStrokePaint);
         }
 
         float cornersRadius = dp(8) * cornerProgress;

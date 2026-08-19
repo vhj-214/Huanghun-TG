@@ -279,6 +279,17 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         }
     }
 
+    /**
+     * 仅用于已登录主联系人页的单层中性玻璃表面；不使用彩色渐变，避免与单元格内容叠色。
+     */
+    private android.graphics.drawable.Drawable createHuanghunContactsGlassDrawable() {
+        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+        drawable.setColor(0x38FFFFFF);
+        drawable.setCornerRadius(dp(18));
+        drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
+        return new android.graphics.drawable.InsetDrawable(drawable, dp(10), dp(2), dp(10), dp(2));
+    }
+
     @Override
     public View createView(Context context) {
         searching = false;
@@ -305,6 +316,10 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
         searchField = new FragmentSearchField(context, resourceProvider);
         searchField.setSectionBackground();
+        if (hasMainTabs) {
+            // 主联系人页属于登录后导航，不影响任何登录或联系人选择流程。
+            searchField.setBackground(createHuanghunContactsGlassDrawable());
+        }
         searchField.setPivotY(0);
         final ActionBarMenu actionMode = actionBar.createActionMode(false, null);
         actionMode.setBackgroundColor(0);
@@ -435,6 +450,16 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             inviteViaLink = 0;
         }
         listViewAdapter = new ContactsAdapter(context, this, onlyUsers ? 1 : 0, needPhonebook, ignoreUsers, selectedContacts, inviteViaLink) {
+            @Override
+            public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+                RecyclerView.ViewHolder holder = super.onCreateViewHolder(parent, viewType);
+                // 只为成功登录后的主联系人入口添加玻璃层；联系人选择器、转发和建群入口保持官方单元格行为。
+                if (hasMainTabs && (holder.itemView instanceof UserCell || holder.itemView instanceof TextCell)) {
+                    holder.itemView.setBackground(createHuanghunContactsGlassDrawable());
+                }
+                return holder;
+            }
+
             @Override
             public void notifyDataSetChanged() {
                 super.notifyDataSetChanged();

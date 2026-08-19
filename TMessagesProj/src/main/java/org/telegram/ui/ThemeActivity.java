@@ -152,6 +152,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     @Keep
     private int backgroundRow;
     private int dynamicVideoWallpaperRow;
+    private int deleteDynamicVideoWallpaperRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -592,6 +593,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         textSizeRow = -1;
         backgroundRow = -1;
         dynamicVideoWallpaperRow = -1;
+        deleteDynamicVideoWallpaperRow = -1;
         changeUserColor = -1;
         settingsRow = -1;
         directShareRow = -1;
@@ -673,6 +675,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             textSizeRow = rowCount++;
             backgroundRow = rowCount++;
             dynamicVideoWallpaperRow = rowCount++;
+            deleteDynamicVideoWallpaperRow = rowCount++;
             changeUserColor = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
@@ -882,8 +885,13 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     if (progressDialog.isShowing()) {
                         progressDialog.dismiss();
                     }
-                    if (listAdapter != null && dynamicVideoWallpaperRow >= 0) {
-                        listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+                    if (listAdapter != null) {
+                        if (dynamicVideoWallpaperRow >= 0) {
+                            listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+                        }
+                        if (deleteDynamicVideoWallpaperRow >= 0) {
+                            listAdapter.notifyItemChanged(deleteDynamicVideoWallpaperRow);
+                        }
                     }
                     showDynamicVideoWallpaperDialog("设置成功", "动态视频壁纸已保存并启用。返回任意聊天后会立即播放；切换主题不会清除该视频壁纸。");
                 });
@@ -901,6 +909,37 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 });
             }
         });
+    }
+
+    private void confirmClearDynamicVideoWallpaper() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        boolean videoEnabled = DynamicVideoWallpaperHelper.getVideoPath(ApplicationLoader.applicationContext, currentAccount, 0L) != null;
+        if (!videoEnabled) {
+            showDynamicVideoWallpaperDialog("无需删除", "当前没有已设置的动态视频壁纸。");
+            return;
+        }
+        showDialog(new AlertDialog.Builder(getParentActivity())
+                .setTitle("删除动态壁纸")
+                .setMessage("确定删除当前动态视频壁纸吗？删除后会立即恢复聊天原有的静态壁纸或默认背景。")
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton("删除", (dialog, which) -> clearDynamicVideoWallpaper())
+                .create());
+    }
+
+    private void clearDynamicVideoWallpaper() {
+        // dialogId 为 0 的视频是聊天设置页的全局默认动态背景；clearVideo 会同步通知所有聊天释放播放器并回退背景。
+        DynamicVideoWallpaperHelper.clearVideo(ApplicationLoader.applicationContext, currentAccount, 0L);
+        if (listAdapter != null) {
+            if (dynamicVideoWallpaperRow >= 0) {
+                listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+            }
+            if (deleteDynamicVideoWallpaperRow >= 0) {
+                listAdapter.notifyItemChanged(deleteDynamicVideoWallpaperRow);
+            }
+        }
+        showDynamicVideoWallpaperDialog("删除成功", "当前动态视频壁纸已删除，聊天将立即恢复静态壁纸或默认背景。");
     }
 
     private void showDynamicVideoWallpaperDialog(String title, String message) {
@@ -1213,6 +1252,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 presentFragment(new WallpapersListActivity(WallpapersListActivity.TYPE_ALL));
             } else if (position == dynamicVideoWallpaperRow) {
                 chooseDynamicVideoWallpaper();
+            } else if (position == deleteDynamicVideoWallpaperRow) {
+                confirmClearDynamicVideoWallpaper();
             } else if (position == changeUserColor) {
                 presentFragment(new PeerColorActivity(0).setOnApplied(this));
             } else if (position == sendByEnterRow) {
@@ -2854,7 +2895,12 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         boolean videoEnabled = DynamicVideoWallpaperHelper.getVideoPath(ApplicationLoader.applicationContext, currentAccount, 0L) != null;
-                        cell.setTextAndValueAndIcon("设置动态壁纸", videoEnabled ? "已启用" : "从相册选择视频", R.drawable.msg_background, changeUserColor >= 0);
+                        cell.setTextAndValueAndIcon("设置动态壁纸", videoEnabled ? "已启用" : "从相册选择视频", R.drawable.msg_background, deleteDynamicVideoWallpaperRow >= 0);
+                    } else if (position == deleteDynamicVideoWallpaperRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_text_RedBold, Theme.key_text_RedRegular);
+                        boolean videoEnabled = DynamicVideoWallpaperHelper.getVideoPath(ApplicationLoader.applicationContext, currentAccount, 0L) != null;
+                        cell.setTextAndValueAndIcon("删除动态壁纸", videoEnabled ? "删除当前视频" : "未设置", R.drawable.msg_delete, changeUserColor >= 0);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -2958,7 +3004,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_THEME_ACCENT_LIST;
             } else if (position == bubbleRadiusRow) {
                 return TYPE_BUBBLE_RADIUS;
-            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == editThemeRow || position == createNewThemeRow ||
+            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == editThemeRow || position == createNewThemeRow ||
                         position == huanghunDefaultThemeRow || position == deleteCustomThemesRow || position == liteModeRow || position == stickersRow) {
                 return TYPE_TEXT_PREFERENCE;
             } else if (position == swipeGestureRow) {

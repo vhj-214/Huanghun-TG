@@ -2855,9 +2855,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
-            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            // 聊天列表仅在账户登录成功后创建；强制使用项目已有的原生液态玻璃渲染，不会影响登录页。
+            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(true);
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(true);
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
         } else {
             scrollableViewNoiseSuppressor = null;
@@ -4837,6 +4838,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
 
             viewPage.dialogsAdapter = new DialogsAdapter(this, context, viewPage.dialogsType, folderId, onlySelect, selectedDialogs, currentAccount, requestPeerType) {
+                @Override
+                public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+                    super.onBindViewHolder(holder, position);
+                    // 只作用于已经登录后的主会话列表；转场页复用同一适配器逻辑，避免两套列表外观不一致。
+                    if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && holder.itemView instanceof DialogCell) {
+                        ((DialogCell) holder.itemView).setHuanghunLiquidGlass(true);
+                    }
+                }
+
                 @Override
                 public void notifyDataSetChanged() {
                     viewPage.lastItemsCount = getItemCount();

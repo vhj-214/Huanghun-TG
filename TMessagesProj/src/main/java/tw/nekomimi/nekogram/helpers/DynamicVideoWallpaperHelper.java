@@ -344,6 +344,16 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
 
+        /**
+         * 在首帧准备完成前保留页面自己的稳定承接色，避免视频图层默认深色在资料页入场时短暂闪现。
+         * 只改变图层后景，不影响 TextureView、缩放矩阵或播放器生命周期。
+         */
+        public void setFallbackBackgroundColor(int color) {
+            if (!released) {
+                layerView.setBackgroundColor(color);
+            }
+        }
+
         public void pause() {
             try {
                 if (mediaPlayer != null && mediaPlayer.isPlaying()) {

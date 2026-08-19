@@ -255,6 +255,17 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         Bulletin.removeDelegate(this);
     }
 
+    /**
+     * 设置首页专用的单层中性玻璃卡片。只替换实体白色表面，不改变图标、文字或点击反馈。
+     */
+    private static Drawable createHuanghunSettingsGlassDrawable() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0x38FFFFFF);
+        drawable.setCornerRadius(dp(20));
+        drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
+        return new android.graphics.drawable.InsetDrawable(drawable, dp(12), dp(2), dp(12), dp(2));
+    }
+
     private boolean ignoreClearViews;
     @Override
     public void clearViews() {
@@ -428,6 +439,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         imageUpdater.setDelegate(this);
 
         topView = new FrameLayout(context);
+        // 个人资料头部与功能列表使用相同的单层玻璃，不再保留实体白色头部卡片。
+        topView.setBackground(createHuanghunSettingsGlassDrawable());
 
         avatarContainer = new FrameLayout(context);
         topView.addView(avatarContainer, LayoutHelper.createFrame(120, 120, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 23 - 12, 0, 0));
@@ -1050,6 +1063,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             this.resourcesProvider = resourcesProvider;
 
             setOrientation(HORIZONTAL);
+            setBackground(createHuanghunSettingsGlassDrawable());
 
             avatarDrawable = new AvatarDrawable();
             avatarView = new BackupImageView(context);
@@ -1221,6 +1235,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             this.resourcesProvider = resourcesProvider;
             this.mini = mini;
             setOrientation(HORIZONTAL);
+            setBackground(createHuanghunSettingsGlassDrawable());
 
             iconLayout = new FrameLayout(context);
             iconLayout.setBackground(iconBackground = new Background());
@@ -1412,6 +1427,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             this.resourcesProvider = resourcesProvider;
 
             setOrientation(VERTICAL);
+            setBackground(createHuanghunSettingsGlassDrawable());
 
             titleView = TextHelper.makeLinkTextView(context, 15, Theme.key_windowBackgroundWhiteBlackText, true, resourcesProvider);
             titleView.setGravity(Gravity.CENTER);

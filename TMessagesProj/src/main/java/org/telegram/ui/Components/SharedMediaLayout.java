@@ -10525,19 +10525,38 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 if (error == null) {
                     TLRPC.messages_Chats res = (TLRPC.messages_Chats) response;
                     profileActivity.getMessagesController().putChats(res.chats, false);
-                    endReached = res.chats.isEmpty() || res.chats.size() != count;
-                    chats.addAll(res.chats);
+                    int addedCount = 0;
+                    // 接口重试或分页游标异常时可能重复返回同一个群组；按 chat id 去重，
+                    // 避免 RecyclerView 实际绑定多份相同卡片并触发持续绘制。
+                    for (int i = 0; i < res.chats.size(); i++) {
+                        TLRPC.Chat incoming = res.chats.get(i);
+                        if (incoming == null) {
+                            continue;
+                        }
+                        boolean exists = false;
+                        for (int j = 0; j < chats.size(); j++) {
+                            if (chats.get(j).id == incoming.id) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            chats.add(incoming);
+                            addedCount++;
+                        }
+                    }
+                    // 没有新增项目时停止后续相同分页请求，防止加载尾部不断刷新。
+                    endReached = res.chats.isEmpty() || res.chats.size() != count || addedCount == 0;
                 } else {
                     endReached = true;
                 }
 
                 for (int a = 0; a < mediaPages.length; a++) {
-                    if (mediaPages[a].selectedType == 6) {
-                        if (mediaPages[a].listView != null) {
-                            final RecyclerListView listView = mediaPages[a].listView;
-                            if (firstLoaded || oldCount == 0) {
-                                animateItemsEnter(listView, 0, null);
-                            }
+                    if (mediaPages[a].selectedType == TAB_COMMON_GROUPS && mediaPages[a].listView != null) {
+                        // 入场动画只允许在首批数据首次落地时执行；分页或重试不能重新播放整页动画，
+                        // 否则会留下多层共同群组卡片与标签栏残影。
+                        if (!firstLoaded && oldCount == 0 && !chats.isEmpty()) {
+                            animateItemsEnter(mediaPages[a].listView, 0, null);
                         }
                     }
                 }

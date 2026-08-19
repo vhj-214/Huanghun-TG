@@ -4328,8 +4328,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 false
         );
         listView.applyPaddingToSections = false;
-        // 无论动态、静态还是默认背景，列表自身都不再绘制实体灰白底色。
-        listView.setBackgroundColor(Color.TRANSPARENT);
+        // 有静态或动态壁纸时列表透明地透出壁纸；无壁纸时保留稳定主题承接色，
+        // 避免透明列表与根容器的模糊绘制在滚动、切换标签时反复合成而闪烁。
+        listView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                ? Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
         listView.setVerticalScrollBarEnabled(false);
         final IBlur3Capture listViewCapture = new ViewGroupPartRenderer(listView, (ViewGroup) fragmentView, (canvas, child, drawingTime) -> {
             if (child == sharedMediaLayout) {
@@ -5506,8 +5509,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         topView = new TopView(context);
         topView.setBackgroundColorId(peerColor, false);
-        // 群/用户资料顶部与壁纸共用透明层，不再以灰色或白色实体底板覆盖背景。
-        topView.setBackgroundColor(Color.TRANSPARENT);
+        // 无壁纸时必须保留 TopView 的官方主题承接色；否则顶部会露出根容器并在页面进入时形成空白／深色条。
+        // 只有当前资料页确实持有静态或动态壁纸层时，顶部才可以透明地透出该背景。
+        if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
+            topView.setBackgroundColor(Color.TRANSPARENT);
+        }
         frameLayout.addView(topView);
         contentView.blurBehindViews.add(topView);
 
@@ -6276,6 +6282,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, getDialogId());
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
+        if (profileDynamicVideoWallpaperPlayer != null) {
+            // 首帧异步解码期间保持资料页自身的主题承接色，不能暴露播放器默认深色层造成入场黑屏。
+            profileDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        }
         // 播放器成功挂载后，动态视频是唯一的资料页背景，不能与任何复制的静态 Drawable 叠加。
         if (profileHasDynamicVideoWallpaper) {
             profileHasStaticChatWallpaper = false;
@@ -15929,8 +15939,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ((UserCell) child).update(0);
                     }
                 }
-                // 主题刷新不得把资料列表重新写回实体灰白色；卡片和分组始终透出背景层。
-                listView.setBackgroundColor(Color.TRANSPARENT);
+                // 主题刷新必须延续创建时的背景策略：有壁纸时透出壁纸，无壁纸时保持稳定主题承接色。
+                listView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                        ? Color.TRANSPARENT
+                        : getThemedColor(Theme.key_windowBackgroundGray));
                 if (contentView != null) {
                     // 根层保持实体主题色以保护转场；静态与动态壁纸均由其内部独立图层绘制。
                     contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
