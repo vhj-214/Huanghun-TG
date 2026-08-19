@@ -293,6 +293,7 @@ import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
 import tw.nekomimi.nekogram.settings.GhostModeActivity;
@@ -555,6 +556,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     float panTranslationY;
 
     private View blurredView;
+
+    // 主消息列表的视频只作为 ContentView 的固定背景层，绝不参与 RecyclerView 的数据或绘制刷新。
+    private DynamicVideoWallpaperHelper.Player dialogsDynamicVideoWallpaperPlayer;
+    private int dialogsDynamicVideoWallpaperGeneration;
+    private boolean dialogsDynamicVideoWallpaperPaused;
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener dialogsDynamicVideoWallpaperChangeListener = (account, changedDialogId) -> {
+        if (account == currentAccount && changedDialogId == 0L) {
+            AndroidUtilities.runOnUIThread(this::refreshDialogsDynamicVideoWallpaper);
+        }
+    };
 
     private ItemOptions filterOptions;
 
@@ -2884,6 +2895,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public boolean onFragmentCreate() {
         super.onFragmentCreate();
+        DynamicVideoWallpaperHelper.addChangeListener(dialogsDynamicVideoWallpaperChangeListener);
 
         Utilities.globalQueue.postRunnable(() -> getMessagesController().getBlockedPeers(false));
 
@@ -3161,6 +3173,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onFragmentDestroy() {
+        DynamicVideoWallpaperHelper.removeChangeListener(dialogsDynamicVideoWallpaperChangeListener);
+        dialogsDynamicVideoWallpaperGeneration++;
+        if (dialogsDynamicVideoWallpaperPlayer != null) {
+            dialogsDynamicVideoWallpaperPlayer.release();
+            dialogsDynamicVideoWallpaperPlayer = null;
+        }
         super.onFragmentDestroy();
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
@@ -3187,6 +3205,41 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         notificationsLocker.unlock();
         delegate = null;
         SuggestClearDatabaseBottomSheet.dismissDialog();
+    }
+
+    /**
+     * 主列表只使用全局（dialogId=0）的动态壁纸。播放器是 ContentView 的首个子层，
+     * 消息列表、搜索栏和底部导航仍由各自的官方刷新逻辑独立管理。
+     */
+    private boolean canShowDialogsDynamicVideoWallpaper() {
+        return !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && folderId == 0 && communityId == 0;
+    }
+
+    private void refreshDialogsDynamicVideoWallpaper() {
+        final int generation = ++dialogsDynamicVideoWallpaperGeneration;
+        if (dialogsDynamicVideoWallpaperPlayer != null) {
+            dialogsDynamicVideoWallpaperPlayer.release();
+            dialogsDynamicVideoWallpaperPlayer = null;
+        }
+        if (dialogsDynamicVideoWallpaperPaused || !canShowDialogsDynamicVideoWallpaper() || !(fragmentView instanceof ViewGroup)) {
+            return;
+        }
+        final ViewGroup wallpaperRoot = (ViewGroup) fragmentView;
+        wallpaperRoot.post(() -> {
+            if (generation != dialogsDynamicVideoWallpaperGeneration || dialogsDynamicVideoWallpaperPaused || fragmentView != wallpaperRoot || !canShowDialogsDynamicVideoWallpaper()) {
+                return;
+            }
+            DynamicVideoWallpaperHelper.Player player = DynamicVideoWallpaperHelper.attach(
+                    wallpaperRoot, wallpaperRoot.getContext(), currentAccount, 0L
+            );
+            if (player != null && generation == dialogsDynamicVideoWallpaperGeneration) {
+                // 首帧解码前继续显示稳定的透明玻璃与页面内容，避免黑色闪屏。
+                player.setFallbackBackgroundColor(0x00000000);
+                dialogsDynamicVideoWallpaperPlayer = player;
+            } else if (player != null) {
+                player.release();
+            }
+        });
     }
 
     @Override
@@ -5862,6 +5915,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         checkUi_searchFieldStyle();
 
         ViewCompat.setOnApplyWindowInsetsListener(fragmentView, this::onApplyWindowInsets);
+        refreshDialogsDynamicVideoWallpaper();
         return fragmentView;
     }
 
@@ -7270,6 +7324,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onResume() {
         super.onResume();
+        dialogsDynamicVideoWallpaperPaused = false;
+        if (dialogsDynamicVideoWallpaperPlayer != null) {
+            dialogsDynamicVideoWallpaperPlayer.resume();
+        } else {
+            refreshDialogsDynamicVideoWallpaper();
+        }
         if (dialogStoriesCell != null) {
             dialogStoriesCell.onResume();
         }
@@ -7490,6 +7550,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onPause() {
+        dialogsDynamicVideoWallpaperPaused = true;
+        if (dialogsDynamicVideoWallpaperPlayer != null) {
+            dialogsDynamicVideoWallpaperPlayer.pause();
+        }
         super.onPause();
         if (storiesBulletin != null) {
             storiesBulletin.hide();
