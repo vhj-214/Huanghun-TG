@@ -5101,6 +5101,9 @@ public class ChatActivity extends BaseFragment implements
             glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
             glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+        // 整条输入岛与键盘承接面板始终使用低透明液态玻璃；不依赖动态、静态或默认壁纸状态。
+        chatInputViewsContainer.setInputBubbleBaseAlpha(0x2A);
+        chatInputViewsContainer.setUnderKeyboardBaseAlpha(0x2A);
 
 
         chatInputBubbleContainer = chatInputViewsContainer.getInputIslandBubbleContainer();

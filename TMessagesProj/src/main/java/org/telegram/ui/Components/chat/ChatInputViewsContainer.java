@@ -76,6 +76,9 @@ public class ChatInputViewsContainer extends FrameLayout {
     public boolean drawInputBackground = true;
     public BlurredBackgroundDrawable blurredBackgroundDrawable;
     private BlurredBackgroundDrawable underKeyboardBackgroundDrawable;
+    // 外壳基础透明度与显示动画透明度分离，避免液态玻璃在动画结束后重新变成实体白色。
+    private int inputBubbleBaseAlpha = 255;
+    private int underKeyboardBaseAlpha = 255;
     public void setInputIslandBubbleDrawable(BlurredBackgroundDrawable drawable) {
         blurredBackgroundDrawable = drawable;
         blurredBackgroundDrawable.setPadding(dp(7));
@@ -88,6 +91,21 @@ public class ChatInputViewsContainer extends FrameLayout {
         underKeyboardBackgroundDrawable.setRadius(dp(INPUT_KEYBOARD_RADIUS), dp(INPUT_KEYBOARD_RADIUS), 0, 0);
         underKeyboardBackgroundDrawable.setThickness(dp(32));
         underKeyboardBackgroundDrawable.setIntensity(0.4f);
+        underKeyboardBackgroundDrawable.setAlpha(underKeyboardBaseAlpha);
+    }
+
+    /** 为聊天输入外壳设置固定玻璃透明度；现有显示/隐藏动画仍由 setInputBubbleAlpha 控制。 */
+    public void setInputBubbleBaseAlpha(int alpha) {
+        inputBubbleBaseAlpha = Math.max(0, Math.min(255, alpha));
+        setInputBubbleAlpha(255);
+    }
+
+    /** 为应用内键盘承接面板设置与输入岛一致的玻璃透明度。 */
+    public void setUnderKeyboardBaseAlpha(int alpha) {
+        underKeyboardBaseAlpha = Math.max(0, Math.min(255, alpha));
+        if (underKeyboardBackgroundDrawable != null) {
+            underKeyboardBackgroundDrawable.setAlpha(underKeyboardBaseAlpha);
+        }
     }
 
     public void updateColors() {
@@ -321,9 +339,9 @@ public class ChatInputViewsContainer extends FrameLayout {
 
     public void setInputBubbleAlpha(int alpha) {
         if (blurredBackgroundDrawable != null) {
-            blurredBackgroundDrawable.setAlpha(alpha);
+            final int animatedAlpha = Math.max(0, Math.min(255, alpha));
+            blurredBackgroundDrawable.setAlpha(Math.round(inputBubbleBaseAlpha * animatedAlpha / 255f));
         }
-
     }
 
     private void checkDrawableBounds() {
@@ -352,7 +370,8 @@ public class ChatInputViewsContainer extends FrameLayout {
             final int x = (int) event.getX();
             final int y = (int) event.getY();
 
-            captured = blurredBackgroundDrawable != null && blurredBackgroundDrawable.getAlpha() == 255 && blurredBackgroundDrawable.getBounds().contains(x, y)
+            // 透明度只影响外观，不影响输入岛原有的触摸拦截范围。
+            captured = blurredBackgroundDrawable != null && blurredBackgroundDrawable.getBounds().contains(x, y)
                 || underKeyboardBackgroundDrawable != null && underKeyboardBackgroundDrawable.getBounds().contains(x, y);
 
         }

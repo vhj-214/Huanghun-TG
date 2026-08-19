@@ -4183,8 +4183,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
         contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
-        // 不透明根层保留官方 Fragment 转场；静态壁纸只绘制到此根层内部的 BackgroundView。
-        profileHasStaticChatWallpaper = applyHuanghunStaticWallpaperFromPreviousChat();
+        // 动态视频具有最高优先级。只要当前会话已经选中视频，就绝不复制聊天页遗留的静态底图。
+        profileHasDynamicVideoWallpaper = DynamicVideoWallpaperHelper.getVideoPath(context, currentAccount, getDialogId()) != null;
+        // 根层保持官方转场背景；没有动态视频时才在根层内部复用静态 Drawable。
+        profileHasStaticChatWallpaper = !profileHasDynamicVideoWallpaper && applyHuanghunStaticWallpaperFromPreviousChat();
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -4317,11 +4319,26 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 updateBottomButtonY();
             }
         };
-        listView.setSections();
+        // 资料页分组背景由默认主题白色改为独立低透明玻璃，始终生效且不触碰根层或适配器刷新。
+        final Paint profileGlassSectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        listView.setSections(
+                view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof GraySectionCell) && !Objects.equals(view.getTag(), RecyclerListView.TAG_NOT_SECTION),
+                dp(12),
+                dp(20),
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    profileGlassSectionPaint.setStyle(Paint.Style.FILL);
+                    profileGlassSectionPaint.setColor((Math.round(0x1C * alpha) << 24) | 0x00FFFFFF);
+                    canvas.drawRoundRect(rect, dp(20), dp(20), profileGlassSectionPaint);
+                    profileGlassSectionPaint.setStyle(Paint.Style.STROKE);
+                    profileGlassSectionPaint.setStrokeWidth(Math.max(1, dp(1)));
+                    profileGlassSectionPaint.setColor((Math.round(0x58 * alpha) << 24) | 0x00FFFFFF);
+                    canvas.drawRoundRect(rect, dp(20), dp(20), profileGlassSectionPaint);
+                },
+                false
+        );
         listView.applyPaddingToSections = false;
-        listView.setBackgroundColor(profileHasStaticChatWallpaper
-                ? Color.TRANSPARENT
-                : getThemedColor(Theme.key_windowBackgroundGray));
+        // 无论动态、静态还是默认背景，列表自身都不再绘制实体灰白底色。
+        listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setVerticalScrollBarEnabled(false);
         final IBlur3Capture listViewCapture = new ViewGroupPartRenderer(listView, (ViewGroup) fragmentView, (canvas, child, drawingTime) -> {
             if (child == sharedMediaLayout) {
@@ -6266,8 +6283,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (profileDynamicVideoWallpaperPlayer != null) {
             profileDynamicVideoWallpaperPlayer.release();
         }
-        profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
+        profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, getDialogId());
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
+        // 播放器成功挂载后，动态视频是唯一的资料页背景，不能与任何复制的静态 Drawable 叠加。
+        if (profileHasDynamicVideoWallpaper) {
+            profileHasStaticChatWallpaper = false;
+        }
         // 动态视频挂载在资料页根层的最底部；根层本身保持官方实体背景，
         // 只让列表与顶部视图透出视频，避免 Fragment 转场期间露出相邻页面。
         if (profileHasDynamicVideoWallpaper) {
@@ -6275,9 +6296,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
         }
-        // 仅在资料页内部确实有可绘制的静态或动态聊天背景时启用成员玻璃。
+        // 成员行与成员分组始终使用玻璃，不依赖动态、静态或默认背景状态。
         if (sharedMediaLayout != null) {
-            sharedMediaLayout.setHuanghunProfileVideoGlass(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper);
+            sharedMediaLayout.setHuanghunProfileVideoGlass(true);
         }
         if (profileHasDynamicVideoWallpaper) {
             profileDynamicVideoWallpaperPlayer.resume();
@@ -15917,10 +15938,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ((UserCell) child).update(0);
                     }
                 }
-                final boolean hasProfileWallpaper = profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper;
-                listView.setBackgroundColor(hasProfileWallpaper
-                        ? Color.TRANSPARENT
-                        : getThemedColor(Theme.key_windowBackgroundGray));
+                // 主题刷新不得把资料列表重新写回实体灰白色；卡片和分组始终透出背景层。
+                listView.setBackgroundColor(Color.TRANSPARENT);
                 if (contentView != null) {
                     // 根层保持实体主题色以保护转场；静态与动态壁纸均由其内部独立图层绘制。
                     contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
