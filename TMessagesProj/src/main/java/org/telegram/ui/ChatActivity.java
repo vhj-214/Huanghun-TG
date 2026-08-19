@@ -5099,6 +5099,9 @@ public class ChatActivity extends BaseFragment implements
         chatInputViewsContainer.setWindowInsetsProvider(windowInsetsStateHolder);
         chatInputViewsContainer.setInputIslandBubbleDrawable(
             glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+        // 整块输入岛原本由此容器绘制高强度模糊底板，导致文字区之外仍是一整条实体白色面板。
+        // 关闭该外壳绘制后，输入控件、表情、附件和发送逻辑保持原位，仅由内部低透明玻璃边界承载。
+        chatInputViewsContainer.drawInputBackground = false;
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
             glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer, blurredBackgroundColorProvider));
 

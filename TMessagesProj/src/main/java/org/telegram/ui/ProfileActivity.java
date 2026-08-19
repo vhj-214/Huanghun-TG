@@ -1425,14 +1425,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     paint.setColor(0x26ffffff);
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
                 } else {
-                    paint.setColor(currentColor);
+                    // 静态壁纸下也只保留资料页自己的低透明高光，不能再以主题实体底色遮住背景。
+                    paint.setColor(Theme.multAlpha(currentColor, 0.10f));
                     updateBackgroundPaint();
                     final float progressToGradient = (playProfileAnimation == 0 ? 1f : avatarAnimationProgress) * hasColorAnimated.set(hasColorById);
                     if (progressToGradient < 1) {
                         canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
                     }
                     if (progressToGradient > 0) {
-                        backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
+                        backgroundPaint.setAlpha((int) (0x24 * progressToGradient));
                         canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
                     }
                 }
@@ -1467,8 +1468,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     paint.setColor(0x22ffffff);
                     canvas.drawRect(blurBounds, paint);
                 } else {
-                    int color = getThemedColor(Theme.key_windowBackgroundWhite);
-                    paint.setColor(color);
+                    // 不让静态壁纸下的模糊源色重新变成实体白色面板。
+                    paint.setColor(0x12FFFFFF);
                     contentView.drawBlurRect(canvas, getY(), blurBounds, paint, true);
                 }
             }
@@ -4179,7 +4180,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
-        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        // 资料页根层必须持续透出聊天背景；信息内容由各自的玻璃卡片保证可读性。
+        contentView.setBackgroundColor(Color.TRANSPARENT);
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -4314,7 +4316,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
         listView.setSections();
         listView.applyPaddingToSections = false;
-        listView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        // 不让 RecyclerView 的主题灰底覆盖静态或动态聊天壁纸。
+        listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setVerticalScrollBarEnabled(false);
         final IBlur3Capture listViewCapture = new ViewGroupPartRenderer(listView, (ViewGroup) fragmentView, (canvas, child, drawingTime) -> {
             if (child == sharedMediaLayout) {
@@ -5344,7 +5347,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             searchListView.setItemAnimator(null);
             searchListView.setVisibility(View.GONE);
             searchListView.setLayoutAnimation(null);
-            searchListView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            searchListView.setBackgroundColor(Color.TRANSPARENT);
             frameLayout.addView(searchListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT));
             searchListView.setOnItemClickListener((view, position) -> {
                 if (position < 0) {
@@ -6267,24 +6270,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
-            if (listAdapter != null) {
-                listAdapter.notifyDataSetChanged();
-            }
         }
-        // 成员标签栏、成员容器和成员行在无壁纸、静态壁纸和动态视频下都使用相同玻璃表面。
+        // 玻璃成员状态不会强制重建适配器；后续成员行继续走官方创建、绑定与复用流程。
         if (sharedMediaLayout != null) {
             sharedMediaLayout.setHuanghunProfileVideoGlass(true);
         }
-        // 视频播放器、成员数据和主题描述可能在当前创建流程结束后才写入背景。
-        // 下一帧再次绑定最终玻璃层，确保三种壁纸状态都不会回退为实体白色。
-        contentView.post(() -> {
-            if (listAdapter != null) {
-                listAdapter.notifyDataSetChanged();
-            }
-            if (sharedMediaLayout != null) {
-                sharedMediaLayout.setHuanghunProfileVideoGlass(true);
-            }
-        });
         if (profileHasDynamicVideoWallpaper) {
             profileDynamicVideoWallpaperPlayer.resume();
         }
@@ -13929,7 +13919,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     || viewType == VIEW_TYPE_CHANNEL
                     || viewType == VIEW_TYPE_PREMIUM_TEXT_CELL
                     || viewType == VIEW_TYPE_STARS_TEXT_CELL
-                    || viewType == VIEW_TYPE_BOT_APP;
+                    || viewType == VIEW_TYPE_BOT_APP
+                    || viewType == VIEW_TYPE_TEXT2
+                    || viewType == VIEW_TYPE_SHADOW_TEXT
+                    || viewType == VIEW_TYPE_COLORFUL_TEXT
+                    || viewType == VIEW_TYPE_SUGGESTION
+                    || viewType == VIEW_TYPE_VERSION;
         }
 
         private Drawable createHuanghunLiquidGlassCardDrawable() {
@@ -15889,13 +15884,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ((UserCell) child).update(0);
                     }
                 }
-                listView.setBackgroundColor(profileHasDynamicVideoWallpaper
-                        ? Color.TRANSPARENT
-                        : getThemedColor(Theme.key_windowBackgroundGray));
+                // 主题刷新不得把资料页根层重新写成实体灰底；内容卡片单独负责玻璃高光与边界。
+                listView.setBackgroundColor(Color.TRANSPARENT);
                 if (contentView != null) {
-                    contentView.setBackgroundColor(profileHasDynamicVideoWallpaper
-                            ? Color.TRANSPARENT
-                            : getThemedColor(Theme.key_windowBackgroundGray));
+                    contentView.setBackgroundColor(Color.TRANSPARENT);
                 }
             }
             if (!isPulledDown) {

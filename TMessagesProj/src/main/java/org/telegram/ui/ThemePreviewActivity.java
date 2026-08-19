@@ -148,6 +148,8 @@ import org.telegram.ui.Components.UndoView;
 import org.telegram.ui.Components.WallpaperCheckBoxView;
 import org.telegram.ui.Components.WallpaperParallaxEffect;
 import org.telegram.ui.Stories.recorder.PreviewView;
+
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import org.telegram.ui.Stories.recorder.SliderView;
 
 import java.io.File;
@@ -2711,6 +2713,9 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         if (done) {
             if (dialogId != 0) {
                 needFinishFragment = false;
+                // 用户确认官方静态聊天壁纸后，立即停用该会话的视频层。
+                // 动态视频文件会被保留；下次重新选择动态壁纸时会自动恢复并替换。
+                DynamicVideoWallpaperHelper.disableVideoForStaticWallpaper(ApplicationLoader.applicationContext, currentAccount, dialogId);
 
                 if (path != null && getMessagesController().uploadingWallpaperInfo == wallpaperInfo) {
                     tlwallPaper = new TLRPC.TL_wallPaper();

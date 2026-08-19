@@ -3919,45 +3919,44 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     }
 
     /**
-     * 群资料页已经挂载动态聊天壁纸时，SharedMediaLayout 仍会以 windowBackgroundWhite
-     * 作为模糊源色，造成成员页看起来是一整块白色面板。此开关只清理这条真实父层，
-     * 不修改成员行的官方绑定、触摸、搜索和复用逻辑。
+     * 资料页的成员标签页使用独立玻璃背景。该状态只影响资料页和成员标签页，
+     * 不触发适配器重建，避免在 RecyclerView 正在布局时出现闪屏或崩溃。
      */
     public void setHuanghunProfileVideoGlass(boolean enabled) {
         if (viewType != VIEW_TYPE_PROFILE_ACTIVITY) {
             return;
         }
-        // 动态视频挂载、静态壁纸、成员数据和主题描述均可能异步写入背景；
-        // 即使状态没有变化也必须重新应用，避免后创建的标签栏、列表或成员行保留实体白色背景。
         huanghunProfileVideoGlass = enabled;
-        iBlur3SourceColor.setColor(enabled ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
-        setBackgroundColor(Color.TRANSPARENT);
+        final int backgroundColor = enabled ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite);
+        iBlur3SourceColor.setColor(backgroundColor);
+        setBackgroundColor(backgroundColor);
         if (scrollSlidingTextTabStrip != null) {
-            scrollSlidingTextTabStrip.setBackgroundColor(Color.TRANSPARENT);
+            scrollSlidingTextTabStrip.setBackgroundColor(backgroundColor);
         }
         if (actionModeLayout != null) {
-            actionModeLayout.setBackgroundColor(Color.TRANSPARENT);
+            actionModeLayout.setBackgroundColor(backgroundColor);
         }
         for (MediaPage mediaPage : mediaPages) {
-            if (mediaPage == null) {
+            if (mediaPage == null || mediaPage.selectedType != TAB_GROUPUSERS) {
                 continue;
             }
-            mediaPage.setBackgroundColor(Color.TRANSPARENT);
+            mediaPage.setBackgroundColor(backgroundColor);
             if (mediaPage.listView != null) {
-                mediaPage.listView.setBackgroundColor(Color.TRANSPARENT);
+                mediaPage.listView.setBackgroundColor(backgroundColor);
                 for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
-                    applyHuanghunProfileMemberGlass(mediaPage.listView.getChildAt(i));
-                }
-                RecyclerView.Adapter adapter = mediaPage.listView.getAdapter();
-                if (adapter != null) {
-                    adapter.notifyDataSetChanged();
+                    View child = mediaPage.listView.getChildAt(i);
+                    if (enabled) {
+                        applyHuanghunProfileMemberGlass(child);
+                    } else {
+                        child.setBackgroundColor(backgroundColor);
+                    }
                 }
             }
             if (mediaPage.animationSupportingListView != null) {
-                mediaPage.animationSupportingListView.setBackgroundColor(Color.TRANSPARENT);
+                mediaPage.animationSupportingListView.setBackgroundColor(backgroundColor);
             }
             if (mediaPage.progressView != null) {
-                mediaPage.progressView.setBackgroundColor(Color.TRANSPARENT);
+                mediaPage.progressView.setBackgroundColor(backgroundColor);
             }
         }
         invalidateBlur();
@@ -6887,6 +6886,12 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     }
 
     public void updateAdapters() {
+        for (MediaPage mediaPage : mediaPages) {
+            if (mediaPage != null && (mediaPage.listView.isComputingLayout() || mediaPage.animationSupportingListView.isComputingLayout())) {
+                post(this::updateAdapters);
+                return;
+            }
+        }
         if (photoVideoAdapter != null) {
             photoVideoAdapter.notifyDataSetChanged();
         }
@@ -7428,6 +7433,16 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 if (currentAdapter != chatUsersAdapter) {
                     recycleAdapter(currentAdapter);
                     mediaPages[a].listView.setAdapter(chatUsersAdapter);
+                }
+                if (huanghunProfileVideoGlass) {
+                    mediaPages[a].setBackgroundColor(Color.TRANSPARENT);
+                    mediaPages[a].listView.setBackgroundColor(Color.TRANSPARENT);
+                    if (mediaPages[a].animationSupportingListView != null) {
+                        mediaPages[a].animationSupportingListView.setBackgroundColor(Color.TRANSPARENT);
+                    }
+                    if (mediaPages[a].progressView != null) {
+                        mediaPages[a].progressView.setBackgroundColor(Color.TRANSPARENT);
+                    }
                 }
             } else if (isAnyStoryPageType(mediaPages[a].selectedType)) {
                 StoriesAdapter adapter = storyAlbums_getStoriesAdapterByTabType(mediaPages[a].selectedType);
