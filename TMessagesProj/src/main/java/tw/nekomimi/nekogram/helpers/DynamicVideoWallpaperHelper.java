@@ -52,6 +52,11 @@ public final class DynamicVideoWallpaperHelper {
         return account + "_" + dialogId;
     }
 
+    /** 静态壁纸覆盖动态视频时的会话级开关；重新选择视频会自动清除。 */
+    private static String disabledKey(int account, long dialogId) {
+        return "disabled_" + key(account, dialogId);
+    }
+
     public static String importVideo(Context context, Uri source) throws IOException {
         if (source == null) {
             throw new IOException("未读取到所选视频。");
@@ -114,7 +119,11 @@ public final class DynamicVideoWallpaperHelper {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String oldPath = preferences.getString(key(account, dialogId), null);
         // 使用同步提交确保通知当前聊天页刷新时，新路径已经可被立即读取。
-        preferences.edit().putString(key(account, dialogId), path).commit();
+        // 用户重新选择视频时，明确重新启用该会话的动态壁纸。
+        preferences.edit()
+                .putString(key(account, dialogId), path)
+                .remove(disabledKey(account, dialogId))
+                .commit();
         notifyWallpaperChanged(account, dialogId);
         if (oldPath != null && !oldPath.equals(path)) {
             try {
@@ -158,6 +167,10 @@ public final class DynamicVideoWallpaperHelper {
     public static String getVideoPath(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String selectedKey = key(account, dialogId);
+        // 本会话改用静态壁纸后，不能再回退显示全局默认动态视频。
+        if (preferences.getBoolean(disabledKey(account, dialogId), false)) {
+            return null;
+        }
         String path = preferences.getString(selectedKey, null);
         // 聊天设置页保存的全局默认视频使用 dialogId = 0。具体聊天没有单独设置时，
         // 一律回退到该默认视频，因此切换 Telegram 主题不会影响本地动态背景。
@@ -175,10 +188,22 @@ public final class DynamicVideoWallpaperHelper {
         return path;
     }
 
+    /**
+     * 当前会话选择静态壁纸时停用视频层。保留视频文件，便于用户随后重新选择动态壁纸。
+     */
+    public static void disableVideoForStaticWallpaper(Context context, int account, long dialogId) {
+        SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        preferences.edit().putBoolean(disabledKey(account, dialogId), true).commit();
+        notifyWallpaperChanged(account, dialogId);
+    }
+
     public static void clearVideo(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String path = preferences.getString(key(account, dialogId), null);
-        preferences.edit().remove(key(account, dialogId)).commit();
+        preferences.edit()
+                .remove(key(account, dialogId))
+                .remove(disabledKey(account, dialogId))
+                .commit();
         notifyWallpaperChanged(account, dialogId);
         if (path != null) {
             try {

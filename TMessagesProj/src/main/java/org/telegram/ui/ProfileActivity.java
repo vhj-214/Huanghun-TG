@@ -252,6 +252,7 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.JoinGroupAlert;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.LinkSpanDrawable;
+import org.telegram.ui.Components.MotionBackgroundDrawable;
 import org.telegram.ui.Components.MediaActivity;
 import org.telegram.ui.Components.MessagePrivateSeenView;
 import org.telegram.ui.Components.Premium.LimitReachedBottomSheet;
@@ -475,6 +476,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
      */
     private DynamicVideoWallpaperHelper.Player profileDynamicVideoWallpaperPlayer;
     private boolean profileHasDynamicVideoWallpaper;
+    /** 资料页仅在可安全复制前一个聊天的静态背景时使用此状态透出该背景层。 */
+    private boolean profileHasStaticChatWallpaper;
     private boolean doNotSetForeground;
     public boolean hasMainTabs;
 
@@ -4180,6 +4183,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
         contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        // 不透明根层保留官方 Fragment 转场；静态壁纸只绘制到此根层内部的 BackgroundView。
+        profileHasStaticChatWallpaper = applyHuanghunStaticWallpaperFromPreviousChat();
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -4314,7 +4319,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         };
         listView.setSections();
         listView.applyPaddingToSections = false;
-        listView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        listView.setBackgroundColor(profileHasStaticChatWallpaper
+                ? Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
         listView.setVerticalScrollBarEnabled(false);
         final IBlur3Capture listViewCapture = new ViewGroupPartRenderer(listView, (ViewGroup) fragmentView, (canvas, child, drawingTime) -> {
             if (child == sharedMediaLayout) {
@@ -6261,34 +6268,55 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, did);
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
-        // 仅在用户显式设置动态视频壁纸时让资料页根层透出视频；卡片与成员区始终使用独立低透明玻璃表面。
+        // 动态视频挂载在资料页根层的最底部；根层本身保持官方实体背景，
+        // 只让列表与顶部视图透出视频，避免 Fragment 转场期间露出相邻页面。
         if (profileHasDynamicVideoWallpaper) {
-            contentView.setBackgroundColor(Color.TRANSPARENT);
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
-            if (listAdapter != null) {
-                listAdapter.notifyDataSetChanged();
-            }
         }
-        // 成员标签栏、成员容器和成员行在无壁纸、静态壁纸和动态视频下都使用相同玻璃表面。
+        // 仅在资料页内部确实有可绘制的静态或动态聊天背景时启用成员玻璃。
         if (sharedMediaLayout != null) {
-            sharedMediaLayout.setHuanghunProfileVideoGlass(true);
+            sharedMediaLayout.setHuanghunProfileVideoGlass(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper);
         }
-        // 视频播放器、成员数据和主题描述可能在当前创建流程结束后才写入背景。
-        // 下一帧再次绑定最终玻璃层，确保三种壁纸状态都不会回退为实体白色。
-        contentView.post(() -> {
-            if (listAdapter != null) {
-                listAdapter.notifyDataSetChanged();
-            }
-            if (sharedMediaLayout != null) {
-                sharedMediaLayout.setHuanghunProfileVideoGlass(true);
-            }
-        });
         if (profileHasDynamicVideoWallpaper) {
             profileDynamicVideoWallpaperPlayer.resume();
         }
         return fragmentView;
+    }
+
+    /**
+     * 资料页覆盖聊天页后不能依靠被遮住的聊天背景，但根容器可安全持有静态 Drawable 的独立副本。
+     * 只处理紧邻的同一聊天、且可复制的非动态 Drawable；其它入口继续使用官方灰色背景。
+     */
+    private boolean applyHuanghunStaticWallpaperFromPreviousChat() {
+        if (contentView == null || parentLayout == null || parentLayout.getFragmentStack() == null) {
+            return false;
+        }
+        try {
+            final int fragmentCount = parentLayout.getFragmentStack().size();
+            if (fragmentCount < 2) {
+                return false;
+            }
+            final BaseFragment previousFragment = parentLayout.getFragmentStack().get(fragmentCount - 2);
+            if (!(previousFragment instanceof ChatActivity)) {
+                return false;
+            }
+            final ChatActivity previousChat = (ChatActivity) previousFragment;
+            if (previousChat.getDialogId() != getDialogId() || previousChat.contentView == null) {
+                return false;
+            }
+            final Drawable source = previousChat.contentView.getBackgroundImage();
+            if (source == null || source instanceof MotionBackgroundDrawable || source.getConstantState() == null) {
+                return false;
+            }
+            final Drawable copy = source.getConstantState().newDrawable(contentView.getResources()).mutate();
+            contentView.setBackgroundImage(copy, false);
+            return true;
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return false;
+        }
     }
 
     private void toggleNoForwards(boolean enabled) {
@@ -15889,13 +15917,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ((UserCell) child).update(0);
                     }
                 }
-                listView.setBackgroundColor(profileHasDynamicVideoWallpaper
+                final boolean hasProfileWallpaper = profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper;
+                listView.setBackgroundColor(hasProfileWallpaper
                         ? Color.TRANSPARENT
                         : getThemedColor(Theme.key_windowBackgroundGray));
                 if (contentView != null) {
-                    contentView.setBackgroundColor(profileHasDynamicVideoWallpaper
-                            ? Color.TRANSPARENT
-                            : getThemedColor(Theme.key_windowBackgroundGray));
+                    // 根层保持实体主题色以保护转场；静态与动态壁纸均由其内部独立图层绘制。
+                    contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
                 }
             }
             if (!isPulledDown) {
