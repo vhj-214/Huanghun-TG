@@ -4319,21 +4319,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 updateBottomButtonY();
             }
         };
-        // 资料页分组背景由默认主题白色改为独立低透明玻璃，始终生效且不触碰根层或适配器刷新。
-        final Paint profileGlassSectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        // 仅保留官方分组间距；每个资料单元格自行绘制唯一的玻璃表面，避免与分组描边叠加产生重影。
         listView.setSections(
                 view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof GraySectionCell) && !Objects.equals(view.getTag(), RecyclerListView.TAG_NOT_SECTION),
                 dp(12),
                 dp(20),
-                (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    profileGlassSectionPaint.setStyle(Paint.Style.FILL);
-                    profileGlassSectionPaint.setColor((Math.round(0x1C * alpha) << 24) | 0x00FFFFFF);
-                    canvas.drawRoundRect(rect, dp(20), dp(20), profileGlassSectionPaint);
-                    profileGlassSectionPaint.setStyle(Paint.Style.STROKE);
-                    profileGlassSectionPaint.setStrokeWidth(Math.max(1, dp(1)));
-                    profileGlassSectionPaint.setColor((Math.round(0x58 * alpha) << 24) | 0x00FFFFFF);
-                    canvas.drawRoundRect(rect, dp(20), dp(20), profileGlassSectionPaint);
-                },
+                null,
                 false
         );
         listView.applyPaddingToSections = false;

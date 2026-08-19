@@ -2731,8 +2731,8 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         };
         frameLayout.setClipChildren(false);
-        // 输入消息框使用低透明圆角表面；不改变原有输入、附件、表情和发送控件布局。
-        frameLayout.setBackground(createHuanghunLiquidGlassComposerDrawable());
+        // 整条输入岛外壳已负责唯一的液态玻璃表面；内部容器必须透明，避免第二层圆角底板重影。
+        frameLayout.setBackground(null);
         textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, DEFAULT_HEIGHT, 0));
 
         emojiButton = new ChatActivityEnterViewAnimatedIconView(context) {
@@ -4799,19 +4799,6 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     Paint backgroundPaint = new Paint();
 
-    /**
-     * 仅使用基础 Drawable，确保所有项目支持的 Android 版本均能显示输入框玻璃表面。
-     */
-    private Drawable createHuanghunLiquidGlassComposerDrawable() {
-        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{
-                0x38FFFFFF,
-                0x20EAF4FF
-        });
-        drawable.setCornerRadius(dp(24));
-        drawable.setStroke(Math.max(1, dp(1)), 0x78FFFFFF);
-        return new InsetDrawable(drawable, dp(8), dp(2), dp(8), dp(2));
-    }
-
     private float composeShadowAlpha = 1f;
     private Rect blurBounds = new Rect();
 
@@ -4832,13 +4819,14 @@ public class ChatActivityEnterView extends FrameLayout implements
         int bottom = top + Theme.chat_composeShadowDrawable.getIntrinsicHeight();
 
         if (withComposeShadowDrawable) {
-            Theme.chat_composeShadowDrawable.setAlpha((int) (composeShadowAlpha * 0xFF));
+            // 只保留极轻的内容分隔阴影，不再形成第二层白色输入面板。
+            Theme.chat_composeShadowDrawable.setAlpha((int) (composeShadowAlpha * 0x18));
             Theme.chat_composeShadowDrawable.setBounds(0, top, getMeasuredWidth(), bottom);
             Theme.chat_composeShadowDrawable.draw(canvas);
         }
 
-        // 输入框外层也使用低透明表面，避免主题色在容器空白区域形成实体白色底板。
-        backgroundPaint.setColor(0x1AFFFFFF);
+        // 空白承接区域完全透明；唯一可见玻璃由 ChatInputViewsContainer 统一绘制。
+        backgroundPaint.setColor(Color.TRANSPARENT);
         if (allowBlur && SharedConfig.chatBlurEnabled() && sizeNotifierLayout != null) {
             blurBounds.set(0, bottom, getWidth(), getHeight());
             sizeNotifierLayout.drawBlurRect(canvas, getTop(), blurBounds, backgroundPaint, false);

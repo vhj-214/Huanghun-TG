@@ -11164,6 +11164,10 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                     TagEditCell.showInfoSheet(getContext(), profileActivity.getCurrentAccount(), dialog_id, user, finalRole, isAdmin, isOwner, canEditAdmin, resourcesProvider);
                 });
                 userCell.setData(user, null, null, 0, position != chatInfo.participants.participants.size() - 1);
+                // setData 可能更新单元格内部表面；在其完成后覆盖为单层玻璃，避免成员行恢复实体白色。
+                if (huanghunProfileVideoGlass) {
+                    applyHuanghunProfileMemberGlass(userCell);
+                }
             }
         }
 
@@ -11438,6 +11442,10 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             ManageChatUserCell userCell = (ManageChatUserCell) holder.itemView;
             userCell.setTag(position);
             userCell.setData(user, name, null, false);
+            // 搜索结果同样在绑定结束后重设玻璃，防止 ManageChatUserCell 的内容更新写回白色表面。
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileMemberGlass(userCell);
+            }
         }
 
         @Override

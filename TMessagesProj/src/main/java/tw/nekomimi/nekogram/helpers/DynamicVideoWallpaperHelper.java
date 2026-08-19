@@ -2,22 +2,17 @@ package tw.nekomimi.nekogram.helpers;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.Matrix;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
-import android.os.Build;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 
 import org.telegram.messenger.FileLog;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
@@ -228,13 +223,13 @@ public final class DynamicVideoWallpaperHelper {
         if (path == null || parent == null) {
             return null;
         }
-        // 前景严格按完整比例显示视频；后景使用同一视频的柔焦首帧铺满，
-        // 因此纵横比不一致时不会露出原始静态壁纸，也不会裁切前景视频。
+        // 资料页空媒体区域必须只显示一个视频画面。不得再使用同一视频首帧做柔焦后景，
+        // 否则完整比例的前景 TextureView 会与后景叠加，视觉上形成上下两段重复视频。
         FrameLayout videoLayer = new FrameLayout(context);
         videoLayer.setClipChildren(true);
         videoLayer.setClipToPadding(true);
-        ImageView softBackdrop = createSoftVideoBackdrop(context, path);
-        videoLayer.addView(softBackdrop, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // 比例不一致时使用纯色承接，不复制视频内容，也不露出旧静态壁纸。
+        videoLayer.setBackgroundColor(0xFF1E2632);
 
         TextureView textureView = new TextureView(context);
         textureView.setClickable(false);
@@ -275,31 +270,6 @@ public final class DynamicVideoWallpaperHelper {
         return player;
     }
 
-    /** 作为等比前景视频的连续柔焦底图，避免顶部或底部露出旧主题壁纸。 */
-    private static ImageView createSoftVideoBackdrop(Context context, String path) {
-        ImageView backdrop = new ImageView(context);
-        backdrop.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        backdrop.setBackgroundColor(0xFF1E2632);
-        backdrop.setAlpha(.62f);
-        try {
-            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-            try {
-                retriever.setDataSource(path);
-                Bitmap frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-                if (frame != null) {
-                    backdrop.setImageBitmap(frame);
-                }
-            } finally {
-                retriever.release();
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                backdrop.setRenderEffect(RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP));
-            }
-        } catch (Throwable e) {
-            FileLog.e(e);
-        }
-        return backdrop;
-    }
 
     public static final class Player implements TextureView.SurfaceTextureListener {
         private final TextureView textureView;
