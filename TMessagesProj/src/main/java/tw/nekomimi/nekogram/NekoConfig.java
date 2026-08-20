@@ -142,6 +142,10 @@ public class NekoConfig {
     // Huanghun extension features: the defaults are applied only on first use and stay editable.
     public static ConfigItem huanghunBlockNonContacts = addConfig("HuanghunBlockNonContacts", configTypeBool, true);
     public static ConfigItem huanghunBlockedKeywords = addConfig("HuanghunBlockedKeywords", configTypeString, "海外bc\n安全验证\n兼职刷单\n加微信\n高收益\nUSDT\n免费领取\n投资理财\n裸聊交友\n色情服务\n代办签证\n买粉买赞\n刷单返利\n博彩网站\n线上赌场\n同城约炮\n兼职招聘\n高薪诚聘\n数字货币\n币圈投资\n杀猪盘\n贷款代办\n办证刻章\n发票代开\n买赞买粉\n流量变现\n私密直播\n福利姬\n原声视频\n引流加V\nQQ群\n飞机群\nTG群\n加Q\n联系客服\n专业导师\n带单盈利");
+    // 内置视频录制默认关闭；开启后仅替代圆形视频录制流程，普通官方相机不受影响。
+    public static ConfigItem huanghunBuiltinCameraEnabled = addConfig("HuanghunBuiltinCameraEnabled", configTypeBool, false);
+    // 默认保留所选视频的原声，关闭后发送的圆形视频将由官方发送管线标记为静音。
+    public static ConfigItem huanghunBuiltinVideoSound = addConfig("HuanghunBuiltinVideoSound", configTypeBool, true);
 
     public static ConfigItem disableNotificationBubbles = addConfig("disableNotificationBubbles", configTypeBool, false);
 

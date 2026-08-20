@@ -126,8 +126,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import org.jetbrains.annotations.NotNull;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.AnimationNotificationsLocker;
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.AnimationNotificationsLocker;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.BotForumHelper;
 import org.telegram.messenger.BotWebViewVibrationEffect;
@@ -239,6 +239,8 @@ import tw.nekomimi.nekogram.llm.LlmConfig;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import tw.nekomimi.nekogram.utils.StringUtils;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
+import tw.nekomimi.nekogram.settings.NekoExtensionsActivity;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
 import tw.nekomimi.nekogram.ui.BottomBuilder;
@@ -930,6 +932,31 @@ public class ChatActivityEnterView extends FrameLayout implements
         @Override
         public void run() {
             if (delegate == null || parentActivity == null) {
+                return;
+            }
+            // 内置模式必须在录制状态机最早入口接管，绝不走下面的权限、选镜头或 CameraController 初始化分支。
+            if (isInVideoMode() && shouldUseHuanghunBuiltinVideoRecording()) {
+                pendingCameraFront = null;
+                delegate.onPreAudioVideoRecord();
+                calledRecordRunnable = true;
+                recordAudioVideoRunnableStarted = false;
+                if (slideText != null) {
+                    slideText.setAlpha(1.0f);
+                    slideText.setTranslationY(0);
+                }
+                audioToSendPath = null;
+                audioToSend = null;
+                delegate.needStartRecordVideo(0, true, 0, 0, 0, 0, 0);
+                if (!recordingAudioVideo) {
+                    recordingAudioVideo = true;
+                    updateRecordInterface(RECORD_STATE_ENTER, true);
+                    if (recordCircle != null) {
+                        recordCircle.showWaves(false, false);
+                    }
+                    if (recordTimerView != null) {
+                        recordTimerView.reset();
+                    }
+                }
                 return;
             }
             /*delegate.onPreAudioVideoRecord();
@@ -4865,6 +4892,10 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     private boolean checkMenuPermissions(boolean isVideoMode) {
+        // 内置视频预览不使用摄像头或麦克风；只有库中已有可用视频时才跳过官方视频权限。
+        if (isVideoMode && shouldUseHuanghunBuiltinVideoRecording()) {
+            return true;
+        }
         if (isVideoMode) {
             boolean hasAudio = parentActivity.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
             boolean hasVideo = parentActivity.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
@@ -4888,6 +4919,11 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         }
         return true;
+    }
+
+    private boolean shouldUseHuanghunBuiltinVideoRecording() {
+        return NekoConfig.huanghunBuiltinCameraEnabled.Bool()
+                && HuanghunVideoLibraryHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount) > 0;
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -4967,7 +5003,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
                     if (checkMenuPermissions(true)) {
                         int cameraMode = NaConfig.INSTANCE.getCameraInVideoMessages().Int();
-                        if (cameraMode == 2) {
+                        if (!shouldUseHuanghunBuiltinVideoRecording() && cameraMode == 2) {
                             showCameraSelectionPopup(audioVideoButtonContainer, () -> {
                                 pendingCameraFront = true;
                                 proceedWithVideoRecording();
@@ -4989,6 +5025,19 @@ public class ChatActivityEnterView extends FrameLayout implements
 
                 cell.setMinimumWidth(AndroidUtilities.dp(196));
                 menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
+
+                ActionBarMenuSubItem settingsCell = new ActionBarMenuSubItem(getContext(), false, true);
+                settingsCell.setTextAndIcon("录制设置", R.drawable.settings_chat);
+                settingsCell.setOnClickListener(v -> {
+                    if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
+                        menuPopupWindow.dismiss();
+                    }
+                    if (parentFragment != null) {
+                        parentFragment.presentFragment(new NekoExtensionsActivity());
+                    }
+                });
+                settingsCell.setMinimumWidth(AndroidUtilities.dp(196));
+                menuPopupLayout.addView(settingsCell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
             }
         } else {
             long chatId = ChatsHelper.getChatId();

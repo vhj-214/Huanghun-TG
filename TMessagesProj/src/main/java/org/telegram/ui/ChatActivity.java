@@ -392,7 +392,9 @@ import tw.nekomimi.nekogram.filters.RegexFilterEditActivity;
 import tw.nekomimi.nekogram.helpers.ChatsHelper;
 
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunBuiltinVideoPreview;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
@@ -743,6 +745,8 @@ public class ChatActivity extends BaseFragment implements
     private ChatActionCell infoTopView;
     private int hideDateDelay = 500;
     public InstantCameraView instantCameraView;
+    // 独立于 InstantCameraView：开启内置视频时不访问真实摄像头，也不申请摄像头权限。
+    private HuanghunBuiltinVideoPreview huanghunBuiltinVideoPreview;
     private View overlayView;
     private boolean currentFloatingDateOnScreen;
     private boolean currentFloatingTopicOnScreen;
@@ -2668,6 +2672,25 @@ public class ChatActivity extends BaseFragment implements
 
         @Override
         public void needStartRecordVideo(int state, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+            // 仅在 state=0 且功能明确开启时接管。未开启、没有有效视频或预览创建失败时，下面的官方分支完全不变。
+            if (state == 0 && startHuanghunBuiltinVideoPreview()) {
+                chatListView.stopScroll();
+                chatAdapter.updateRowsSafe();
+                return;
+            }
+            if (huanghunBuiltinVideoPreview != null) {
+                if (state == 1 || state == 3 || state == 4) {
+                    String path = huanghunBuiltinVideoPreview.getCurrentVideoPath();
+                    stopHuanghunBuiltinVideoPreview();
+                    if (path != null) {
+                        sendHuanghunBuiltinRoundVideo(path, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                    }
+                } else if (state == 2 || state == 5) {
+                    stopHuanghunBuiltinVideoPreview();
+                }
+                return;
+            }
+
             checkInstantCameraView();
             if (instantCameraView != null) {
                 if (state == 0) {
@@ -3644,6 +3667,7 @@ public class ChatActivity extends BaseFragment implements
             dynamicVideoWallpaperPlayer.release();
             dynamicVideoWallpaperPlayer = null;
         }
+        stopHuanghunBuiltinVideoPreview();
         if (messageMetricsView != null) {
             messageMetricsView.finish();
         }
@@ -11453,6 +11477,60 @@ public class ChatActivity extends BaseFragment implements
     }
     public void dimBehindView(boolean enable) {
         dimBehindView(enable ? 0.2f : 0, false, true);
+    }
+
+    private boolean startHuanghunBuiltinVideoPreview() {
+        if (!NekoConfig.huanghunBuiltinCameraEnabled.Bool() || huanghunBuiltinVideoPreview != null || contentView == null || getContext() == null) {
+            return huanghunBuiltinVideoPreview != null;
+        }
+        ArrayList<String> paths = HuanghunVideoLibraryHelper.getVideoPaths(ApplicationLoader.applicationContext, currentAccount);
+        if (paths.isEmpty()) {
+            return false;
+        }
+        try {
+            HuanghunBuiltinVideoPreview preview = new HuanghunBuiltinVideoPreview(getContext(), paths);
+            int index = contentView.indexOfChild(chatInputViewsContainer);
+            if (index < 0) {
+                index = contentView.getChildCount();
+            }
+            index = Math.min(index + 1, contentView.getChildCount());
+            contentView.addView(preview, index, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
+            if (!preview.start()) {
+                preview.release();
+                return false;
+            }
+            huanghunBuiltinVideoPreview = preview;
+            return true;
+        } catch (Throwable e) {
+            FileLog.e(e);
+            stopHuanghunBuiltinVideoPreview();
+            return false;
+        }
+    }
+
+    private void stopHuanghunBuiltinVideoPreview() {
+        HuanghunBuiltinVideoPreview preview = huanghunBuiltinVideoPreview;
+        huanghunBuiltinVideoPreview = null;
+        if (preview != null) {
+            preview.release();
+        }
+    }
+
+    private void sendHuanghunBuiltinRoundVideo(String path, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        File file = path == null ? null : new File(path);
+        if (file == null || !file.isFile() || file.length() <= 0) {
+            return;
+        }
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), path, 0, true, 0, 0, file.length());
+        entry.ttl = ttl;
+        entry.effectId = effectId;
+        VideoEditedInfo info = new VideoEditedInfo();
+        info.originalPath = path;
+        info.roundVideo = true;
+        info.startTime = -1;
+        info.endTime = -1;
+        info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+        sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
     }
 
     private void checkInstantCameraView() {
@@ -36645,6 +36723,9 @@ public class ChatActivity extends BaseFragment implements
             if (backToPreviousFragment != null) {
                 parentLayout.addFragmentToStack(backToPreviousFragment, parentLayout.getFragmentStack().size() - 1);
                 backToPreviousFragment = null;
+            }
+            if (huanghunBuiltinVideoPreview != null) {
+                stopHuanghunBuiltinVideoPreview();
             }
             if (instantCameraView != null) {
                 instantCameraView.cancel(false);

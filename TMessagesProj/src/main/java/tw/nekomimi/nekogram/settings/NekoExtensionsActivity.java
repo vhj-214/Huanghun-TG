@@ -2,8 +2,12 @@ package tw.nekomimi.nekogram.settings;
 
 import static org.telegram.messenger.LocaleController.getString;
 
+import android.app.Activity;
 import android.app.DatePickerDialog;
+import android.content.ClipData;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
@@ -23,8 +27,11 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextCheckCell;
@@ -35,6 +42,7 @@ import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
 
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -43,10 +51,22 @@ import java.util.Locale;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 /** Settings page for Huanghun account cleanup and non-contact message blocking. */
 public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
+
+    private static final int REQUEST_HUANGHUN_BUILTIN_VIDEOS = 10937;
+
+    private int videoHeaderRow;
+    private int builtinCameraRow;
+    private int selectBuiltinVideosRow;
+    private int builtinVideoSoundRow;
+    private int viewBuiltinVideosRow;
+    private int deleteBuiltinVideosRow;
+    private int videoNoticeRow;
+    private int videoEndRow;
 
     private int cleanupHeaderRow;
     private int clearBotsRow;
@@ -78,6 +98,15 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     @Override
     protected void updateRows() {
         super.updateRows();
+        videoHeaderRow = addRow();
+        builtinCameraRow = addRow();
+        selectBuiltinVideosRow = addRow();
+        builtinVideoSoundRow = addRow();
+        viewBuiltinVideosRow = addRow();
+        deleteBuiltinVideosRow = addRow();
+        videoNoticeRow = addRow();
+        videoEndRow = addRow();
+
         cleanupHeaderRow = addRow();
         clearBotsRow = addRow();
         leaveGroupsRow = addRow();
@@ -109,6 +138,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     @Override
     public void onResume() {
         super.onResume();
+        notifyVideoRows();
         notifyPrivacyRows();
     }
 
@@ -119,6 +149,35 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
+        if (position == builtinCameraRow) {
+            boolean enabled = NekoConfig.huanghunBuiltinCameraEnabled.toggleConfigBool();
+            if (view instanceof TextCheckCell) {
+                ((TextCheckCell) view).setChecked(enabled);
+            }
+            if (enabled && HuanghunVideoLibraryHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount) == 0) {
+                showVideoInfo("请先选取视频", "已开启内置相机。请先点击“选取内置视频”导入至少一个视频，录制视频时才会使用预置视频。\n\n关闭此开关后，录制视频会完全恢复 Telegram 官方真实录制。\n");
+            }
+            return;
+        }
+        if (position == selectBuiltinVideosRow) {
+            chooseBuiltinVideos();
+            return;
+        }
+        if (position == builtinVideoSoundRow) {
+            boolean enabled = NekoConfig.huanghunBuiltinVideoSound.toggleConfigBool();
+            if (view instanceof TextCheckCell) {
+                ((TextCheckCell) view).setChecked(enabled);
+            }
+            return;
+        }
+        if (position == viewBuiltinVideosRow) {
+            presentFragment(new HuanghunVideoLibraryActivity(false));
+            return;
+        }
+        if (position == deleteBuiltinVideosRow) {
+            presentFragment(new HuanghunVideoLibraryActivity(true));
+            return;
+        }
         if (position == createPrivacyFolderRow) {
             showCreatePrivacyFolderDialog();
             return;
@@ -175,6 +234,112 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             return;
         }
 
+    }
+
+    private void chooseBuiltinVideos() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_HUANGHUN_BUILTIN_VIDEOS);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            showVideoInfo("无法选择视频", "无法打开系统视频选择器，请稍后重试。\n");
+        }
+    }
+
+    private void importBuiltinVideos(ArrayList<Uri> sources) {
+        if (sources == null || sources.isEmpty() || getParentActivity() == null) {
+            showVideoInfo("导入失败", "未读取到所选视频，请重新选择。\n");
+            return;
+        }
+        AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setMessage("正在保存并验证所选视频，请稍候。\n");
+        progress.setCancelable(false);
+        showDialog(progress);
+        final int account = currentAccount;
+        Utilities.globalQueue.postRunnable(() -> {
+            HuanghunVideoLibraryHelper.ImportResult result;
+            try {
+                result = HuanghunVideoLibraryHelper.importVideos(ApplicationLoader.applicationContext, account, sources);
+            } catch (Throwable e) {
+                FileLog.e(e);
+                ArrayList<String> errors = new ArrayList<>();
+                String message = e.getMessage();
+                errors.add(message == null || message.length() == 0 ? "视频导入失败，请稍后重试。" : message);
+                result = new HuanghunVideoLibraryHelper.ImportResult(0, errors);
+            }
+            final HuanghunVideoLibraryHelper.ImportResult importResult = result;
+            AndroidUtilities.runOnUIThread(() -> {
+                if (progress.isShowing()) {
+                    progress.dismiss();
+                }
+                notifyVideoRows();
+                if (importResult.importedCount > 0) {
+                    String message = "已导入 " + importResult.importedCount + " 个内置视频。";
+                    if (importResult.hasErrors()) {
+                        message += "部分文件未能导入。";
+                    }
+                    BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, message).show();
+                } else {
+                    String message = importResult.errors.isEmpty() ? "所选视频无法导入，请更换视频后重试。" : importResult.errors.get(0);
+                    showVideoInfo("导入失败", message);
+                }
+            });
+        });
+    }
+
+    private void showVideoInfo(String title, String message) {
+        Context context = getParentActivity();
+        if (context == null) {
+            return;
+        }
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(getString(R.string.OK), null)
+                .create());
+    }
+
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_HUANGHUN_BUILTIN_VIDEOS && resultCode == Activity.RESULT_OK) {
+            ArrayList<Uri> sources = new ArrayList<>();
+            if (data != null) {
+                ClipData clipData = data.getClipData();
+                if (clipData != null) {
+                    for (int i = 0; i < clipData.getItemCount(); i++) {
+                        Uri uri = clipData.getItemAt(i).getUri();
+                        if (uri != null && !sources.contains(uri)) {
+                            sources.add(uri);
+                        }
+                    }
+                }
+                Uri singleUri = data.getData();
+                if (singleUri != null && !sources.contains(singleUri)) {
+                    sources.add(singleUri);
+                }
+            }
+            importBuiltinVideos(sources);
+            return;
+        }
+        super.onActivityResultFragment(requestCode, resultCode, data);
+    }
+
+    private void notifyVideoRows() {
+        if (listAdapter == null) {
+            return;
+        }
+        listAdapter.notifyItemChanged(builtinCameraRow);
+        listAdapter.notifyItemChanged(selectBuiltinVideosRow);
+        listAdapter.notifyItemChanged(builtinVideoSoundRow);
+        listAdapter.notifyItemChanged(viewBuiltinVideosRow);
+        listAdapter.notifyItemChanged(deleteBuiltinVideosRow);
     }
 
     private void showCleanupConfirmation(HuanghunExtensionHelper.CleanupAction action) {
@@ -689,14 +854,24 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             int type = holder.getItemViewType();
             if (type == TYPE_HEADER) {
                 HeaderCell cell = (HeaderCell) holder.itemView;
-                String headerText = position == privacyHeaderRow
+                String headerText = position == videoHeaderRow
+                        ? "视频专区"
+                        : (position == privacyHeaderRow
                         ? "隐私专区"
-                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone));
+                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone)));
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
                 cell.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
-                if (position == clearBotsRow) {
+                if (position == selectBuiltinVideosRow) {
+                    int count = HuanghunVideoLibraryHelper.getVideoCount(mContext, currentAccount);
+                    cell.setTextAndValue("选取内置视频", "已选 " + count + " 个", true);
+                } else if (position == viewBuiltinVideosRow) {
+                    cell.setTextAndValue("查看内置视频", "浏览已选视频", true);
+                } else if (position == deleteBuiltinVideosRow) {
+                    cell.setTextColor(getThemedColor(Theme.key_text_RedRegular));
+                    cell.setText("删除视频", false);
+                } else if (position == clearBotsRow) {
                     cell.setText(getString(R.string.HuanghunClearBotData), true);
                 } else if (position == leaveGroupsRow) {
                     cell.setText(getString(R.string.HuanghunLeaveAllGroups), true);
@@ -732,10 +907,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 }
             } else if (type == TYPE_CHECK) {
                 TextCheckCell cell = (TextCheckCell) holder.itemView;
-                cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
+                if (position == builtinCameraRow) {
+                    cell.setTextAndCheck("启动内置相机", NekoConfig.huanghunBuiltinCameraEnabled.Bool(), true);
+                } else if (position == builtinVideoSoundRow) {
+                    cell.setTextAndCheck("视频声音", NekoConfig.huanghunBuiltinVideoSound.Bool(), true);
+                } else {
+                    cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
+                }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice)));
+                cell.setText(position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。开启内置相机后，按住聊天中的录制视频按钮会循环预览所选视频；松开后由 Telegram 官方发送管线发送当前视频。关闭开关即可恢复真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
@@ -744,16 +925,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
+            if (position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == blockNonContactsRow) {
+            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == blockNonContactsRow) {
                 return TYPE_CHECK;
             }
-            if (position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
+            if (position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
+            if (position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;
