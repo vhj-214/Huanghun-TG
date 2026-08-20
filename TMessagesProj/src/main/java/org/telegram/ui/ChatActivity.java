@@ -2674,16 +2674,19 @@ public class ChatActivity extends BaseFragment implements
         public void needStartRecordVideo(int state, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
             // 仅在 state=0 且功能明确开启时接管。未开启、没有有效视频或预览创建失败时，下面的官方分支完全不变。
             if (state == 0 && startHuanghunBuiltinVideoPreview()) {
+                // 内置模式在同一个官方录制状态机中记录当前播放片段与按住起点，
+                // 发送时只使用该快照重新编码，绝不直接上传勾选的原始视频文件。
+                huanghunBuiltinVideoPreview.beginRecording();
                 chatListView.stopScroll();
                 chatAdapter.updateRowsSafe();
                 return;
             }
             if (huanghunBuiltinVideoPreview != null) {
                 if (state == 1 || state == 3 || state == 4) {
-                    String path = huanghunBuiltinVideoPreview.getCurrentVideoPath();
+                    HuanghunBuiltinVideoPreview.RecordingSnapshot recording = huanghunBuiltinVideoPreview.finishRecording();
                     stopHuanghunBuiltinVideoPreview();
-                    if (path != null) {
-                        sendHuanghunBuiltinRoundVideo(path, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                    if (recording != null) {
+                        sendHuanghunBuiltinRoundVideo(recording, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
                     }
                 } else if (state == 2 || state == 5) {
                     stopHuanghunBuiltinVideoPreview();
@@ -11516,20 +11519,47 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
-    private void sendHuanghunBuiltinRoundVideo(String path, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
-        File file = path == null ? null : new File(path);
-        if (file == null || !file.isFile() || file.length() <= 0) {
+    private void sendHuanghunBuiltinRoundVideo(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        File file = recording == null || recording.path == null ? null : new File(recording.path);
+        if (file == null || !file.isFile() || file.length() <= 0 || recording.endTime <= recording.startTime) {
             return;
         }
-        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), path, 0, true, 0, 0, file.length());
+        int originalWidth = recording.originalWidth > 0 ? recording.originalWidth : 360;
+        int originalHeight = recording.originalHeight > 0 ? recording.originalHeight : 360;
+        long recordedDuration = recording.endTime - recording.startTime;
+        long estimatedSize = Math.max(1L, file.length() * recordedDuration / Math.max(1L, recording.originalDuration));
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), recording.path, 0, true, 0, 0, estimatedSize);
         entry.ttl = ttl;
         entry.effectId = effectId;
+
         VideoEditedInfo info = new VideoEditedInfo();
-        info.originalPath = path;
+        info.originalPath = recording.path;
         info.roundVideo = true;
-        info.startTime = -1;
-        info.endTime = -1;
+        info.startTime = recording.startTime;
+        info.endTime = recording.endTime;
+        info.originalDuration = recording.originalDuration;
+        info.estimatedDuration = recordedDuration;
+        info.estimatedSize = estimatedSize;
+        info.originalWidth = originalWidth;
+        info.originalHeight = originalHeight;
+        info.resultWidth = 360;
+        info.resultHeight = 360;
+        info.framerate = 25;
         info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+
+        // 通过裁切状态强制官方转换器生成新的 360×360 圆形视频文件，
+        // 同时保留用户在预览窗口中选择的缩放和位移取景。
+        MediaController.CropState crop = new MediaController.CropState();
+        float sourceAspect = originalWidth / (float) originalHeight;
+        crop.cropPw = sourceAspect > 1f ? 1f / sourceAspect : 1f;
+        crop.cropPh = sourceAspect < 1f ? sourceAspect : 1f;
+        crop.cropScale = Math.max(1f, recording.framingScale);
+        crop.cropPx = recording.framingOffsetX / Math.max(1f, recording.viewportWidth);
+        crop.cropPy = -recording.framingOffsetY / Math.max(1f, recording.viewportHeight);
+        crop.transformWidth = info.resultWidth;
+        crop.transformHeight = info.resultHeight;
+        info.cropState = crop;
+
         sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
     }
 
