@@ -2690,15 +2690,31 @@ public class ChatActivity extends BaseFragment implements
                     if (!huanghunBuiltinVideoPreview.isRecordingConfirmed()) {
                         return;
                     }
+                    // 手机录像式实时编码器在预览仍存活时结束同一个 MP4；随后再取得快照，
+                    // 快照仅用于声音重建和实时编码不可用时的兼容回退。
+                    File realtimeRoundVideo = huanghunBuiltinVideoPreview.finishRealtimeRoundVideoRecording();
                     ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings = huanghunBuiltinVideoPreview.finishRecording();
                     boolean hasRecording = recordings != null && !recordings.isEmpty();
+                    boolean hasRealtimeRoundVideo = realtimeRoundVideo != null && realtimeRoundVideo.isFile() && realtimeRoundVideo.length() > 0;
                     // 内置预览不会发出 MediaController.recordStopped；先明确收尾输入框录制
-                    // 状态，再释放预览并转入单段发送或多段后台合成，保证点击停止有即时反馈。
+                    // 状态，再释放预览并转入实时单文件发送或兼容回退，保证点击停止有即时反馈。
                     if (chatActivityEnterView != null) {
-                        chatActivityEnterView.finishHuanghunBuiltinVideoRecording(hasRecording);
+                        chatActivityEnterView.finishHuanghunBuiltinVideoRecording(hasRealtimeRoundVideo || hasRecording);
                     }
                     stopHuanghunBuiltinVideoPreview();
-                    if (hasRecording) {
+                    if (hasRealtimeRoundVideo && hasRecording) {
+                        try {
+                            sendHuanghunCombinedRoundVideo(realtimeRoundVideo, recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                            Toast.makeText(getContext(), "实时圆形视频已进入发送队列", Toast.LENGTH_SHORT).show();
+                        } catch (Throwable error) {
+                            FileLog.e(error);
+                            //noinspection ResultOfMethodCallIgnored
+                            realtimeRoundVideo.delete();
+                            if (hasRecording) {
+                                sendHuanghunBuiltinRoundVideos(recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                            }
+                        }
+                    } else if (hasRecording) {
                         sendHuanghunBuiltinRoundVideos(recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
                     }
                 } else if (state == 2 || state == 5) {

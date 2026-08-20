@@ -65,6 +65,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     private int recordingSourceHeight;
     private boolean recordingRequested;
     private boolean recordingConfirmed;
+    // 手机录像式实时输出：从确认开始到停止始终只有一个编码器和一个文件。
+    private HuanghunRealtimeRoundVideoRecorder realtimeRoundVideoRecorder;
     // 录制跨越播放列表边界时，已结束的视频片段按真实时间顺序保留在此处。
     private final ArrayList<RecordingSnapshot> completedRecordingSegments = new ArrayList<>();
     // 部分设备的 MediaPlayer 不会稳定派发 onCompletion；使用同一会话号的时长后备任务保证列表继续推进。
@@ -248,6 +250,11 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         recordingRequested = true;
         completedRecordingSegments.clear();
         captureRecordingStartIfReady();
+        realtimeRoundVideoRecorder = HuanghunRealtimeRoundVideoRecorder.create();
+        if (realtimeRoundVideoRecorder != null) {
+            // 立即收录当前已显示画面；之后的每一帧都由 onSurfaceTextureUpdated 写入同一文件。
+            realtimeRoundVideoRecorder.captureFrame(textureView);
+        }
         framingControls.setVisibility(GONE);
         confirmRecordingButton.setVisibility(GONE);
         hintView.setText("正在录制，点击发送完成");
@@ -291,6 +298,16 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
      * 结束录制并返回按实际播放顺序组成的全部片段。跨越第一个视频后进入第二个
      * 视频时，两段都会保留，绝不再只引用开始录制时的源文件。
      */
+    /**
+     * 完成手机录像式的实时单文件输出。必须在释放预览前调用；返回 null 时调用方可
+     * 安全回退到已有快照合成路径，避免设备不支持编码器时丢失录制内容。
+     */
+    public File finishRealtimeRoundVideoRecording() {
+        HuanghunRealtimeRoundVideoRecorder recorder = realtimeRoundVideoRecorder;
+        realtimeRoundVideoRecorder = null;
+        return recorder == null ? null : recorder.finish();
+    }
+
     public ArrayList<RecordingSnapshot> finishRecording() {
         // 若用户在下一段刚显示后立即停止，先以当前已准备播放器补获该段，
         // 再封存，避免 recordingPath 尚未写入而返回空列表并丢失发送。
@@ -346,6 +363,10 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     }
 
     private void clearRecordingSnapshot() {
+        if (realtimeRoundVideoRecorder != null) {
+            realtimeRoundVideoRecorder.cancel();
+            realtimeRoundVideoRecorder = null;
+        }
         recordingRequested = false;
         recordingConfirmed = false;
         completedRecordingSegments.clear();
@@ -678,5 +699,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        if (!released && recordingConfirmed && realtimeRoundVideoRecorder != null) {
+            realtimeRoundVideoRecorder.captureFrame(textureView);
+        }
     }
 }
