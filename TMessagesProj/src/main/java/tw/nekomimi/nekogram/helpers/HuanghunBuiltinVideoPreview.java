@@ -48,6 +48,10 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     private boolean released;
     private boolean prepared;
     private boolean hasRenderedFrame;
+    // 部分设备的 MediaPlayer 不会稳定派发 onCompletion；使用同一会话号的时长后备任务保证列表继续推进。
+    private long fallbackCompletionSession = -1;
+    private long pendingTransitionSession = -1;
+    private final Runnable completionFallbackRunnable = this::onCompletionFallback;
 
     public HuanghunBuiltinVideoPreview(Context context, List<String> paths) {
         super(context);
@@ -163,6 +167,7 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
             return;
         }
         currentIndex = validIndex;
+        cancelCompletionFallback();
         releasePlayer();
 
         final long session = ++playbackSession;
@@ -201,29 +206,64 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
                 } else {
                     textureView.setAlpha(1f);
                 }
+                hintView.setText(videoPaths.size() > 1 ? "内置视频 " + (currentIndex + 1) + "/" + videoPaths.size() : "内置视频预览");
                 player.start();
+                scheduleCompletionFallback(session, player.getDuration());
             });
-            mediaPlayer.setOnCompletionListener(player -> scheduleNextVideo(session, false));
+            mediaPlayer.setOnCompletionListener(player -> {
+                cancelCompletionFallback();
+                scheduleNextVideo(session, false);
+            });
             mediaPlayer.setOnErrorListener((player, what, extra) -> {
                 FileLog.e("Builtin video preview playback failed: " + what + "/" + extra);
+                cancelCompletionFallback();
                 scheduleNextVideo(session, true);
                 return true;
             });
             mediaPlayer.prepareAsync();
         } catch (Throwable e) {
             FileLog.e(e);
+            cancelCompletionFallback();
             scheduleNextVideo(session, true);
         }
+    }
+
+    private void scheduleCompletionFallback(long session, int durationMs) {
+        cancelCompletionFallback();
+        if (durationMs <= 0 || released) {
+            return;
+        }
+        fallbackCompletionSession = session;
+        // 完成事件偶发丢失时，以视频时长加极短余量继续下一个，避免卡在第一段循环。
+        textureView.postDelayed(completionFallbackRunnable, Math.max(250L, durationMs + 80L));
+    }
+
+    private void onCompletionFallback() {
+        long session = fallbackCompletionSession;
+        fallbackCompletionSession = -1;
+        if (!released && prepared && mediaPlayer != null && session == playbackSession) {
+            scheduleNextVideo(session, false);
+        }
+    }
+
+    private void cancelCompletionFallback() {
+        fallbackCompletionSession = -1;
+        textureView.removeCallbacks(completionFallbackRunnable);
     }
 
     /**
      * MediaPlayer 完成回调必须回到视图主线程后才释放并替换 Surface，避免某些设备只停留在第一段视频。
      */
     private void scheduleNextVideo(long completedSession, boolean failed) {
+        if (pendingTransitionSession == completedSession) {
+            return;
+        }
+        pendingTransitionSession = completedSession;
         textureView.post(() -> {
             if (released || completedSession != playbackSession || videoPaths.isEmpty()) {
                 return;
             }
+            pendingTransitionSession = -1;
             if (failed) {
                 consecutivePlaybackFailures++;
                 if (consecutivePlaybackFailures >= videoPaths.size()) {
@@ -287,6 +327,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         released = true;
         prepared = false;
         playbackSession++;
+        pendingTransitionSession = -1;
+        cancelCompletionFallback();
         textureView.animate().cancel();
         textureView.setSurfaceTextureListener(null);
         releasePlayer();
@@ -329,8 +371,10 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
         playbackSession++;
+        pendingTransitionSession = -1;
         prepared = false;
         hasRenderedFrame = false;
+        cancelCompletionFallback();
         releasePlayer();
         return true;
     }
