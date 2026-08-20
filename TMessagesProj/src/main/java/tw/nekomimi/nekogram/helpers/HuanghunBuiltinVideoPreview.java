@@ -65,6 +65,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     private int recordingSourceHeight;
     private boolean recordingRequested;
     private boolean recordingConfirmed;
+    // 录制跨越播放列表边界时，已结束的视频片段按真实时间顺序保留在此处。
+    private final ArrayList<RecordingSnapshot> completedRecordingSegments = new ArrayList<>();
     // 部分设备的 MediaPlayer 不会稳定派发 onCompletion；使用同一会话号的时长后备任务保证列表继续推进。
     private long fallbackCompletionSession = -1;
     private long pendingTransitionSession = -1;
@@ -241,6 +243,7 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         }
         recordingConfirmed = true;
         recordingRequested = true;
+        completedRecordingSegments.clear();
         captureRecordingStartIfReady();
         framingControls.setVisibility(GONE);
         confirmRecordingButton.setVisibility(GONE);
@@ -282,36 +285,52 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     }
 
     /**
-     * 结束录制并返回固定于本次按住开始时的源片段快照。
-     * 该快照不会引用预览结束后可能已经切换到的下一段视频。
+     * 结束录制并返回按实际播放顺序组成的全部片段。跨越第一个视频后进入第二个
+     * 视频时，两段都会保留，绝不再只引用开始录制时的源文件。
      */
-    public RecordingSnapshot finishRecording() {
-        if (recordingPath == null || recordingStartedAt <= 0) {
-            return null;
-        }
-        long elapsed = Math.max(1L, SystemClock.elapsedRealtime() - recordingStartedAt);
-        long start = recordingStartPosition;
-        long end = Math.min(recordingSourceDuration, start + elapsed);
-        RecordingSnapshot snapshot = end > start ? new RecordingSnapshot(
-                recordingPath,
-                start,
-                end,
-                recordingSourceDuration,
-                recordingSourceWidth,
-                recordingSourceHeight,
-                framingScale,
-                framingOffsetX,
-                framingOffsetY,
-                Math.max(1, textureView.getWidth()),
-                Math.max(1, textureView.getHeight())
-        ) : null;
+    public ArrayList<RecordingSnapshot> finishRecording() {
+        appendCurrentRecordingSegment(SystemClock.elapsedRealtime(), false);
+        ArrayList<RecordingSnapshot> snapshots = new ArrayList<>(completedRecordingSegments);
         clearRecordingSnapshot();
-        return snapshot;
+        return snapshots;
+    }
+
+    /** 将当前播放的视频封存为一个录制片段；到片尾时使用完整的剩余时长。 */
+    private void appendCurrentRecordingSegment(long now, boolean completedByPlayback) {
+        if (!recordingRequested || recordingPath == null || recordingStartedAt <= 0) {
+            return;
+        }
+        long start = recordingStartPosition;
+        long end = completedByPlayback
+                ? recordingSourceDuration
+                : Math.min(recordingSourceDuration, start + Math.max(1L, now - recordingStartedAt));
+        if (end > start) {
+            completedRecordingSegments.add(new RecordingSnapshot(
+                    recordingPath,
+                    start,
+                    end,
+                    recordingSourceDuration,
+                    recordingSourceWidth,
+                    recordingSourceHeight,
+                    framingScale,
+                    framingOffsetX,
+                    framingOffsetY,
+                    Math.max(1, textureView.getWidth()),
+                    Math.max(1, textureView.getHeight())
+            ));
+        }
+        recordingPath = null;
+        recordingStartedAt = 0;
+        recordingStartPosition = 0;
+        recordingSourceDuration = 0;
+        recordingSourceWidth = 0;
+        recordingSourceHeight = 0;
     }
 
     private void clearRecordingSnapshot() {
         recordingRequested = false;
         recordingConfirmed = false;
+        completedRecordingSegments.clear();
         recordingPath = null;
         recordingStartedAt = 0;
         recordingStartPosition = 0;
@@ -499,6 +518,10 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
                     releasePlayer();
                     return;
                 }
+            }
+            if (!failed && recordingConfirmed) {
+                // 当前段已播放到结尾；先封存其完整剩余部分，再切换并开始记录下一段。
+                appendCurrentRecordingSegment(SystemClock.elapsedRealtime(), true);
             }
             currentIndex = (currentIndex + 1) % videoPaths.size();
             SurfaceTexture nextTexture = textureView.isAvailable() ? textureView.getSurfaceTexture() : surfaceTexture;

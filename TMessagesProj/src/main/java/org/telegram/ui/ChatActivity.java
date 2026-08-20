@@ -2687,10 +2687,10 @@ public class ChatActivity extends BaseFragment implements
                     if (!huanghunBuiltinVideoPreview.isRecordingConfirmed()) {
                         return;
                     }
-                    HuanghunBuiltinVideoPreview.RecordingSnapshot recording = huanghunBuiltinVideoPreview.finishRecording();
+                    ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings = huanghunBuiltinVideoPreview.finishRecording();
                     stopHuanghunBuiltinVideoPreview();
-                    if (recording != null) {
-                        sendHuanghunBuiltinRoundVideo(recording, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                    if (recordings != null && !recordings.isEmpty()) {
+                        sendHuanghunBuiltinRoundVideos(recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
                     }
                 } else if (state == 2 || state == 5) {
                     stopHuanghunBuiltinVideoPreview();
@@ -11528,6 +11528,22 @@ public class ChatActivity extends BaseFragment implements
         }
         if (preview != null) {
             preview.release();
+        }
+    }
+
+    /**
+     * 跨播放列表边界的录制由多个源文件片段组成。不同源视频可能具有完全不同的
+     * 编码、尺寸与方向，不能直接字节拼接；逐段进入官方 360×360 转换器可保证每段
+     * 都能正常播放，并按真实录制顺序作为连续的圆形视频消息发送。
+     */
+    private void sendHuanghunBuiltinRoundVideos(ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        for (int i = 0; i < recordings.size(); i++) {
+            HuanghunBuiltinVideoPreview.RecordingSnapshot recording = recordings.get(i);
+            if (recording == null) {
+                continue;
+            }
+            // 交给同一官方发送队列时保持可见顺序；后续片段不重复附加消息特效。
+            sendHuanghunBuiltinRoundVideo(recording, notify, scheduleDate, scheduleRepeatPeriod, ttl, i == 0 ? effectId : 0, i == 0 ? stars : 0);
         }
     }
 
