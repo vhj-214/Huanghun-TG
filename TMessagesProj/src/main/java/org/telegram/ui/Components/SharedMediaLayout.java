@@ -1599,12 +1599,38 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         return new InsetDrawable(drawable, dp(8), dp(2), dp(8), dp(2));
     }
 
-    private void applyHuanghunProfileMemberGlass(View child) {
-        if (child instanceof UserCell || child instanceof ManageChatUserCell) {
-            child.setBackground(createHuanghunProfileMemberGlassDrawable());
-        } else {
-            child.setBackgroundColor(Color.TRANSPARENT);
+    /**
+     * 资料详情的共享媒体标签页不会重建整页背景；只给实际附着的行添加单层中性玻璃。
+     * 这避免文件、链接、语音和共同群组标签页在动态壁纸上继承官方实体白色面板，
+     * 同时不会触碰 Adapter 数据、滚动位置或 RecyclerView 的布局周期。
+     */
+    private void applyHuanghunProfileSharedMediaGlass(View child) {
+        if (child == null) {
+            return;
         }
+        if (child instanceof GraySectionCell) {
+            ((GraySectionCell) child).setNoBackground(true);
+            return;
+        }
+        if (child instanceof DialogCell) {
+            ((DialogCell) child).setHuanghunLiquidGlass(true);
+            child.setBackgroundColor(Color.TRANSPARENT);
+            return;
+        }
+        if (child instanceof UserCell
+                || child instanceof ManageChatUserCell
+                || child instanceof ProfileSearchCell
+                || child instanceof SharedDocumentCell
+                || child instanceof SharedAudioCell
+                || child instanceof SharedLinkCell) {
+            child.setBackground(createHuanghunProfileMemberGlassDrawable());
+            return;
+        }
+        child.setBackgroundColor(Color.TRANSPARENT);
+    }
+
+    private void applyHuanghunProfileMemberGlass(View child) {
+        applyHuanghunProfileSharedMediaGlass(child);
     }
 
     public SharedMediaLayout(Context context, long did, SharedMediaPreloader preloader, int commonGroupsCount, ArrayList<Integer> sortedUsers, TLRPC.ChatFull chatInfo, TLRPC.UserFull userInfo, int initialTab, int initialStoryAlbumId, BaseFragment parent, Delegate delegate, int viewType, Theme.ResourcesProvider resourcesProvider) {
@@ -3943,14 +3969,20 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             mediaPage.setBackgroundColor(backgroundColor);
             if (mediaPage.listView != null) {
                 mediaPage.listView.setBackgroundColor(backgroundColor);
-                if (mediaPage.selectedType == TAB_GROUPUSERS) {
-                    for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
-                        View child = mediaPage.listView.getChildAt(i);
-                        if (enabled) {
-                            applyHuanghunProfileMemberGlass(child);
-                        } else {
-                            child.setBackgroundColor(backgroundColor);
+                // 每个已附着行自行使用单层玻璃；不在 RecyclerView 父层铺任何半透明或渐变背景，
+                // 从而避免快速切换“成员/文件/链接/语音”时产生整块叠色、残影或闪烁。
+                for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
+                    View child = mediaPage.listView.getChildAt(i);
+                    if (enabled) {
+                        applyHuanghunProfileSharedMediaGlass(child);
+                    } else {
+                        if (child instanceof GraySectionCell) {
+                            ((GraySectionCell) child).setNoBackground(false);
                         }
+                        if (child instanceof DialogCell) {
+                            ((DialogCell) child).setHuanghunLiquidGlass(false);
+                        }
+                        child.setBackgroundColor(backgroundColor);
                     }
                 }
             }
@@ -8169,7 +8201,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         public View getSectionHeaderView(int section, View view) {
             if (view == null) {
                 view = new GraySectionCell(mContext, 28, resourcesProvider);
-//                ((GraySectionCell) view).setNoBackground(true);
+                if (huanghunProfileVideoGlass) {
+                    ((GraySectionCell) view).setNoBackground(true);
+                }
             }
             if (section == 0) {
                 view.setAlpha(0.0f);
@@ -8189,7 +8223,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             switch (viewType) {
                 case VIEW_TYPE_LINK_DATE:
                     view = new GraySectionCell(mContext, 28, resourcesProvider);
-//                    ((GraySectionCell) view).setNoBackground(true);
+                    if (huanghunProfileVideoGlass) {
+                        ((GraySectionCell) view).setNoBackground(true);
+                    }
                     break;
                 case VIEW_TYPE_LINK:
                     view = new SharedLinkCell(mContext, SharedLinkCell.VIEW_TYPE_DEFAULT, resourcesProvider);
@@ -8207,6 +8243,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                     flickerLoadingView.setViewType(FlickerLoadingView.LINKS_TYPE);
                     view = flickerLoadingView;
                     break;
+            }
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(view);
             }
             view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return new RecyclerListView.Holder(view);
@@ -8239,6 +8278,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                             sharedLinkCell.setChecked(selectedFiles[messageObject.getDialogId() == dialog_id ? 0 : 1].indexOfKey(messageObject.getId()) >= 0, !scrolling);
                         } else {
                             sharedLinkCell.setChecked(false, !scrolling);
+                        }
+                        if (huanghunProfileVideoGlass) {
+                            applyHuanghunProfileSharedMediaGlass(sharedLinkCell);
                         }
                         break;
                     }
@@ -8371,6 +8413,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                     }
                     break;
             }
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(view);
+            }
             view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return new RecyclerListView.Holder(view);
         }
@@ -8389,6 +8434,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                     } else {
                         sharedDocumentCell.setChecked(false, !scrolling);
                     }
+                    if (huanghunProfileVideoGlass) {
+                        applyHuanghunProfileSharedMediaGlass(sharedDocumentCell);
+                    }
                     break;
                 }
                 case VIEW_TYPE_AUDIO: {
@@ -8400,6 +8448,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                         sharedAudioCell.setChecked(selectedFiles[messageObject.getDialogId() == dialog_id ? 0 : 1].indexOfKey(messageObject.getId()) >= 0, !scrolling);
                     } else {
                         sharedAudioCell.setChecked(false, !scrolling);
+                    }
+                    if (huanghunProfileVideoGlass) {
+                        applyHuanghunProfileSharedMediaGlass(sharedAudioCell);
                     }
                     break;
                 }
@@ -10017,7 +10068,12 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             };
             cell.setDialogCellDelegate(SharedMediaLayout.this);
             cell.isSavedDialog = true;
-            cell.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(cell);
+            } else {
+                cell.setHuanghunLiquidGlass(false);
+                cell.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            }
             return new RecyclerListView.Holder(cell);
         }
 
@@ -10030,6 +10086,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             cell.isSavedDialogCell = true;
             cell.setChecked(selectedDialogs.contains(d.dialogId), false);
             cell.useSeparator = position + 1 < getItemCount();
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(cell);
+            }
         }
 
         @Override
@@ -10241,7 +10300,12 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             };
             cell.setDialogCellDelegate(SharedMediaLayout.this);
             cell.isSavedDialog = true;
-            cell.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(cell);
+            } else {
+                cell.setHuanghunLiquidGlass(false);
+                cell.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            }
             return new RecyclerListView.Holder(cell);
         }
 
@@ -10260,6 +10324,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                     MessageObject msg = messages.get(position);
                     cell.setDialog(msg.getSavedDialogId(), msg, msg.messageOwner.date, false, false);
                 }
+            }
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(cell);
             }
         }
 
@@ -10619,6 +10686,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                     view = flickerLoadingView;
                     break;
             }
+            if (huanghunProfileVideoGlass) {
+                applyHuanghunProfileSharedMediaGlass(view);
+            }
             view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return new RecyclerListView.Holder(view);
         }
@@ -10631,6 +10701,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 TLRPC.Chat chat = chats.get(position);
                 cell.setData(chat, null, null, null, false, false);
                 cell.useSeparator = position != chats.size() - 1 || !endReached;
+                if (huanghunProfileVideoGlass) {
+                    applyHuanghunProfileSharedMediaGlass(cell);
+                }
             }
         }
 
