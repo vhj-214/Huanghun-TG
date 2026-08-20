@@ -5,6 +5,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.os.SystemClock;
 
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.FileLog;
@@ -58,12 +59,15 @@ public final class HuanghunRoundVideoComposer {
         if (output.exists() && !output.delete()) {
             return null;
         }
-        if (!encodeContinuousVideo(validRecordings, output)) {
-            //noinspection ResultOfMethodCallIgnored
-            output.delete();
-            return null;
+        if (encodeContinuousVideo(validRecordings, output)) {
+            return output;
         }
-        return output;
+        // 部分设备不允许在同一个 EGL 编码上下文中替换不同源文件的解码 Surface。
+        // 连续路径失败时，改用 Telegram 已验证的单段标准化转换并封装为同一条时间轴；
+        // 对用户仍是一条连续可播放的圆形视频，且不会丢失第二段录制。
+        //noinspection ResultOfMethodCallIgnored
+        output.delete();
+        return composeWithOfficialSegmentPipeline(validRecordings);
     }
 
     private static boolean isValid(HuanghunBuiltinVideoPreview.RecordingSnapshot recording) {
@@ -71,6 +75,236 @@ public final class HuanghunRoundVideoComposer {
                 && recording.path != null
                 && recording.endTime > recording.startTime
                 && new File(recording.path).isFile();
+    }
+
+    /**
+     * 设备兼容回退：每段使用官方转换器统一为相同的 360×360 H.264 流，再在一个
+     * MediaMuxer 中顺序写入同一视频轨。该方法只在连续 EGL 路径失败时启用。
+     */
+    private static File composeWithOfficialSegmentPipeline(List<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings) {
+        ArrayList<File> segments = new ArrayList<>();
+        File combined = null;
+        File cacheDirectory = FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE);
+        long token = System.currentTimeMillis();
+        try {
+            for (int index = 0; index < recordings.size(); index++) {
+                HuanghunBuiltinVideoPreview.RecordingSnapshot recording = recordings.get(index);
+                File segment = new File(cacheDirectory, "huanghun_round_fallback_" + token + "_" + index + ".mp4");
+                if (segment.exists() && !segment.delete()) {
+                    throw new IOException("Cannot replace fallback recording segment");
+                }
+                if (!convertSegmentWithOfficialConverter(recording, segment)) {
+                    throw new IOException("Cannot standardize fallback recording segment " + index);
+                }
+                segments.add(segment);
+            }
+            if (segments.isEmpty()) {
+                return null;
+            }
+            if (segments.size() == 1) {
+                return segments.get(0);
+            }
+            combined = new File(cacheDirectory, "huanghun_round_fallback_combined_" + token + ".mp4");
+            if (combined.exists() && !combined.delete()) {
+                throw new IOException("Cannot replace fallback combined recording");
+            }
+            if (!appendStandardizedVideoTracks(segments, recordings, combined)) {
+                throw new IOException("Cannot join fallback recording segments");
+            }
+            for (File segment : segments) {
+                //noinspection ResultOfMethodCallIgnored
+                segment.delete();
+            }
+            return combined;
+        } catch (Throwable error) {
+            FileLog.e(error);
+            for (File segment : segments) {
+                //noinspection ResultOfMethodCallIgnored
+                segment.delete();
+            }
+            if (combined != null) {
+                //noinspection ResultOfMethodCallIgnored
+                combined.delete();
+            }
+            return null;
+        }
+    }
+
+    private static boolean convertSegmentWithOfficialConverter(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, File output) {
+        if (convertSegmentOnce(recording, output)) {
+            return true;
+        }
+        // 上一段刚释放硬件编解码器时，少数设备需要一个短暂退避才可配置下一段。
+        if (output.exists() && !output.delete()) {
+            return false;
+        }
+        SystemClock.sleep(180L);
+        return convertSegmentOnce(recording, output);
+    }
+
+    private static boolean convertSegmentOnce(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, File output) {
+        int originalWidth = recording.originalWidth > 0 ? recording.originalWidth : OUTPUT_SIZE;
+        int originalHeight = recording.originalHeight > 0 ? recording.originalHeight : OUTPUT_SIZE;
+        int sourceBitrate = MediaController.getVideoBitrate(recording.path);
+        if (sourceBitrate <= 0) {
+            sourceBitrate = 1_500_000;
+        }
+        VideoEditedInfo info = new VideoEditedInfo();
+        info.originalPath = recording.path;
+        info.roundVideo = true;
+        info.startTime = recording.startTime * 1000L;
+        info.endTime = recording.endTime * 1000L;
+        info.originalDuration = recording.originalDuration * 1000L;
+        info.originalWidth = originalWidth;
+        info.originalHeight = originalHeight;
+        info.resultWidth = OUTPUT_SIZE;
+        info.resultHeight = OUTPUT_SIZE;
+        info.originalBitrate = sourceBitrate;
+        info.bitrate = OUTPUT_BITRATE;
+        info.framerate = OUTPUT_FPS;
+        info.muted = true;
+        info.cropState = createCropState(recording, originalWidth, originalHeight);
+
+        MediaCodecVideoConvertor.ConvertVideoParams params = MediaCodecVideoConvertor.ConvertVideoParams.of(
+                recording.path,
+                output,
+                0,
+                0,
+                false,
+                originalWidth,
+                originalHeight,
+                OUTPUT_SIZE,
+                OUTPUT_SIZE,
+                OUTPUT_FPS,
+                OUTPUT_BITRATE,
+                sourceBitrate,
+                info.startTime,
+                info.endTime,
+                -1,
+                true,
+                Math.max(1L, recording.endTime - recording.startTime) * 1000L,
+                new MediaController.VideoConvertorListener() {
+                    @Override
+                    public boolean checkConversionCanceled() {
+                        return false;
+                    }
+
+                    @Override
+                    public void didWriteData(long availableSize, float progress) {
+                        // 回退片段仅为临时文件，不发布中间进度。
+                    }
+                },
+                info
+        );
+        return !new MediaCodecVideoConvertor().convertVideo(params) && hasUsableVideoTrack(output);
+    }
+
+    private static boolean hasUsableVideoTrack(File file) {
+        if (file == null || !file.isFile() || file.length() <= 0) {
+            return false;
+        }
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(file.getAbsolutePath());
+            int videoTrack = MediaController.findTrack(extractor, false);
+            if (videoTrack < 0) {
+                return false;
+            }
+            MediaFormat format = extractor.getTrackFormat(videoTrack);
+            if (!MediaController.VIDEO_MIME_TYPE.equals(format.getString(MediaFormat.KEY_MIME))) {
+                return false;
+            }
+            extractor.selectTrack(videoTrack);
+            int maxInputSize = 64 * 1024;
+            if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                maxInputSize = Math.max(maxInputSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE));
+            }
+            return extractor.readSampleData(ByteBuffer.allocateDirect(maxInputSize), 0) > 0;
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return false;
+        } finally {
+            extractor.release();
+        }
+    }
+
+    private static boolean appendStandardizedVideoTracks(List<File> segments, List<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, File output) {
+        MediaMuxer muxer = null;
+        boolean started = false;
+        long timelineUs = 0L;
+        try {
+            muxer = new MediaMuxer(output.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            int muxerVideoTrack = -1;
+            for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
+                MediaExtractor extractor = new MediaExtractor();
+                try {
+                    extractor.setDataSource(segments.get(segmentIndex).getAbsolutePath());
+                    int videoTrack = MediaController.findTrack(extractor, false);
+                    if (videoTrack < 0) {
+                        return false;
+                    }
+                    MediaFormat format = extractor.getTrackFormat(videoTrack);
+                    if (!MediaController.VIDEO_MIME_TYPE.equals(format.getString(MediaFormat.KEY_MIME))) {
+                        return false;
+                    }
+                    if (muxerVideoTrack < 0) {
+                        muxerVideoTrack = muxer.addTrack(format);
+                        muxer.start();
+                        started = true;
+                    }
+                    extractor.selectTrack(videoTrack);
+                    int maxInputSize = 256 * 1024;
+                    if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                        maxInputSize = Math.max(maxInputSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE));
+                    }
+                    ByteBuffer buffer = ByteBuffer.allocateDirect(maxInputSize);
+                    MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                    long firstTimestampUs = -1L;
+                    long lastTimestampUs = -1L;
+                    while (true) {
+                        buffer.clear();
+                        int size = extractor.readSampleData(buffer, 0);
+                        if (size < 0) {
+                            break;
+                        }
+                        long sampleTimeUs = extractor.getSampleTime();
+                        if (firstTimestampUs < 0) {
+                            firstTimestampUs = sampleTimeUs;
+                        }
+                        info.offset = 0;
+                        info.size = size;
+                        info.presentationTimeUs = timelineUs + Math.max(0L, sampleTimeUs - firstTimestampUs);
+                        info.flags = extractor.getSampleFlags();
+                        muxer.writeSampleData(muxerVideoTrack, buffer, info);
+                        lastTimestampUs = Math.max(0L, sampleTimeUs - firstTimestampUs);
+                        extractor.advance();
+                    }
+                    long expectedDurationUs = Math.max(1L, recordings.get(segmentIndex).endTime - recordings.get(segmentIndex).startTime) * 1000L;
+                    timelineUs += Math.max(expectedDurationUs, lastTimestampUs >= 0L ? lastTimestampUs + 1L : 1L);
+                } finally {
+                    extractor.release();
+                }
+            }
+            return started;
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return false;
+        } finally {
+            if (muxer != null) {
+                try {
+                    if (started) {
+                        muxer.stop();
+                    }
+                } catch (Throwable error) {
+                    FileLog.e(error);
+                }
+                try {
+                    muxer.release();
+                } catch (Throwable error) {
+                    FileLog.e(error);
+                }
+            }
+        }
     }
 
     private static boolean encodeContinuousVideo(List<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, File output) {
