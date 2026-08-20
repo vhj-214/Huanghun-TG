@@ -4319,9 +4319,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 updateBottomButtonY();
             }
         };
-        // 仅保留官方分组间距；每个资料单元格自行绘制唯一的玻璃表面，避免与分组描边叠加产生重影。
+        // 仅保留官方分组间距；共享媒体根容器绝不能被父列表当作 section 绘制。
+        // RecyclerListView 会为 section 强制画 Theme.key_windowBackgroundWhite 的大圆角底板，
+        // 这正是成员、文件、链接、语音页出现整块白色面板的来源；将它排除后，
+        // 共享媒体自身的透明容器与逐行玻璃才能稳定透出动态壁纸。
         listView.setSections(
-                view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof GraySectionCell) && !Objects.equals(view.getTag(), RecyclerListView.TAG_NOT_SECTION),
+                view -> view != sharedMediaLayout
+                        && !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof GraySectionCell)
+                        && !Objects.equals(view.getTag(), RecyclerListView.TAG_NOT_SECTION),
                 dp(12),
                 dp(20),
                 null,
