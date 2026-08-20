@@ -1089,6 +1089,21 @@ public class ChatActivityEnterView extends FrameLayout implements
         huanghunBuiltinVideoPreparing = false;
     }
 
+    /**
+     * 内置视频不是 MediaController 的即时相机录制，因此停止时不会收到官方
+     * recordStopped 通知。由聊天页在已取得快照后显式调用此方法，完成与官方
+     * 视频发送相同的输入栏收尾，避免第二段停止后界面仍停留在录制状态。
+     */
+    public void finishHuanghunBuiltinVideoRecording(boolean willSend) {
+        huanghunBuiltinVideoPreparing = false;
+        if (!recordingAudioVideo && recordInterfaceState == 0) {
+            return;
+        }
+        recordingAudioVideo = false;
+        messageTransitionIsRunning = false;
+        updateRecordInterface(willSend ? RECORD_STATE_SENDING : RECORD_STATE_CANCEL_BY_GESTURE, true);
+    }
+
     private AnimationNotificationsLocker notificationsLocker = new AnimationNotificationsLocker();
 
     private class RecordDot extends View {

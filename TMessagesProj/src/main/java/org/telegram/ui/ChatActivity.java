@@ -2691,8 +2691,14 @@ public class ChatActivity extends BaseFragment implements
                         return;
                     }
                     ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings = huanghunBuiltinVideoPreview.finishRecording();
+                    boolean hasRecording = recordings != null && !recordings.isEmpty();
+                    // 内置预览不会发出 MediaController.recordStopped；先明确收尾输入框录制
+                    // 状态，再释放预览并转入单段发送或多段后台合成，保证点击停止有即时反馈。
+                    if (chatActivityEnterView != null) {
+                        chatActivityEnterView.finishHuanghunBuiltinVideoRecording(hasRecording);
+                    }
                     stopHuanghunBuiltinVideoPreview();
-                    if (recordings != null && !recordings.isEmpty()) {
+                    if (hasRecording) {
                         sendHuanghunBuiltinRoundVideos(recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
                     }
                 } else if (state == 2 || state == 5) {
@@ -11683,8 +11689,9 @@ public class ChatActivity extends BaseFragment implements
         );
         float previewScale = Math.max(0.0001f, previewBaseScale * crop.cropScale);
         crop.cropPx = recording.framingOffsetX / (Math.max(1, originalWidth) * previewScale);
-        // TextureRenderer 的 Y 轴与 Android View 坐标相反，因此保持负号。
-        crop.cropPy = -recording.framingOffsetY / (Math.max(1, originalHeight) * previewScale);
+        // CropState 使用 Android 屏幕坐标语义；TextureRenderer 会在 OpenGL 绘制时
+        // 自行转换 Y 轴。这里再取反会使预览向下移动而最终视频向上偏移。
+        crop.cropPy = recording.framingOffsetY / (Math.max(1, originalHeight) * previewScale);
         crop.transformWidth = info.resultWidth;
         crop.transformHeight = info.resultHeight;
         info.cropState = crop;

@@ -4,6 +4,7 @@ import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.os.SystemClock;
 
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.FileLog;
@@ -88,7 +89,24 @@ public final class HuanghunRoundVideoComposer {
                 && new File(recording.path).isFile();
     }
 
+    /**
+     * 每段均使用同一套 360×360 H.264 规格转码。部分设备在刚释放上一段硬件解码器
+     * 后会让下一次配置瞬时失败；若直接把这一次失败视为整条消息失败，用户在第二段
+     * 停止时就会看到“没有发送反应”。因此仅对同一不可变快照做一次短暂退避后的重试。
+     */
     private static boolean convertSegment(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, File output) {
+        if (convertSegmentOnce(recording, output)) {
+            return true;
+        }
+        FileLog.e("Retrying built-in round recording segment after transient codec failure");
+        if (output.exists() && !output.delete()) {
+            return false;
+        }
+        SystemClock.sleep(180L);
+        return convertSegmentOnce(recording, output);
+    }
+
+    private static boolean convertSegmentOnce(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, File output) {
         int originalWidth = recording.originalWidth > 0 ? recording.originalWidth : OUTPUT_SIZE;
         int originalHeight = recording.originalHeight > 0 ? recording.originalHeight : OUTPUT_SIZE;
         int sourceBitrate = MediaController.getVideoBitrate(recording.path);
@@ -116,6 +134,7 @@ public final class HuanghunRoundVideoComposer {
         info.muted = true;
         info.cropState = createCropState(recording, originalWidth, originalHeight);
 
+        // MediaCodecVideoConvertor 的 duration 采用微秒；源快照与 MediaPlayer 为毫秒。
         long durationUs = Math.max(1L, recording.endTime - recording.startTime) * 1000L;
         MediaCodecVideoConvertor.ConvertVideoParams params = MediaCodecVideoConvertor.ConvertVideoParams.of(
                 recording.path,
@@ -149,7 +168,37 @@ public final class HuanghunRoundVideoComposer {
                 info
         );
         boolean error = new MediaCodecVideoConvertor().convertVideo(params);
-        return !error && output.isFile() && output.length() > 0;
+        return !error && hasUsableVideoTrack(output);
+    }
+
+    private static boolean hasUsableVideoTrack(File file) {
+        if (file == null || !file.isFile() || file.length() <= 0) {
+            return false;
+        }
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(file.getAbsolutePath());
+            int videoTrack = MediaController.findTrack(extractor, false);
+            if (videoTrack < 0) {
+                return false;
+            }
+            MediaFormat format = extractor.getTrackFormat(videoTrack);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (!MediaController.VIDEO_MIME_TYPE.equals(mime)) {
+                return false;
+            }
+            extractor.selectTrack(videoTrack);
+            int maxInputSize = 64 * 1024;
+            if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                maxInputSize = Math.max(maxInputSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE));
+            }
+            return extractor.readSampleData(ByteBuffer.allocateDirect(maxInputSize), 0) > 0;
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return false;
+        } finally {
+            extractor.release();
+        }
     }
 
     private static MediaController.CropState createCropState(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, int originalWidth, int originalHeight) {
@@ -164,7 +213,8 @@ public final class HuanghunRoundVideoComposer {
         );
         float previewScale = Math.max(0.0001f, previewBaseScale * crop.cropScale);
         crop.cropPx = recording.framingOffsetX / (Math.max(1, originalWidth) * previewScale);
-        crop.cropPy = -recording.framingOffsetY / (Math.max(1, originalHeight) * previewScale);
+        // CropState 与预览同用 Android 屏幕坐标；渲染器内部负责 GL 的 Y 轴转换。
+        crop.cropPy = recording.framingOffsetY / (Math.max(1, originalHeight) * previewScale);
         crop.transformWidth = OUTPUT_SIZE;
         crop.transformHeight = OUTPUT_SIZE;
         return crop;
