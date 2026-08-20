@@ -111,6 +111,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Space;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -205,6 +206,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.VideoEditedInfo;
+import org.telegram.messenger.video.MediaCodecVideoConvertor;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.messenger.camera.CameraView;
 import org.telegram.messenger.support.LongSparseIntArray;
@@ -393,6 +395,7 @@ import tw.nekomimi.nekogram.helpers.ChatsHelper;
 
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunBuiltinVideoPreview;
+import tw.nekomimi.nekogram.helpers.HuanghunRoundVideoComposer;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -11532,19 +11535,87 @@ public class ChatActivity extends BaseFragment implements
     }
 
     /**
-     * 跨播放列表边界的录制由多个源文件片段组成。不同源视频可能具有完全不同的
-     * 编码、尺寸与方向，不能直接字节拼接；逐段进入官方 360×360 转换器可保证每段
-     * 都能正常播放，并按真实录制顺序作为连续的圆形视频消息发送。
+     * 录制跨越多个内置视频时，必须合成为一条圆形视频消息。各段先统一转为同一
+     * 规格的无声圆形视频，再合并视频轨；最终发送转换阶段用录制时间轴重建声音，
+     * 从而兼容不同源文件的方向、尺寸、编码和音频参数。
      */
     private void sendHuanghunBuiltinRoundVideos(ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
-        for (int i = 0; i < recordings.size(); i++) {
-            HuanghunBuiltinVideoPreview.RecordingSnapshot recording = recordings.get(i);
-            if (recording == null) {
-                continue;
-            }
-            // 交给同一官方发送队列时保持可见顺序；后续片段不重复附加消息特效。
-            sendHuanghunBuiltinRoundVideo(recording, notify, scheduleDate, scheduleRepeatPeriod, ttl, i == 0 ? effectId : 0, i == 0 ? stars : 0);
+        if (recordings == null || recordings.isEmpty()) {
+            return;
         }
+        if (recordings.size() == 1) {
+            sendHuanghunBuiltinRoundVideo(recordings.get(0), notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+            return;
+        }
+        final ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> segments = new ArrayList<>(recordings);
+        Utilities.globalQueue.postRunnable(() -> {
+            File combinedVideo = HuanghunRoundVideoComposer.composeVideoOnly(segments);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (combinedVideo == null || !combinedVideo.isFile() || combinedVideo.length() <= 0) {
+                    Toast.makeText(getContext(), "内置视频合成失败，请重新录制", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                sendHuanghunCombinedRoundVideo(combinedVideo, segments, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+            });
+        });
+    }
+
+    private void sendHuanghunCombinedRoundVideo(File combinedVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        long totalDuration = 0;
+        for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
+            if (recording != null && recording.endTime > recording.startTime) {
+                totalDuration += recording.endTime - recording.startTime;
+            }
+        }
+        if (totalDuration <= 0) {
+            combinedVideo.delete();
+            return;
+        }
+        int sourceBitrate = MediaController.getVideoBitrate(combinedVideo.getAbsolutePath());
+        if (sourceBitrate <= 0) {
+            sourceBitrate = 850_000;
+        }
+        long estimatedSize = Math.max(1L, totalDuration * sourceBitrate / 8_000L);
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), combinedVideo.getAbsolutePath(), 0, true, 0, 0, estimatedSize);
+        entry.ttl = ttl;
+        entry.effectId = effectId;
+
+        VideoEditedInfo info = new VideoEditedInfo();
+        info.originalPath = combinedVideo.getAbsolutePath();
+        info.roundVideo = true;
+        info.startTime = -1;
+        info.endTime = -1;
+        // VideoEditedInfo.originalDuration 与转换器时间轴均使用微秒；
+        // estimatedDuration 仍供消息 UI 使用毫秒。
+        info.originalDuration = totalDuration * 1000L;
+        info.estimatedDuration = totalDuration;
+        info.estimatedSize = estimatedSize;
+        info.originalWidth = 360;
+        info.originalHeight = 360;
+        info.resultWidth = 360;
+        info.resultHeight = 360;
+        info.originalBitrate = sourceBitrate;
+        info.bitrate = Math.max(850_000, sourceBitrate);
+        info.framerate = 25;
+        info.notReadyYet = false;
+        info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(combinedVideo.getAbsolutePath(), 0);
+        info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+
+        if (!info.muted) {
+            long timelineOffsetUs = 0;
+            for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
+                if (recording == null || recording.path == null || recording.endTime <= recording.startTime) {
+                    continue;
+                }
+                MediaCodecVideoConvertor.MixedSoundInfo soundInfo = new MediaCodecVideoConvertor.MixedSoundInfo(recording.path);
+                soundInfo.startTime = timelineOffsetUs;
+                soundInfo.audioOffset = recording.startTime * 1000L;
+                soundInfo.duration = (recording.endTime - recording.startTime) * 1000L;
+                info.mixedSoundInfos.add(soundInfo);
+                timelineOffsetUs += soundInfo.duration;
+            }
+        }
+        sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
     }
 
     private void sendHuanghunBuiltinRoundVideo(HuanghunBuiltinVideoPreview.RecordingSnapshot recording, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
