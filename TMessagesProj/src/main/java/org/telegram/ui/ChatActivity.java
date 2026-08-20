@@ -11527,7 +11527,16 @@ public class ChatActivity extends BaseFragment implements
         int originalWidth = recording.originalWidth > 0 ? recording.originalWidth : 360;
         int originalHeight = recording.originalHeight > 0 ? recording.originalHeight : 360;
         long recordedDuration = recording.endTime - recording.startTime;
-        long estimatedSize = Math.max(1L, file.length() * recordedDuration / Math.max(1L, recording.originalDuration));
+        // 不能让转换器以默认的 0 码率工作，否则部分设备会输出损坏、无法播放的 MP4。
+        int sourceBitrate = MediaController.getVideoBitrate(recording.path);
+        if (sourceBitrate <= 0) {
+            sourceBitrate = 1_500_000;
+        }
+        int targetBitrate = MediaController.makeVideoBitrate(originalHeight, originalWidth, sourceBitrate, 360, 360);
+        if (targetBitrate <= 0) {
+            targetBitrate = 850_000;
+        }
+        long estimatedSize = Math.max(1L, recordedDuration * targetBitrate / 8_000L);
         MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), recording.path, 0, true, 0, 0, estimatedSize);
         entry.ttl = ttl;
         entry.effectId = effectId;
@@ -11544,7 +11553,13 @@ public class ChatActivity extends BaseFragment implements
         info.originalHeight = originalHeight;
         info.resultWidth = 360;
         info.resultHeight = 360;
+        info.originalBitrate = sourceBitrate;
+        info.bitrate = targetBitrate;
         info.framerate = 25;
+        // 与官方即时相机一致：先以明确的圆形占位消息进入发送队列，
+        // 后台转换完成后替换为新生成的 MP4，而不是把源文件当作普通视频显示或上传。
+        info.notReadyYet = true;
+        info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(recording.path, recording.startTime * 1000L);
         info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
 
         // 通过裁切状态强制官方转换器生成新的 360×360 圆形视频文件，

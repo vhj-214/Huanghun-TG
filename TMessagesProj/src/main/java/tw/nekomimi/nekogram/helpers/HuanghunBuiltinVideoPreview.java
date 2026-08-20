@@ -111,7 +111,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         circle.addView(textureView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
 
         framingControls = createFramingControls(context);
-        addView(framingControls, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, 14, 66));
+        // 控制面板固定在左下区域，避开右侧的官方发送键与录制状态按钮。
+        addView(framingControls, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM, 16, 0, 0, 112));
 
         hintView = new TextView(context);
         hintView.setText("内置视频预览");
@@ -130,8 +131,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         LinearLayout controls = new LinearLayout(context);
         controls.setOrientation(LinearLayout.VERTICAL);
         controls.setGravity(Gravity.CENTER);
-        controls.setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
-        controls.setBackground(createControlBackground(0x9A101820, AndroidUtilities.dp(18)));
+        controls.setPadding(AndroidUtilities.dp(7), AndroidUtilities.dp(7), AndroidUtilities.dp(7), AndroidUtilities.dp(7));
+        controls.setBackground(createControlBackground(0xAA101820, AndroidUtilities.dp(22)));
 
         LinearLayout zoomRow = createControlRow(context);
         TextView zoomIn = createControlButton(context, "＋");
@@ -140,16 +141,16 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         TextView zoomOut = createControlButton(context, "－");
         zoomOut.setContentDescription("缩小视频");
         zoomOut.setOnClickListener(v -> changeFramingScale(-0.15f));
-        zoomRow.addView(zoomIn, LayoutHelper.createLinear(40, 36));
-        zoomRow.addView(zoomOut, LayoutHelper.createLinear(40, 36));
-        controls.addView(zoomRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38, Gravity.CENTER));
+        zoomRow.addView(zoomIn, LayoutHelper.createLinear(58, 50));
+        zoomRow.addView(zoomOut, LayoutHelper.createLinear(58, 50));
+        controls.addView(zoomRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 54, Gravity.CENTER));
 
         LinearLayout upRow = createControlRow(context);
         TextView up = createControlButton(context, "▲");
         up.setContentDescription("向上移动视频");
         up.setOnClickListener(v -> moveFraming(0f, -AndroidUtilities.dp(18)));
-        upRow.addView(up, LayoutHelper.createLinear(40, 36));
-        controls.addView(upRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38, Gravity.CENTER));
+        upRow.addView(up, LayoutHelper.createLinear(58, 50));
+        controls.addView(upRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 54, Gravity.CENTER));
 
         LinearLayout middleRow = createControlRow(context);
         TextView left = createControlButton(context, "◀");
@@ -158,16 +159,16 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         TextView right = createControlButton(context, "▶");
         right.setContentDescription("向右移动视频");
         right.setOnClickListener(v -> moveFraming(AndroidUtilities.dp(18), 0f));
-        middleRow.addView(left, LayoutHelper.createLinear(40, 36));
-        middleRow.addView(right, LayoutHelper.createLinear(40, 36));
-        controls.addView(middleRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38, Gravity.CENTER));
+        middleRow.addView(left, LayoutHelper.createLinear(58, 50));
+        middleRow.addView(right, LayoutHelper.createLinear(58, 50));
+        controls.addView(middleRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 54, Gravity.CENTER));
 
         LinearLayout downRow = createControlRow(context);
         TextView down = createControlButton(context, "▼");
         down.setContentDescription("向下移动视频");
         down.setOnClickListener(v -> moveFraming(0f, AndroidUtilities.dp(18)));
-        downRow.addView(down, LayoutHelper.createLinear(40, 36));
-        controls.addView(downRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38, Gravity.CENTER));
+        downRow.addView(down, LayoutHelper.createLinear(58, 50));
+        controls.addView(downRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 54, Gravity.CENTER));
         return controls;
     }
 
@@ -181,10 +182,10 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     private TextView createControlButton(Context context, String label) {
         TextView button = new TextView(context);
         button.setText(label);
-        button.setTextSize(18);
+        button.setTextSize(23);
         button.setTextColor(0xFFFFFFFF);
         button.setGravity(Gravity.CENTER);
-        button.setBackground(createControlBackground(0x6EFFFFFF, AndroidUtilities.dp(12)));
+        button.setBackground(createControlBackground(0x8AFFFFFF, AndroidUtilities.dp(16)));
         return button;
     }
 
