@@ -11554,17 +11554,25 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
         final ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> segments = new ArrayList<>(recordings);
-        // 跨源视频需要先统一转码再生成一条消息；立即给出明确反馈，避免用户误以为
-        // 第 2 段停止后没有响应，同时不提前创建会卡住的占位消息。
-        Toast.makeText(getContext(), "正在合成一条圆形视频，请稍候", Toast.LENGTH_SHORT).show();
+        // 跨源视频现在通过一个共享编码器写入连续时间轴；立即给出明确反馈，避免用户
+        // 在第二段停止后误以为没有响应，同时不提前创建会卡住的占位消息。
+        Toast.makeText(getContext(), "正在生成一条连续圆形视频，请稍候", Toast.LENGTH_SHORT).show();
         Utilities.globalQueue.postRunnable(() -> {
             File combinedVideo = HuanghunRoundVideoComposer.composeVideoOnly(segments);
             AndroidUtilities.runOnUIThread(() -> {
                 if (combinedVideo == null || !combinedVideo.isFile() || combinedVideo.length() <= 0) {
-                    Toast.makeText(getContext(), "内置视频合成失败，请重新录制", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "连续圆形视频生成失败，请重新录制", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                sendHuanghunCombinedRoundVideo(combinedVideo, segments, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                try {
+                    sendHuanghunCombinedRoundVideo(combinedVideo, segments, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                    Toast.makeText(getContext(), "圆形视频已进入发送队列", Toast.LENGTH_SHORT).show();
+                } catch (Throwable error) {
+                    FileLog.e(error);
+                    //noinspection ResultOfMethodCallIgnored
+                    combinedVideo.delete();
+                    Toast.makeText(getContext(), "圆形视频发送准备失败，请重新录制", Toast.LENGTH_SHORT).show();
+                }
             });
         });
     }
