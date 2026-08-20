@@ -11584,8 +11584,17 @@ public class ChatActivity extends BaseFragment implements
         crop.cropPw = sourceAspect > 1f ? 1f / sourceAspect : 1f;
         crop.cropPh = sourceAspect < 1f ? sourceAspect : 1f;
         crop.cropScale = Math.max(1f, recording.framingScale);
-        crop.cropPx = recording.framingOffsetX / Math.max(1f, recording.viewportWidth);
-        crop.cropPy = -recording.framingOffsetY / Math.max(1f, recording.viewportHeight);
+        // TextureView 预览中的位移是屏幕像素；转换器的 cropPx/cropPy 则是
+        // “已缩放源视频”的归一化位移。此前直接除以圆窗尺寸，遗漏了 cover
+        // 基础缩放与用户缩放，造成预览已移动而输出仍接近中心。
+        float previewBaseScale = Math.max(
+                recording.viewportWidth / (float) Math.max(1, originalWidth),
+                recording.viewportHeight / (float) Math.max(1, originalHeight)
+        );
+        float previewScale = Math.max(0.0001f, previewBaseScale * crop.cropScale);
+        crop.cropPx = recording.framingOffsetX / (Math.max(1, originalWidth) * previewScale);
+        // TextureRenderer 的 Y 轴与 Android View 坐标相反，因此保持负号。
+        crop.cropPy = -recording.framingOffsetY / (Math.max(1, originalHeight) * previewScale);
         crop.transformWidth = info.resultWidth;
         crop.transformHeight = info.resultHeight;
         info.cropState = crop;
