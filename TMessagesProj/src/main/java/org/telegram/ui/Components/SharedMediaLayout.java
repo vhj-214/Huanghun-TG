@@ -3969,6 +3969,12 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             mediaPage.setBackgroundColor(backgroundColor);
             if (mediaPage.listView != null) {
                 mediaPage.listView.setBackgroundColor(backgroundColor);
+                // SharedMediaLayout 先按官方流程创建初始 Adapter，资料页随后才启用玻璃开关。
+                // 若首开的是成员、文件、链接等 section 标签，此处必须移除已经附着的官方白色 section 装饰器；
+                // 该操作只删除 ItemDecoration，不会重建 Adapter、通知数据集或改变播放器状态。
+                if (enabled && mediaPage.listView.hasSections()) {
+                    mediaPage.listView.disableSections();
+                }
                 // 每个已附着行自行使用单层玻璃；不在 RecyclerView 父层铺任何半透明或渐变背景，
                 // 从而避免快速切换“成员/文件/链接/语音”时产生整块叠色、残影或闪烁。
                 for (int i = 0; i < mediaPage.listView.getChildCount(); i++) {
@@ -7545,7 +7551,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             }
             final boolean photos = mediaPages[a].selectedType == TAB_PHOTOVIDEO || isAnyStoryPageType(mediaPages[a].selectedType);
             mediaPages[a].progressView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL, photos ? 0 : 12, 48 + (photos ? 8 : 12), photos ? 0 : 12, photos ? 0 : 12));
-            if (sections) {
+            // 成员、文件、链接、语音、共同群组等标签的内部列表会调用 setSections(false)，
+            // 而该 API 会强制绘制 Theme.key_windowBackgroundWhite 的圆角大面板。
+            // 液态玻璃模式中仅关闭这层绘制装饰器；不更换 Adapter、不刷新数据、不触碰滚动或播放器状态。
+            // 日期标题和列表项自身仍按原有逻辑创建、绑定和显示。
+            if (sections && !huanghunProfileVideoGlass) {
                 mediaPages[a].listView.setSections(false);
             } else {
                 mediaPages[a].listView.disableSections();
