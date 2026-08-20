@@ -68,6 +68,9 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     // 录制跨越播放列表边界时，已结束的视频片段按真实时间顺序保留在此处。
     private final ArrayList<RecordingSnapshot> completedRecordingSegments = new ArrayList<>();
     // 部分设备的 MediaPlayer 不会稳定派发 onCompletion；使用同一会话号的时长后备任务保证列表继续推进。
+    // 切入下一段的首个画面与 MediaPlayer 的 prepared 回调可能相隔极短时间；
+    // 小于该阈值的尾段无法稳定进入硬件编码，保留它会让整条合成消息失败。
+    private static final long MIN_ENCODABLE_TAIL_SEGMENT_MS = 120L;
     private long fallbackCompletionSession = -1;
     private long pendingTransitionSession = -1;
     private final Runnable completionFallbackRunnable = this::onCompletionFallback;
@@ -289,6 +292,9 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
      * 视频时，两段都会保留，绝不再只引用开始录制时的源文件。
      */
     public ArrayList<RecordingSnapshot> finishRecording() {
+        // 若用户在下一段刚显示后立即停止，先以当前已准备播放器补获该段，
+        // 再封存，避免 recordingPath 尚未写入而返回空列表并丢失发送。
+        captureRecordingStartIfReady();
         appendCurrentRecordingSegment(SystemClock.elapsedRealtime(), false);
         ArrayList<RecordingSnapshot> snapshots = new ArrayList<>(completedRecordingSegments);
         clearRecordingSnapshot();
@@ -297,14 +303,26 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
 
     /** 将当前播放的视频封存为一个录制片段；到片尾时使用完整的剩余时长。 */
     private void appendCurrentRecordingSegment(long now, boolean completedByPlayback) {
-        if (!recordingRequested || recordingPath == null || recordingStartedAt <= 0) {
+        if (!recordingRequested) {
+            return;
+        }
+        // 跨视频切换时，停止事件可能早于下一段的常规捕获入口；这里再次补获，
+        // 使“已经播放到第 2 段后停止”始终至少能生成可发送的录制结果。
+        captureRecordingStartIfReady();
+        if (recordingPath == null || recordingStartedAt <= 0) {
             return;
         }
         long start = recordingStartPosition;
         long end = completedByPlayback
                 ? recordingSourceDuration
                 : Math.min(recordingSourceDuration, start + Math.max(1L, now - recordingStartedAt));
-        if (end > start) {
+        long segmentDuration = end - start;
+        // 仅丢弃在已完成前段之后出现的极短切换尾段；该段没有有效可编码画面，
+        // 不应阻止此前已完整录制的内容进入发送队列。
+        boolean discardTransientTail = !completedByPlayback
+                && !completedRecordingSegments.isEmpty()
+                && segmentDuration < MIN_ENCODABLE_TAIL_SEGMENT_MS;
+        if (segmentDuration > 0 && !discardTransientTail) {
             completedRecordingSegments.add(new RecordingSnapshot(
                     recordingPath,
                     start,

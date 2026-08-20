@@ -11548,6 +11548,9 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
         final ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> segments = new ArrayList<>(recordings);
+        // 跨源视频需要先统一转码再生成一条消息；立即给出明确反馈，避免用户误以为
+        // 第 2 段停止后没有响应，同时不提前创建会卡住的占位消息。
+        Toast.makeText(getContext(), "正在合成一条圆形视频，请稍候", Toast.LENGTH_SHORT).show();
         Utilities.globalQueue.postRunnable(() -> {
             File combinedVideo = HuanghunRoundVideoComposer.composeVideoOnly(segments);
             AndroidUtilities.runOnUIThread(() -> {
