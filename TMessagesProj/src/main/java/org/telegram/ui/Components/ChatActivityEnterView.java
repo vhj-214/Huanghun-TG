@@ -950,11 +950,17 @@ public class ChatActivityEnterView extends FrameLayout implements
                 if (!recordingAudioVideo) {
                     recordingAudioVideo = true;
                     updateRecordInterface(RECORD_STATE_ENTER, true);
-                    if (recordCircle != null) {
-                        recordCircle.showWaves(false, false);
-                    }
+                    // updateRecordInterface 已建立官方录制面板；内置模式没有真实相机回调，
+                    // 因此在 reset 后主动启动同一个本地计时器与录制反馈。
                     if (recordTimerView != null) {
                         recordTimerView.reset();
+                        recordTimerView.start(0);
+                    }
+                    if (recordDot != null) {
+                        recordDot.enterAnimation = false;
+                    }
+                    if (recordCircle != null) {
+                        recordCircle.showWaves(true, false);
                     }
                 }
                 return;
