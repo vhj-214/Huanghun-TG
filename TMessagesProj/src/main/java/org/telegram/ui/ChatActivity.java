@@ -2674,15 +2674,19 @@ public class ChatActivity extends BaseFragment implements
         public void needStartRecordVideo(int state, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
             // 仅在 state=0 且功能明确开启时接管。未开启、没有有效视频或预览创建失败时，下面的官方分支完全不变。
             if (state == 0 && startHuanghunBuiltinVideoPreview()) {
-                // 内置模式在同一个官方录制状态机中记录当前播放片段与按住起点，
-                // 发送时只使用该快照重新编码，绝不直接上传勾选的原始视频文件。
-                huanghunBuiltinVideoPreview.beginRecording();
+                // 第一次按下只进入取景调整：用户可先根据视频尺寸移动、缩放，
+                // 只有点击预览中的“确认开始”后才记录源片段和启动正式计时。
                 chatListView.stopScroll();
                 chatAdapter.updateRowsSafe();
                 return;
             }
             if (huanghunBuiltinVideoPreview != null) {
                 if (state == 1 || state == 3 || state == 4) {
+                    // 首次松手只是退出官方按住手势，取景预览必须保留，不能误发一段
+                    // 包含调整过程的视频；确认开始后才允许结束并进入发送。
+                    if (!huanghunBuiltinVideoPreview.isRecordingConfirmed()) {
+                        return;
+                    }
                     HuanghunBuiltinVideoPreview.RecordingSnapshot recording = huanghunBuiltinVideoPreview.finishRecording();
                     stopHuanghunBuiltinVideoPreview();
                     if (recording != null) {
@@ -11491,7 +11495,12 @@ public class ChatActivity extends BaseFragment implements
             return false;
         }
         try {
-            HuanghunBuiltinVideoPreview preview = new HuanghunBuiltinVideoPreview(getContext(), paths);
+            HuanghunBuiltinVideoPreview preview = new HuanghunBuiltinVideoPreview(getContext(), paths, () -> {
+                // 确认按钮由预览层调用；此时才开启官方录制界面中的计时与发送控制。
+                if (huanghunBuiltinVideoPreview != null && huanghunBuiltinVideoPreview.isRecordingConfirmed() && chatActivityEnterView != null) {
+                    chatActivityEnterView.startHuanghunBuiltinVideoRecording();
+                }
+            });
             int index = contentView.indexOfChild(chatInputViewsContainer);
             if (index < 0) {
                 index = contentView.getChildCount();
@@ -11514,6 +11523,9 @@ public class ChatActivity extends BaseFragment implements
     private void stopHuanghunBuiltinVideoPreview() {
         HuanghunBuiltinVideoPreview preview = huanghunBuiltinVideoPreview;
         huanghunBuiltinVideoPreview = null;
+        if (chatActivityEnterView != null) {
+            chatActivityEnterView.cancelHuanghunBuiltinVideoPreparation();
+        }
         if (preview != null) {
             preview.release();
         }
@@ -11544,8 +11556,10 @@ public class ChatActivity extends BaseFragment implements
         VideoEditedInfo info = new VideoEditedInfo();
         info.originalPath = recording.path;
         info.roundVideo = true;
-        info.startTime = recording.startTime;
-        info.endTime = recording.endTime;
+        // VideoEditedInfo 的裁切时间使用微秒；录制快照与 MediaPlayer 使用毫秒。
+        // 未转换会使转换器错误裁切到无效区间并长期无法生成输出文件。
+        info.startTime = recording.startTime * 1000L;
+        info.endTime = recording.endTime * 1000L;
         info.originalDuration = recording.originalDuration;
         info.estimatedDuration = recordedDuration;
         info.estimatedSize = estimatedSize;
@@ -11556,9 +11570,10 @@ public class ChatActivity extends BaseFragment implements
         info.originalBitrate = sourceBitrate;
         info.bitrate = targetBitrate;
         info.framerate = 25;
-        // 与官方即时相机一致：先以明确的圆形占位消息进入发送队列，
-        // 后台转换完成后替换为新生成的 MP4，而不是把源文件当作普通视频显示或上传。
-        info.notReadyYet = true;
+        // 此路径需要先由官方转换器生成独立输出文件。notReadyYet 只适用于
+        // 官方即时相机“编码器仍在写同一文件”的场景；这里若置为 true，
+        // 延迟发送队列会主动跳过上传，且没有编码完成回调解除标记，导致永久卡发送。
+        info.notReadyYet = false;
         info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(recording.path, recording.startTime * 1000L);
         info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
 

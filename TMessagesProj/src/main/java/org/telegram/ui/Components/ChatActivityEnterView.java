@@ -928,6 +928,8 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     private boolean recordAudioVideoRunnableStarted;
     private boolean calledRecordRunnable;
+    // 内置视频首次按住后停留在取景调整态；只有预览层确认后才进入真正录制。
+    private boolean huanghunBuiltinVideoPreparing;
     private Runnable recordAudioVideoRunnable = new Runnable() {
         @Override
         public void run() {
@@ -947,20 +949,20 @@ public class ChatActivityEnterView extends FrameLayout implements
                 audioToSendPath = null;
                 audioToSend = null;
                 delegate.needStartRecordVideo(0, true, 0, 0, 0, 0, 0);
+                huanghunBuiltinVideoPreparing = true;
                 if (!recordingAudioVideo) {
                     recordingAudioVideo = true;
                     updateRecordInterface(RECORD_STATE_ENTER, true);
-                    // updateRecordInterface 已建立官方录制面板；内置模式没有真实相机回调，
-                    // 因此在 reset 后主动启动同一个本地计时器与录制反馈。
+                    // 初次按住仅进入取景调整。重置计时显示但绝不启动计时/波形，
+                    // 以免把用户调节缩放、位置的时间误计入录制结果。
                     if (recordTimerView != null) {
                         recordTimerView.reset();
-                        recordTimerView.start(0);
                     }
                     if (recordDot != null) {
-                        recordDot.enterAnimation = false;
+                        recordDot.enterAnimation = true;
                     }
                     if (recordCircle != null) {
-                        recordCircle.showWaves(true, false);
+                        recordCircle.showWaves(false, false);
                     }
                 }
                 return;
@@ -1061,6 +1063,31 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         }
     };
+
+    /** 仅由内置预览的“确认开始”按钮调用；此时才开始正式的录制反馈和计时。 */
+    public void startHuanghunBuiltinVideoRecording() {
+        if (!huanghunBuiltinVideoPreparing) {
+            return;
+        }
+        huanghunBuiltinVideoPreparing = false;
+        recordingAudioVideo = true;
+        updateRecordInterface(RECORD_STATE_ENTER, true);
+        if (recordTimerView != null) {
+            recordTimerView.reset();
+            recordTimerView.start(0);
+        }
+        if (recordDot != null) {
+            recordDot.enterAnimation = false;
+        }
+        if (recordCircle != null) {
+            recordCircle.showWaves(true, false);
+        }
+    }
+
+    /** 内置预览被取消、发送或销毁时清理等待确认状态。 */
+    public void cancelHuanghunBuiltinVideoPreparation() {
+        huanghunBuiltinVideoPreparing = false;
+    }
 
     private AnimationNotificationsLocker notificationsLocker = new AnimationNotificationsLocker();
 
@@ -3134,6 +3161,14 @@ public class ChatActivityEnterView extends FrameLayout implements
                     }
                     return true;
                 } else if (motionEvent.getAction() == MotionEvent.ACTION_UP || motionEvent.getAction() == MotionEvent.ACTION_CANCEL) {
+                    // 用户第一次松手时保留取景预览；确认开始前不得自动调用结束/发送逻辑。
+                    if (motionEvent.getAction() == MotionEvent.ACTION_UP && hasRecordVideo && isInVideoMode() && shouldUseHuanghunBuiltinVideoRecording() && huanghunBuiltinVideoPreparing && calledRecordRunnable) {
+                        startedDraggingX = -1;
+                        recordingAudioVideo = false;
+                        messageTransitionIsRunning = false;
+                        updateRecordInterface(RECORD_STATE_CANCEL_BY_GESTURE, true);
+                        return true;
+                    }
                     if (motionEvent.getAction() == MotionEvent.ACTION_CANCEL && recordingAudioVideo) {
                         if (slideToCancelProgress < 0.7f) {
                             if (hasRecordVideo && isInVideoMode()) {

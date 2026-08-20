@@ -38,6 +38,8 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     private final TextureView textureView;
     private final TextView hintView;
     private final LinearLayout framingControls;
+    private final TextView confirmRecordingButton;
+    private final OnRecordingConfirmedListener recordingConfirmedListener;
 
     private MediaPlayer mediaPlayer;
     private Surface surface;
@@ -62,13 +64,19 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
     private int recordingSourceWidth;
     private int recordingSourceHeight;
     private boolean recordingRequested;
+    private boolean recordingConfirmed;
     // 部分设备的 MediaPlayer 不会稳定派发 onCompletion；使用同一会话号的时长后备任务保证列表继续推进。
     private long fallbackCompletionSession = -1;
     private long pendingTransitionSession = -1;
     private final Runnable completionFallbackRunnable = this::onCompletionFallback;
 
-    public HuanghunBuiltinVideoPreview(Context context, List<String> paths) {
+    public interface OnRecordingConfirmedListener {
+        void onRecordingConfirmed();
+    }
+
+    public HuanghunBuiltinVideoPreview(Context context, List<String> paths, OnRecordingConfirmedListener recordingConfirmedListener) {
         super(context);
+        this.recordingConfirmedListener = recordingConfirmedListener;
         if (paths != null) {
             for (String path : paths) {
                 if (path != null && new File(path).isFile()) {
@@ -114,8 +122,20 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         // 控制面板固定在左下区域，避开右侧的官方发送键与录制状态按钮。
         addView(framingControls, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM, 16, 0, 0, 112));
 
+        confirmRecordingButton = new TextView(context);
+        confirmRecordingButton.setText("确认开始");
+        confirmRecordingButton.setTextSize(17);
+        confirmRecordingButton.setTextColor(0xFFFFFFFF);
+        confirmRecordingButton.setGravity(Gravity.CENTER);
+        confirmRecordingButton.setClickable(true);
+        confirmRecordingButton.setContentDescription("确认开始内置视频录制");
+        confirmRecordingButton.setPadding(AndroidUtilities.dp(22), 0, AndroidUtilities.dp(22), 0);
+        confirmRecordingButton.setBackground(createControlBackground(0xE82B8A5B, AndroidUtilities.dp(22)));
+        confirmRecordingButton.setOnClickListener(v -> confirmRecording());
+        addView(confirmRecordingButton, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 48, Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM, 0, 0, 0, 118));
+
         hintView = new TextView(context);
-        hintView.setText("内置视频预览");
+        hintView.setText("调整取景后，点击确认开始");
         hintView.setTextColor(0xE6FFFFFF);
         hintView.setTextSize(12);
         hintView.setGravity(Gravity.CENTER);
@@ -211,14 +231,38 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
         return prepared;
     }
 
-    /** 开始记录本次预置视频录制的源片段与播放位置。 */
+    /**
+     * 用户完成取景调整后才开始记录源片段。这样首次点击录制仅进入预览，
+     * 不会把调整取景的时间误计入最终发送的视频。
+     */
     public boolean beginRecording() {
-        if (released) {
+        if (released || !prepared || mediaPlayer == null || recordingConfirmed) {
             return false;
         }
+        recordingConfirmed = true;
         recordingRequested = true;
         captureRecordingStartIfReady();
-        return true;
+        framingControls.setVisibility(GONE);
+        confirmRecordingButton.setVisibility(GONE);
+        hintView.setText("正在录制，点击发送完成");
+        return recordingPath != null;
+    }
+
+    public boolean isRecordingConfirmed() {
+        return recordingConfirmed;
+    }
+
+    private void confirmRecording() {
+        if (released || recordingConfirmed) {
+            return;
+        }
+        if (!prepared || mediaPlayer == null) {
+            hintView.setText("视频正在加载，请稍后确认");
+            return;
+        }
+        if (beginRecording() && recordingConfirmedListener != null) {
+            recordingConfirmedListener.onRecordingConfirmed();
+        }
     }
 
     private void captureRecordingStartIfReady() {
@@ -267,6 +311,7 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
 
     private void clearRecordingSnapshot() {
         recordingRequested = false;
+        recordingConfirmed = false;
         recordingPath = null;
         recordingStartedAt = 0;
         recordingStartPosition = 0;
@@ -385,7 +430,9 @@ public final class HuanghunBuiltinVideoPreview extends FrameLayout implements Te
                 } else {
                     textureView.setAlpha(1f);
                 }
-                hintView.setText(videoPaths.size() > 1 ? "内置视频 " + (currentIndex + 1) + "/" + videoPaths.size() : "内置视频预览");
+                if (!recordingConfirmed) {
+                    hintView.setText(videoPaths.size() > 1 ? "内置视频 " + (currentIndex + 1) + "/" + videoPaths.size() + "，调整后确认开始" : "调整取景后，点击确认开始");
+                }
                 player.start();
                 captureRecordingStartIfReady();
                 scheduleCompletionFallback(session, player.getDuration());
