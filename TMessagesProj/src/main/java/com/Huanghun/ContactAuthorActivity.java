@@ -2,10 +2,10 @@ package com.Huanghun;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -14,13 +14,16 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
+import org.telegram.ui.ProfileActivity;
 import org.telegram.ui.Components.LayoutHelper;
 
-/** Loads the author contact page bundled with 黄昏. */
+/** Loads the bundled 黄昏 author contact page and keeps Telegram links inside this client. */
 public class ContactAuthorActivity extends BaseFragment {
+    private static final String LOCAL_PAGE_URL = "file:///android_asset/contact_author.html";
     private WebView webView;
 
     @Override
@@ -59,22 +62,36 @@ public class ContactAuthorActivity extends BaseFragment {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return handleExternalLink(request.getUrl());
+                return handleLink(request == null ? null : request.getUrl());
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return handleExternalLink(Uri.parse(url));
+                return handleLink(url == null ? null : Uri.parse(url));
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // 用户页面中的部分 Telegram 链接带 target=_blank。移除该属性后，所有点击
+                // 均回到 shouldOverrideUrlLoading，再由当前客户端内部页面处理。
+                if (LOCAL_PAGE_URL.equals(url) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    view.evaluateJavascript("(function(){document.querySelectorAll('a[href]').forEach(function(a){var h=a.getAttribute('href')||'';if(/^(tg:|https?:\\/\\/(t\\.me|telegram\\.me)\\/)/i.test(h)){a.removeAttribute('target');}});})();", null);
+                }
             }
         });
         container.addView(webView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        webView.loadUrl("file:///android_asset/contact_author.html");
+        webView.loadUrl(LOCAL_PAGE_URL);
         return fragmentView;
     }
 
-    private boolean handleExternalLink(Uri uri) {
-        if (uri == null) {
-            return true;
+    /**
+     * Telegram routes embedded in the author page must remain inside 黄昏. Ordinary web
+     * addresses return false and continue following WebView's normal behavior.
+     */
+    private boolean handleLink(Uri uri) {
+        if (uri == null || LOCAL_PAGE_URL.equals(uri.toString())) {
+            return false;
         }
         String scheme = uri.getScheme();
         String host = uri.getHost();
@@ -84,24 +101,53 @@ public class ContactAuthorActivity extends BaseFragment {
         if (!telegramLink) {
             return false;
         }
-        Uri telegramUri = uri;
-        if (host != null && ("t.me".equalsIgnoreCase(host) || "telegram.me".equalsIgnoreCase(host))) {
-            String username = uri.getLastPathSegment();
-            if (username != null && !username.isEmpty()) {
-                telegramUri = Uri.parse("tg://resolve?domain=" + username);
-            }
-        }
+
         try {
-            Intent intent = new Intent(Intent.ACTION_VIEW, telegramUri);
-            getParentActivity().startActivity(intent);
-        } catch (Throwable error) {
-            try {
-                getParentActivity().startActivity(new Intent(Intent.ACTION_VIEW, uri));
-            } catch (Throwable fallbackError) {
-                FileLog.e(fallbackError);
+            String username = getTelegramUsername(uri);
+            if (username != null) {
+                MessagesController.getInstance(currentAccount).openByUserName(username, this, 1);
+                return true;
             }
+
+            long userId = getTelegramUserId(uri);
+            if (userId > 0) {
+                Bundle args = new Bundle();
+                args.putLong("user_id", userId);
+                presentFragment(new ProfileActivity(args));
+                return true;
+            }
+        } catch (Throwable error) {
+            FileLog.e(error);
         }
         return true;
+    }
+
+    private String getTelegramUsername(Uri uri) {
+        String host = uri.getHost();
+        if (host != null && ("t.me".equalsIgnoreCase(host) || "telegram.me".equalsIgnoreCase(host))) {
+            String username = uri.getLastPathSegment();
+            return username == null || username.isEmpty() ? null : username;
+        }
+        if ("tg".equalsIgnoreCase(uri.getScheme()) && "resolve".equalsIgnoreCase(uri.getHost())) {
+            String username = uri.getQueryParameter("domain");
+            return username == null || username.isEmpty() ? null : username;
+        }
+        return null;
+    }
+
+    private long getTelegramUserId(Uri uri) {
+        if (!"tg".equalsIgnoreCase(uri.getScheme())) {
+            return 0;
+        }
+        String value = uri.getQueryParameter("id");
+        if (value == null || value.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignore) {
+            return 0;
+        }
     }
 
     @Override
