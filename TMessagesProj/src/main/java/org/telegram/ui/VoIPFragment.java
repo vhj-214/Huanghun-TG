@@ -56,6 +56,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import androidx.annotation.NonNull;
@@ -1083,6 +1084,8 @@ public class VoIPFragment implements
         frameLayout.addView(rateCallLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT, 0, 380, 0, 0));
 
         buttonsLayout = new VoIPButtonsLayout(context);
+        // 虚拟设置与通话控制共享底栏，统一增大触控尺寸，避免来电界面中按钮过小难以点击。
+        buttonsLayout.setChildSize(84);
         bottomSpeakerBtn = new VoIpSwitchLayout(context, backgroundProvider);
         bottomVideoBtn = new VoIpSwitchLayout(context, backgroundProvider);
         bottomVirtualSettingsBtn = createBottomVirtualSettingsButton(context);
@@ -2769,10 +2772,13 @@ public class VoIPFragment implements
         TextView button = new TextView(context);
         button.setText("虚拟\n设置");
         button.setTextColor(Color.WHITE);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         button.setTypeface(AndroidUtilities.bold());
         button.setGravity(Gravity.CENTER);
-        button.setMinHeight(AndroidUtilities.dp(68));
+        button.setClickable(true);
+        button.setFocusable(true);
+        button.setMinHeight(AndroidUtilities.dp(84));
+        button.setMinWidth(AndroidUtilities.dp(84));
         button.setLines(2);
         button.setLineSpacing(AndroidUtilities.dp(1), 1f);
         button.setContentDescription("虚拟设置，打开通话专区");
@@ -2784,10 +2790,30 @@ public class VoIPFragment implements
         button.setOnClickListener(view -> {
             AndroidUtilities.cancelRunOnUIThread(hideUIRunnable);
             hideUiRunnableWaiting = false;
-            BaseFragment lastFragment = LaunchActivity.getLastFragment();
-            if (lastFragment != null) {
-                lastFragment.presentFragment(new HuanghunCallSettingsActivity());
+            // 通话窗口是覆盖层，不能依赖可能为空或正在销毁的“最后页面”。优先直接使用
+            // 当前主活动的导航容器；仅在异常活动环境中才回退到安全页面。
+            boolean opened = false;
+            if (activity instanceof LaunchActivity && ((LaunchActivity) activity).getActionBarLayout() != null) {
+                opened = ((LaunchActivity) activity).getActionBarLayout().presentFragment(new HuanghunCallSettingsActivity());
             }
+            if (!opened) {
+                BaseFragment lastFragment = LaunchActivity.getSafeLastFragment();
+                if (lastFragment != null) {
+                    opened = lastFragment.presentFragment(new HuanghunCallSettingsActivity());
+                }
+            }
+            if (!opened) {
+                Toast.makeText(context, "无法打开通话专区，请回到主界面后重试", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // 页面已经进入主导航栈后再缩小覆盖层；通话不结束，设置页不会被全屏通话窗口遮住。
+            AndroidUtilities.runOnUIThread(() -> {
+                if (canSwitchToPip && PipUtils.checkAnyPipPermissions(activity)) {
+                    switchToPip();
+                } else if (windowView != null) {
+                    windowView.finish();
+                }
+            }, 120);
         });
         return button;
     }
