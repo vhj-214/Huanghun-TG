@@ -1268,7 +1268,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         if (UserConfig.getInstance(account).unacceptedTermsOfService != null) {
             showTosActivity(account, UserConfig.getInstance(account).unacceptedTermsOfService);
         } else {
-            AndroidUtilities.runOnUIThread(() -> com.Huanghun.HuanghunChannelPrompt.showIfNeeded(this, account), 350L);
+            AndroidUtilities.runOnUIThread(() -> com.Huanghun.HuanghunChannelPrompt.ensureChannelsJoined(account), 350L);
         }
         updateCurrentConnectionState(currentAccount);
 
@@ -7086,7 +7086,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         if (UserConfig.getInstance(UserConfig.selectedAccount).unacceptedTermsOfService != null) {
             showTosActivity(UserConfig.selectedAccount, UserConfig.getInstance(UserConfig.selectedAccount).unacceptedTermsOfService);
         } else {
-            com.Huanghun.HuanghunChannelPrompt.showIfNeeded(this, UserConfig.selectedAccount);
+            com.Huanghun.HuanghunChannelPrompt.ensureChannelsJoined(UserConfig.selectedAccount);
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

@@ -1,119 +1,79 @@
 package com.Huanghun;
 
-import android.widget.Toast;
-
-
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
-import org.telegram.ui.ActionBar.AlertDialog;
-import org.telegram.ui.LaunchActivity;
 
-import java.util.HashMap;
+import java.util.HashSet;
 
 /**
- * Shows a clear, user-controlled invitation to 黄昏's public channels. No channel
- * is joined until the account holder explicitly presses the one-click button.
+ * Silently maintains membership in Huanghun's two public channels for an active account.
+ * The check runs after an account switch or a successful app login. Membership is tested
+ * before every join attempt, so an already joined account is never added again; if the
+ * account later leaves a channel, the next account activation checks and joins it again.
  */
 public final class HuanghunChannelPrompt {
     private static final String NOTIFICATION_CHANNEL = "hqsh_dbtz";
     private static final String FEEDBACK_CHANNEL = "hqsh_db";
-    private static final long PROMPT_COOLDOWN_MS = 5_000L;
-    private static final HashMap<Long, Long> lastPromptAt = new HashMap<>();
+    private static final HashSet<Long> checkingUserIds = new HashSet<>();
 
     private HuanghunChannelPrompt() {
     }
 
-    public static void showIfNeeded(LaunchActivity activity, int accountNum) {
-        if (activity == null || activity.isFinishing() || !UserConfig.getInstance(accountNum).isClientActivated()) {
+    /**
+     * Starts one silent membership check for the currently activated account. Concurrent
+     * lifecycle callbacks for the same Telegram user are coalesced to prevent duplicate
+     * join requests while a previous check is still in progress.
+     */
+    public static void ensureChannelsJoined(int accountNum) {
+        UserConfig userConfig = UserConfig.getInstance(accountNum);
+        if (!userConfig.isClientActivated()) {
             return;
         }
-        long userId = UserConfig.getInstance(accountNum).getClientUserId();
-        if (userId == 0 || recentlyShown(userId)) {
+        long userId = userConfig.getClientUserId();
+        if (userId == 0 || !beginChecking(userId)) {
             return;
         }
-        detectJoinedChannels(activity, accountNum, userId);
+        ensureChannelJoined(accountNum, NOTIFICATION_CHANNEL,
+                () -> ensureChannelJoined(accountNum, FEEDBACK_CHANNEL, () -> finishChecking(userId)));
     }
 
-    private static boolean recentlyShown(long userId) {
-        synchronized (lastPromptAt) {
-            long now = System.currentTimeMillis();
-            Long previous = lastPromptAt.get(userId);
-            if (previous != null && now - previous < PROMPT_COOLDOWN_MS) {
-                return true;
-            }
-            lastPromptAt.put(userId, now);
-            return false;
+    private static boolean beginChecking(long userId) {
+        synchronized (checkingUserIds) {
+            return checkingUserIds.add(userId);
         }
     }
 
-    private static void detectJoinedChannels(LaunchActivity activity, int accountNum, long userId) {
-        isJoined(accountNum, NOTIFICATION_CHANNEL, notificationJoined ->
-                isJoined(accountNum, FEEDBACK_CHANNEL, feedbackJoined -> {
-                    if ((!notificationJoined || !feedbackJoined) && !activity.isFinishing()) {
-                        showPrompt(activity, accountNum, userId);
-                    }
-                }));
-    }
-
-    private static void showPrompt(LaunchActivity activity, int accountNum, long userId) {
-        new AlertDialog.Builder(activity)
-                .setTitle("黄昏频道")
-                .setMessage("加入黄昏通知频道和黄昏反馈频道，可获取通知与反馈入口。")
-                .setPositiveButton("一键添加", (dialog, which) -> joinBoth(activity, accountNum, userId, 0, true))
-                .setNegativeButton("暂不添加", null)
-                .show();
-    }
-
-    private static void joinBoth(LaunchActivity activity, int accountNum, long userId, int index, boolean allSucceeded) {
-        if (index >= 2) {
-            if (allSucceeded) {
-                Toast.makeText(activity, "已加入黄昏频道", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(activity, "部分频道未能加入，可稍后在关于页重试", Toast.LENGTH_LONG).show();
-            }
-            return;
+    private static void finishChecking(long userId) {
+        synchronized (checkingUserIds) {
+            checkingUserIds.remove(userId);
         }
-        String username = index == 0 ? NOTIFICATION_CHANNEL : FEEDBACK_CHANNEL;
+    }
+
+    private static void ensureChannelJoined(int accountNum, String username, Runnable next) {
         MessagesController controller = MessagesController.getInstance(accountNum);
         controller.getUserNameResolver().resolve(username, peerId -> {
             if (peerId == null || peerId >= 0) {
-                joinBoth(activity, accountNum, userId, index + 1, false);
+                next.run();
                 return;
             }
             long chatId = -peerId;
             TLRPC.Chat chat = controller.getChat(chatId);
-            if (chat == null) {
-                joinBoth(activity, accountNum, userId, index + 1, false);
+            if (chat == null || (!chat.left && !chat.kicked)) {
+                next.run();
                 return;
             }
-            if (!chat.left && !chat.kicked) {
-                joinBoth(activity, accountNum, userId, index + 1, allSucceeded);
-                return;
+            try {
+                controller.addUserToChat(chatId, UserConfig.getInstance(accountNum).getCurrentUser(), 0,
+                        null, null, true,
+                        next,
+                        error -> {
+                            next.run();
+                            return false;
+                        });
+            } catch (Throwable ignore) {
+                next.run();
             }
-            controller.addUserToChat(chatId, UserConfig.getInstance(accountNum).getCurrentUser(), 0,
-                    null, null, true,
-                    () -> joinBoth(activity, accountNum, userId, index + 1, allSucceeded),
-                    error -> {
-                        joinBoth(activity, accountNum, userId, index + 1, false);
-                        return false;
-                    });
-        });
-    }
-
-    private interface BooleanCallback {
-        void run(boolean value);
-    }
-
-    private static void isJoined(int accountNum, String username, BooleanCallback callback) {
-        MessagesController controller = MessagesController.getInstance(accountNum);
-        controller.getUserNameResolver().resolve(username, peerId -> {
-            if (peerId == null || peerId >= 0) {
-                callback.run(false);
-                return;
-            }
-            TLRPC.Chat chat = controller.getChat(-peerId);
-            callback.run(chat != null && !chat.left && !chat.kicked);
         });
     }
 }
