@@ -11640,11 +11640,17 @@ public class ChatActivity extends BaseFragment implements
         info.resultWidth = info.originalWidth = 360;
         info.resultHeight = info.originalHeight = 360;
         info.originalPath = realtimeVideo.getAbsolutePath();
+        info.originalDuration = duration * 1000L;
         info.estimatedDuration = duration;
         // 文件已经完整封装，不能再使用仅供即时相机边录边传的 notReadyYet 占位状态。
         info.notReadyYet = false;
-        // 原相机直接发送完整音视频文件；实时路径同样不建立跨源混音转换任务。
-        info.muted = false;
+        entry.isVideo = true;
+        entry.width = 360;
+        entry.height = 360;
+        entry.duration = Math.max(1, (int) Math.ceil(duration / 1000.0d));
+        entry.editedInfo = info;
+        attachHuanghunBuiltinVideoAudio(info, recordings);
+        entry.isMuted = info.muted;
         sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
     }
 
@@ -11662,14 +11668,53 @@ public class ChatActivity extends BaseFragment implements
             }
         }
         long estimatedSize = Math.max(1L, realtimeVideo.length());
-        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), realtimeVideo.getAbsolutePath(), Math.max(1, (int) Math.ceil(Math.max(1L, duration) / 1000.0d)), true, 360, 360, estimatedSize);
+        duration = Math.max(1L, duration);
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), realtimeVideo.getAbsolutePath(), Math.max(1, (int) Math.ceil(duration / 1000.0d)), true, 360, 360, estimatedSize);
         entry.isVideo = true;
         entry.width = 360;
         entry.height = 360;
-        entry.duration = Math.max(1, (int) Math.ceil(Math.max(1L, duration) / 1000.0d));
+        entry.duration = Math.max(1, (int) Math.ceil(duration / 1000.0d));
         entry.ttl = ttl;
         entry.effectId = effectId;
-        sendMedia(entry, null, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+        VideoEditedInfo info = new VideoEditedInfo();
+        info.originalPath = realtimeVideo.getAbsolutePath();
+        info.startTime = -1;
+        info.endTime = -1;
+        info.roundVideo = false;
+        info.estimatedSize = estimatedSize;
+        info.originalDuration = duration * 1000L;
+        info.estimatedDuration = duration;
+        info.originalWidth = info.resultWidth = 360;
+        info.originalHeight = info.resultHeight = 360;
+        info.framerate = 25;
+        info.notReadyYet = false;
+        entry.editedInfo = info;
+        attachHuanghunBuiltinVideoAudio(info, recordings);
+        entry.isMuted = info.muted;
+        sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+    }
+
+    /**
+     * 复用现有跨段合成使用的官方 MixedSoundInfo 时间轴：实时 MP4 提供连续画面，
+     * 每个内置源视频仅提供相同录制区间的原声，转换器负责统一重采样、编码和封装。
+     */
+    private void attachHuanghunBuiltinVideoAudio(VideoEditedInfo info, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings) {
+        info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+        if (info.muted || recordings == null) {
+            return;
+        }
+        long timelineOffsetUs = 0;
+        for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
+            if (recording == null || recording.path == null || recording.endTime <= recording.startTime) {
+                continue;
+            }
+            MediaCodecVideoConvertor.MixedSoundInfo soundInfo = new MediaCodecVideoConvertor.MixedSoundInfo(recording.path);
+            soundInfo.startTime = timelineOffsetUs;
+            soundInfo.audioOffset = recording.startTime * 1000L;
+            soundInfo.duration = (recording.endTime - recording.startTime) * 1000L;
+            info.mixedSoundInfos.add(soundInfo);
+            timelineOffsetUs += soundInfo.duration;
+        }
     }
 
     private void sendHuanghunCombinedRoundVideo(File combinedVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
