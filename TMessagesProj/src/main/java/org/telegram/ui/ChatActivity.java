@@ -2704,7 +2704,7 @@ public class ChatActivity extends BaseFragment implements
                     stopHuanghunBuiltinVideoPreview();
                     if (hasRealtimeRoundVideo && hasRecording) {
                         try {
-                            sendHuanghunCombinedRoundVideo(realtimeRoundVideo, recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                            sendHuanghunRealtimeRoundVideo(realtimeRoundVideo, recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
                             Toast.makeText(getContext(), "实时圆形视频已进入发送队列", Toast.LENGTH_SHORT).show();
                         } catch (Throwable error) {
                             FileLog.e(error);
@@ -11591,6 +11591,46 @@ public class ChatActivity extends BaseFragment implements
                 }
             });
         });
+    }
+
+    /**
+     * 实时录像文件已经是同一个编码器写出的完整 360×360 MP4；此处严格沿用
+     * InstantCameraView 完成录制后的官方圆形消息参数，不再附加跨源 MixedSoundInfo
+     * 触发第二次普通视频转换。这样 roundVideo 会直接成为 TL_documentAttributeVideo
+     * 的 round_message 属性，聊天展示路径与原相机一致。
+     */
+    private void sendHuanghunRealtimeRoundVideo(File realtimeVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        if (realtimeVideo == null || !realtimeVideo.isFile() || realtimeVideo.length() <= 0) {
+            return;
+        }
+        long duration = 0;
+        if (recordings != null) {
+            for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
+                if (recording != null && recording.endTime > recording.startTime) {
+                    duration += recording.endTime - recording.startTime;
+                }
+            }
+        }
+        duration = Math.max(1L, duration);
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, 0, realtimeVideo.getAbsolutePath(), 0, true, 0, 0, 0);
+        entry.ttl = ttl;
+        entry.effectId = effectId;
+
+        VideoEditedInfo info = new VideoEditedInfo();
+        info.startTime = -1;
+        info.endTime = -1;
+        info.estimatedSize = Math.max(1L, realtimeVideo.length());
+        info.roundVideo = true;
+        info.framerate = 25;
+        info.resultWidth = info.originalWidth = 360;
+        info.resultHeight = info.originalHeight = 360;
+        info.originalPath = realtimeVideo.getAbsolutePath();
+        info.estimatedDuration = duration;
+        // 文件已经完整封装，不能再使用仅供即时相机边录边传的 notReadyYet 占位状态。
+        info.notReadyYet = false;
+        // 原相机直接发送完整音视频文件；实时路径同样不建立跨源混音转换任务。
+        info.muted = false;
+        sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
     }
 
     private void sendHuanghunCombinedRoundVideo(File combinedVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
