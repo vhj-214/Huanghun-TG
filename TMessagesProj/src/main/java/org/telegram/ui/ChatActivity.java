@@ -395,6 +395,7 @@ import tw.nekomimi.nekogram.helpers.ChatsHelper;
 
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunBuiltinVideoPreview;
+import tw.nekomimi.nekogram.helpers.HuanghunRealtimeVideoFinalizer;
 import tw.nekomimi.nekogram.helpers.HuanghunRoundVideoComposer;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
@@ -11609,105 +11610,79 @@ public class ChatActivity extends BaseFragment implements
     }
 
     /**
-     * 实时录像文件已经是同一个编码器写出的完整 360×360 MP4；此处严格沿用
-     * InstantCameraView 完成录制后的官方圆形消息参数，不再附加跨源 MixedSoundInfo
-     * 触发第二次普通视频转换。这样 roundVideo 会直接成为 TL_documentAttributeVideo
-     * 的 round_message 属性，聊天展示路径与原相机一致。
+     * 圆形模式与方形模式共享同一个最终文件准备步骤。启用视频声音时，最终文件在发送前已经
+     * 包含 AAC 音轨；随后明确禁止普通视频转换，以免上传队列把 roundVideo 降级为方形视频。
      */
     private void sendHuanghunRealtimeRoundVideo(File realtimeVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
-        if (realtimeVideo == null || !realtimeVideo.isFile() || realtimeVideo.length() <= 0) {
-            return;
-        }
-        long duration = 0;
-        if (recordings != null) {
-            for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
-                if (recording != null && recording.endTime > recording.startTime) {
-                    duration += recording.endTime - recording.startTime;
-                }
-            }
-        }
-        duration = Math.max(1L, duration);
-        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, 0, realtimeVideo.getAbsolutePath(), 0, true, 0, 0, 0);
-        entry.ttl = ttl;
-        entry.effectId = effectId;
-
-        int sourceBitrate = MediaController.getVideoBitrate(realtimeVideo.getAbsolutePath());
-        if (sourceBitrate <= 0) {
-            sourceBitrate = 850_000;
-        }
-        VideoEditedInfo info = new VideoEditedInfo();
-        info.startTime = -1;
-        info.endTime = -1;
-        info.estimatedSize = Math.max(1L, realtimeVideo.length());
-        info.roundVideo = true;
-        info.originalBitrate = sourceBitrate;
-        // 原声混合会强制进入官方转换器；码率为 0 会在部分编码器上直接失败，随后退回无声源文件。
-        info.bitrate = Math.max(850_000, sourceBitrate);
-        info.framerate = 25;
-        info.resultWidth = info.originalWidth = 360;
-        info.resultHeight = info.originalHeight = 360;
-        info.originalPath = realtimeVideo.getAbsolutePath();
-        info.originalDuration = duration * 1000L;
-        info.estimatedDuration = duration;
-        // 文件已经完整封装，不能再使用仅供即时相机边录边传的 notReadyYet 占位状态。
-        info.notReadyYet = false;
-        info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(realtimeVideo.getAbsolutePath(), 0);
-        entry.isVideo = true;
-        entry.width = 360;
-        entry.height = 360;
-        entry.duration = Math.max(1, (int) Math.ceil(duration / 1000.0d));
-        entry.editedInfo = info;
-        attachHuanghunBuiltinVideoAudio(info, recordings);
-        entry.isMuted = info.muted;
-        sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+        sendHuanghunFinalizedRealtimeVideo(realtimeVideo, recordings, true, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
     }
 
-    /** 将实时文件按普通视频发送；不附加 roundVideo 标记，因此聊天会显示标准方形视频卡片。 */
     private void sendHuanghunRealtimeSquareVideo(File realtimeVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        sendHuanghunFinalizedRealtimeVideo(realtimeVideo, recordings, false, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+    }
+
+    private void sendHuanghunFinalizedRealtimeVideo(File realtimeVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean roundVideo, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
         if (realtimeVideo == null || !realtimeVideo.isFile() || realtimeVideo.length() <= 0) {
             return;
         }
-        long duration = 0;
-        if (recordings != null) {
-            for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
+        final ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> sourceRecordings = recordings == null ? new ArrayList<>() : new ArrayList<>(recordings);
+        final boolean includeSound = NekoConfig.huanghunBuiltinVideoSound.Bool();
+        if (includeSound) {
+            Toast.makeText(getContext(), "正在封装视频原声，请稍候", Toast.LENGTH_SHORT).show();
+        }
+        Utilities.globalQueue.postRunnable(() -> {
+            File finalizedVideo = includeSound ? HuanghunRealtimeVideoFinalizer.finalizeWithSourceAudio(realtimeVideo, sourceRecordings) : realtimeVideo;
+            if (finalizedVideo == null || !finalizedVideo.isFile() || finalizedVideo.length() <= 0) {
+                AndroidUtilities.runOnUIThread(() -> Toast.makeText(getContext(), "未能封装所选视频的原声，已取消发送", Toast.LENGTH_LONG).show());
+                return;
+            }
+            final File videoToSend = finalizedVideo;
+            long totalDuration = 0L;
+            for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : sourceRecordings) {
                 if (recording != null && recording.endTime > recording.startTime) {
-                    duration += recording.endTime - recording.startTime;
+                    totalDuration += recording.endTime - recording.startTime;
                 }
             }
-        }
-        long estimatedSize = Math.max(1L, realtimeVideo.length());
-        duration = Math.max(1L, duration);
-        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), realtimeVideo.getAbsolutePath(), Math.max(1, (int) Math.ceil(duration / 1000.0d)), true, 360, 360, estimatedSize);
-        entry.isVideo = true;
-        entry.width = 360;
-        entry.height = 360;
-        entry.duration = Math.max(1, (int) Math.ceil(duration / 1000.0d));
-        entry.ttl = ttl;
-        entry.effectId = effectId;
-        int sourceBitrate = MediaController.getVideoBitrate(realtimeVideo.getAbsolutePath());
-        if (sourceBitrate <= 0) {
-            sourceBitrate = 850_000;
-        }
-        VideoEditedInfo info = new VideoEditedInfo();
-        info.originalPath = realtimeVideo.getAbsolutePath();
-        info.startTime = -1;
-        info.endTime = -1;
-        info.roundVideo = false;
-        info.estimatedSize = estimatedSize;
-        info.originalDuration = duration * 1000L;
-        info.estimatedDuration = duration;
-        info.originalWidth = info.resultWidth = 360;
-        info.originalHeight = info.resultHeight = 360;
-        info.originalBitrate = sourceBitrate;
-        // 与圆形模式保持一致：配置有效输出码率，使原声混合不会在转换器初始化阶段失败。
-        info.bitrate = Math.max(850_000, sourceBitrate);
-        info.framerate = 25;
-        info.notReadyYet = false;
-        info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(realtimeVideo.getAbsolutePath(), 0);
-        entry.editedInfo = info;
-        attachHuanghunBuiltinVideoAudio(info, recordings);
-        entry.isMuted = info.muted;
-        sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+            final long duration = Math.max(1L, totalDuration);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (!videoToSend.isFile()) {
+                    return;
+                }
+                long estimatedSize = Math.max(1L, videoToSend.length());
+                MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), videoToSend.getAbsolutePath(), Math.max(1, (int) Math.ceil(duration / 1000.0d)), true, 360, 360, estimatedSize);
+                entry.isVideo = true;
+                entry.width = 360;
+                entry.height = 360;
+                entry.duration = Math.max(1, (int) Math.ceil(duration / 1000.0d));
+                entry.ttl = ttl;
+                entry.effectId = effectId;
+
+                int sourceBitrate = MediaController.getVideoBitrate(videoToSend.getAbsolutePath());
+                if (sourceBitrate <= 0) {
+                    sourceBitrate = 850_000;
+                }
+                VideoEditedInfo info = new VideoEditedInfo();
+                info.originalPath = videoToSend.getAbsolutePath();
+                info.startTime = -1;
+                info.endTime = -1;
+                info.roundVideo = roundVideo;
+                info.estimatedSize = estimatedSize;
+                info.originalDuration = duration * 1000L;
+                info.estimatedDuration = duration;
+                info.originalWidth = info.resultWidth = 360;
+                info.originalHeight = info.resultHeight = 360;
+                info.originalBitrate = sourceBitrate;
+                // 最终文件已完成视频与原声封装。-2 会让 needConvert() 返回 false，确保圆形文档属性原样上传。
+                info.bitrate = -2;
+                info.framerate = 25;
+                info.muted = false;
+                info.notReadyYet = false;
+                info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(videoToSend.getAbsolutePath(), 0);
+                entry.editedInfo = info;
+                entry.isMuted = false;
+                sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+            });
+        });
     }
 
     /**
