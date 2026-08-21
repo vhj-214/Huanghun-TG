@@ -876,11 +876,12 @@ object NaConfig {
             ConfigItem.configTypeBool,
             true
         )
+    // 新安装默认使用 Telegram API；已有安装保留用户已保存的接口选择。
     val outgoingAutoTranslateProvider =
         addConfig(
             "OutgoingAutoTranslateProvider",
             ConfigItem.configTypeInt,
-            0 // 0: follow the normal translation provider
+            8 // Telegram API
         )
     val translatorMode =
         addConfig(
