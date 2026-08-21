@@ -187,6 +187,13 @@ public final class ProtocolLoginHelper {
                     AndroidUtilities.runOnUIThread(() -> recordFailure(
                             loginActivity, activity, candidates, batch, index));
                 }
+
+                @Override
+                public void onDeferred(String reason) {
+                    // 离线或连接超时不能证明授权失效。保留已导入的授权信息，并明确标记为待联网验证。
+                    AndroidUtilities.runOnUIThread(() -> recordDeferred(
+                            loginActivity, activity, candidates, batch, index, reason));
+                }
             });
         } catch (Exception ignore) {
             if (accountNum >= 0) {
@@ -215,6 +222,11 @@ public final class ProtocolLoginHelper {
 
                 @Override
                 public void onFailed(String reason) {
+                    if (isWaitingForNetworkVerification(reason)) {
+                        AndroidUtilities.runOnUIThread(() -> recordDeferred(
+                                loginActivity, activity, candidates, batch, index, reason));
+                        return;
+                    }
                     clearUnusedImportedKey(accountNum);
                     AndroidUtilities.runOnUIThread(() -> {
                         if (!useBridge && !batch.passkeyFallbackHintShown) {
@@ -275,6 +287,24 @@ public final class ProtocolLoginHelper {
     private static void recordFailure(LoginActivity loginActivity, Activity activity,
                                       ArrayList<ImportCandidate> candidates, BatchState batch, int index) {
         batch.failedCount++;
+        batch.processedCount++;
+        startNextImport(loginActivity, activity, candidates, batch, index + 1);
+    }
+
+    private static boolean isWaitingForNetworkVerification(String reason) {
+        if (reason == null) {
+            return false;
+        }
+        return reason.startsWith("网络不可用") || reason.startsWith("网络连接超时");
+    }
+
+    private static void recordDeferred(LoginActivity loginActivity, Activity activity,
+                                       ArrayList<ImportCandidate> candidates, BatchState batch, int index,
+                                       String reason) {
+        batch.deferredCount++;
+        if (batch.firstDeferredReason == null && reason != null && !reason.isEmpty()) {
+            batch.firstDeferredReason = reason;
+        }
         batch.processedCount++;
         startNextImport(loginActivity, activity, candidates, batch, index + 1);
     }
@@ -490,7 +520,15 @@ public final class ProtocolLoginHelper {
             if (!finished.compareAndSet(false, true)) {
                 return;
             }
-            if (error != null || !(response instanceof Vector)) {
+            if (error != null) {
+                if (isNetworkUnavailable(manager, error)) {
+                    callback.onDeferred("网络不可用，已保留本地授权，联网后请重新验证");
+                } else {
+                    callback.onFailed();
+                }
+                return;
+            }
+            if (!(response instanceof Vector)) {
                 callback.onFailed();
                 return;
             }
@@ -514,9 +552,24 @@ public final class ProtocolLoginHelper {
         AndroidUtilities.runOnUIThread(() -> {
             if (finished.compareAndSet(false, true)) {
                 manager.cancelRequest(requestToken, true);
-                callback.onFailed();
+                callback.onDeferred("网络连接超时，已保留本地授权，联网后请重新验证");
             }
         }, VERIFY_TIMEOUT_MS);
+    }
+
+    private static boolean isNetworkUnavailable(ConnectionsManager manager, TLRPC.TL_error error) {
+        try {
+            if (manager != null && manager.getConnectionState() == ConnectionsManager.ConnectionStateWaitingForNetwork) {
+                return true;
+            }
+        } catch (Throwable ignore) {
+        }
+        if (error == null || error.text == null) {
+            return false;
+        }
+        String text = error.text.toUpperCase(Locale.ROOT);
+        return text.contains("NETWORK") || text.contains("CONNECTION") || text.contains("TIMEOUT")
+                || text.contains("TIMED_OUT") || text.contains("RPC_CALL_FAIL") || text.contains("MSG_WAIT_FAILED");
     }
 
     private static void clearUnusedImportedKey(int accountNum) {
@@ -680,11 +733,14 @@ public final class ProtocolLoginHelper {
         metricsParams.topMargin = AndroidUtilities.dp(18);
         content.addView(metrics, metricsParams);
         metrics.addView(createMetricCard(activity, "有效", batch.successCount, Color.rgb(20, 166, 106)), new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f));
-        LinearLayout.LayoutParams metricMiddleParams = new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f);
-        metricMiddleParams.leftMargin = AndroidUtilities.dp(8);
-        metrics.addView(createMetricCard(activity, "无效", batch.failedCount, Color.rgb(220, 74, 74)), metricMiddleParams);
+        LinearLayout.LayoutParams metricInvalidParams = new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f);
+        metricInvalidParams.leftMargin = AndroidUtilities.dp(6);
+        metrics.addView(createMetricCard(activity, "无效", batch.failedCount, Color.rgb(220, 74, 74)), metricInvalidParams);
+        LinearLayout.LayoutParams metricDeferredParams = new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f);
+        metricDeferredParams.leftMargin = AndroidUtilities.dp(6);
+        metrics.addView(createMetricCard(activity, "待联网", batch.deferredCount, Color.rgb(226, 150, 37)), metricDeferredParams);
         LinearLayout.LayoutParams metricLastParams = new LinearLayout.LayoutParams(0, AndroidUtilities.dp(86), 1f);
-        metricLastParams.leftMargin = AndroidUtilities.dp(8);
+        metricLastParams.leftMargin = AndroidUtilities.dp(6);
         metrics.addView(createMetricCard(activity, "已存在", batch.alreadyImportedCount, Color.rgb(85, 105, 155)), metricLastParams);
 
         String detail = "共扫描 " + batch.scannedCount + " 个账户文件";
@@ -694,6 +750,12 @@ public final class ProtocolLoginHelper {
             detail += "\n未找到符合该登录方式的有效文件。";
         } else if (batch.alreadyImportedCount > 0) {
             detail += "\n重复账户已自动跳过，不会重复创建。";
+        }
+        if (batch.deferredCount > 0) {
+            detail += "\n有 " + batch.deferredCount + " 个账号因无网络或连接超时暂未验证，未计为无效。会话与 tdata 已保留本地授权；通行密钥请在联网后重新导入验证。";
+            if (batch.firstDeferredReason != null) {
+                detail += "\n原因：" + batch.firstDeferredReason;
+            }
         }
         TextView detailView = createTextView(activity, detail, 15, Color.rgb(53, 65, 86));
         detailView.setBackground(createRoundedBackground(Color.rgb(241, 245, 252), AndroidUtilities.dp(14)));
@@ -767,6 +829,8 @@ public final class ProtocolLoginHelper {
         void onVerified(TLRPC.User user);
 
         void onFailed();
+
+        void onDeferred(String reason);
     }
 
     private static final class ImportCandidate {
@@ -822,6 +886,8 @@ public final class ProtocolLoginHelper {
         int failedCount;
         int processedCount;
         int alreadyImportedCount;
+        int deferredCount;
+        String firstDeferredReason;
         boolean noFreeSlot;
         boolean passkeyFallbackHintShown;
         boolean summaryShown;

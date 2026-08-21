@@ -17,6 +17,7 @@ import java.security.Signature;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPrivateKeySpec;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -74,7 +75,7 @@ public final class PasskeyLoginHelper {
                 if (token != 0) {
                     manager.cancelRequest(token, true);
                 }
-                callback.onFailed("通行密钥验证超时");
+                callback.onFailed("网络连接超时，等待联网验证");
             }
         }, useBridgeRetries ? BRIDGE_TIMEOUT_MS : DIRECT_TIMEOUT_MS);
     }
@@ -93,7 +94,7 @@ public final class PasskeyLoginHelper {
                 return;
             }
             if (initError != null || !(response instanceof TL_account.passkeyLoginOptions)) {
-                finishFailure(completed, callback, readableError(initError, "无法获取通行密钥挑战"));
+                finishFailure(completed, callback, readableError(manager, initError, "无法获取通行密钥挑战"));
                 return;
             }
             try {
@@ -135,7 +136,7 @@ public final class PasskeyLoginHelper {
                         AndroidUtilities.runOnUIThread(() -> startAttempt(manager, data, callback, completed,
                                 requestToken, attempt + 1, maxAttempts), RETRY_DELAY_MS);
                     } else if (finishError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
-                        finishFailure(completed, callback, readableError(finishError, "Telegram 未接受该通行密钥"));
+                        finishFailure(completed, callback, readableError(manager, finishError, "Telegram 未接受该通行密钥"));
                     } else {
                         TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) authorization;
                         if (auth.user == null || auth.user.id == 0) {
@@ -164,7 +165,7 @@ public final class PasskeyLoginHelper {
         TL_account.getPassword getPassword = new TL_account.getPassword();
         requestToken.set(manager.sendRequest(getPassword, (passwordObject, passwordError) -> {
             if (completed.get() || passwordError != null || !(passwordObject instanceof TL_account.Password)) {
-                finishFailure(completed, callback, readableError(passwordError, "无法读取两步验证信息"));
+                finishFailure(completed, callback, readableError(manager, passwordError, "无法读取两步验证信息"));
                 return;
             }
             try {
@@ -186,7 +187,7 @@ public final class PasskeyLoginHelper {
                 checkPassword.password = check;
                 requestToken.set(manager.sendRequest(checkPassword, (authorization, checkError) -> {
                     if (checkError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
-                        finishFailure(completed, callback, readableError(checkError, "两步验证失败"));
+                        finishFailure(completed, callback, readableError(manager, checkError, "两步验证失败"));
                         return;
                     }
                     TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) authorization;
@@ -247,7 +248,10 @@ public final class PasskeyLoginHelper {
         return errorText != null && errorText.contains("PASSKEY_CHALLENGE_EXPIRED");
     }
 
-    private static String readableError(TLRPC.TL_error error, String fallback) {
+    private static String readableError(ConnectionsManager manager, TLRPC.TL_error error, String fallback) {
+        if (isNetworkUnavailable(manager, error)) {
+            return "网络不可用，等待联网验证";
+        }
         if (error == null || error.text == null || error.text.isEmpty()) {
             return fallback;
         }
@@ -258,6 +262,21 @@ public final class PasskeyLoginHelper {
             return "该账号需要两步验证密码";
         }
         return fallback;
+    }
+
+    private static boolean isNetworkUnavailable(ConnectionsManager manager, TLRPC.TL_error error) {
+        try {
+            if (manager != null && manager.getConnectionState() == ConnectionsManager.ConnectionStateWaitingForNetwork) {
+                return true;
+            }
+        } catch (Throwable ignore) {
+        }
+        if (error == null || error.text == null) {
+            return false;
+        }
+        String text = error.text.toUpperCase(Locale.ROOT);
+        return text.contains("NETWORK") || text.contains("CONNECTION") || text.contains("TIMEOUT")
+                || text.contains("TIMED_OUT") || text.contains("RPC_CALL_FAIL") || text.contains("MSG_WAIT_FAILED");
     }
 
     private static void finishSuccess(AtomicBoolean completed, Callback callback, TLRPC.TL_auth_authorization authorization) {
