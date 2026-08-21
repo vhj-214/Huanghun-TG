@@ -2702,20 +2702,35 @@ public class ChatActivity extends BaseFragment implements
                         chatActivityEnterView.finishHuanghunBuiltinVideoRecording(hasRealtimeRoundVideo || hasRecording);
                     }
                     stopHuanghunBuiltinVideoPreview();
+                    boolean roundMode = NekoConfig.huanghunBuiltinRoundVideo.Bool();
+                    boolean squareMode = NekoConfig.huanghunBuiltinSquareVideo.Bool();
                     if (hasRealtimeRoundVideo && hasRecording) {
                         try {
-                            sendHuanghunRealtimeRoundVideo(realtimeRoundVideo, recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
-                            Toast.makeText(getContext(), "实时圆形视频已进入发送队列", Toast.LENGTH_SHORT).show();
+                            if (roundMode) {
+                                sendHuanghunRealtimeRoundVideo(realtimeRoundVideo, recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                                Toast.makeText(getContext(), "实时圆形视频已进入发送队列", Toast.LENGTH_SHORT).show();
+                            } else if (squareMode) {
+                                sendHuanghunRealtimeSquareVideo(realtimeRoundVideo, recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                                Toast.makeText(getContext(), "方形视频已进入发送队列", Toast.LENGTH_SHORT).show();
+                            } else {
+                                // 设置页允许两种模式同时关闭；此时不应把内置内容误发成任意一种模式。
+                                realtimeRoundVideo.delete();
+                                Toast.makeText(getContext(), "未开启圆形视频或方形视频，已恢复官方相机录制", Toast.LENGTH_SHORT).show();
+                            }
                         } catch (Throwable error) {
                             FileLog.e(error);
                             //noinspection ResultOfMethodCallIgnored
                             realtimeRoundVideo.delete();
-                            if (hasRecording) {
+                            if (hasRecording && roundMode) {
                                 sendHuanghunBuiltinRoundVideos(recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                            } else if (squareMode) {
+                                Toast.makeText(getContext(), "方形视频生成失败，请重新录制", Toast.LENGTH_SHORT).show();
                             }
                         }
-                    } else if (hasRecording) {
+                    } else if (hasRecording && roundMode) {
                         sendHuanghunBuiltinRoundVideos(recordings, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars);
+                    } else if (hasRecording && squareMode) {
+                        Toast.makeText(getContext(), "方形视频生成失败，请重新录制", Toast.LENGTH_SHORT).show();
                     }
                 } else if (state == 2 || state == 5) {
                     stopHuanghunBuiltinVideoPreview();
@@ -11631,6 +11646,30 @@ public class ChatActivity extends BaseFragment implements
         // 原相机直接发送完整音视频文件；实时路径同样不建立跨源混音转换任务。
         info.muted = false;
         sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+    }
+
+    /** 将实时文件按普通视频发送；不附加 roundVideo 标记，因此聊天会显示标准方形视频卡片。 */
+    private void sendHuanghunRealtimeSquareVideo(File realtimeVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        if (realtimeVideo == null || !realtimeVideo.isFile() || realtimeVideo.length() <= 0) {
+            return;
+        }
+        long duration = 0;
+        if (recordings != null) {
+            for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : recordings) {
+                if (recording != null && recording.endTime > recording.startTime) {
+                    duration += recording.endTime - recording.startTime;
+                }
+            }
+        }
+        long estimatedSize = Math.max(1L, realtimeVideo.length());
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), realtimeVideo.getAbsolutePath(), Math.max(1, (int) Math.ceil(Math.max(1L, duration) / 1000.0d)), true, 360, 360, estimatedSize);
+        entry.isVideo = true;
+        entry.width = 360;
+        entry.height = 360;
+        entry.duration = Math.max(1, (int) Math.ceil(Math.max(1L, duration) / 1000.0d));
+        entry.ttl = ttl;
+        entry.effectId = effectId;
+        sendMedia(entry, null, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
     }
 
     private void sendHuanghunCombinedRoundVideo(File combinedVideo, ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> recordings, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {

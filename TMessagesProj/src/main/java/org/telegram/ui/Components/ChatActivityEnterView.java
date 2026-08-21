@@ -4978,7 +4978,11 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     private boolean shouldUseHuanghunBuiltinVideoRecording() {
+        // 两种内置输出模式均关闭时，不接管官方录制入口，完整恢复真实相机流程。
+        boolean hasBuiltinOutputMode = NekoConfig.huanghunBuiltinRoundVideo.Bool()
+                || NekoConfig.huanghunBuiltinSquareVideo.Bool();
         return NekoConfig.huanghunBuiltinCameraEnabled.Bool()
+                && hasBuiltinOutputMode
                 && HuanghunVideoLibraryHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount) > 0;
     }
 

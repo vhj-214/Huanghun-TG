@@ -63,6 +63,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int builtinCameraRow;
     private int selectBuiltinVideosRow;
     private int builtinVideoSoundRow;
+    private int builtinRoundVideoRow;
+    private int builtinSquareVideoRow;
     private int viewBuiltinVideosRow;
     private int deleteBuiltinVideosRow;
     private int videoNoticeRow;
@@ -102,6 +104,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         builtinCameraRow = addRow();
         selectBuiltinVideosRow = addRow();
         builtinVideoSoundRow = addRow();
+        builtinRoundVideoRow = addRow();
+        builtinSquareVideoRow = addRow();
         viewBuiltinVideosRow = addRow();
         deleteBuiltinVideosRow = addRow();
         videoNoticeRow = addRow();
@@ -168,6 +172,26 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             if (view instanceof TextCheckCell) {
                 ((TextCheckCell) view).setChecked(enabled);
             }
+            return;
+        }
+        if (position == builtinRoundVideoRow) {
+            boolean enabled = !NekoConfig.huanghunBuiltinRoundVideo.Bool();
+            NekoConfig.huanghunBuiltinRoundVideo.setConfigBool(enabled);
+            // 圆形与方形模式可以同时关闭，但一旦开启其中一个必须关闭另一个。
+            if (enabled) {
+                NekoConfig.huanghunBuiltinSquareVideo.setConfigBool(false);
+            }
+            notifyVideoRows();
+            return;
+        }
+        if (position == builtinSquareVideoRow) {
+            boolean enabled = !NekoConfig.huanghunBuiltinSquareVideo.Bool();
+            NekoConfig.huanghunBuiltinSquareVideo.setConfigBool(enabled);
+            // 方形模式开启时自动关闭圆形模式；关闭方形时不强制开启圆形。
+            if (enabled) {
+                NekoConfig.huanghunBuiltinRoundVideo.setConfigBool(false);
+            }
+            notifyVideoRows();
             return;
         }
         if (position == viewBuiltinVideosRow) {
@@ -338,6 +362,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         listAdapter.notifyItemChanged(builtinCameraRow);
         listAdapter.notifyItemChanged(selectBuiltinVideosRow);
         listAdapter.notifyItemChanged(builtinVideoSoundRow);
+        listAdapter.notifyItemChanged(builtinRoundVideoRow);
+        listAdapter.notifyItemChanged(builtinSquareVideoRow);
         listAdapter.notifyItemChanged(viewBuiltinVideosRow);
         listAdapter.notifyItemChanged(deleteBuiltinVideosRow);
     }
@@ -911,12 +937,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setTextAndCheck("启动内置相机", NekoConfig.huanghunBuiltinCameraEnabled.Bool(), true);
                 } else if (position == builtinVideoSoundRow) {
                     cell.setTextAndCheck("视频声音", NekoConfig.huanghunBuiltinVideoSound.Bool(), true);
+                } else if (position == builtinRoundVideoRow) {
+                    cell.setTextAndCheck("圆形视频", NekoConfig.huanghunBuiltinRoundVideo.Bool(), true);
+                } else if (position == builtinSquareVideoRow) {
+                    cell.setTextAndCheck("方形视频", NekoConfig.huanghunBuiltinSquareVideo.Bool(), true);
                 } else {
                     cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
                 }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。开启内置相机后，按住聊天中的录制视频按钮会循环预览所选视频；松开后由 Telegram 官方发送管线发送当前视频。关闭开关即可恢复真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))));
+                cell.setText(position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
@@ -928,7 +958,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             if (position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == blockNonContactsRow) {
+            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == blockNonContactsRow) {
                 return TYPE_CHECK;
             }
             if (position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {

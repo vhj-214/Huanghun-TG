@@ -146,6 +146,10 @@ public class NekoConfig {
     public static ConfigItem huanghunBuiltinCameraEnabled = addConfig("HuanghunBuiltinCameraEnabled", configTypeBool, false);
     // 默认保留所选视频的原声，关闭后发送的圆形视频将由官方发送管线标记为静音。
     public static ConfigItem huanghunBuiltinVideoSound = addConfig("HuanghunBuiltinVideoSound", configTypeBool, true);
+    // 内置视频默认按 Telegram 官方圆形视频消息发送；方形模式默认关闭。
+    // 设置页保证两者不会同时开启，二者同时关闭时内置视频录制入口会回退到官方真实相机。
+    public static ConfigItem huanghunBuiltinRoundVideo = addConfig("HuanghunBuiltinRoundVideo", configTypeBool, true);
+    public static ConfigItem huanghunBuiltinSquareVideo = addConfig("HuanghunBuiltinSquareVideo", configTypeBool, false);
 
     public static ConfigItem disableNotificationBubbles = addConfig("disableNotificationBubbles", configTypeBool, false);
 
