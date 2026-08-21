@@ -14,6 +14,7 @@ import android.view.WindowManager;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.UserConfig;
 import org.webrtc.Camera1Enumerator;
 import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraEnumerator;
@@ -25,6 +26,9 @@ import org.webrtc.ScreenCapturerAndroid;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoCapturer;
 import org.webrtc.voiceengine.WebRtcAudioRecord;
+
+import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunCallVideoLibraryHelper;
 
 @TargetApi(18)
 public class VideoCapturerDevice {
@@ -177,6 +181,45 @@ public class VideoCapturerDevice {
                     });
                 }
             } else {
+                // 虚拟摄像头仅替换普通前后摄像头；屏幕共享始终使用上方官方 ScreenCapturerAndroid 分支。
+                VoIPService service = VoIPService.getSharedInstance();
+                int account = service != null ? service.getAccount() : UserConfig.selectedAccount;
+                boolean useVirtualCamera = NekoConfig.huanghunCallVirtualCameraEnabled.Bool()
+                        && HuanghunCallVideoLibraryHelper.getVideoCount(ApplicationLoader.applicationContext, account) > 0;
+                if (useVirtualCamera) {
+                    if (videoCapturer == null) {
+                        videoCapturer = new HuanghunVirtualCameraCapturer(account);
+                        videoCapturerSurfaceTextureHelper = SurfaceTextureHelper.create("HuanghunVirtualCameraThread", eglBase.getEglBaseContext());
+                        handler.post(() -> {
+                            if (videoCapturerSurfaceTextureHelper == null || nativePtr == 0 || videoCapturer == null) {
+                                return;
+                            }
+                            nativeCapturerObserver = nativeGetJavaVideoCapturerObserver(nativePtr);
+                            videoCapturer.initialize(videoCapturerSurfaceTextureHelper, ApplicationLoader.applicationContext, nativeCapturerObserver);
+                            FileLog.d("VideoCapturerDevice init(" + ptr + "): virtual camera startCapture");
+                            videoCapturer.startCapture(CAPTURE_WIDTH, CAPTURE_HEIGHT, CAPTURE_FPS);
+                        });
+                    } else if (videoCapturer instanceof HuanghunVirtualCameraCapturer) {
+                        // 切换前后置按钮在虚拟摄像头模式下不重建帧源，立即结束官方切换状态。
+                        if (service != null) {
+                            service.setSwitchingCamera(false, "front".equals(deviceName));
+                        }
+                    }
+                    return;
+                }
+                if (videoCapturer instanceof HuanghunVirtualCameraCapturer) {
+                    try {
+                        videoCapturer.stopCapture();
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                    videoCapturer.dispose();
+                    videoCapturer = null;
+                    if (videoCapturerSurfaceTextureHelper != null) {
+                        videoCapturerSurfaceTextureHelper.dispose();
+                        videoCapturerSurfaceTextureHelper = null;
+                    }
+                }
                 CameraEnumerator enumerator = Camera2Enumerator.isSupported(ApplicationLoader.applicationContext) ? new Camera2Enumerator(ApplicationLoader.applicationContext) : new Camera1Enumerator();
                 int index = -1;
                 String[] names = enumerator.getDeviceNames();

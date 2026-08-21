@@ -62,6 +62,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int videoHeaderRow;
     private int builtinCameraRow;
     private int selectBuiltinVideosRow;
+    // 位于启动内置相机和视频声音之间，直接打开独立的通话专区。
+    private int callCameraFeatureRow;
     private int builtinVideoSoundRow;
     private int builtinRoundVideoRow;
     private int builtinSquareVideoRow;
@@ -103,6 +105,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         videoHeaderRow = addRow();
         builtinCameraRow = addRow();
         selectBuiltinVideosRow = addRow();
+        callCameraFeatureRow = addRow();
         builtinVideoSoundRow = addRow();
         builtinRoundVideoRow = addRow();
         builtinSquareVideoRow = addRow();
@@ -165,6 +168,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         if (position == selectBuiltinVideosRow) {
             chooseBuiltinVideos();
+            return;
+        }
+        if (position == callCameraFeatureRow) {
+            presentFragment(new HuanghunCallSettingsActivity());
             return;
         }
         if (position == builtinVideoSoundRow) {
@@ -361,6 +368,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         listAdapter.notifyItemChanged(builtinCameraRow);
         listAdapter.notifyItemChanged(selectBuiltinVideosRow);
+        listAdapter.notifyItemChanged(callCameraFeatureRow);
         listAdapter.notifyItemChanged(builtinVideoSoundRow);
         listAdapter.notifyItemChanged(builtinRoundVideoRow);
         listAdapter.notifyItemChanged(builtinSquareVideoRow);
@@ -892,6 +900,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 if (position == selectBuiltinVideosRow) {
                     int count = HuanghunVideoLibraryHelper.getVideoCount(mContext, currentAccount);
                     cell.setTextAndValue("选取内置视频", "已选 " + count + " 个", true);
+                } else if (position == callCameraFeatureRow) {
+                    cell.setTextAndValue("摄像头功能", "通话专区", true);
                 } else if (position == viewBuiltinVideosRow) {
                     cell.setTextAndValue("查看内置视频", "浏览已选视频", true);
                 } else if (position == deleteBuiltinVideosRow) {

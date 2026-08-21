@@ -151,6 +151,13 @@ public class NekoConfig {
     public static ConfigItem huanghunBuiltinRoundVideo = addConfig("HuanghunBuiltinRoundVideo", configTypeBool, true);
     public static ConfigItem huanghunBuiltinSquareVideo = addConfig("HuanghunBuiltinSquareVideo", configTypeBool, false);
 
+    // 通话专区：0=前置，1=后置，2=手机屏幕；默认后置，保持官方默认通话体验。
+    public static ConfigItem huanghunCallDefaultCamera = addConfig("HuanghunCallDefaultCamera", configTypeInt, 1);
+    // 关闭时通话始终走 Telegram 官方前后摄像头或屏幕共享采集流程。
+    public static ConfigItem huanghunCallVirtualCameraEnabled = addConfig("HuanghunCallVirtualCameraEnabled", configTypeBool, false);
+    // 开启虚拟摄像头时默认保留内置视频原声，用户可在通话专区关闭。
+    public static ConfigItem huanghunCallVirtualVideoSound = addConfig("HuanghunCallVirtualVideoSound", configTypeBool, true);
+
     public static ConfigItem disableNotificationBubbles = addConfig("disableNotificationBubbles", configTypeBool, false);
 
     public static ConfigItem tabsTitleType = addConfig("TabTitleType", configTypeInt, NekoXConfig.TITLE_TYPE_TEXT);

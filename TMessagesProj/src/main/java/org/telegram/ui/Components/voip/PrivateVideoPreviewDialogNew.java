@@ -376,6 +376,38 @@ public abstract class PrivateVideoPreviewDialogNew extends FrameLayout implement
         setCurrentPage(1, false);
     }
 
+    /**
+     * 在预览窗口显示前选择通话专区设定的默认来源。
+     * 手机屏幕页只预选官方屏幕共享说明页，仍需用户点击按钮并通过 Android 系统授权。
+     */
+    public void setInitialPage(int page) {
+        int target = Math.max(0, Math.min(2, page));
+        if (target == 0) {
+            realCurrentPage = 0;
+            strangeCurrentPage = 0;
+            previousPage = -1;
+            pageOffset = 0f;
+            cameraReady = false;
+            textureView.setAlpha(0f);
+            textureView.setVisibility(GONE);
+            View screencastStub = viewPager.findViewWithTag("screencast_stub");
+            if (screencastStub != null) {
+                screencastStub.setVisibility(VISIBLE);
+            }
+            updateTitlesLayout();
+            return;
+        }
+        realCurrentPage = target;
+        strangeCurrentPage = target;
+        previousPage = -1;
+        pageOffset = 0f;
+        visibleCameraPage = target;
+        cameraReady = false;
+        textureView.setVisibility(VISIBLE);
+        showStub(true, false);
+        updateTitlesLayout();
+    }
+
     private void showStub(boolean show, boolean animate) {
         ImageView imageView = viewPager.findViewWithTag("image_stab");
         if (!show) {

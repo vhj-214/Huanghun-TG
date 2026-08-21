@@ -91,6 +91,7 @@ import org.telegram.messenger.pip.PipSource;
 import org.telegram.messenger.pip.utils.PipUtils;
 import org.telegram.messenger.voip.EncryptionKeyEmojifier;
 import org.telegram.messenger.voip.Instance;
+import org.telegram.messenger.voip.HuanghunVirtualCameraCapturer;
 import org.telegram.messenger.voip.VideoCapturerDevice;
 import org.telegram.messenger.voip.VoIPService;
 import org.telegram.messenger.voip.VoIPServiceState;
@@ -139,6 +140,8 @@ import org.telegram.ui.Components.voip.VoIpCoverView;
 import org.telegram.ui.Components.voip.VoIpSnowView;
 import org.telegram.ui.Components.voip.VoIpSwitchLayout;
 import org.telegram.ui.Stories.recorder.HintView2;
+
+import tw.nekomimi.nekogram.NekoConfig;
 import org.webrtc.EglBase;
 import org.webrtc.GlRectDrawer;
 import org.webrtc.RendererCommon;
@@ -170,6 +173,9 @@ public class VoIPFragment implements
     private VoIpSwitchLayout bottomVideoBtn;
     private VoIpSwitchLayout bottomMuteBtn;
     private VoIPToggleButton bottomEndCallBtn;
+    // 仅在通话专区的虚拟摄像头实际开始输出时显示，不参与官方底部按钮的状态切换动画。
+    private LinearLayout virtualCameraControls;
+    private TextView virtualCameraPausePlayButton;
     private final VoIPBackgroundProvider backgroundProvider = new VoIPBackgroundProvider();
 
     private ViewGroup fragmentView;
@@ -648,6 +654,11 @@ public class VoIPFragment implements
     }
 
     @Override
+    public void onCameraFirstFrameAvailable() {
+        updateVirtualCameraControls();
+    }
+
+    @Override
     public void onVideoAvailableChange(boolean isAvailable) {
         previousState = currentState;
         if (isAvailable && !isVideoCall) {
@@ -1102,6 +1113,44 @@ public class VoIPFragment implements
         buttonsLayout.addView(bottomMuteBtn);
         buttonsLayout.addView(bottomEndCallBtn);
 
+        virtualCameraControls = new LinearLayout(context);
+        virtualCameraControls.setOrientation(LinearLayout.HORIZONTAL);
+        virtualCameraControls.setGravity(Gravity.CENTER);
+        virtualCameraControls.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(7), AndroidUtilities.dp(8), AndroidUtilities.dp(7));
+        GradientDrawable virtualControlsBackground = new GradientDrawable();
+        virtualControlsBackground.setColor(0xB31A2733);
+        virtualControlsBackground.setCornerRadius(AndroidUtilities.dp(22));
+        virtualControlsBackground.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x66FFFFFF);
+        virtualCameraControls.setBackground(virtualControlsBackground);
+        TextView previousVirtualVideoButton = createVirtualCameraControlButton(context, "上一个");
+        virtualCameraPausePlayButton = createVirtualCameraControlButton(context, "暂停");
+        TextView nextVirtualVideoButton = createVirtualCameraControlButton(context, "下一个");
+        previousVirtualVideoButton.setOnClickListener(view -> {
+            AndroidUtilities.cancelRunOnUIThread(hideUIRunnable);
+            hideUiRunnableWaiting = false;
+            HuanghunVirtualCameraCapturer.previousVideo();
+        });
+        virtualCameraPausePlayButton.setOnClickListener(view -> {
+            AndroidUtilities.cancelRunOnUIThread(hideUIRunnable);
+            hideUiRunnableWaiting = false;
+            if (HuanghunVirtualCameraCapturer.isPaused()) {
+                HuanghunVirtualCameraCapturer.play();
+            } else {
+                HuanghunVirtualCameraCapturer.pause();
+            }
+            // 播放器在专用纹理线程切换状态，稍后刷新以保证“暂停/播放”文字与实际状态一致。
+            AndroidUtilities.runOnUIThread(this::updateVirtualCameraControls, 50L);
+        });
+        nextVirtualVideoButton.setOnClickListener(view -> {
+            AndroidUtilities.cancelRunOnUIThread(hideUIRunnable);
+            hideUiRunnableWaiting = false;
+            HuanghunVirtualCameraCapturer.nextVideo();
+        });
+        virtualCameraControls.addView(previousVirtualVideoButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38, 0, 0, 0, 5, 0));
+        virtualCameraControls.addView(virtualCameraPausePlayButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38, 0, 0, 0, 5, 0));
+        virtualCameraControls.addView(nextVirtualVideoButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 38));
+        virtualCameraControls.setVisibility(View.GONE);
+
         acceptDeclineView = new AcceptDeclineView(context);
         acceptDeclineView.setListener(new AcceptDeclineView.Listener() {
 
@@ -1155,6 +1204,7 @@ public class VoIPFragment implements
         acceptDeclineView.setScaleY(1.15f);
 
         frameLayout.addView(buttonsLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
+        frameLayout.addView(virtualCameraControls, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 52, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, 112));
         int horizontalMargin = isTablet() ? 100 : 27;
         frameLayout.addView(acceptDeclineView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 186, Gravity.BOTTOM, horizontalMargin, 0, horizontalMargin, 0));
 
@@ -2703,7 +2753,39 @@ public class VoIPFragment implements
         if (bottomEndCallBtn.getVisibility() == View.VISIBLE) {
             bottomEndCallBtn.animationDelay = animationDelay;
         }
-        updateSpeakerPhoneIcon();
+                updateSpeakerPhoneIcon();
+        updateVirtualCameraControls();
+    }
+    private TextView createVirtualCameraControlButton(Context context, String text) {
+        TextView button = new TextView(context);
+        button.setText(text);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        button.setTypeface(AndroidUtilities.bold());
+        button.setGravity(Gravity.CENTER);
+        button.setMinWidth(AndroidUtilities.dp(72));
+        button.setContentDescription(text + "通话内置视频");
+        button.setBackground(Theme.createSelectorDrawable(0x33FFFFFF, 1));
+        button.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        return button;
+    }
+
+    private void updateVirtualCameraControls() {
+        if (virtualCameraControls == null) {
+            return;
+        }
+        VoIPService service = VoIPService.getSharedInstance();
+        boolean visible = service != null
+                && currentUserIsVideo
+                && !service.isScreencast()
+                && NekoConfig.huanghunCallVirtualCameraEnabled.Bool()
+                && HuanghunVirtualCameraCapturer.isActive();
+        virtualCameraControls.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (visible && virtualCameraPausePlayButton != null) {
+            boolean paused = HuanghunVirtualCameraCapturer.isPaused();
+            virtualCameraPausePlayButton.setText(paused ? "播放" : "暂停");
+            virtualCameraPausePlayButton.setContentDescription((paused ? "播放" : "暂停") + "通话内置视频");
+        }
     }
 
     private void setMicrohoneAction(VoIpSwitchLayout bottomButton, VoIPService service, boolean animated) {
@@ -2865,9 +2947,7 @@ public class VoIPFragment implements
             if (!currentUserIsVideo) {
                 if (previewDialog == null) {
                     service.createCaptureDevice(false);
-                    if (!service.isFrontFaceCamera()) {
-                        service.switchCamera();
-                    }
+                    // 服务启动时已经按通话专区的前置或后置默认值创建采集器，不能再反向切换。
                     windowView.setLockOnScreen(true);
                     int[] locVideoButton = new int[2];
                     bottomVideoBtn.getLocationOnScreen(locVideoButton); // asdf
@@ -2924,6 +3004,9 @@ public class VoIPFragment implements
                             return callingUserIsVideo;
                         }
                     };
+                    // 0=手机屏幕、1=前置、2=后置；屏幕页仅预选，仍由用户确认后走官方授权。
+                    int defaultCamera = NekoConfig.huanghunCallDefaultCamera.Int();
+                    previewDialog.setInitialPage(defaultCamera == 2 ? 0 : (defaultCamera == 1 ? 2 : 1));
                     if (lastInsets != null) {
                         previewDialog.setBottomPadding(lastInsets.getSystemWindowInsetBottom());
                     }

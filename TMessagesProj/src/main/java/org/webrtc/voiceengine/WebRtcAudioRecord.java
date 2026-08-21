@@ -26,6 +26,8 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.voip.HuanghunVirtualCameraAudioSource;
+import org.telegram.messenger.voip.HuanghunVirtualCameraCapturer;
 import org.telegram.messenger.voip.VideoCapturerDevice;
 import org.webrtc.Logging;
 import org.webrtc.ThreadUtils;
@@ -192,6 +194,11 @@ public class WebRtcAudioRecord {
               }
               byteBuffer.putShort(a * 2, (short) mixed);
             }
+          }
+          // 虚拟摄像头原声以独立队列注入上行；无帧、已暂停或关闭声音时为无阻塞空操作。
+          HuanghunVirtualCameraAudioSource virtualAudio = HuanghunVirtualCameraCapturer.getActiveAudioSource();
+          if (virtualAudio != null) {
+            virtualAudio.mixInto(byteBuffer, bytesRead, requestedSampleRate, requestedChannels);
           }
           // It's possible we've been shut down during the read, and stopRecording() tried and
           // failed to join this thread. To be a bit safer, try to avoid calling any native methods

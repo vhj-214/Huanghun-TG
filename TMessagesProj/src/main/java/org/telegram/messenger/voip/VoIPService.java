@@ -765,11 +765,13 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			return START_NOT_STICKY;
 		}
 
-		currentAccount = intent.getIntExtra("account", -1);
-		if (currentAccount == -1) {
-			throw new IllegalStateException("No account specified when starting VoIP service");
-		}
-		classGuid = ConnectionsManager.generateClassGuid();
+			currentAccount = intent.getIntExtra("account", -1);
+			if (currentAccount == -1) {
+				throw new IllegalStateException("No account specified when starting VoIP service");
+			}
+			// 仅前置/后置在服务创建时确定；“手机屏幕”仍由预览页发起官方系统授权。
+			isFrontFaceCamera = NekoConfig.huanghunCallDefaultCamera.Int() != 1;
+			classGuid = ConnectionsManager.generateClassGuid();
 		long userID = intent.getLongExtra("user_id", 0);
 		long chatID = intent.getLongExtra("chat_id", 0);
 		createGroupCall = intent.getBooleanExtra("createGroupCall", false);
