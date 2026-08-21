@@ -241,6 +241,7 @@ import tw.nekomimi.nekogram.utils.StringUtils;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.settings.NekoExtensionsActivity;
+import tw.nekomimi.nekogram.settings.NekoTranslatorSettingsActivity;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
 import tw.nekomimi.nekogram.ui.BottomBuilder;
@@ -5183,9 +5184,21 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
                 showReplace();
             });
+                        cell.setMinimumWidth(AndroidUtilities.dp(196));
+            menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
+            // 翻译设置
+            cell = new ActionBarMenuSubItem(getContext(), false, true);
+            cell.setTextAndIcon("翻译设置", R.drawable.ic_translate);
+            cell.setOnClickListener(v -> {
+                if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
+                    menuPopupWindow.dismiss();
+                }
+                if (parentFragment != null) {
+                    parentFragment.presentFragment(new NekoTranslatorSettingsActivity());
+                }
+            });
             cell.setMinimumWidth(AndroidUtilities.dp(196));
             menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
-
             // Attach
             if (attachButton != null) {
                 cell = new ActionBarMenuSubItem(getContext(), false, true);
@@ -5937,6 +5950,9 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     private ArrayList<TextWatcher> messageEditTextWatchers;
     private boolean messageEditTextEnabled = true;
+    /** Prevents repeated taps from starting duplicate outgoing translation requests. */
+    private boolean outgoingAutoTranslationInProgress;
+    private String outgoingAutoTranslationOriginalText;
 
     private class ChatActivityEditTextCaption extends EditTextCaption {
         public ChatActivityEditTextCaption(Context context, Theme.ResourcesProvider resourcesProvider) {
@@ -8400,6 +8416,43 @@ public class ChatActivityEnterView extends FrameLayout implements
                 return;
             }
             if (!TextUtils.isEmpty(message)) {
+                if (!internalParams.skipOutgoingAutoTranslate && NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool()) {
+                    final String originalMessage = message.toString();
+                    if (outgoingAutoTranslationInProgress) {
+                        return;
+                    }
+                    outgoingAutoTranslationInProgress = true;
+                    outgoingAutoTranslationOriginalText = originalMessage;
+                    internalParams.skipOutgoingAutoTranslate = true;
+                    String sourceLanguageCode = NaConfig.INSTANCE.getOutgoingAutoTranslateTargetLang().String();
+                    String targetLanguageCode = NaConfig.INSTANCE.getOutgoingAutoTranslateSourceLang().String();
+                    Locale sourceLocale = TextUtils.isEmpty(sourceLanguageCode) ? new Locale("") : TranslatorKt.getCode2Locale(sourceLanguageCode);
+                    Locale targetLocale = TextUtils.isEmpty(targetLanguageCode) ? LocaleController.getInstance().getCurrentLocale() : TranslatorKt.getCode2Locale(targetLanguageCode);
+                    int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+                    Translator.translateFromWithFallback(sourceLocale, targetLocale, originalMessage, provider, new Translator.Companion.TranslateCallBack() {
+                        @Override
+                        public void onSuccess(String translation) {
+                            outgoingAutoTranslationInProgress = false;
+                            if (destroyed || messageEditText == null || !TextUtils.equals(messageEditText.getTextToUse(), outgoingAutoTranslationOriginalText)) {
+                                return;
+                            }
+                            String messageToSend = NaConfig.INSTANCE.getOutgoingAutoTranslateIncludeOriginal().Bool() && !TextUtils.equals(originalMessage, translation)
+                                    ? originalMessage + "\n\n" + translation
+                                    : translation;
+                            messageEditText.setText(messageToSend);
+                            sendMessageInternal(notify, scheduleDate, scheduleRepeatPeriod, payStars, false, internalParams);
+                        }
+
+                        @Override
+                        public void onFailed(boolean unsupported, String errorMessage) {
+                            outgoingAutoTranslationInProgress = false;
+                            if (!destroyed && messageEditText != null && TextUtils.equals(messageEditText.getTextToUse(), outgoingAutoTranslationOriginalText)) {
+                                Toast.makeText(getContext(), getString(R.string.OutgoingAutoTranslateFailed), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+                    return;
+                }
                 if (delegate != null) {
                     delegate.beforeMessageSend(message, notify, scheduleDate, payStars);
                 }
@@ -8468,6 +8521,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         public Boolean withMarkdown = null;
         public boolean withGame = true;
         public Boolean canUsePangu = null;
+        /** Marks the post-translation resend so it is not translated a second time. */
+        public boolean skipOutgoingAutoTranslate;
 
         public static SendMessageInternalParams markdown(Boolean withMarkdown) {
             SendMessageInternalParams params = new SendMessageInternalParams();
