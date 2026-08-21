@@ -11609,7 +11609,13 @@ public class ChatActivity extends BaseFragment implements
             sourceBitrate = 850_000;
         }
         long estimatedSize = Math.max(1L, totalDuration * sourceBitrate / 8_000L);
-        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), combinedVideo.getAbsolutePath(), 0, true, 0, 0, estimatedSize);
+        MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, System.currentTimeMillis(), combinedVideo.getAbsolutePath(), Math.max(1, (int) Math.ceil(totalDuration / 1000.0d)), true, 360, 360, estimatedSize);
+        // sendMedia 会同时持有 PhotoEntry 与 VideoEditedInfo；两者都明确声明为方形视频，
+        // 避免异步发送层在重建媒体条目时把实时文件重新识别成普通矩形视频。
+        entry.isVideo = true;
+        entry.width = 360;
+        entry.height = 360;
+        entry.duration = Math.max(1, (int) Math.ceil(totalDuration / 1000.0d));
         entry.ttl = ttl;
         entry.effectId = effectId;
 
@@ -11633,6 +11639,10 @@ public class ChatActivity extends BaseFragment implements
         info.notReadyYet = false;
         info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(combinedVideo.getAbsolutePath(), 0);
         info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+        // 与官方 InstantCameraView 保持同一条元数据引用，确保 roundVideo 标记贯穿
+        // 本地待发送消息、转换队列及最终 TL_documentAttributeVideo.round_message。
+        entry.editedInfo = info;
+        entry.isMuted = info.muted;
 
         if (!info.muted) {
             long timelineOffsetUs = 0;
