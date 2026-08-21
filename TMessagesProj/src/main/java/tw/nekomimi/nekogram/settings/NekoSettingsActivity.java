@@ -31,8 +31,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.Huanghun.ContactAuthorActivity;
-
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.R;
@@ -77,7 +75,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private int passcodeRow;
     private int experimentRow;
     private int extensionsRow;
-    private int contactAuthorRow;
     private int categoriesEndRow;
 
     private int importSettingsRow;
@@ -103,7 +100,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         }
         experimentRow = addRow();
         extensionsRow = addRow();
-        contactAuthorRow = addRow();
         categoriesEndRow = addRow();
 
         exportSettingsRow = addRow();
@@ -347,8 +343,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             presentFragment(new NekoExperimentalSettingsActivity());
         } else if (position == extensionsRow) {
             presentFragment(new NekoExtensionsActivity());
-        } else if (position == contactAuthorRow) {
-            presentFragment(new ContactAuthorActivity());
         } else if (position == translatorRow) {
             presentFragment(new NekoTranslatorSettingsActivity());
         } else if (position == aboutRow) {
@@ -414,8 +408,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                         textCell.setTextAndIcon(getString(R.string.Experimental), R.drawable.msg_fave, true);
                     } else if (position == extensionsRow) {
                         textCell.setTextAndIcon(getString(R.string.HuanghunExtensions), R.drawable.msg_fave, true);
-                    } else if (position == contactAuthorRow) {
-                        textCell.setTextAndIcon("联系作者", R.drawable.msg_contact_add, true);
                     } else if (position == importSettingsRow) {
                         textCell.setTextAndIcon(getString(R.string.ImportSettings), R.drawable.import_solar, true);
                     } else if (position == exportSettingsRow) {
@@ -437,7 +429,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         public int getItemViewType(int position) {
             if (position == categoriesEndRow || position == nSettingsEndRow) {
                 return TYPE_SHADOW;
-            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == extensionsRow || position == contactAuthorRow || position == translatorRow ||
+            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == extensionsRow || position == translatorRow ||
                     position == importSettingsRow || position == exportSettingsRow || position == resetSettingsRow || position == appRestartRow ||
                     position == aboutRow) {
                 return TYPE_TEXT;
