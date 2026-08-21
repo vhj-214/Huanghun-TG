@@ -103,6 +103,7 @@ import org.telegram.tgnet.tl.TL_phone;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.DarkAlertDialog;
+import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
@@ -142,6 +143,7 @@ import org.telegram.ui.Components.voip.VoIpSwitchLayout;
 import org.telegram.ui.Stories.recorder.HintView2;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.settings.HuanghunCallSettingsActivity;
 import org.webrtc.EglBase;
 import org.webrtc.GlRectDrawer;
 import org.webrtc.RendererCommon;
@@ -171,6 +173,7 @@ public class VoIPFragment implements
 
     private VoIpSwitchLayout bottomSpeakerBtn;
     private VoIpSwitchLayout bottomVideoBtn;
+    private TextView bottomVirtualSettingsBtn;
     private VoIpSwitchLayout bottomMuteBtn;
     private VoIPToggleButton bottomEndCallBtn;
     // 仅在通话专区的虚拟摄像头实际开始输出时显示，不参与官方底部按钮的状态切换动画。
@@ -1082,6 +1085,7 @@ public class VoIPFragment implements
         buttonsLayout = new VoIPButtonsLayout(context);
         bottomSpeakerBtn = new VoIpSwitchLayout(context, backgroundProvider);
         bottomVideoBtn = new VoIpSwitchLayout(context, backgroundProvider);
+        bottomVirtualSettingsBtn = createBottomVirtualSettingsButton(context);
         bottomMuteBtn = new VoIpSwitchLayout(context, backgroundProvider);
         bottomEndCallBtn = new VoIPToggleButton(context, 52f) {
             @Override
@@ -1099,17 +1103,22 @@ public class VoIPFragment implements
         bottomVideoBtn.setScaleX(0f);
         bottomVideoBtn.setScaleY(0f);
         bottomVideoBtn.animate().setStartDelay(startDelay + 16).translationY(0).scaleY(1f).scaleX(1f).setDuration(250).start();
+        bottomVirtualSettingsBtn.setTranslationY(AndroidUtilities.dp(100));
+        bottomVirtualSettingsBtn.setScaleX(0f);
+        bottomVirtualSettingsBtn.setScaleY(0f);
+        bottomVirtualSettingsBtn.animate().setStartDelay(startDelay + 28).translationY(0).scaleY(1f).scaleX(1f).setDuration(250).start();
         bottomMuteBtn.setTranslationY(AndroidUtilities.dp(100));
         bottomMuteBtn.setScaleX(0f);
         bottomMuteBtn.setScaleY(0f);
-        bottomMuteBtn.animate().setStartDelay(startDelay + 32).translationY(0).scaleY(1f).scaleX(1f).setDuration(250).start();
+        bottomMuteBtn.animate().setStartDelay(startDelay + 40).translationY(0).scaleY(1f).scaleX(1f).setDuration(250).start();
         bottomEndCallBtn.setTranslationY(AndroidUtilities.dp(100));
         bottomEndCallBtn.setScaleX(0f);
         bottomEndCallBtn.setScaleY(0f);
-        bottomEndCallBtn.animate().setStartDelay(startDelay + 48).translationY(0).scaleY(1f).scaleX(1f).setDuration(250).start();
+        bottomEndCallBtn.animate().setStartDelay(startDelay + 52).translationY(0).scaleY(1f).scaleX(1f).setDuration(250).start();
 
         buttonsLayout.addView(bottomSpeakerBtn);
         buttonsLayout.addView(bottomVideoBtn);
+        buttonsLayout.addView(bottomVirtualSettingsBtn);
         buttonsLayout.addView(bottomMuteBtn);
         buttonsLayout.addView(bottomEndCallBtn);
 
@@ -2756,6 +2765,33 @@ public class VoIPFragment implements
                 updateSpeakerPhoneIcon();
         updateVirtualCameraControls();
     }
+    private TextView createBottomVirtualSettingsButton(Context context) {
+        TextView button = new TextView(context);
+        button.setText("虚拟\n设置");
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        button.setTypeface(AndroidUtilities.bold());
+        button.setGravity(Gravity.CENTER);
+        button.setMinHeight(AndroidUtilities.dp(68));
+        button.setLines(2);
+        button.setLineSpacing(AndroidUtilities.dp(1), 1f);
+        button.setContentDescription("虚拟设置，打开通话专区");
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.OVAL);
+        background.setColor(0x66FFFFFF);
+        background.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x88FFFFFF);
+        button.setBackground(background);
+        button.setOnClickListener(view -> {
+            AndroidUtilities.cancelRunOnUIThread(hideUIRunnable);
+            hideUiRunnableWaiting = false;
+            BaseFragment lastFragment = LaunchActivity.getLastFragment();
+            if (lastFragment != null) {
+                lastFragment.presentFragment(new HuanghunCallSettingsActivity());
+            }
+        });
+        return button;
+    }
+
     private TextView createVirtualCameraControlButton(Context context, String text) {
         TextView button = new TextView(context);
         button.setText(text);

@@ -1,7 +1,10 @@
 package org.telegram.messenger.voip;
 
 import android.content.Context;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.view.Surface;
 
 import org.telegram.messenger.AndroidUtilities;
@@ -16,6 +19,7 @@ import org.webrtc.VideoFrame;
 import java.io.File;
 import java.util.ArrayList;
 
+import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunCallVideoLibraryHelper;
 
 /**
@@ -76,6 +80,14 @@ public final class HuanghunVirtualCameraCapturer implements VideoCapturer {
         HuanghunVirtualCameraCapturer capturer = activeCapturer;
         if (capturer != null) {
             capturer.setPaused(false);
+        }
+    }
+
+    /** 设置页修改“视频声音”后立即更新正在播放的本地监控音量；上行 PCM 同时读取该配置。 */
+    public static void refreshSoundState() {
+        HuanghunVirtualCameraCapturer capturer = activeCapturer;
+        if (capturer != null) {
+            capturer.updateLocalSoundState();
         }
     }
 
@@ -178,10 +190,20 @@ public final class HuanghunVirtualCameraCapturer implements VideoCapturer {
         }
         try {
             MediaPlayer player = new MediaPlayer();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                player.setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                        .build());
+            } else {
+                player.setAudioStreamType(AudioManager.STREAM_VOICE_CALL);
+            }
             player.setDataSource(path);
             player.setSurface(outputSurface);
-            // 本地播放器始终静音，视频原声由独立的上行 PCM 注入链路处理，避免外放回声。
-            player.setVolume(0f, 0f);
+            // 让发起方也能听到已启用的视频原声；远端声音仍由独立 PCM 队列注入上行，
+            // 不依赖手机扬声器回录，因此关闭开关后本地与远端会同时静音。
+            float localVolume = NekoConfig.huanghunCallVirtualVideoSound.Bool() ? 1f : 0f;
+            player.setVolume(localVolume, localVolume);
             player.setLooping(false);
             player.setOnPreparedListener(preparedPlayer -> {
                 if (preparedPlayer != mediaPlayer || !capturing || disposed) {
@@ -247,6 +269,24 @@ public final class HuanghunVirtualCameraCapturer implements VideoCapturer {
         int targetWidth = ensureEven(Math.round(videoWidth * scale));
         int targetHeight = ensureEven(Math.round(videoHeight * scale));
         surfaceTextureHelper.setTextureSize(targetWidth, targetHeight);
+    }
+
+    private void updateLocalSoundState() {
+        SurfaceTextureHelper helper = surfaceTextureHelper;
+        if (helper == null) {
+            return;
+        }
+        helper.getHandler().post(() -> {
+            MediaPlayer player = mediaPlayer;
+            if (capturing && !disposed && player != null) {
+                try {
+                    float volume = NekoConfig.huanghunCallVirtualVideoSound.Bool() ? 1f : 0f;
+                    player.setVolume(volume, volume);
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+            }
+        });
     }
 
     private void setPaused(boolean pause) {

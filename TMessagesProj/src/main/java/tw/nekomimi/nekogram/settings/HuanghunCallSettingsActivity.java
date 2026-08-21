@@ -13,8 +13,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
+import org.telegram.messenger.voip.HuanghunVirtualCameraCapturer;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextCheckCell;
@@ -98,6 +100,7 @@ public class HuanghunCallSettingsActivity extends BaseNekoSettingsActivity {
         }
         if (position == virtualVideoSoundRow) {
             boolean enabled = NekoConfig.huanghunCallVirtualVideoSound.toggleConfigBool();
+            HuanghunVirtualCameraCapturer.refreshSoundState();
             if (view instanceof TextCheckCell) {
                 ((TextCheckCell) view).setChecked(enabled);
             }

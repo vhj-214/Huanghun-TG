@@ -11631,11 +11631,18 @@ public class ChatActivity extends BaseFragment implements
         entry.ttl = ttl;
         entry.effectId = effectId;
 
+        int sourceBitrate = MediaController.getVideoBitrate(realtimeVideo.getAbsolutePath());
+        if (sourceBitrate <= 0) {
+            sourceBitrate = 850_000;
+        }
         VideoEditedInfo info = new VideoEditedInfo();
         info.startTime = -1;
         info.endTime = -1;
         info.estimatedSize = Math.max(1L, realtimeVideo.length());
         info.roundVideo = true;
+        info.originalBitrate = sourceBitrate;
+        // 原声混合会强制进入官方转换器；码率为 0 会在部分编码器上直接失败，随后退回无声源文件。
+        info.bitrate = Math.max(850_000, sourceBitrate);
         info.framerate = 25;
         info.resultWidth = info.originalWidth = 360;
         info.resultHeight = info.originalHeight = 360;
@@ -11644,6 +11651,7 @@ public class ChatActivity extends BaseFragment implements
         info.estimatedDuration = duration;
         // 文件已经完整封装，不能再使用仅供即时相机边录边传的 notReadyYet 占位状态。
         info.notReadyYet = false;
+        info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(realtimeVideo.getAbsolutePath(), 0);
         entry.isVideo = true;
         entry.width = 360;
         entry.height = 360;
@@ -11676,6 +11684,10 @@ public class ChatActivity extends BaseFragment implements
         entry.duration = Math.max(1, (int) Math.ceil(duration / 1000.0d));
         entry.ttl = ttl;
         entry.effectId = effectId;
+        int sourceBitrate = MediaController.getVideoBitrate(realtimeVideo.getAbsolutePath());
+        if (sourceBitrate <= 0) {
+            sourceBitrate = 850_000;
+        }
         VideoEditedInfo info = new VideoEditedInfo();
         info.originalPath = realtimeVideo.getAbsolutePath();
         info.startTime = -1;
@@ -11686,8 +11698,12 @@ public class ChatActivity extends BaseFragment implements
         info.estimatedDuration = duration;
         info.originalWidth = info.resultWidth = 360;
         info.originalHeight = info.resultHeight = 360;
+        info.originalBitrate = sourceBitrate;
+        // 与圆形模式保持一致：配置有效输出码率，使原声混合不会在转换器初始化阶段失败。
+        info.bitrate = Math.max(850_000, sourceBitrate);
         info.framerate = 25;
         info.notReadyYet = false;
+        info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(realtimeVideo.getAbsolutePath(), 0);
         entry.editedInfo = info;
         attachHuanghunBuiltinVideoAudio(info, recordings);
         entry.isMuted = info.muted;
