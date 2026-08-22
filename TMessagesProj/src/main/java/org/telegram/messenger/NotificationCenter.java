@@ -70,6 +70,8 @@ public class NotificationCenter {
     public static final int removeAllMessagesFromDialog = totalEvents++;
     public static final int notificationsSettingsUpdated = totalEvents++;
     public static final int blockedUsersDidLoad = totalEvents++;
+    // Huanghun: 切换本地共同群消息屏蔽开关后刷新当前账户的聊天列表。
+    public static final int huanghunMutualGroupMessageBlockChanged = totalEvents++;
     public static final int openedChatChanged = totalEvents++;
     public static final int didCreatedNewDeleteTask = totalEvents++;
     public static final int mainUserInfoChanged = totalEvents++;

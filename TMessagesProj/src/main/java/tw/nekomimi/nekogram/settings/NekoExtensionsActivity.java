@@ -30,6 +30,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -95,6 +96,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
     private int blockHeaderRow;
     private int blockNonContactsRow;
+    private int blockMutualGroupMessagesRow;
     private int keywordsRow;
     private int blockNoticeRow;
     private int blockEndRow;
@@ -137,6 +139,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         blockHeaderRow = addRow();
         blockNonContactsRow = addRow();
+        blockMutualGroupMessagesRow = addRow();
         keywordsRow = addRow();
         blockNoticeRow = addRow();
         blockEndRow = addRow();
@@ -234,6 +237,14 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             if (view instanceof TextCheckCell) {
                 ((TextCheckCell) view).setChecked(enabled);
             }
+            return;
+        }
+        if (position == blockMutualGroupMessagesRow) {
+            boolean enabled = NekoConfig.huanghunBlockMutualGroupMessages.toggleConfigBool();
+            if (view instanceof TextCheckCell) {
+                ((TextCheckCell) view).setChecked(enabled);
+            }
+            NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.huanghunMutualGroupMessageBlockChanged);
             return;
         }
         if (position == keywordsRow) {
@@ -951,8 +962,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setTextAndCheck("圆形视频", NekoConfig.huanghunBuiltinRoundVideo.Bool(), true);
                 } else if (position == builtinSquareVideoRow) {
                     cell.setTextAndCheck("方形视频", NekoConfig.huanghunBuiltinSquareVideo.Bool(), true);
-                } else {
+                } else if (position == blockNonContactsRow) {
                     cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
+                } else {
+                    cell.setTextAndCheck("屏蔽共同群所有消息", NekoConfig.huanghunBlockMutualGroupMessages.Bool(), true);
                 }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
@@ -968,7 +981,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             if (position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == blockNonContactsRow) {
+            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
                 return TYPE_CHECK;
             }
             if (position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {

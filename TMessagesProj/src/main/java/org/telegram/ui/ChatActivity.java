@@ -3294,6 +3294,7 @@ public class ChatActivity extends BaseFragment implements
             .add(NotificationCenter.messagePlayingGoingToStop)
             .add(NotificationCenter.messagePlayingPlayStateChanged)
             .add(NotificationCenter.blockedUsersDidLoad)
+            .add(NotificationCenter.huanghunMutualGroupMessageBlockChanged)
             .add(NotificationCenter.fileNewChunkAvailable)
             .add(NotificationCenter.didCreatedNewDeleteTask)
             .add(NotificationCenter.messagePlayingDidStart)
@@ -23581,7 +23582,16 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void didReceivedNotification2(int id, int account, final Object... args) {
-        if (id == NotificationCenter.invalidateMotionBackground) {
+        if (id == NotificationCenter.huanghunMutualGroupMessageBlockChanged) {
+            if (isMutualGroupChat() && chatAdapter != null) {
+                // 开启和关闭都必须重绑，以便关闭后将现有隐藏消息恢复显示。
+                chatAdapter.notifyDataSetChanged(false);
+            }
+        } else if (id == NotificationCenter.blockedUsersDidLoad) {
+            if (NekoConfig.huanghunBlockMutualGroupMessages.Bool() && isMutualGroupChat() && chatAdapter != null) {
+                chatAdapter.notifyDataSetChanged(false);
+            }
+        } else if (id == NotificationCenter.invalidateMotionBackground) {
             if (chatListView != null) {
                 chatListView.invalidateViews();
             }
@@ -40456,6 +40466,9 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 }
+                if (shouldHideBlockedMutualGroupMessage(msg)) {
+                    return -1000;
+                }
                 if (AyuFilter.isFiltered(msg, getGroup(msg.getGroupId()))) {
                     return -1000;
                 }
@@ -40479,6 +40492,9 @@ public class ChatActivity extends BaseFragment implements
                                     continue;
                                 }
                             }
+                        }
+                        if (shouldHideBlockedMutualGroupMessage(m)) {
+                            continue;
                         }
                         var g = getGroup(m.getGroupId());
                         if (AyuFilter.isFiltered(m, g)) {
@@ -49975,6 +49991,22 @@ public class ChatActivity extends BaseFragment implements
                                      boolean allowDelete, boolean allowEdit,
                                      boolean allowReply, boolean allowReplyPm,
                                      boolean allowForward) {
+    }
+
+    private boolean isMutualGroupChat() {
+        return currentChat != null && (!ChatObject.isChannel(currentChat) || currentChat.megagroup);
+    }
+
+    /**
+     * Keeps mutual-group filtering strictly local: only user-authored messages from account-blocked
+     * peers are rendered as the existing zero-height hidden row. No message storage is changed.
+     */
+    private boolean shouldHideBlockedMutualGroupMessage(MessageObject message) {
+        if (!NekoConfig.huanghunBlockMutualGroupMessages.Bool() || !isMutualGroupChat() || message == null || message.isOutOwner()) {
+            return false;
+        }
+        long senderId = message.getFromChatId();
+        return senderId > 0 && getMessagesController().blockePeers.indexOfKey(senderId) >= 0;
     }
 
     public boolean isBlockedUser(long senderId) {
