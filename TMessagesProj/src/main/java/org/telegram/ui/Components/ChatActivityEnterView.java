@@ -8416,7 +8416,10 @@ public class ChatActivityEnterView extends FrameLayout implements
                 return;
             }
             if (!TextUtils.isEmpty(message)) {
-                if (!internalParams.skipOutgoingAutoTranslate && NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool()) {
+                // 纯阿拉伯数字在任意目标语言中都不需要翻译；直接走既有发送流程，避免接口原样返回时阻断发送。
+                if (!internalParams.skipOutgoingAutoTranslate
+                        && !TextUtils.isDigitsOnly(message)
+                        && NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool()) {
                     final String originalMessage = message.toString();
                     if (outgoingAutoTranslationInProgress) {
                         return;
