@@ -858,11 +858,12 @@ object NaConfig {
             ConfigItem.configTypeBool,
             false
         )
+    // 发送语言默认英语；原文语言保持空值，由发送前翻译逻辑自动识别。
     val outgoingAutoTranslateSourceLang =
         addConfig(
             "OutgoingAutoTranslateSourceLang",
             ConfigItem.configTypeString,
-            ""
+            "en"
         )
     val outgoingAutoTranslateTargetLang =
         addConfig(

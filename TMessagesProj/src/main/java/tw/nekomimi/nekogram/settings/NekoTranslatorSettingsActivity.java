@@ -429,6 +429,14 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
 
     @Override
     protected void handleCellClick(View view, int position, float x, float y) {
+        if (position == cellGroup.rows.indexOf(outgoingAutoTranslateRow)
+                && !NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool()) {
+            // 先写入开关状态，再显示可取消的提示；用户点确定或点外部都不会撤销本次开启。
+            NaConfig.INSTANCE.getOutgoingAutoTranslate().setConfigBool(true);
+            listAdapter.notifyItemChanged(position);
+            showOutgoingAutoTranslateNotice();
+            return;
+        }
         if (position == cellGroup.rows.indexOf(useTelegramUIAutoTranslateRow)) {
             int provider = NekoConfig.translationProvider.Int();
             boolean telegramUIAutoTranslateEnabled = NaConfig.INSTANCE.getTelegramUIAutoTranslate().Bool();
@@ -437,6 +445,16 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
 
         }
         super.handleCellClick(view, position, x, y);
+    }
+
+    private void showOutgoingAutoTranslateNotice() {
+        AlertDialog dialog = new AlertDialog.Builder(getContext(), getResourceProvider())
+                .setTitle("温馨提醒:")
+                .setMessage("如果您当前 IP 状态不佳，可能导致翻译接口调用失败，从而无法翻译。请更换翻译接口，或更换您的 VPN 或代理。")
+                .setPositiveButton("确定", null)
+                .create();
+        dialog.setCanceledOnTouchOutside(true);
+        showDialog(dialog);
     }
 
     @Override
