@@ -190,8 +190,9 @@ interface Translator {
                 }
                 translateFrom(from, to, query, providers[index], object : TranslateCallBack {
                     override fun onSuccess(translation: String) {
-                        if (translation.isBlank()) {
-                            tryProvider(index + 1, false, "Empty translation result")
+                        // 某些接口会把无法处理的文本原样返回；自动发送不能把原文当作译文发出。
+                        if (translation.isBlank() || isEquivalentTranslation(query, translation)) {
+                            tryProvider(index + 1, false, "Unchanged translation result")
                         } else {
                             translateCallBack.onSuccess(translation)
                         }
