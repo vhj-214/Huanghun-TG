@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.SettingsBackupHelper;
+import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.utils.GsonUtil;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -30,6 +31,7 @@ public final class HuanghunDefaultSettings {
     private static final String KEY_APPLIED = "builtin_default_settings_v1_applied";
     private static final String KEY_DEFAULT_LANGUAGE_APPLIED = "official_zh_hans_language_applied";
     private static final String KEY_CHINESE_PREFERENCE_SEEDED = "official_zh_hans_preference_seeded_v2";
+    private static final String KEY_TRANSLATION_PROVIDERS_APPLIED = "translation_providers_v1_applied";
     public static final String OFFICIAL_SIMPLIFIED_CHINESE = "zh_hans";
 
     private HuanghunDefaultSettings() {
@@ -61,6 +63,32 @@ public final class HuanghunDefaultSettings {
 
             if (!bootstrap.edit().putBoolean(KEY_APPLIED, true).commit()) {
                 throw new IllegalStateException("Unable to save Huanghun default-settings marker");
+            }
+        } catch (Throwable error) {
+            FileLog.e(error);
+        }
+    }
+
+    /**
+     * Applies the user-selected translation providers once after an upgrade or a fresh install.
+     * Later manual selections remain fully editable and are not overwritten on subsequent starts.
+     */
+    public static void applyTranslationProviderDefaultsIfNeeded() {
+        Context context = ApplicationLoader.applicationContext;
+        if (context == null) {
+            return;
+        }
+        SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (bootstrap.getBoolean(KEY_TRANSLATION_PROVIDERS_APPLIED, false)) {
+            return;
+        }
+        try {
+            NekoConfig.loadConfig(true);
+            NaConfig.INSTANCE.loadConfig(true);
+            NekoConfig.translationProvider.setConfigInt(Translator.providerGoogle);
+            NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().setConfigInt(Translator.providerYandex);
+            if (!bootstrap.edit().putBoolean(KEY_TRANSLATION_PROVIDERS_APPLIED, true).commit()) {
+                throw new IllegalStateException("Unable to save translation-provider migration marker");
             }
         } catch (Throwable error) {
             FileLog.e(error);
