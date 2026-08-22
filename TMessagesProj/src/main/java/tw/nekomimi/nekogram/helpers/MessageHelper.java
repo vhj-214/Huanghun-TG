@@ -198,6 +198,7 @@ public class MessageHelper extends BaseController {
         NativeByteBuffer data = null;
         try {
             boolean ignoreBlocked = NekoConfig.ignoreBlocked.Bool();
+            boolean hideBlockedMutualGroupMessages = NekoConfig.huanghunBlockMutualGroupMessages.Bool() && isMutualGroupDialog(dialogId);
             long currentUserId = UserConfig.getInstance(currentAccount).clientUserId;
             HashMap<Long, HashMap<Long, TLRPC.Message>> replyMessageCache = ignoreBlocked ? new HashMap<>() : null;
             String query = ignoreBlocked
@@ -261,6 +262,10 @@ public class MessageHelper extends BaseController {
                         }
                     }
                 }
+                if (hideBlockedMutualGroupMessages && isOfficiallyBlockedUser(MessageObject.getFromChatId(message))) {
+                    // 共同群开关只参考 Telegram 官方黑名单，不屏蔽回复对象或第三方自定义过滤器。
+                    continue;
+                }
 
                 MessageObject obj = new MessageObject(currentAccount, message, false, false);
                 if (AyuFilter.isFiltered(obj, null)) {
@@ -285,6 +290,18 @@ public class MessageHelper extends BaseController {
             }
         }
         return null;
+    }
+
+    private boolean isMutualGroupDialog(long dialogId) {
+        if (dialogId >= 0) {
+            return false;
+        }
+        TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
+        return chat != null && (!ChatObject.isChannel(chat) || chat.megagroup);
+    }
+
+    private boolean isOfficiallyBlockedUser(long senderId) {
+        return senderId > 0 && getMessagesController().blockePeers.indexOfKey(senderId) >= 0;
     }
 
     public TLRPC.Message getMessage(long dialogId, long msgId) {

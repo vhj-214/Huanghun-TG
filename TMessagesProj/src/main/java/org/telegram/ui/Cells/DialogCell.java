@@ -3284,7 +3284,14 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                             boolean blocked = false;
                             boolean replyBlocked = false;
                             boolean needsReplyTargetCheck = false;
-                            if (NekoConfig.ignoreBlocked.Bool() && ChatObject.isMegagroup(MessagesController.getInstance(currentAccount).getChat(-dialog.id))) {
+                            TLRPC.Chat previewChat = MessagesController.getInstance(currentAccount).getChat(-dialog.id);
+                            boolean mutualGroupOfficialBlocked = NekoConfig.huanghunBlockMutualGroupMessages.Bool()
+                                && previewChat != null
+                                && (!ChatObject.isChannel(previewChat) || previewChat.megagroup)
+                                && !message.isOutOwner()
+                                && message.getFromChatId() > 0
+                                && MessagesController.getInstance(currentAccount).blockePeers.indexOfKey(message.getFromChatId()) >= 0;
+                            if (NekoConfig.ignoreBlocked.Bool() && ChatObject.isMegagroup(previewChat)) {
                                 blocked = MessagesController.getInstance(currentAccount).blockePeers.indexOfKey(message.getFromChatId()) >= 0;
                                 blocked = blocked || AyuFilter.isCustomFilteredPeer(message.getFromChatId());
                                 blocked = blocked || AyuFilter.isBlockedChannel(message.getFromChatId());
@@ -3298,7 +3305,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                                     needsReplyTargetCheck = true;
                                 }
                             }
-                            boolean hardFiltered = blocked || replyBlocked || AyuFilter.isFiltered(message, null);
+                            boolean hardFiltered = blocked || replyBlocked || mutualGroupOfficialBlocked || AyuFilter.isFiltered(message, null);
                             boolean softReplyCheckPending = needsReplyTargetCheck && !hardFiltered;
                             boolean inNullRetryCooldown = lastFilteredNullMessageId == currentMessageId && System.currentTimeMillis() - lastFilteredNullTime < FILTERED_NULL_RETRY_COOLDOWN_MS;
                             if (hardFiltered || softReplyCheckPending) {

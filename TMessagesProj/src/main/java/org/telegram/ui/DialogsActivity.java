@@ -2967,6 +2967,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             observersGroup
                 .add(NotificationCenter.dialogsNeedReload)
+                .add(NotificationCenter.blockedUsersDidLoad)
+                .add(NotificationCenter.huanghunMutualGroupMessageBlockChanged)
                 .add(NotificationCenter.dialogFiltersUpdated)
                 .add(NotificationCenter.updateInterfaces)
                 .add(NotificationCenter.encryptedChatUpdated)
@@ -10975,7 +10977,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.dialogsNeedReload) {
+        if (id == NotificationCenter.huanghunMutualGroupMessageBlockChanged || id == NotificationCenter.blockedUsersDidLoad) {
+            if (viewPages != null && !dialogsListFrozen) {
+                for (ViewPage page : viewPages) {
+                    page.dialogsAdapter.notifyDataSetChanged();
+                }
+            }
+        } else if (id == NotificationCenter.dialogsNeedReload) {
             if (viewPages == null || dialogsListFrozen) {
                 return;
             }
