@@ -14016,8 +14016,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             cardDrawable.setColor(0x20FFFFFF);
             cardDrawable.setCornerRadius(AndroidUtilities.dp(20));
             cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x5CFFFFFF);
-            // 卡片横向贴合父列表实际宽度；只保留上下间隔，兼容全部屏幕宽度与分屏模式。
-            return new InsetDrawable(cardDrawable, 0, AndroidUtilities.dp(3), 0, AndroidUtilities.dp(3));
+            // 卡片与内容使用同一完整高度，避免固定 60dp 信息行的文字落到被缩短的外框之外。
+            return new InsetDrawable(cardDrawable, 0, 0, 0, 0);
         }
 
         public void setBackground(View view, int viewType) {

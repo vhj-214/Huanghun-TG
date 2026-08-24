@@ -285,8 +285,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         drawable.setColor(0x38FFFFFF);
         drawable.setCornerRadius(dp(20));
         drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
-        // 横向完全覆盖父列表宽度；仅保留上下间隔，避免相邻项目的视觉层级粘连。
-        return new android.graphics.drawable.InsetDrawable(drawable, 0, dp(2), 0, dp(2));
+        // 背景与单元格使用相同高度，避免 50/60dp 内容超出被上下缩短后的玻璃外框。
+        return new android.graphics.drawable.InsetDrawable(drawable, 0, 0, 0, 0);
     }
 
     private boolean ignoreClearViews;
@@ -421,7 +421,24 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
         listView.adapter.setApplyBackground(false);
-        listView.setSections();
+        // 保留官方 section 的条目判定与滚动/点击裁剪，但不再绘制会遮挡壁纸的 windowBackgroundWhite 实体底板。
+        // radius/padding 归零后，设置行仅由各自的透明玻璃背景负责外观。
+        listView.setSections(
+                view -> {
+                    if (view.getParent() != listView) {
+                        return false;
+                    }
+                    final RecyclerView.ViewHolder holder = listView.getChildViewHolder(view);
+                    return holder != null && !UniversalAdapter.isShadow(holder.getItemViewType());
+                },
+                UniversalAdapter::isShadow,
+                0,
+                0,
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    // 主设置页不绘制分组实体底板，壁纸需要持续透出。
+                },
+                false
+        );
         listView.setPadding(0, AndroidUtilities.statusBarHeight + dp(12), 0, AndroidUtilities.navigationBarHeight + additionNavigationBarHeight);
         listView.setClipToPadding(false);
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
