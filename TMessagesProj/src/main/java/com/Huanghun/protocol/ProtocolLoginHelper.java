@@ -611,20 +611,51 @@ public final class ProtocolLoginHelper {
     }
 
     private static final class ImportProgressDialog {
+        private static final long NETWORK_STALL_HINT_DELAY_MS = 3_000L;
+
         private final Activity activity;
         private AlertDialog dialog;
         private TextView titleView;
         private TextView detailView;
+        private TextView networkHintView;
         private TextView percentView;
         private ProgressBar progressBar;
+        private final Runnable networkStallHintRunnable = () -> {
+            if (!isActivityUsable() || dialog == null || !dialog.isShowing() || networkHintView == null) {
+                return;
+            }
+            networkHintView.setVisibility(View.VISIBLE);
+        };
 
         ImportProgressDialog(Activity activity) {
             this.activity = activity;
         }
 
+        private boolean isActivityUsable() {
+            return activity != null && !activity.isFinishing() && !activity.isDestroyed();
+        }
+
+        /** Resets the passive weak-network hint without cancelling the in-flight authorization request. */
+        private void resetNetworkStallHint() {
+            AndroidUtilities.cancelRunOnUIThread(networkStallHintRunnable);
+            if (networkHintView != null) {
+                networkHintView.setVisibility(View.GONE);
+            }
+            if (isActivityUsable() && dialog != null && dialog.isShowing()) {
+                AndroidUtilities.runOnUIThread(networkStallHintRunnable, NETWORK_STALL_HINT_DELAY_MS);
+            }
+        }
+
+        private void cancelNetworkStallHint() {
+            AndroidUtilities.cancelRunOnUIThread(networkStallHintRunnable);
+            if (networkHintView != null) {
+                networkHintView.setVisibility(View.GONE);
+            }
+        }
+
         void showScanning() {
             activity.runOnUiThread(() -> {
-                if (activity.isFinishing()) {
+                if (!isActivityUsable()) {
                     return;
                 }
                 if (dialog != null && dialog.isShowing()) {
@@ -642,6 +673,12 @@ public final class ProtocolLoginHelper {
                 LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
                 detailParams.topMargin = AndroidUtilities.dp(7);
                 content.addView(detailView, detailParams);
+
+                networkHintView = createTextView(activity, "当前网络状态不佳，请耐心等待加载或更换快速网络！！！", 13, 0xFFD32F2F);
+                networkHintView.setVisibility(View.GONE);
+                LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                hintParams.topMargin = AndroidUtilities.dp(7);
+                content.addView(networkHintView, hintParams);
 
                 progressBar = new ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal);
                 progressBar.setMax(100);
@@ -666,6 +703,9 @@ public final class ProtocolLoginHelper {
         }
 
         void showImporting(BatchState batch, int currentAccount) {
+            if (!isActivityUsable()) {
+                return;
+            }
             if (dialog == null || !dialog.isShowing()) {
                 showScanning();
             }
@@ -686,11 +726,18 @@ public final class ProtocolLoginHelper {
             if (percentView != null) {
                 percentView.setText("加载进度  " + percent + "%  ·  已完成 " + completed + " / " + total);
             }
+            // 本次阶段或进度有变化；重新开始三秒观察，不中断正在进行的网络验证。
+            resetNetworkStallHint();
         }
 
         void dismiss() {
+            cancelNetworkStallHint();
             if (dialog != null && dialog.isShowing()) {
-                dialog.dismiss();
+                try {
+                    dialog.dismiss();
+                } catch (Throwable ignore) {
+                    // Activity 已销毁时无需再访问窗口。
+                }
             }
         }
     }

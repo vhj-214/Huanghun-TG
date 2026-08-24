@@ -3578,11 +3578,9 @@ void ConnectionsManager::importAuthKey(uint32_t datacenterId, std::string addres
                                                ((uint64_t) digest[14] << 16) |
                                                ((uint64_t) digest[13] << 8) |
                                                ((uint64_t) digest[12]));
-        // PFS-enabled generic connections select authKeyTemp. A Telethon session
-        // supplies an authorized permanent key, so keep an identical temporary
-        // slot until tgnet refreshes it through its regular PFS lifecycle.
-        datacenter->authKeyTemp = new ByteArray((uint8_t *) authKey.data(), (uint32_t) authKey.size());
-        datacenter->authKeyTempId = datacenter->authKeyPermId;
+        // 外部 session 仅提供永久授权键。PFS 已启用时，绝不能把源设备的永久键
+        // 复制到本机 authKeyTemp；否则两台设备会直接复用同一临时会话上下文。
+        // 保持临时槽为空并启动既有握手流程，由 auth.bindTempAuthKey 为本机创建独立临时键。
         datacenter->authorized = true;
         datacenter->clearServerSalts(false);
         datacenter->clearServerSalts(true);
@@ -3590,6 +3588,7 @@ void ConnectionsManager::importAuthKey(uint32_t datacenterId, std::string addres
         currentDatacenterId = datacenterId;
         movingToDatacenterId = DEFAULT_DATACENTER_ID;
         saveConfig();
+        datacenter->beginHandshake(HandshakeTypeAll, false);
         processRequestQueue(AllConnectionTypes, datacenterId);
     });
 }
