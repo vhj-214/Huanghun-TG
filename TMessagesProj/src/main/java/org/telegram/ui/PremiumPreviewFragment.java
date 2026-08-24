@@ -268,6 +268,13 @@ public class PremiumPreviewFragment extends BaseFragment implements Notification
     private boolean forcePremium;
     float progressToFull;
 
+    /**
+     * 本地大会员只影响本机界面能力；真实 Telegram 服务器会员始终由 UserConfig.isPremium() 判断。
+     */
+    private boolean isLocalPremiumStatus() {
+        return NekoConfig.localPremium.Bool() && !getUserConfig().isPremium();
+    }
+
     public static int serverStringToFeatureType(String s) {
         switch (s) {
             case "double_limits":
@@ -1443,9 +1450,14 @@ public class PremiumPreviewFragment extends BaseFragment implements Notification
             showAdsInfoRow = rowCount++;
         }
 
-        AndroidUtilities.updateViewVisibilityAnimated(buttonContainer, !getUserConfig().isPremium() || currentSubscriptionTier != null && currentSubscriptionTier.getMonths() < subscriptionTiers.get(selectedTierIndex).getMonths() && !forcePremium, 1f, false);
+        final boolean showPurchaseButton = !isLocalPremiumStatus() && (
+                !getUserConfig().isPremium() || currentSubscriptionTier != null && selectedTierIndex < subscriptionTiers.size() && subscriptionTiers.get(selectedTierIndex).getMonths() < currentSubscriptionTier.getMonths() && !forcePremium
+        );
+        if (buttonContainer != null) {
+            AndroidUtilities.updateViewVisibilityAnimated(buttonContainer, showPurchaseButton, 1f, false);
+        }
 
-        int buttonHeight = buttonContainer.getVisibility() == View.VISIBLE ? dp(64) : 0;
+        int buttonHeight = buttonContainer != null && buttonContainer.getVisibility() == View.VISIBLE ? dp(64) : 0;
         layoutManager.setAdditionalHeight(buttonHeight + statusBarHeight - dp(16));
         layoutManager.setMinimumLastViewHeight(buttonHeight);
     }
@@ -1614,6 +1626,8 @@ public class PremiumPreviewFragment extends BaseFragment implements Notification
                     privacyCell.setText(AndroidUtilities.replaceArrows(AndroidUtilities.replaceSingleTag(getString(R.string.ShowAdsInfo), () -> {
                         showDialog(new RevenueSharingAdsInfoBottomSheet(getContext(), false, getResourceProvider(), null));
                     }), true));
+                } else if (position == statusRow && isLocalPremiumStatus()) {
+                    privacyCell.setText(getString(type == FEATURES_BUSINESS ? R.string.LocalBusinessActivatedInfo : R.string.LocalPremiumActivatedInfo));
                 } else if (position == statusRow && type == FEATURES_BUSINESS) {
                     privacyCell.setText(getString(R.string.PremiumPreviewMoreBusinessFeaturesInfo));
                 } else if (position == statusRow) {
@@ -2059,7 +2073,10 @@ public class PremiumPreviewFragment extends BaseFragment implements Notification
         private boolean setTierListViewVisibility;
         private boolean tierListViewVisible;
         public void updateText() {
-            if (type == FEATURES_PREMIUM) {
+            if (isLocalPremiumStatus()) {
+                titleView.setText(getString(type == FEATURES_BUSINESS ? R.string.LocalBusinessActivatedTitle : R.string.LocalPremiumActivatedTitle));
+                subtitleView.setText(getString(R.string.LocalPremiumLifetimeInfo));
+            } else if (type == FEATURES_PREMIUM) {
                 titleView.setText(getString(forcePremium ? R.string.TelegramPremiumSubscribedTitle : R.string.TelegramPremium));
                 subtitleView.setText(AndroidUtilities.replaceTags(getString(getUserConfig().isPremium() || forcePremium ? R.string.TelegramPremiumSubscribedSubtitle : R.string.TelegramPremiumSubtitle)));
             } else if (type == FEATURES_BUSINESS) {
@@ -2067,7 +2084,7 @@ public class PremiumPreviewFragment extends BaseFragment implements Notification
                 subtitleView.setText(AndroidUtilities.replaceTags(getString(getUserConfig().isPremium() || forcePremium ? R.string.TelegramBusinessSubscribedSubtitleTemp : R.string.TelegramBusinessSubtitleTemp)));
             }
             subtitleView.getLayoutParams().width = Math.min(AndroidUtilities.displaySize.x - dp(42), HintView2.cutInFancyHalf(subtitleView.getText(), subtitleView.getPaint()));
-            boolean tierNotVisible = forcePremium || BuildVars.IS_BILLING_UNAVAILABLE || IS_PREMIUM_TIERS_UNAVAILABLE || subscriptionTiers.size() <= 1;
+            boolean tierNotVisible = isLocalPremiumStatus() || forcePremium || BuildVars.IS_BILLING_UNAVAILABLE || IS_PREMIUM_TIERS_UNAVAILABLE || subscriptionTiers.size() <= 1;
             if (!setTierListViewVisibility || !tierNotVisible) {
                 tierListView.setVisibility(tierNotVisible ? GONE : VISIBLE);
                 setTierListViewVisibility = true;
@@ -2116,6 +2133,12 @@ public class PremiumPreviewFragment extends BaseFragment implements Notification
 
     private void updateButtonText(boolean animated) {
         if (premiumButtonView == null) {
+            return;
+        }
+        if (isLocalPremiumStatus()) {
+            premiumButtonView.setButton(getString(R.string.LocalPremiumActivatedShort), null, false);
+            buttonContainerInternal.setOnClickListener(v -> { });
+            premiumButtonView.setFlickerDisabled(true);
             return;
         }
         if (getUserConfig().isPremium() && currentSubscriptionTier != null && selectedTierIndex < subscriptionTiers.size() && subscriptionTiers.get(selectedTierIndex).getMonths() < currentSubscriptionTier.getMonths()) {

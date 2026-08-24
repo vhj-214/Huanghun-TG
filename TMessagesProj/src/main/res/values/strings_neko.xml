@@ -282,6 +282,12 @@
     <string name="localPremium">Local Premium</string>
     <string name="LocalPremiumLocalOnlyInfo">Enabled locally on this device only. This is not a Telegram Premium subscription.</string>
     <string name="LocalPremiumEnabledLocalOnly">Local Premium enabled (this device only)</string>
+    <string name="LocalPremiumActivatedShort">Activated</string>
+    <string name="LocalPremiumActivatedTitle">Local Premium activated</string>
+    <string name="LocalBusinessActivatedTitle">Local Business features activated</string>
+    <string name="LocalPremiumLifetimeInfo">Huanghun Custom Edition — permanently active on this device only.</string>
+    <string name="LocalPremiumActivatedInfo">Local Premium is active. Huanghun Custom Edition — permanent, this device only; not a Telegram server subscription.</string>
+    <string name="LocalBusinessActivatedInfo">Local Business features are active. Huanghun Custom Edition — permanent, this device only; not a Telegram server subscription.</string>
     <string name="ReactionSettings">Reaction</string>
     <string name="UpgradeGroup">Upgrade Group</string>
     <string name="AccDescrShowKeyboard">Show keyboard</string>

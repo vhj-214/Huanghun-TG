@@ -3406,9 +3406,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (iBlur3SourceGlass != null && !iBlur3SourceGlass.inRecording()) {
                         //if (iBlur3SourceGlass.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
                         final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
-                        if (profileHasDynamicVideoWallpaper) {
-                            // 动态视频资料页不能把灰白默认底层写进玻璃模糊源，否则成员区会
-                            // 再次显示为实体白板。保持空白源即可让底层视频参与真实透光效果。
+                        if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
+                            // 静态与动态壁纸均由根壁纸层先行绘制。模糊源必须保持透明，
+                            // 否则静态壁纸会在资料页进入、滚动或头像动画期间被灰黑实体底短暂覆盖。
                             c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
                         } else {
                             c.drawColor(getThemedColor(Theme.key_windowBackgroundGray));

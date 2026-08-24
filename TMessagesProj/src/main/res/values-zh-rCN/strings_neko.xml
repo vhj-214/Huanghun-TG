@@ -282,6 +282,12 @@
     <string name="localPremium">本地大会员</string>
     <string name="LocalPremiumLocalOnlyInfo">仅本机生效，不代表已开通 Telegram 官方大会员订阅。</string>
     <string name="LocalPremiumEnabledLocalOnly">本地大会员已启用（仅本机生效）</string>
+    <string name="LocalPremiumActivatedShort">已开通</string>
+    <string name="LocalPremiumActivatedTitle">本地高级版已开通</string>
+    <string name="LocalBusinessActivatedTitle">本地企业功能已开通</string>
+    <string name="LocalPremiumLifetimeInfo">黄昏定制版永久有效（仅本机生效）</string>
+    <string name="LocalPremiumActivatedInfo">本地高级版已开通。黄昏定制版永久有效，仅本机生效，不代表 Telegram 服务器会员订阅。</string>
+    <string name="LocalBusinessActivatedInfo">本地企业功能已开通。黄昏定制版永久有效，仅本机生效，不代表 Telegram 服务器会员订阅。</string>
     <string name="ReactionSettings">回应</string>
     <string name="UpgradeGroup">升级群组</string>
     <string name="AccDescrShowKeyboard">显示键盘</string>

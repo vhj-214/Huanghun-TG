@@ -1052,11 +1052,12 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                 @Override
                 protected void onEmojiSelected(View emojiView, Long documentId, TLRPC.Document document, TL_stars.TL_starGiftUnique gift, Integer until) {
                     if (gift != null) {
-                        if (type == PAGE_PROFILE) {
+                        if (type == PAGE_NAME) {
                             if (!(gift.peer_color instanceof TLRPC.TL_peerColorCollectible)) return;
                             selectedPeerCollectible = (TLRPC.TL_peerColorCollectible) gift.peer_color;
                             selectedEmojiCollectible = null;
                         } else {
+                            // 资料页礼物必须写入 emoji collectible；该状态会被本地挂件保存并在头像周围展示。
                             selectedPeerCollectible = null;
                             selectedEmojiCollectible = MessagesController.emojiStatusCollectibleFromGift(gift);
                         }
@@ -1522,8 +1523,9 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 if (actionBarContainer != null) {
-                    ((MarginLayoutParams) actionBarContainer.getLayoutParams()).height = ActionBar.getCurrentActionBarHeight();
-                    ((MarginLayoutParams) actionBarContainer.getLayoutParams()).topMargin = AndroidUtilities.statusBarHeight;
+                    // 顶部承接层一次性覆盖状态栏与工具栏，避免标签栏上方露出独立的空白底色。
+                    ((MarginLayoutParams) actionBarContainer.getLayoutParams()).height = ActionBar.getCurrentActionBarHeight() + AndroidUtilities.statusBarHeight;
+                    ((MarginLayoutParams) actionBarContainer.getLayoutParams()).topMargin = 0;
                 }
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             }
@@ -1604,7 +1606,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                     viewPager.scrollToPosition(tab);
                 }
             });
-            actionBarContainer.addView(tabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 40, Gravity.CENTER));
+            actionBarContainer.addView(tabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 40, Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM, 0, 0, 0, 8));
         } else {
             titleView = new SimpleTextView(context);
             titleView.setText(getString(R.string.ChannelColorTitle2));
@@ -1612,15 +1614,15 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
             titleView.setTextSize(20);
             titleView.setTextColor(getThemedColor(Theme.key_actionBarDefaultTitle));
             titleView.setTypeface(AndroidUtilities.bold());
-            actionBarContainer.addView(titleView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.LEFT, 72, 0, 72, 0));
+            actionBarContainer.addView(titleView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.LEFT, 72, 0, 72, 16));
         }
 
-//        if (startAtProfile) {
-//            viewPager.setPosition(1);
-//            if (tabsView != null) {
-//                tabsView.setSelected(1);
-//            }
-//        }
+        if (startAtProfile) {
+            viewPager.setPosition(PAGE_PROFILE);
+            if (tabsView != null) {
+                tabsView.setSelected(PAGE_PROFILE);
+            }
+        }
         if (colorBar != null) {
             colorBar.setProgressToGradient(1f);
             updateLightStatusBar();
@@ -1636,7 +1638,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                 finishFragment();
             }
         });
-        actionBarContainer.addView(backButton, LayoutHelper.createFrame(54, 54, Gravity.LEFT | Gravity.CENTER_VERTICAL));
+        actionBarContainer.addView(backButton, LayoutHelper.createFrame(54, 54, Gravity.LEFT | Gravity.BOTTOM));
 
         sunDrawable = new RLottieDrawable(R.raw.sun, "" + R.raw.sun, dp(28), dp(28), true, null);
         sunDrawable.setPlayInDirectionOfCustomEndFrame(true);
@@ -1662,7 +1664,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
         dayNightItem.setOnClickListener(v -> {
             toggleTheme();
         });
-        actionBarContainer.addView(dayNightItem, LayoutHelper.createFrame(54, 54, Gravity.RIGHT | Gravity.CENTER_VERTICAL));
+        actionBarContainer.addView(dayNightItem, LayoutHelper.createFrame(54, 54, Gravity.RIGHT | Gravity.BOTTOM));
         dayNightItem.setImageDrawable(sunDrawable);
 
         colorBar.updateColors();
