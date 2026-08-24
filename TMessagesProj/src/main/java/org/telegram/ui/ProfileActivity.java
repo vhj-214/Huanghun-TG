@@ -4182,11 +4182,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         fragmentView.setWillNotDraw(false);
         contentView = ((NestedFrameLayout) fragmentView);
-        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        // 资料页根容器沿用官方壁纸承载层，静态/动态主题壁纸均由 SizeNotifierFrameLayout 安全管理。
+        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         // 动态视频具有最高优先级。只要当前会话已经选中视频，就绝不复制聊天页遗留的静态底图。
         profileHasDynamicVideoWallpaper = DynamicVideoWallpaperHelper.getVideoPath(context, currentAccount, getDialogId()) != null;
-        // 根层保持官方转场背景；没有动态视频时才在根层内部复用静态 Drawable。
-        profileHasStaticChatWallpaper = !profileHasDynamicVideoWallpaper && applyHuanghunStaticWallpaperFromPreviousChat();
+        // 已建立的官方壁纸层可作为非视频资料页背景；若从前一聊天复制到会话专用壁纸，则继续优先使用该副本。
+        profileHasStaticChatWallpaper = !profileHasDynamicVideoWallpaper;
+        if (!profileHasDynamicVideoWallpaper) {
+            profileHasStaticChatWallpaper = applyHuanghunStaticWallpaperFromPreviousChat() || profileHasStaticChatWallpaper;
+        }
+        contentView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                ? Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -6288,8 +6295,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         profileDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, getDialogId());
         profileHasDynamicVideoWallpaper = profileDynamicVideoWallpaperPlayer != null;
         if (profileDynamicVideoWallpaperPlayer != null) {
-            // 首帧异步解码期间保持资料页自身的主题承接色，不能暴露播放器默认深色层造成入场黑屏。
-            profileDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+            // 首帧异步解码期间透出已建立的官方壁纸层，不能暴露播放器固定深色底造成黑边或黑屏。
+            profileDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
         // 播放器成功挂载后，动态视频是唯一的资料页背景，不能与任何复制的静态 Drawable 叠加。
         if (profileHasDynamicVideoWallpaper) {
@@ -8898,7 +8905,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 justFullyExpanded = false;
                                 listView.canStopFlinger = true;
                                 expandAnimator.removeListener(this);
-                                topView.setBackgroundColor(Color.BLACK);
+                                topView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                                        ? Color.TRANSPARENT
+                                        : Color.BLACK);
                                 avatarContainer.setVisibility(View.GONE);
                                 avatarsViewPager.setVisibility(View.VISIBLE);
                                 avatarsViewPager.setAlpha(1f);
@@ -8981,7 +8990,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         } else {
                             expandAnimator.setDuration(0);
                         }
-                        topView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+                        topView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                                ? Color.TRANSPARENT
+                                : getThemedColor(Theme.key_windowBackgroundGray));
 
                         if (!doNotSetForeground) {
                             BackupImageView imageView = avatarsViewPager.getCurrentItemView();
@@ -10014,6 +10025,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (flagSecure != null) {
             flagSecure.attach();
         }
+        if (contentView != null) {
+            contentView.onResume();
+        }
         if (profileDynamicVideoWallpaperPlayer != null) {
             profileDynamicVideoWallpaperPlayer.resume();
         }
@@ -10023,6 +10037,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onPause() {
+        if (profileDynamicVideoWallpaperPlayer != null) {
+            profileDynamicVideoWallpaperPlayer.pause();
+        }
+        if (contentView != null) {
+            contentView.onPause();
+        }
         super.onPause();
         if (undoView != null) {
             undoView.hide(true, 0);
@@ -13996,7 +14016,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             cardDrawable.setColor(0x20FFFFFF);
             cardDrawable.setCornerRadius(AndroidUtilities.dp(20));
             cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x5CFFFFFF);
-            return new InsetDrawable(cardDrawable, AndroidUtilities.dp(8), AndroidUtilities.dp(3), AndroidUtilities.dp(8), AndroidUtilities.dp(3));
+            // 卡片横向贴合父列表实际宽度；只保留上下间隔，兼容全部屏幕宽度与分屏模式。
+            return new InsetDrawable(cardDrawable, 0, AndroidUtilities.dp(3), 0, AndroidUtilities.dp(3));
         }
 
         public void setBackground(View view, int viewType) {
@@ -15951,8 +15972,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         ? Color.TRANSPARENT
                         : getThemedColor(Theme.key_windowBackgroundGray));
                 if (contentView != null) {
-                    // 根层保持实体主题色以保护转场；静态与动态壁纸均由其内部独立图层绘制。
-                    contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+                    // 有壁纸时根层必须保持透明，以免主题刷新重新盖住静态或动态背景。
+                    contentView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                            ? Color.TRANSPARENT
+                            : getThemedColor(Theme.key_windowBackgroundGray));
                 }
             }
             if (!isPulledDown) {

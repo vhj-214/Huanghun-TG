@@ -1596,7 +1596,8 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         drawable.setColor(0x20FFFFFF);
         drawable.setCornerRadius(dp(18));
         drawable.setStroke(Math.max(1, dp(1)), 0x5CFFFFFF);
-        return new InsetDrawable(drawable, dp(8), dp(2), dp(8), dp(2));
+        // 共享媒体与共同群行横向贴合父列表；仅保留上下间隔以维持分组层次。
+        return new InsetDrawable(drawable, 0, dp(2), 0, dp(2));
     }
 
     /**

@@ -228,8 +228,8 @@ public final class DynamicVideoWallpaperHelper {
         FrameLayout videoLayer = new FrameLayout(context);
         videoLayer.setClipChildren(true);
         videoLayer.setClipToPadding(true);
-        // 比例不一致时使用纯色承接，不复制视频内容，也不露出旧静态壁纸。
-        videoLayer.setBackgroundColor(0xFF1E2632);
+        // 视频比例与页面不一致时由背景填满模式裁切多余区域；图层保持透明，不能露出固定深色底。
+        videoLayer.setBackgroundColor(android.graphics.Color.TRANSPARENT);
 
         TextureView textureView = new TextureView(context);
         textureView.setClickable(false);
@@ -499,15 +499,15 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         /**
-         * 以完整比例显示原视频，不裁切、不放大局部。每次顶部导航、底部输入区或设备窗口尺寸变化后
-         * 都会重新计算；比例不一致的空白区域由同源柔焦视频填充，因此既能完整看到视频，也不会露出旧壁纸。
+         * 将视频作为页面背景填满可见区域。每次顶部导航、底部输入区或设备窗口尺寸变化后都会重新计算；
+         * 比例多出的部分由容器裁切，避免出现深色边缘、黑条或第二层视频背景。
          */
         private void applyFitCenter() {
             if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
                 return;
             }
-            // 此矩阵严格采用较小比例：视频任一边都不会超过聊天背景可见区，四周留给原壁纸补足。
-            float scale = Math.min(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
+            // 背景采用较大比例覆盖整个可见区；父容器负责裁掉超出的边缘，绝不留下空白承接区。
+            float scale = Math.max(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
             float scaledWidth = videoWidth * scale;
             float scaledHeight = videoHeight * scale;
             Matrix matrix = new Matrix();

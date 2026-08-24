@@ -156,6 +156,7 @@ import java.util.Set;
 import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
@@ -178,6 +179,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     private UniversalRecyclerView listView;
     private View actionBarBackground;
     private UndoView undoView;
+    private DynamicVideoWallpaperHelper.Player settingsDynamicVideoWallpaperPlayer;
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener settingsDynamicVideoWallpaperChangeListener = (account, changedDialogId) -> {
+        if (account == currentAccount && changedDialogId == 0L) {
+            AndroidUtilities.runOnUIThread(this::refreshSettingsWallpaper);
+        }
+    };
 
     private ActionBarMenuItem searchItem, otherItem;
     private String query;
@@ -229,6 +236,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         getNotificationCenter().addObserver(this, NotificationCenter.updateInterfaces);
         getNotificationCenter().addObserver(this, NotificationCenter.starBalanceUpdated);
         getNotificationCenter().addObserver(this, NotificationCenter.newSuggestionsAvailable);
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewWallpapper);
+        DynamicVideoWallpaperHelper.addChangeListener(settingsDynamicVideoWallpaperChangeListener);
 
         if (arguments != null) {
             hasMainTabs = arguments.getBoolean("hasMainTabs", false);
@@ -248,10 +257,22 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
         };
         Bulletin.addDelegate(this, delegate);
+        if (contentView != null) {
+            contentView.onResume();
+        }
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.resume();
+        }
     }
 
     @Override
     public void onPause() {
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.pause();
+        }
+        if (contentView != null) {
+            contentView.onPause();
+        }
         super.onPause();
         Bulletin.removeDelegate(this);
     }
@@ -264,7 +285,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         drawable.setColor(0x38FFFFFF);
         drawable.setCornerRadius(dp(20));
         drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
-        return new android.graphics.drawable.InsetDrawable(drawable, dp(12), dp(2), dp(12), dp(2));
+        // 横向完全覆盖父列表宽度；仅保留上下间隔，避免相邻项目的视觉层级粘连。
+        return new android.graphics.drawable.InsetDrawable(drawable, 0, dp(2), 0, dp(2));
     }
 
     private boolean ignoreClearViews;
@@ -338,6 +360,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 SettingsActivity.this.updateColors();
             }
         };
+        // 先建立官方壁纸层，再在其上按需挂载本地动态视频；两者都位于设置列表之后的最底层。
+        refreshSettingsWallpaper();
 
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
@@ -400,31 +424,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         listView.setSections();
         listView.setPadding(0, AndroidUtilities.statusBarHeight + dp(12), 0, AndroidUtilities.navigationBarHeight + additionNavigationBarHeight);
         listView.setClipToPadding(false);
-        listView.addItemDecoration(new RecyclerView.ItemDecoration() {
-            @Override
-            public void onDrawOver(@NonNull Canvas canvas, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-                final UniversalAdapter adapter = listView.adapter;
-                final int childCount = parent.getChildCount();
-                final Paint dividerPaint = resourceProvider != null ? resourceProvider.getPaint(Theme.key_paint_divider) : Theme.dividerPaint;
-                if (dividerPaint == null) {
-                    return;
-                }
-                for (int i = 0; i < childCount; i++) {
-                    final View child = parent.getChildAt(i);
-                    final int position = parent.getChildAdapterPosition(child);
-                    if (!(child instanceof SettingCell) || position == RecyclerView.NO_POSITION) {
-                        continue;
-                    }
-                    final UItem item = adapter.getItem(position);
-                    final UItem nextItem = adapter.getItem(position + 1);
-                    if (item == null || item.hideDivider || nextItem == null || item.viewType != nextItem.viewType) {
-                        continue;
-                    }
-                    final float y = child.getY() + child.getHeight() - 1.0f;
-                    canvas.drawLine(0, y, parent.getWidth(), y, dividerPaint);
-                }
-            }
-        });
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
@@ -577,6 +576,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     @Override
     public void onFragmentDestroy() {
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.release();
+            settingsDynamicVideoWallpaperPlayer = null;
+        }
+        DynamicVideoWallpaperHelper.removeChangeListener(settingsDynamicVideoWallpaperChangeListener);
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.didSetNewWallpapper);
         super.onFragmentDestroy();
 
         getNotificationCenter().removeObserver(this, NotificationCenter.updateInterfaces);
@@ -600,6 +605,29 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             if (listView != null) {
                 listView.adapter.update(true);
             }
+        } else if (id == NotificationCenter.didSetNewWallpapper) {
+            refreshSettingsWallpaper();
+            if (listView != null) {
+                listView.invalidate();
+            }
+        }
+    }
+
+    private void refreshSettingsWallpaper() {
+        if (contentView == null) {
+            return;
+        }
+        // SizeNotifierFrameLayout 负责官方静态、动态主题壁纸的 Drawable 生命周期。
+        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.release();
+            settingsDynamicVideoWallpaperPlayer = null;
+        }
+        // 主设置页只使用用户配置的全局动态视频（dialogId = 0），不读取任意聊天的私有视频。
+        settingsDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, contentView.getContext(), currentAccount, 0L);
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            // 首帧准备前透出官方壁纸层，不暴露固定深色承接底。
+            settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
     }
 

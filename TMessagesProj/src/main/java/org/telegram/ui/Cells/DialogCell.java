@@ -4119,7 +4119,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
         if (huanghunLiquidGlass) {
             // 单层中性玻璃：不使用蓝紫渐变，也不覆盖文本、头像或滑动操作背景。
-            rect.set(dp(8), dp(2), getMeasuredWidth() - dp(8), getMeasuredHeight() - dp(2));
+            // 资料页共同群行按父列表实际宽度绘制，避免独立 Canvas 路径留下固定左右空隙。
+            rect.set(0, dp(2), getMeasuredWidth(), getMeasuredHeight() - dp(2));
             huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
             huanghunLiquidGlassFillPaint.setColor(0x38FFFFFF);
             canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassFillPaint);
