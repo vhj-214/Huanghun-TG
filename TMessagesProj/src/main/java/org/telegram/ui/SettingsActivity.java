@@ -465,7 +465,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             protected void onDraw(@NonNull Canvas canvas) {
                 int top = actionBar.getHeight();
                 AndroidUtilities.rectTmp2.set(0, 0, getMeasuredWidth(), top);
-                blurScrimPaint.setColor(Theme.getColor(Theme.key_actionBarDefault, resourceProvider));
+                final int actionBarColor = getThemedColor(Theme.key_actionBarDefault);
+                // 壁纸存在时顶部只保留低透明度玻璃承接层，不能用实体主题色盖住状态栏和工具栏。
+                blurScrimPaint.setColor(hasSettingsWallpaperLayer() ? Theme.multAlpha(actionBarColor, 0.16f) : actionBarColor);
                 contentView.drawBlurRect(canvas, 0, AndroidUtilities.rectTmp2, blurScrimPaint, true);
                 if (getParentLayout() != null) {
                     getParentLayout().drawHeaderShadow(canvas, top);
@@ -646,6 +648,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             // 首帧准备前透出官方壁纸层，不暴露固定深色承接底。
             settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
+        // 根层必须持续让已挂载的静态/动态壁纸透出，主题刷新不能重新盖成实体灰底。
+        contentView.setBackgroundColor(hasSettingsWallpaperLayer() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
+        if (actionBarBackground != null) {
+            actionBarBackground.invalidate();
+        }
+    }
+
+    private boolean hasSettingsWallpaperLayer() {
+        return settingsDynamicVideoWallpaperPlayer != null || contentView != null && contentView.getBackgroundImage() != null;
     }
 
     public void setInfo() {
@@ -676,7 +687,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     public void updateColors() {
         actionBar.setTitleColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         actionBar.setItemsColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText), false);
-        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        contentView.setBackgroundColor(hasSettingsWallpaperLayer() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
         titleView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         subtitleView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
         searchItem.updateColor();

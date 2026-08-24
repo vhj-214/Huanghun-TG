@@ -518,7 +518,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 TextCheckCell textCheckCell = (TextCheckCell) view;
                 textCheckCell.setChecked(SharedConfig.proxyRotationEnabled);
                 SharedConfig.saveConfig();
-
+                ProxyRotationController.onRotationSettingsChanged();
                 updateRows(true);
             } else if (position == callsRow) {
                 useProxyForCalls = !useProxyForCalls;
@@ -1016,6 +1016,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                         chooseView.setCallback(i -> {
                             SharedConfig.proxyRotationTimeout = i;
                             SharedConfig.saveConfig();
+                            ProxyRotationController.onRotationSettingsChanged();
                         });
                         chooseView.setOptions(SharedConfig.proxyRotationTimeout, values);
                     }

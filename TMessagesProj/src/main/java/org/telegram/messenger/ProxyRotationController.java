@@ -23,6 +23,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
     private boolean isCurrentlyChecking;
     private boolean isActiveProxyChecking;
     private final Runnable activeProxyHealthCheckRunnable = this::checkActiveProxyHealth;
+    private final Runnable rotationPingRefreshRunnable = this::refreshRotationProxyPings;
     private Runnable checkProxyAndSwitchRunnable = () -> {
         isCurrentlyChecking = true;
 
@@ -57,6 +58,64 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
 
     public static void init() {
         INSTANCE.initInternal();
+    }
+
+    /**
+     * Called after the rotation switch or its interval changes in the settings UI.
+     * The selected interval is a real Ping refresh cadence, not merely a connection-timeout value.
+     */
+    public static void onRotationSettingsChanged() {
+        INSTANCE.scheduleRotationPingRefresh(0L);
+    }
+
+    private long getRotationPingRefreshInterval() {
+        int index = Math.max(0, Math.min(SharedConfig.proxyRotationTimeout, ROTATION_TIMEOUTS.size() - 1));
+        return ROTATION_TIMEOUTS.get(index) * 1000L;
+    }
+
+    private boolean shouldRefreshRotationPings() {
+        return SharedConfig.isProxyEnabled() && SharedConfig.proxyRotationEnabled && SharedConfig.proxyList.size() > 1;
+    }
+
+    private void scheduleRotationPingRefresh(long delay) {
+        AndroidUtilities.cancelRunOnUIThread(rotationPingRefreshRunnable);
+        if (shouldRefreshRotationPings()) {
+            AndroidUtilities.runOnUIThread(rotationPingRefreshRunnable, delay);
+        }
+    }
+
+    /**
+     * Re-tests every configured proxy at the user-selected interval. This is intentionally
+     * separate from the connection-failure path below: periodic Ping refresh must not switch
+     * a healthy connection merely because another proxy reports a lower latency.
+     */
+    private void refreshRotationProxyPings() {
+        if (!shouldRefreshRotationPings()) {
+            return;
+        }
+        final int account = UserConfig.selectedAccount;
+        for (int i = 0; i < SharedConfig.proxyList.size(); i++) {
+            final SharedConfig.ProxyInfo proxyInfo = SharedConfig.proxyList.get(i);
+            if (proxyInfo.checking) {
+                continue;
+            }
+            proxyInfo.checking = true;
+            proxyInfo.proxyCheckPingId = ConnectionsManager.getInstance(account).checkProxy(
+                    proxyInfo.address,
+                    proxyInfo.port,
+                    proxyInfo.username,
+                    proxyInfo.password,
+                    proxyInfo.secret,
+                    time -> AndroidUtilities.runOnUIThread(() -> {
+                        proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
+                        proxyInfo.checking = false;
+                        proxyInfo.available = time != -1;
+                        proxyInfo.ping = time == -1 ? 0 : time;
+                        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
+                    })
+            );
+        }
+        scheduleRotationPingRefresh(getRotationPingRefreshInterval());
     }
 
     /**
@@ -147,6 +206,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxyCheckDone);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxySettingsChanged);
         scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
+        scheduleRotationPingRefresh(0L);
     }
 
     @Override
@@ -160,6 +220,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
         } else if (id == NotificationCenter.proxySettingsChanged) {
             AndroidUtilities.cancelRunOnUIThread(checkProxyAndSwitchRunnable);
             scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
+            scheduleRotationPingRefresh(getRotationPingRefreshInterval());
         } else if (id == NotificationCenter.didUpdateConnectionState && account == UserConfig.selectedAccount) {
             if (SharedConfig.isProxyEnabled()) {
                 int activeState = ConnectionsManager.getInstance(account).getConnectionState();
