@@ -48,6 +48,32 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
+    /**
+     * Wallpaper-aware glass used only by the main chat-folder strip and the bottom main tabs.
+     * It deliberately keeps the tint light so video and static wallpapers remain visible in both themes.
+     */
+    private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+            .setBackgroundColor((r, isDark) -> {
+                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.30f : 0.24f;
+                return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
+            })
+            .setStrokeColorTop(0x44FFFFFF, 0x28FFFFFF)
+            .setStrokeColorBottom(0x22000000, 0x22FFFFFF)
+            .setShadowColor(0x18000000, 0x0AFFFFFF)
+            .setShadowLayer(dpf2(2.667f), 0, dpf2(0.85f))
+            .setStrokeWidth(dpf2(0.4f), dpf2(0.4f))
+            .build();
+    }
+
+    public static BlurredBackgroundProvider mainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return mainNavigationTransparentGlass(resourcesProvider);
+    }
+
+    public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return mainNavigationTransparentGlass(resourcesProvider);
+    }
+
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
                 .setBackgroundColor((r, isDark) -> {
