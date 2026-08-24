@@ -400,6 +400,31 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         listView.setSections();
         listView.setPadding(0, AndroidUtilities.statusBarHeight + dp(12), 0, AndroidUtilities.navigationBarHeight + additionNavigationBarHeight);
         listView.setClipToPadding(false);
+        listView.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void onDrawOver(@NonNull Canvas canvas, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                final UniversalAdapter adapter = listView.adapter;
+                final int childCount = parent.getChildCount();
+                final Paint dividerPaint = resourceProvider != null ? resourceProvider.getPaint(Theme.key_paint_divider) : Theme.dividerPaint;
+                if (dividerPaint == null) {
+                    return;
+                }
+                for (int i = 0; i < childCount; i++) {
+                    final View child = parent.getChildAt(i);
+                    final int position = parent.getChildAdapterPosition(child);
+                    if (!(child instanceof SettingCell) || position == RecyclerView.NO_POSITION) {
+                        continue;
+                    }
+                    final UItem item = adapter.getItem(position);
+                    final UItem nextItem = adapter.getItem(position + 1);
+                    if (item == null || item.hideDivider || nextItem == null || item.viewType != nextItem.viewType) {
+                        continue;
+                    }
+                    final float y = child.getY() + child.getHeight() - 1.0f;
+                    canvas.drawLine(0, y, parent.getWidth(), y, dividerPaint);
+                }
+            }
+        });
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
