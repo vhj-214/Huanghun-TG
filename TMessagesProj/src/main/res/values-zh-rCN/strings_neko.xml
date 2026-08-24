@@ -280,6 +280,8 @@
     <string name="ConfirmSettings">操作确认</string>
     <string name="InteractionSettings">交互</string>
     <string name="localPremium">本地大会员</string>
+    <string name="LocalPremiumLocalOnlyInfo">仅本机生效，不代表已开通 Telegram 官方大会员订阅。</string>
+    <string name="LocalPremiumEnabledLocalOnly">本地大会员已启用（仅本机生效）</string>
     <string name="ReactionSettings">回应</string>
     <string name="UpgradeGroup">升级群组</string>
     <string name="AccDescrShowKeyboard">显示键盘</string>

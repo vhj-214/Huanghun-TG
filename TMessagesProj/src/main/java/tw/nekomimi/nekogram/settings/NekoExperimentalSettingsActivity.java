@@ -111,7 +111,7 @@ public class NekoExperimentalSettingsActivity extends BaseNekoXSettingsActivity 
                     getString(R.string.BackAnimationSpring),
             }, null));
     private final AbstractConfigCell springAnimationCrossfadeRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getSpringAnimationCrossfade()));
-    private final AbstractConfigCell localPremiumRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.localPremium));
+    private final AbstractConfigCell localPremiumRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.localPremium, getString(R.string.LocalPremiumLocalOnlyInfo)));
     private final AbstractConfigCell unlimitedPinnedDialogsRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.unlimitedPinnedDialogs, getString(R.string.UnlimitedPinnedDialogsAbout)));
     private final AbstractConfigCell unlimitedDialogFiltersRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.unlimitedDialogFilters, getString(R.string.UnlimitedDialogFiltersAbout)));
     private final AbstractConfigCell unlimitedFavedStickersRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.unlimitedFavedStickers, getString(R.string.UnlimitedFavoredStickersAbout)));
@@ -252,6 +252,9 @@ public class NekoExperimentalSettingsActivity extends BaseNekoXSettingsActivity 
             } else if (key.equals(NekoConfig.localPremium.getKey())) {
                 NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.mainUserInfoChanged);
                 NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
+                if (Boolean.TRUE.equals(newValue)) {
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done, getString(R.string.LocalPremiumEnabledLocalOnly)).show();
+                }
             } else if (key.equals(NaConfig.INSTANCE.getUseDeletedIcon().getKey())) {
                 checkUseDeletedIconRows();
             } else if (key.equals(NaConfig.INSTANCE.getSaveDeletedMessageForBotUser().getKey())) {

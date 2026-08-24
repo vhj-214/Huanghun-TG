@@ -466,9 +466,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 int top = actionBar.getHeight();
                 AndroidUtilities.rectTmp2.set(0, 0, getMeasuredWidth(), top);
                 final int actionBarColor = getThemedColor(Theme.key_actionBarDefault);
-                // 壁纸存在时顶部只保留低透明度玻璃承接层，不能用实体主题色盖住状态栏和工具栏。
-                blurScrimPaint.setColor(hasSettingsWallpaperLayer() ? Theme.multAlpha(actionBarColor, 0.16f) : actionBarColor);
-                contentView.drawBlurRect(canvas, 0, AndroidUtilities.rectTmp2, blurScrimPaint, true);
+                if (hasSettingsWallpaperLayer()) {
+                    // 壁纸首帧与滑动过程不能依赖尚未完成的模糊捕获，否则顶部会短暂露出父容器黑底。
+                    // 直接在已铺满状态栏的壁纸层上绘制固定玻璃承接层，避免透明、黑色和主题色之间来回切换。
+                    blurScrimPaint.setColor(Theme.isCurrentThemeDark() ? 0x36000000 : 0x26ffffff);
+                    canvas.drawRect(AndroidUtilities.rectTmp2, blurScrimPaint);
+                } else {
+                    blurScrimPaint.setColor(actionBarColor);
+                    contentView.drawBlurRect(canvas, 0, AndroidUtilities.rectTmp2, blurScrimPaint, true);
+                }
                 if (getParentLayout() != null) {
                     getParentLayout().drawHeaderShadow(canvas, top);
                 }
@@ -657,6 +663,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     private boolean hasSettingsWallpaperLayer() {
         return settingsDynamicVideoWallpaperPlayer != null || contentView != null && contentView.getBackgroundImage() != null;
+    }
+
+    @Override
+    public boolean isLightStatusBar() {
+        if (hasSettingsWallpaperLayer()) {
+            // 顶部玻璃始终透出壁纸，固定浅色图标避免页面切换首帧在深浅图标之间闪动。
+            return false;
+        }
+        return super.isLightStatusBar();
     }
 
     public void setInfo() {

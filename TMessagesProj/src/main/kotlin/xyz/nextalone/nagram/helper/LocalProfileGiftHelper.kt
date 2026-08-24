@@ -58,10 +58,9 @@ object LocalProfileGiftHelper {
     fun apply(status: TLRPC.TL_emojiStatusCollectible?, gift: TL_stars.TL_starGiftUnique?) {
         val userId = currentUserId()
         if (!NekoConfig.localPremium.Bool() || userId == 0L) return
-        if (status == null) {
-            clear(userId)
-            return
-        }
+        // 空选择只表示本次没有更换挂件，绝不能覆盖用户已经保存的本地预设。
+        // 清理必须由资料页中用户明确点击“移除本地挂件”触发。
+        if (status == null) return
         val data = LocalProfileGiftData(
             status.collectible_id,
             status.document_id,

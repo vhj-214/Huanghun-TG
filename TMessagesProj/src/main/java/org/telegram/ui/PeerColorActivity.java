@@ -226,8 +226,14 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                     selectedPeerCollectible = null;
                 } else {
                     TLRPC.User user = getUserConfig().getCurrentUser();
-                    selectedColor = UserObject.getProfileColorId(user);
-                    selectedEmoji = UserObject.getProfileEmojiId(user);
+                    // 本地风格必须优先恢复已保存的预设，不能用服务器默认值覆盖用户选择。
+                    final Integer localProfileColor = user == null ? null : LocalPeerColorHelper.getProfileColorId(user);
+                    final Long localProfileEmoji = user == null ? null : LocalPeerColorHelper.getProfileEmojiId(user);
+                    selectedColor = localProfileColor != null ? localProfileColor : UserObject.getProfileColorId(user);
+                    selectedEmoji = localProfileEmoji != null ? localProfileEmoji : UserObject.getProfileEmojiId(user);
+                    // 本地资料头挂件独立于资料颜色/表情预设。不能把它放入页面的“当前可收藏状态”，
+                    // 否则下方通用逻辑会将颜色设为 -1、表情设为 0，再在应用时覆盖用户既有预设。
+                    // 本地挂件由 LocalProfileGiftHelper 独立保留；只有用户在礼物列表明确选择新礼物时才更新。
                     selectedEmojiCollectible = user != null && user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible ? (TLRPC.TL_emojiStatusCollectible) user.emoji_status : null;
                     selectedPeerCollectible = null;
                 }

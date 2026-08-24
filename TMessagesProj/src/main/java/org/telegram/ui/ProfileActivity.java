@@ -1425,7 +1425,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (y1 != 0) {
                 // 动态壁纸资料页不再画实体主题色或大面积渐变，保证视频在标题区持续透出；
                 // 仅保留一层轻微白色高光，使文字、返回按钮和头像区仍具有晶莹玻璃层次。
-                if (profileHasDynamicVideoWallpaper) {
+                if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
                     paint.setColor(0x26ffffff);
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
                 } else {
@@ -1466,7 +1466,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             if (y1 != v && !openAnimationInProgress) {
                 blurBounds.set(0, y1, getMeasuredWidth(), (int) v);
-                if (profileHasDynamicVideoWallpaper) {
+                if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
                     // 媒体页标题下方同样保持透光，避免玻璃模糊回退成不透明白板。
                     paint.setColor(0x22ffffff);
                     canvas.drawRect(blurBounds, paint);
@@ -6215,7 +6215,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (sharedMediaLayout != null && sharedMediaLayout.getCurrentListView() != null) {
                     sharedMediaLayout.getCurrentListView().cancelClickRunnables(true);
                 }
-                topView.setBackgroundColor(ColorUtils.blendARGB(getAverageColor(pinchToZoomHelper.getPhotoImage()), getThemedColor(Theme.key_windowBackgroundGray), 0.1f));
+                if (!profileHasDynamicVideoWallpaper && !profileHasStaticChatWallpaper) {
+                    topView.setBackgroundColor(ColorUtils.blendARGB(getAverageColor(pinchToZoomHelper.getPhotoImage()), getThemedColor(Theme.key_windowBackgroundGray), 0.1f));
+                }
             }
 
             @Override
@@ -10304,8 +10306,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         int actionBarColor = actionBarAnimationColorFrom != 0 ? actionBarAnimationColorFrom : getThemedColor(Theme.key_actionBarDefault);
         int actionBarColor2 = actionBarColor;
-        actionBarColor = ColorUtils.setAlphaComponent(actionBarColor, 0);
-        topView.setBackgroundColor(ColorUtils.blendARGB(actionBarColor, color, progress));
+        if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
+            // 壁纸资料页的顶部始终由 TopView 的单层玻璃绘制；动画期间不能逐帧切成头像/主题实体色。
+            topView.setBackgroundColor(Color.TRANSPARENT);
+        } else {
+            actionBarColor = ColorUtils.setAlphaComponent(actionBarColor, 0);
+            topView.setBackgroundColor(ColorUtils.blendARGB(actionBarColor, color, progress));
+        }
         timerDrawable.setBackgroundColor(ColorUtils.blendARGB(actionBarColor2, color, progress));
 
         color = peerColor != null ? Color.WHITE : AvatarDrawable.getIconColorForId(userId != 0 || ChatObject.isChannel(chatId, currentAccount) && !currentChat.megagroup ? 5 : chatId, resourcesProvider);
@@ -16515,7 +16522,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public boolean isLightStatusBar() {
         int color;
-        if (isPulledDown) {
+        if (isPulledDown || profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
+            // 壁纸在状态栏下方连续绘制时固定使用浅色图标，避免系统栏在切换首帧反复翻转。
             return false;
         }
         if (actionBar != null && actionBar.isActionModeShowed()) {

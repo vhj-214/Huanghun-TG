@@ -280,6 +280,8 @@
     <string name="ConfirmSettings">Confirmations</string>
     <string name="InteractionSettings">Interactions</string>
     <string name="localPremium">Local Premium</string>
+    <string name="LocalPremiumLocalOnlyInfo">Enabled locally on this device only. This is not a Telegram Premium subscription.</string>
+    <string name="LocalPremiumEnabledLocalOnly">Local Premium enabled (this device only)</string>
     <string name="ReactionSettings">Reaction</string>
     <string name="UpgradeGroup">Upgrade Group</string>
     <string name="AccDescrShowKeyboard">Show keyboard</string>
