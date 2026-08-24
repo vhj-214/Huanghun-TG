@@ -47,6 +47,7 @@ import tw.nekomimi.nekogram.utils.ShareUtil;
 import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.helper.BookmarksHelper;
 import xyz.nextalone.nagram.helper.LocalPeerColorHelper;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import xyz.nextalone.nagram.helper.LocalPremiumStatusHelper;
 
 public final class SettingsBackupHelper {
@@ -202,6 +203,7 @@ public final class SettingsBackupHelper {
                 LocalNameHelper.userNameOverridePrefix,
                 DialogConfig.customForumTabPrefix,
                 LocalPeerColorHelper.KEY_PREFIX,
+                LocalProfileGiftHelper.KEY_PREFIX,
                 LocalPremiumStatusHelper.KEY_PREFIX,
                 BookmarksHelper.KEY_PREFIX
         };

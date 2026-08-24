@@ -35,6 +35,8 @@ import org.telegram.ui.Components.ButtonBounce;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.ProfileActivity;
 
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -170,6 +172,8 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         private StarsReactionsSheet.Particles particles;
 
         public int position = -1;
+        /** True only for the visual-only local profile mounting; it never represents server-side pinning. */
+        public boolean localMounted;
 
         public Gift(TL_stars.TL_starGiftUnique gift) {
             id = gift.id;
@@ -216,6 +220,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             animatedFloat = b.animatedFloat;
             particles = b.particles;
             position = b.position;
+            localMounted = b.localMounted;
         }
 
         public void draw(
@@ -257,28 +262,39 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
     public int maxCount;
 
     public void update() {
-        if (!MessagesController.getInstance(currentAccount).enableGiftsInProfile) {
-            return;
+        final boolean serverGiftsEnabled = MessagesController.getInstance(currentAccount).enableGiftsInProfile;
+        final TLRPC.User profileUser;
+        final TLRPC.EmojiStatus emojiStatus;
+        if (dialogId >= 0) {
+            profileUser = MessagesController.getInstance(currentAccount).getUser(dialogId);
+            emojiStatus = profileUser == null ? null : profileUser.emoji_status;
+        } else {
+            profileUser = null;
+            final TLRPC.User chat = MessagesController.getInstance(currentAccount).getUser(-dialogId);
+            emojiStatus = chat == null ? null : chat.emoji_status;
         }
+        final TLRPC.TL_emojiStatusCollectible localMountedGift = LocalProfileGiftHelper.getMountedGift(profileUser);
 
-        maxCount = MessagesController.getInstance(currentAccount).stargiftsPinnedToTopLimit;
+        maxCount = serverGiftsEnabled ? MessagesController.getInstance(currentAccount).stargiftsPinnedToTopLimit : 0;
+        if (localMountedGift != null) {
+            // Local mounting is visual-only and must remain available even when the server gift feature is unavailable.
+            maxCount = Math.max(maxCount, 1);
+        }
         oldGifts.clear();
         oldGifts.addAll(gifts);
         gifts.clear();
         giftIds.clear();
 
-        final TLRPC.EmojiStatus emojiStatus;
-        if (dialogId >= 0) {
-            final TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(dialogId);
-            emojiStatus = user == null ? null : user.emoji_status;
-        } else {
-            final TLRPC.User chat = MessagesController.getInstance(currentAccount).getUser(-dialogId);
-            emojiStatus = chat == null ? null : chat.emoji_status;
-        }
         if (emojiStatus instanceof TLRPC.TL_emojiStatusCollectible) {
             giftIds.add(((TLRPC.TL_emojiStatusCollectible) emojiStatus).collectible_id);
         }
-        list = StarsController.getInstance(currentAccount).getProfileGiftsList(dialogId);
+        if (localMountedGift != null) {
+            final Gift localGift = new Gift(localMountedGift);
+            localGift.localMounted = true;
+            gifts.add(localGift);
+            giftIds.add(localGift.id);
+        }
+        list = serverGiftsEnabled ? StarsController.getInstance(currentAccount).getProfileGiftsList(dialogId) : null;
         if (list != null) {
             for (int i = 0; i < list.gifts.size(); i++) {
                 final TL_stars.SavedStarGift savedGift = list.gifts.get(i);
@@ -313,7 +329,9 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             }
 
             if (oldGift != null) {
+                final boolean localMounted = g.localMounted;
                 g.copy(oldGift);
+                g.localMounted = localMounted;
             } else {
                 g.gradient = new RadialGradient(0, 0, dp(22.5f), new int[]{g.color, Theme.multAlpha(g.color, 0.0f)}, new float[]{0, 1}, Shader.TileMode.CLAMP);
                 g.gradientPaint = new Paint(Paint.ANTI_ALIAS_FLAG);

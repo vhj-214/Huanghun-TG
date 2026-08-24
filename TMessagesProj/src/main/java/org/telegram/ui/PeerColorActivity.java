@@ -132,6 +132,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import xyz.nextalone.nagram.helper.LocalPeerColorHelper;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 
 public class PeerColorActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
@@ -1798,6 +1799,26 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
             finishFragment();
         } else {
             LocalPeerColorHelper.apply(namePage.selectedColor, namePage.selectedEmoji, profilePage.selectedColor, profilePage.selectedEmoji);
+            // 本地应用风格同步保存当前资料页选中的可收藏礼物，仅用于本机资料头展示。
+            // 不会修改服务器的礼物置顶、emoji 状态或账户授权数据。
+            TL_stars.TL_starGiftUnique localProfileGift = null;
+            TLRPC.TL_emojiStatusCollectible localProfileGiftStatus = profilePage.selectedEmojiCollectible;
+            final long selectedGiftId = localProfileGiftStatus != null
+                    ? localProfileGiftStatus.collectible_id
+                    : profilePage.selectedPeerCollectible != null ? profilePage.selectedPeerCollectible.collectible_id : 0;
+            if (selectedGiftId != 0) {
+                for (int i = 0; i < profilePage.uniqueGifts.size(); i++) {
+                    final TL_stars.TL_starGiftUnique gift = profilePage.uniqueGifts.get(i);
+                    if (gift.id == selectedGiftId) {
+                        localProfileGift = gift;
+                        if (localProfileGiftStatus == null) {
+                            localProfileGiftStatus = MessagesController.emojiStatusCollectibleFromGift(gift);
+                        }
+                        break;
+                    }
+                }
+            }
+            LocalProfileGiftHelper.apply(localProfileGiftStatus, localProfileGift);
             final TLRPC.User me = getUserConfig().getCurrentUser();
             if (me.color == null) {
                 me.color = new TLRPC.TL_peerColor();

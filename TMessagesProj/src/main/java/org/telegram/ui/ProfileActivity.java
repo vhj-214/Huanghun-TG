@@ -383,6 +383,7 @@ import tw.nekomimi.nekogram.utils.AndroidUtil;
 import tw.nekomimi.nekogram.utils.FileUtil;
 import tw.nekomimi.nekogram.utils.ShareUtil;
 import xyz.nextalone.nagram.NaConfig;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 
 public class ProfileActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate, DialogsActivity.DialogsActivityDelegate, SharedMediaLayout.SharedMediaPreloaderDelegate, ImageUpdater.ImageUpdaterDelegate, SharedMediaLayout.Delegate, MainTabsActivity.TabFragmentDelegate {
     private RecyclerListView listView;
@@ -6022,7 +6023,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             avatarImage.setHasStories(needInsetForStories());
         }
         avatarContainer2.addView(storyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        giftsView = new ProfileGiftsView(context, currentAccount, getDialogId(), avatarContainer, avatarImage, resourcesProvider);
+        giftsView = new ProfileGiftsView(context, currentAccount, getDialogId(), avatarContainer, avatarImage, resourcesProvider) {
+            @Override
+            public void onGiftClick(Gift gift) {
+                // 仅本机选择的本地挂件进入管理菜单；服务器礼物继续使用原有 NFT 详情行为。
+                if (gift.localMounted && userId == getUserConfig().getClientUserId()) {
+                    showLocalProfileGiftOptions();
+                    return;
+                }
+                super.onGiftClick(gift);
+            }
+        };
         avatarContainer2.addView(giftsView, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         updateProfileData(true);
 
@@ -9459,6 +9470,26 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         isInLandscapeMode = size.x > size.y;
     }
 
+    private void showLocalProfileGiftOptions() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourcesProvider);
+        builder.setTitle("本地资料挂件");
+        builder.setItems(new CharSequence[]{"替换为新的礼物", "移除本地挂件"}, (dialog, which) -> {
+            if (which == 0) {
+                presentFragment(new PeerColorActivity(0).startOnProfile().setOnApplied(ProfileActivity.this));
+            } else {
+                LocalProfileGiftHelper.clear(getUserConfig().getClientUserId());
+                if (giftsView != null) {
+                    giftsView.update();
+                }
+                updateProfileData(true);
+            }
+        });
+        showDialog(builder.create());
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
@@ -9470,6 +9501,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (userId != 0) {
                 if (infoChanged) {
                     updateProfileData(true);
+                    if (giftsView != null) {
+                        giftsView.update();
+                    }
                 }
                 if ((mask & MessagesController.UPDATE_MASK_PHONE) != 0) {
                     if (listView != null) {
