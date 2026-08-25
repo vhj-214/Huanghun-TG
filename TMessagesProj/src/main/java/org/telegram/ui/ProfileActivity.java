@@ -4195,6 +4195,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         contentView.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
                 ? Color.TRANSPARENT
                 : getThemedColor(Theme.key_windowBackgroundGray));
+        // 系统状态栏是透明的，而资料页壁纸层在转场首帧不能保证已绘制到动作栏下方。
+        // 使用与主导航一致的半透明玻璃承接色，避免顶部短暂或持续露出黑色窗口底。
+        if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
+            actionBar.setBackgroundColor(getProfileSystemBarGlassColor());
+        }
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
@@ -6320,7 +6325,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (profileHasDynamicVideoWallpaper) {
             listView.setBackgroundColor(Color.TRANSPARENT);
             topView.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            // TextureView 首帧尚未就绪时不能让透明动作栏透出窗口黑底。
+            actionBar.setBackgroundColor(getProfileSystemBarGlassColor());
         }
         // 成员行与成员分组始终使用玻璃，不依赖动态、静态或默认背景状态。
         if (sharedMediaLayout != null) {
@@ -16050,6 +16056,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (actionBar != null) {
                     actionBar.setItemsColor(peerColor != null ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon), false);
                     actionBar.setItemsBackgroundColor(peerColor != null ? 0x20ffffff : getThemedColor(Theme.key_avatar_actionBarSelectorBlue), false);
+                    actionBar.setBackgroundColor(profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper
+                            ? getProfileSystemBarGlassColor()
+                            : Color.TRANSPARENT);
                 }
 //                if (sharedMediaLayout != null) {
 //                    sharedMediaLayout.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
@@ -17607,8 +17616,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getMessagesController().isChatNoForwards(currentChat) :
             getMessagesController().isUserNoForwards(userInfo);
     }
-
-
+    /**
+     * 保持资料页状态栏区域具有稳定的玻璃承接色。它只用于系统栏，不覆盖资料内容或壁纸。
+     */
+    private int getProfileSystemBarGlassColor() {
+        final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.85f : 0.76f;
+        return Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), alpha);
+    }
     @Override
     public boolean isSupportEdgeToEdge() {
         return true;
@@ -17699,6 +17713,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public BlurredBackgroundSourceRenderNode getGlassSource() {
+        // 动态/静态壁纸在资料页根层中绘制，不能被空的 RenderNode 作为主导航采样源。
+        // 返回 null 会让主导航使用自身稳定的浅色玻璃基底，避免底部导航退化成黑色块。
+        if (profileHasDynamicVideoWallpaper || profileHasStaticChatWallpaper) {
+            return null;
+        }
         return iBlur3SourceGlass;
     }
 
