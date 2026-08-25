@@ -96,8 +96,8 @@ public final class HuanghunExtensionHelper {
     }
 
     /**
-     * Removes keyword-matching private messages from notification processing, then blocks the
-     * non-contact sender and deletes the matching private dialog for the account owner.
+     * Removes keyword-matching private messages from notification processing and blocks the
+     * non-contact sender. Message and dialog history must never be deleted automatically.
      */
     public static void filterIncomingMessages(int account, ArrayList<MessageObject> messageObjects) {
         if (messageObjects == null || messageObjects.isEmpty() || !NekoConfig.huanghunBlockNonContacts.Bool()) {
@@ -116,7 +116,6 @@ public final class HuanghunExtensionHelper {
             }
             MessagesController controller = MessagesController.getInstance(account);
             controller.blockPeer(dialogId);
-            controller.deleteDialog(dialogId, 0, true);
         }
     }
 

@@ -141,8 +141,9 @@ public class NekoConfig {
     public static ConfigItem translateInputLang = addConfig("TransInputToLang", configTypeString, "en");
     public static ConfigItem googleCloudTranslateKey = addConfig("GoogleCloudTransKey", configTypeString, "");
 
-    // Huanghun extension features: the defaults are applied only on first use and stay editable.
-    public static ConfigItem huanghunBlockNonContacts = addConfig("HuanghunBlockNonContacts", configTypeBool, true);
+    // Non-contact keyword filtering is opt-in. It may hide notification content and block a sender,
+    // but it must never remove chat history automatically.
+    public static ConfigItem huanghunBlockNonContacts = addConfig("HuanghunBlockNonContacts", configTypeBool, false);
     // 仅控制本机共同群聊天中已拉黑用户消息的显示，不删除或修改任何消息数据。
     public static ConfigItem huanghunBlockMutualGroupMessages = addConfig("HuanghunBlockMutualGroupMessages", configTypeBool, false);
     public static ConfigItem huanghunBlockedKeywords = addConfig("HuanghunBlockedKeywords", configTypeString, "海外bc\n安全验证\n兼职刷单\n加微信\n高收益\nUSDT\n免费领取\n投资理财\n裸聊交友\n色情服务\n代办签证\n买粉买赞\n刷单返利\n博彩网站\n线上赌场\n同城约炮\n兼职招聘\n高薪诚聘\n数字货币\n币圈投资\n杀猪盘\n贷款代办\n办证刻章\n发票代开\n买赞买粉\n流量变现\n私密直播\n福利姬\n原声视频\n引流加V\nQQ群\n飞机群\nTG群\n加Q\n联系客服\n专业导师\n带单盈利");
