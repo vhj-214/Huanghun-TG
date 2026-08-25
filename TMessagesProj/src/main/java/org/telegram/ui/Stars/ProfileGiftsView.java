@@ -273,12 +273,12 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             final TLRPC.User chat = MessagesController.getInstance(currentAccount).getUser(-dialogId);
             emojiStatus = chat == null ? null : chat.emoji_status;
         }
-        final TLRPC.TL_emojiStatusCollectible localMountedGift = LocalProfileGiftHelper.getMountedGift(profileUser);
+        final ArrayList<TLRPC.TL_emojiStatusCollectible> localMountedGifts = LocalProfileGiftHelper.getMountedGifts(profileUser);
 
         maxCount = serverGiftsEnabled ? MessagesController.getInstance(currentAccount).stargiftsPinnedToTopLimit : 0;
-        if (localMountedGift != null) {
-            // Local mounting is visual-only and must remain available even when the server gift feature is unavailable.
-            maxCount = Math.max(maxCount, 1);
+        if (!localMountedGifts.isEmpty()) {
+            // Local style mounting is visual-only and remains available even when server profile gifts are unavailable.
+            maxCount = Math.max(maxCount, localMountedGifts.size());
         }
         oldGifts.clear();
         oldGifts.addAll(gifts);
@@ -288,11 +288,12 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         if (emojiStatus instanceof TLRPC.TL_emojiStatusCollectible) {
             giftIds.add(((TLRPC.TL_emojiStatusCollectible) emojiStatus).collectible_id);
         }
-        if (localMountedGift != null) {
-            final Gift localGift = new Gift(localMountedGift);
-            localGift.localMounted = true;
-            gifts.add(localGift);
-            giftIds.add(localGift.id);
+        for (int i = 0; i < localMountedGifts.size(); i++) {
+            final Gift localGift = new Gift(localMountedGifts.get(i));
+            if (giftIds.add(localGift.id)) {
+                localGift.localMounted = true;
+                gifts.add(localGift);
+            }
         }
         list = serverGiftsEnabled ? StarsController.getInstance(currentAccount).getProfileGiftsList(dialogId) : null;
         if (list != null) {
@@ -349,6 +350,9 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             }
         }
 
+        // A local style set can coexist with server-pinned gifts. Allocate a distinct slot for every
+        // visible item so additional gifts never fall back to the same default corner.
+        maxCount = Math.max(maxCount, gifts.size());
         List<Integer> positions = new ArrayList<>();
         for (int i = 0; i < maxCount; i++) {
             positions.add(i);
@@ -426,37 +430,47 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             float gx, gy;
             float delayValue;
 
-            switch (gift.position) {
-                case 0: // left
-                    gx = acx / 2f - (dp(20) * expandScale);
-                    gy = acy - dp(13);
-                    delayValue = 1.6f;
-                    break;
-                case 1: // top left
-                    gx = acx * 2f / 3f - (dp(6) * expandScale);
-                    gy = ay - dp(4);
-                    delayValue = 0;
-                    break;
-                case 2: // bottom left
-                    gx = acx * 2f / 3f - (dp(12) * expandScale);
-                    gy = ay + ah - dp(16);
-                    delayValue = 0.9f;
-                    break;
-                case 3: // right
-                    gx = acx * 1.5f + (dp(20) * expandScale);
-                    gy = acy - dp(13);
-                    delayValue = 1.6f;
-                    break;
-                case 4: // top right
-                    gx = acx * 4f / 3f + (dp(12) * expandScale);
-                    gy = ay - dp(4);
-                    delayValue = 0.9f;
-                    break;
-                default: // bottom right
-                    gx = acx * 4f / 3f + (dp(12) * expandScale);
-                    gy = ay + ah - dp(16);
-                    delayValue = 0;
-                    break;
+            if (gifts.size() > 6) {
+                // The original layout has six named slots. Larger local style sets use a stable outer ring.
+                final float angle = (float) (-Math.PI / 2.0 + Math.PI * 2.0 * i / gifts.size());
+                final float radiusX = aw * 0.72f + dp(22) * expandScale;
+                final float radiusY = ah * 0.72f + dp(18);
+                gx = acx + (float) Math.cos(angle) * radiusX;
+                gy = acy + (float) Math.sin(angle) * radiusY;
+                delayValue = (i % 4) * 0.45f;
+            } else {
+                switch (gift.position) {
+                    case 0: // left
+                        gx = acx / 2f - (dp(20) * expandScale);
+                        gy = acy - dp(13);
+                        delayValue = 1.6f;
+                        break;
+                    case 1: // top left
+                        gx = acx * 2f / 3f - (dp(6) * expandScale);
+                        gy = ay - dp(4);
+                        delayValue = 0;
+                        break;
+                    case 2: // bottom left
+                        gx = acx * 2f / 3f - (dp(12) * expandScale);
+                        gy = ay + ah - dp(16);
+                        delayValue = 0.9f;
+                        break;
+                    case 3: // right
+                        gx = acx * 1.5f + (dp(20) * expandScale);
+                        gy = acy - dp(13);
+                        delayValue = 1.6f;
+                        break;
+                    case 4: // top right
+                        gx = acx * 4f / 3f + (dp(12) * expandScale);
+                        gy = ay - dp(4);
+                        delayValue = 0.9f;
+                        break;
+                    default: // bottom right
+                        gx = acx * 4f / 3f + (dp(12) * expandScale);
+                        gy = ay + ah - dp(16);
+                        delayValue = 0;
+                        break;
+                }
             }
 
             final float collapseProgressWithEnter;

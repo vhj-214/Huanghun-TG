@@ -14,10 +14,14 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.InputType;
@@ -126,6 +130,8 @@ import java.util.Objects;
 import me.vkryl.android.animator.BoolAnimator;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import xyz.nextalone.nagram.helper.LocalProfileGiftData;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 
 public class ProfileGiftsContainer extends FrameLayout implements NotificationCenter.NotificationCenterDelegate {
 
@@ -612,9 +618,26 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             if (list == null)
                 return;
-            if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading)
+            final boolean ownMainGiftsPage = parent.list == list && parent.dialogId == UserConfig.getInstance(currentAccount).getClientUserId();
+            final TLRPC.User profileUser = ownMainGiftsPage ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId) : null;
+            final ArrayList<LocalProfileGiftData> localStyleGifts = ownMainGiftsPage
+                    ? LocalProfileGiftHelper.getMountedGiftData(profileUser)
+                    : new ArrayList<>();
+            if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading && localStyleGifts.isEmpty())
                 return;
-            final int spanCount = Math.max(1, list == null || list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
+            final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
+            if (!localStyleGifts.isEmpty()) {
+                items.add(TextFactory.asBoldText(
+                        Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider),
+                        Gravity.LEFT,
+                        16,
+                        LocaleController.getString(R.string.LocalStyleGiftsHeader)
+                ).setSpanCount(3));
+                for (int i = 0; i < localStyleGifts.size(); i++) {
+                    items.add(LocalStyleGiftCell.Factory.asLocalStyleGift(localStyleGifts.get(i)));
+                }
+                items.add(UItem.asSpace(dp(10)).setSpanCount(3));
+            }
             if (list != null) {
                 int spanCountLeft = 3;
                 for (TL_stars.SavedStarGift userGift : list.gifts) {
@@ -663,6 +686,11 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
 
         public void onItemClick(UItem item, View view, int position, float x, float y) {
             if (list == null) return;
+            if (item.object instanceof LocalProfileGiftData) {
+                // Individual local style cards reopen the style picker, where the whole local set can be replaced.
+                parent.fragment.presentFragment(new PeerColorActivity(0).startOnProfile().setOnApplied(parent.fragment));
+                return;
+            }
             if (item.object instanceof TL_stars.SavedStarGift) {
                 final TL_stars.SavedStarGift userGift = (TL_stars.SavedStarGift) item.object;
                 if (reordering) {
@@ -1692,13 +1720,20 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
     public int getGiftsCount() {
         final Page page = getCurrentPage();
         if (page == null || page.list == list) {
-            if (list != null && list.totalCount > 0) return list.totalCount;
+            final int localStyleCount;
+            if (dialogId == UserConfig.getInstance(currentAccount).getClientUserId()) {
+                localStyleCount = LocalProfileGiftHelper.getMountedGiftData(MessagesController.getInstance(currentAccount).getUser(dialogId)).size();
+            } else {
+                localStyleCount = 0;
+            }
+            if (list != null && list.totalCount > 0) return list.totalCount + localStyleCount;
+            if (localStyleCount > 0) return localStyleCount;
         } else {
             if (page.list != null && page.list.totalCount > 0) return page.list.totalCount;
         }
         if (dialogId >= 0) {
             final TLRPC.UserFull userFull = MessagesController.getInstance(currentAccount).getUserFull(dialogId);
-            return userFull != null ? userFull.stargifts_count : 0;
+            return (userFull != null ? userFull.stargifts_count : 0) + (dialogId == UserConfig.getInstance(currentAccount).getClientUserId() ? LocalProfileGiftHelper.getMountedGiftData(MessagesController.getInstance(currentAccount).getUser(dialogId)).size() : 0);
         } else {
             final TLRPC.ChatFull chatFull = MessagesController.getInstance(currentAccount).getChatFull(-dialogId);
             return chatFull != null ? chatFull.stargifts_count : 0;
@@ -1781,6 +1816,147 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             return currentPage.listView;
         }
         return null;
+    }
+
+    /** Refreshes only the visual-only style gifts inserted at the top of the main gifts page. */
+    public void updateLocalStyleGifts() {
+        for (View pageView : viewPager.getViewPages()) {
+            if (pageView instanceof Page) {
+                ((Page) pageView).update(true);
+            }
+        }
+    }
+
+    /**
+     * A visual-only card for collectible gifts mounted from the Apply Style page.
+     * It deliberately receives no SavedStarGift and therefore cannot alter server gift state.
+     */
+    public static class LocalStyleGiftCell extends View {
+        private final int currentAccount;
+        private final Theme.ResourcesProvider resourcesProvider;
+        private final Paint cardPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final TextPaint titlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF cardBounds = new RectF();
+        private AnimatedEmojiDrawable emojiDrawable;
+        private LocalProfileGiftData data;
+
+        public LocalStyleGiftCell(Context context, int currentAccount, Theme.ResourcesProvider resourcesProvider) {
+            super(context);
+            this.currentAccount = currentAccount;
+            this.resourcesProvider = resourcesProvider;
+            setWillNotDraw(false);
+            borderPaint.setStyle(Paint.Style.STROKE);
+            borderPaint.setStrokeWidth(dp(1));
+            titlePaint.setTextSize(dp(13));
+            titlePaint.setTypeface(AndroidUtilities.bold());
+            titlePaint.setTextAlign(Paint.Align.CENTER);
+        }
+
+        public void setData(LocalProfileGiftData data) {
+            if (this.data != null && this.data.getCollectibleId() == data.getCollectibleId()) {
+                return;
+            }
+            if (emojiDrawable != null && isAttachedToWindow()) {
+                emojiDrawable.removeView(this);
+            }
+            this.data = data;
+            final int center = data.getCenterColor() | 0xFF000000;
+            final int edge = data.getEdgeColor() | 0xFF000000;
+            cardPaint.setShader(new LinearGradient(0, 0, getWidth(), getHeight(), center, edge, Shader.TileMode.CLAMP));
+            emojiDrawable = data.getDocumentId() == 0 ? null : AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_MESSAGES, data.getDocumentId());
+            if (emojiDrawable != null && isAttachedToWindow()) {
+                emojiDrawable.addView(this);
+            }
+            invalidate();
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            if (emojiDrawable != null) {
+                emojiDrawable.addView(this);
+            }
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            if (emojiDrawable != null) {
+                emojiDrawable.removeView(this);
+            }
+            super.onDetachedFromWindow();
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), dp(166));
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            final float radius = dp(14);
+            cardBounds.set(dp(2), dp(2), getWidth() - dp(2), getHeight() - dp(2));
+            if (data == null) {
+                cardPaint.setShader(null);
+                cardPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider));
+            } else {
+                final int center = data.getCenterColor() | 0xFF000000;
+                final int edge = data.getEdgeColor() | 0xFF000000;
+                cardPaint.setShader(new LinearGradient(0, 0, getWidth(), getHeight(), center, edge, Shader.TileMode.CLAMP));
+            }
+            canvas.drawRoundRect(cardBounds, radius, radius, cardPaint);
+            borderPaint.setColor(0x59FFFFFF);
+            canvas.drawRoundRect(cardBounds, radius, radius, borderPaint);
+
+            if (emojiDrawable != null) {
+                final int size = dp(66);
+                final int cx = getWidth() / 2;
+                emojiDrawable.setBounds(cx - size / 2, dp(28), cx + size / 2, dp(28) + size);
+                emojiDrawable.draw(canvas);
+            }
+
+            final String title = data == null || TextUtils.isEmpty(data.getTitle())
+                    ? LocaleController.getString(R.string.LocalStyleGiftLabel)
+                    : data.getTitle();
+            titlePaint.setColor(data != null && data.getTextColor() != 0 ? data.getTextColor() | 0xFF000000 : Color.WHITE);
+            final CharSequence safeTitle = TextUtils.ellipsize(title, titlePaint, getWidth() - dp(20), TextUtils.TruncateAt.END);
+            canvas.drawText(safeTitle.toString(), getWidth() / 2f, dp(126), titlePaint);
+            titlePaint.setTypeface(null);
+            titlePaint.setTextSize(dp(11));
+            titlePaint.setColor(0xDFFFFFFF);
+            canvas.drawText(LocaleController.getString(R.string.LocalStyleGiftLabel), getWidth() / 2f, dp(148), titlePaint);
+            titlePaint.setTypeface(AndroidUtilities.bold());
+            titlePaint.setTextSize(dp(13));
+        }
+
+        public static class Factory extends UItem.UItemFactory<LocalStyleGiftCell> {
+            static { setup(new Factory()); }
+
+            @Override
+            public LocalStyleGiftCell createView(Context context, RecyclerListView listView, int currentAccount, int classGuid, Theme.ResourcesProvider resourcesProvider) {
+                return new LocalStyleGiftCell(context, currentAccount, resourcesProvider);
+            }
+
+            @Override
+            public void bindView(View view, UItem item, boolean divider, UniversalAdapter adapter, UniversalRecyclerView listView) {
+                ((LocalStyleGiftCell) view).setData((LocalProfileGiftData) item.object);
+            }
+
+            public static UItem asLocalStyleGift(LocalProfileGiftData data) {
+                final UItem item = UItem.ofFactory(Factory.class).setSpanCount(1);
+                item.object = data;
+                return item;
+            }
+
+            @Override
+            public boolean equals(UItem a, UItem b) {
+                if (!(a.object instanceof LocalProfileGiftData) || !(b.object instanceof LocalProfileGiftData)) {
+                    return false;
+                }
+                return ((LocalProfileGiftData) a.object).getCollectibleId() == ((LocalProfileGiftData) b.object).getCollectibleId();
+            }
+        }
     }
 
     public static class TextFactory extends UItem.UItemFactory<LinkSpanDrawable.LinksTextView> {

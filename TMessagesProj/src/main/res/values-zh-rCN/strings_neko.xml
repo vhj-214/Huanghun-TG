@@ -288,6 +288,8 @@
     <string name="LocalPremiumLifetimeInfo">黄昏定制版永久有效（仅本机生效）</string>
     <string name="LocalPremiumActivatedInfo">本地高级版已开通。黄昏定制版永久有效，仅本机生效，不代表 Telegram 服务器会员订阅。</string>
     <string name="LocalBusinessActivatedInfo">本地企业功能已开通。黄昏定制版永久有效，仅本机生效，不代表 Telegram 服务器会员订阅。</string>
+    <string name="LocalStyleGiftsHeader">本地风格礼物</string>
+    <string name="LocalStyleGiftLabel">本地风格</string>
     <string name="ReactionSettings">回应</string>
     <string name="UpgradeGroup">升级群组</string>
     <string name="AccDescrShowKeyboard">显示键盘</string>

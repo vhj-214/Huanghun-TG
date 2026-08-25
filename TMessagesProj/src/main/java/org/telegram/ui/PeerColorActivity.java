@@ -216,6 +216,12 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
         private static final int VIEW_TYPE_GIFTS_EMPTY = 11;
         private static final int VIEW_TYPE_GIFT_FOREIGN = 12;
 
+        private boolean isStyleGiftSelected(TL_stars.TL_starGiftUnique gift) {
+            return selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == gift.id ||
+                    selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == gift.id ||
+                    type == PAGE_PROFILE && LocalProfileGiftHelper.isMountedGift(getUserConfig().getClientUserId(), gift.id);
+        }
+
         public void setupValues() {
             if (type == PAGE_PROFILE) {
                 if (dialogId < 0) {
@@ -484,11 +490,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                             if (index < 0 || index >= uniqueGifts.size()) return;
                             final TL_stars.TL_starGiftUnique gift = uniqueGifts.get(index);
                             giftCell.set(index, gift);
-                            giftCell.setSelected(
-                                selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == gift.id ||
-                                selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == gift.id,
-                                false
-                            );
+                            giftCell.setSelected(isStyleGiftSelected(gift), false);
                             giftCell.card.invalidate();
                             break;
                         case VIEW_TYPE_GIFT_FOREIGN:
@@ -498,11 +500,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                             if (index2 < 0 || index2 >= uniqueGifts.size()) return;
                             final TL_stars.TL_starGiftUnique gift2 = uniqueGifts.get(index2);
                             giftCell2.setStarsGift(gift2, false, false, false, true, false);
-                            giftCell2.setSelected(
-                                selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == gift2.id ||
-                                selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == gift2.id,
-                                false
-                            );
+                            giftCell2.setSelected(isStyleGiftSelected(gift2), false);
                             break;
                         case VIEW_TYPE_TABS:
                             GiftSheet.Tabs tabsView = (GiftSheet.Tabs) holder.itemView;
@@ -568,11 +566,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                         if (index < 0 || index >= uniqueGifts.size()) return;
                         final TL_stars.TL_starGiftUnique gift = uniqueGifts.get(index);
                         giftCell.set(index, gift);
-                        giftCell.setSelected(
-                            selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == gift.id ||
-                            selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == gift.id,
-                            false
-                        );
+                        giftCell.setSelected(isStyleGiftSelected(gift), false);
                     } else if (holder.getItemViewType() == VIEW_TYPE_GIFT_FOREIGN) {
                         GiftSheet.GiftCell giftCell2 = (GiftSheet.GiftCell) holder.itemView;
                         final int index2 = holder.getAdapterPosition() - giftsStartRow;
@@ -580,11 +574,7 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                         if (index2 < 0 || index2 >= uniqueGifts.size()) return;
                         final TL_stars.TL_starGiftUnique gift2 = uniqueGifts.get(index2);
                         giftCell2.setStarsGift(gift2, false, false, false, true, false);
-                        giftCell2.setSelected(
-                            selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == gift2.id ||
-                            selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == gift2.id,
-                            false
-                        );
+                        giftCell2.setSelected(isStyleGiftSelected(gift2), false);
                     }
                 }
 
@@ -1121,14 +1111,16 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                     final GiftCell cell = (GiftCell) child;
                     cell.setSelected(
                         selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == cell.getGiftId() ||
-                        selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == cell.getGiftId(),
+                        selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == cell.getGiftId() ||
+                        type == PAGE_PROFILE && LocalProfileGiftHelper.isMountedGift(getUserConfig().getClientUserId(), cell.getGiftId()),
                         true
                     );
                 } else if (child instanceof GiftSheet.GiftCell) {
                     final GiftSheet.GiftCell cell = (GiftSheet.GiftCell) child;
                     cell.setSelected(
                         selectedEmojiCollectible != null && selectedEmojiCollectible.collectible_id == cell.getGiftId() ||
-                        selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == cell.getGiftId(),
+                        selectedPeerCollectible != null && selectedPeerCollectible.collectible_id == cell.getGiftId() ||
+                        type == PAGE_PROFILE && LocalProfileGiftHelper.isMountedGift(getUserConfig().getClientUserId(), cell.getGiftId()),
                         true
                     );
                 }
@@ -1826,7 +1818,16 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                     }
                 }
             }
-            LocalProfileGiftHelper.apply(localProfileGiftStatus, localProfileGift);
+            // “我的礼物”标签中的项目均为可收藏风格礼物：应用时完整本地挂载，
+            // 不包含资料页普通礼物卡片，也不修改服务器礼物置顶或归属。
+            if (profilePage.selectedTabGift == null && !profilePage.uniqueGifts.isEmpty()) {
+                LocalProfileGiftHelper.applyAll(profilePage.uniqueGifts);
+            } else {
+                LocalProfileGiftHelper.apply(localProfileGiftStatus, localProfileGift);
+            }
+            if (bulletinFragment instanceof ProfileActivity) {
+                ((ProfileActivity) bulletinFragment).refreshLocalStyleGifts();
+            }
             final TLRPC.User me = getUserConfig().getCurrentUser();
             if (me.color == null) {
                 me.color = new TLRPC.TL_peerColor();

@@ -61,6 +61,11 @@ public final class HuanghunDefaultSettings {
             NekoConfig.loadConfig(true);
             NaConfig.INSTANCE.loadConfig(true);
 
+            // Explicit Huanghun defaults requested for a fresh install. They are written only
+            // after the bundled JSON has been imported, then remain fully user-editable.
+            NekoConfig.customSavePath.setConfigString("黄昏");
+            NaConfig.INSTANCE.getSaveToChatSubfolder().setConfigBool(true);
+
             if (!bootstrap.edit().putBoolean(KEY_APPLIED, true).commit()) {
                 throw new IllegalStateException("Unable to save Huanghun default-settings marker");
             }

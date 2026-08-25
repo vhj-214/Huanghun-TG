@@ -747,7 +747,9 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
         if (normalized.isEmpty()) {
             return "";
         }
-        if (normalized.matches("^(?!\\.{1,2}$)[A-Za-z0-9._ -]{1,255}$")) {
+        // A single Downloads subfolder may use Chinese and other Unicode letters, but must never
+        // contain path separators or parent-directory forms.
+        if (normalized.matches("^(?!\\.{1,2}$)[\\p{L}\\p{N}._ -]{1,255}$")) {
             return normalized;
         }
         return (String) NekoConfig.customSavePath.defaultValue;

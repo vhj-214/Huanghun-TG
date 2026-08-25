@@ -6028,7 +6028,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             public void onGiftClick(Gift gift) {
                 // 仅本机选择的本地挂件进入管理菜单；服务器礼物继续使用原有 NFT 详情行为。
                 if (gift.localMounted && userId == getUserConfig().getClientUserId()) {
-                    showLocalProfileGiftOptions();
+                    showLocalProfileGiftOptions(gift.id);
                     return;
                 }
                 super.onGiftClick(gift);
@@ -9472,24 +9472,32 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         isInLandscapeMode = size.x > size.y;
     }
 
-    private void showLocalProfileGiftOptions() {
+    private void showLocalProfileGiftOptions(long collectibleId) {
         if (getParentActivity() == null) {
             return;
         }
         final AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourcesProvider);
         builder.setTitle("本地资料挂件");
-        builder.setItems(new CharSequence[]{"替换为新的礼物", "移除本地挂件"}, (dialog, which) -> {
+        builder.setItems(new CharSequence[]{"替换为新的礼物", "移除此礼物"}, (dialog, which) -> {
             if (which == 0) {
                 presentFragment(new PeerColorActivity(0).startOnProfile().setOnApplied(ProfileActivity.this));
             } else {
-                LocalProfileGiftHelper.clear(getUserConfig().getClientUserId());
-                if (giftsView != null) {
-                    giftsView.update();
-                }
-                updateProfileData(true);
+                LocalProfileGiftHelper.remove(getUserConfig().getClientUserId(), collectibleId);
+                refreshLocalStyleGifts();
             }
         });
         showDialog(builder.create());
+    }
+
+    /** Refreshes visual-only style gifts after Apply Style or a single local-gift removal. */
+    public void refreshLocalStyleGifts() {
+        if (giftsView != null) {
+            giftsView.update();
+        }
+        if (sharedMediaLayout != null && sharedMediaLayout.giftsContainer != null) {
+            sharedMediaLayout.giftsContainer.updateLocalStyleGifts();
+        }
+        updateProfileData(true);
     }
 
     @SuppressWarnings("unchecked")

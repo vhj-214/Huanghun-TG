@@ -51,6 +51,11 @@ import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import xyz.nextalone.nagram.helper.LocalPremiumStatusHelper;
 
 public final class SettingsBackupHelper {
+    // These preferences only keep account-scoped selections of app-private video files. The files
+    // themselves remain on the device and are never embedded in a settings JSON export.
+    private static final String HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS = "huanghun_builtin_video_library";
+    private static final String HUANGHUN_CALL_VIDEO_LIBRARY_PREFS = "huanghun_call_virtual_video_library";
+
     public static String backupSettingsJson(boolean isCloud, int indentSpaces) throws JSONException {
         return backupSettingsJson(isCloud, indentSpaces, true);
     }
@@ -131,6 +136,10 @@ public final class SettingsBackupHelper {
         spToJSON("mainconfig", configJson, mainconfig::contains);
         if (!isCloud) spToJSON("themeconfig", configJson, null);
         spToJSON("nkmrcfg", configJson, null, includeApiKeys);
+        // Preserve the selected-video order for same-device restore. On another device, helpers
+        // validate each path and silently omit entries whose private media file is not present.
+        spToJSON(HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS, configJson, null, includeApiKeys);
+        spToJSON(HUANGHUN_CALL_VIDEO_LIBRARY_PREFS, configJson, null, includeApiKeys);
 
         return configJson.toString(indentSpaces);
     }

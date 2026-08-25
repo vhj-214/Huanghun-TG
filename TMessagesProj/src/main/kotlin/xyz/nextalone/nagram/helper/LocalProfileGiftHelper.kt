@@ -2,6 +2,8 @@ package xyz.nextalone.nagram.helper
 
 import androidx.core.content.edit
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import org.telegram.messenger.MessagesController
 import org.telegram.messenger.UserConfig
 import org.telegram.tgnet.TLRPC
 import org.telegram.tgnet.tl.TL_stars
@@ -21,20 +23,126 @@ data class LocalProfileGiftData(
 )
 
 /**
- * Stores a locally mounted collectible style for the current account only.
- * The data is deliberately visual-only: it never sends or changes the account's
- * server-side emoji status, gift pinning state, or ownership data.
+ * Stores visual-only collectible gifts selected from the "Apply Style" page for the current account.
+ * This data never writes Telegram server emoji status, gift pinning, ownership, or payment data.
  */
 object LocalProfileGiftHelper {
     const val KEY_PREFIX = "localProfileGift_"
 
-    private val dataMap = mutableMapOf<Long, LocalProfileGiftData?>()
+    private val gson = Gson()
+    private val listType = object : TypeToken<ArrayList<LocalProfileGiftData>>() {}.type
+    private val dataMap = mutableMapOf<Long, ArrayList<LocalProfileGiftData>>()
     private val loadedUsers = mutableSetOf<Long>()
 
+    /**
+     * Compatibility accessor for callers that only need a single visible collectible.
+     */
     @JvmStatic
     fun getMountedGift(user: TLRPC.User?): TLRPC.TL_emojiStatusCollectible? {
-        if (!NekoConfig.localPremium.Bool() || user == null || !isLocalUser(user.id)) return null
-        val data = getDataForUser(user.id) ?: return null
+        return getMountedGifts(user).firstOrNull()
+    }
+
+    /**
+     * Returns every locally mounted style collectible for the current local account only.
+     */
+    @JvmStatic
+    fun getMountedGifts(user: TLRPC.User?): ArrayList<TLRPC.TL_emojiStatusCollectible> {
+        if (!NekoConfig.localPremium.Bool() || user == null || !isLocalUser(user.id)) return arrayListOf()
+        return ArrayList(getDataForUser(user.id).map(::toStatus))
+    }
+
+    /**
+     * Exposes visual metadata for the local section of the profile gifts page.
+     */
+    @JvmStatic
+    fun getMountedGiftData(user: TLRPC.User?): ArrayList<LocalProfileGiftData> {
+        if (!NekoConfig.localPremium.Bool() || user == null || !isLocalUser(user.id)) return arrayListOf()
+        return ArrayList(getDataForUser(user.id))
+    }
+
+    @JvmStatic
+    fun isMountedGift(userId: Long, collectibleId: Long): Boolean {
+        if (!NekoConfig.localPremium.Bool() || !isLocalUser(userId)) return false
+        return getDataForUser(userId).any { it.collectibleId == collectibleId }
+    }
+
+    /**
+     * Retains the previous single-gift API for explicit replacements. A null status never clears data.
+     */
+    @JvmStatic
+    fun apply(status: TLRPC.TL_emojiStatusCollectible?, gift: TL_stars.TL_starGiftUnique?) {
+        if (status == null) return
+        applyData(arrayListOf(toData(status, gift)))
+    }
+
+    /**
+     * Saves all collectible gifts loaded by the profile "Apply Style" page as a local mounted set.
+     * Ordinary SavedStarGift cards are intentionally not accepted by this API.
+     */
+    @JvmStatic
+    fun applyAll(gifts: List<TL_stars.TL_starGiftUnique>?) {
+        if (gifts.isNullOrEmpty()) return
+        val seen = hashSetOf<Long>()
+        val mounted = arrayListOf<LocalProfileGiftData>()
+        for (gift in gifts) {
+            if (!seen.add(gift.id)) continue
+            val status = MessagesController.emojiStatusCollectibleFromGift(gift) ?: continue
+            mounted.add(toData(status, gift))
+        }
+        if (mounted.isNotEmpty()) {
+            applyData(mounted)
+        }
+    }
+
+    @JvmStatic
+    fun remove(userId: Long, collectibleId: Long) {
+        if (userId == 0L || !isLocalUser(userId)) return
+        val current = ArrayList(getDataForUser(userId))
+        if (current.removeAll { it.collectibleId == collectibleId }) {
+            saveData(userId, current)
+        }
+    }
+
+    /** Explicit removal is the only operation that clears all local style gifts. */
+    @JvmStatic
+    fun clear(userId: Long = currentUserId()) {
+        if (userId == 0L || !isLocalUser(userId)) return
+        dataMap[userId] = arrayListOf()
+        loadedUsers.add(userId)
+        NaConfig.getPreferences().edit { remove(KEY_PREFIX + userId) }
+    }
+
+    private fun applyData(data: ArrayList<LocalProfileGiftData>) {
+        val userId = currentUserId()
+        if (!NekoConfig.localPremium.Bool() || userId == 0L || data.isEmpty()) return
+        saveData(userId, data)
+    }
+
+    private fun saveData(userId: Long, data: ArrayList<LocalProfileGiftData>) {
+        dataMap[userId] = ArrayList(data)
+        loadedUsers.add(userId)
+        if (data.isEmpty()) {
+            NaConfig.getPreferences().edit { remove(KEY_PREFIX + userId) }
+        } else {
+            NaConfig.getPreferences().edit { putString(KEY_PREFIX + userId, gson.toJson(data)) }
+        }
+    }
+
+    private fun toData(status: TLRPC.TL_emojiStatusCollectible, gift: TL_stars.TL_starGiftUnique?): LocalProfileGiftData {
+        return LocalProfileGiftData(
+            status.collectible_id,
+            status.document_id,
+            status.title ?: gift?.title ?: "",
+            gift?.slug ?: status.slug ?: "",
+            status.pattern_document_id,
+            status.center_color,
+            status.edge_color,
+            status.pattern_color,
+            status.text_color
+        )
+    }
+
+    private fun toStatus(data: LocalProfileGiftData): TLRPC.TL_emojiStatusCollectible {
         return TLRPC.TL_emojiStatusCollectible().apply {
             collectible_id = data.collectibleId
             document_id = data.documentId
@@ -48,58 +156,31 @@ object LocalProfileGiftHelper {
         }
     }
 
-    @JvmStatic
-    fun isMountedGift(userId: Long, collectibleId: Long): Boolean {
-        if (!NekoConfig.localPremium.Bool() || !isLocalUser(userId)) return false
-        return getDataForUser(userId)?.collectibleId == collectibleId
-    }
-
-    @JvmStatic
-    fun apply(status: TLRPC.TL_emojiStatusCollectible?, gift: TL_stars.TL_starGiftUnique?) {
-        val userId = currentUserId()
-        if (!NekoConfig.localPremium.Bool() || userId == 0L) return
-        // 空选择只表示本次没有更换挂件，绝不能覆盖用户已经保存的本地预设。
-        // 清理必须由资料页中用户明确点击“移除本地挂件”触发。
-        if (status == null) return
-        val data = LocalProfileGiftData(
-            status.collectible_id,
-            status.document_id,
-            status.title ?: "",
-            gift?.slug ?: status.slug ?: "",
-            status.pattern_document_id,
-            status.center_color,
-            status.edge_color,
-            status.pattern_color,
-            status.text_color
-        )
-        dataMap[userId] = data
-        loadedUsers.add(userId)
-        NaConfig.getPreferences().edit { putString(KEY_PREFIX + userId, Gson().toJson(data)) }
-    }
-
-    @JvmStatic
-    fun clear(userId: Long = currentUserId()) {
-        if (userId == 0L || !isLocalUser(userId)) return
-        dataMap[userId] = null
-        loadedUsers.add(userId)
-        NaConfig.getPreferences().edit { remove(KEY_PREFIX + userId) }
-    }
-
-    private fun getDataForUser(userId: Long): LocalProfileGiftData? {
-        if (userId == 0L) return null
+    private fun getDataForUser(userId: Long): ArrayList<LocalProfileGiftData> {
+        if (userId == 0L) return arrayListOf()
         initForUser(userId)
-        return dataMap[userId]
+        return dataMap[userId] ?: arrayListOf()
     }
 
     private fun initForUser(userId: Long) {
         if (loadedUsers.contains(userId)) return
         loadedUsers.add(userId)
+        val raw = NaConfig.getPreferences().getString(KEY_PREFIX + userId, null)
         dataMap[userId] = try {
-            NaConfig.getPreferences().getString(KEY_PREFIX + userId, null)
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { Gson().fromJson(it, LocalProfileGiftData::class.java) }
+            if (raw.isNullOrEmpty()) {
+                arrayListOf()
+            } else {
+                gson.fromJson<ArrayList<LocalProfileGiftData>>(raw, listType)
+                    ?.let(::ArrayList)
+                    ?: arrayListOf()
+            }
         } catch (_: Exception) {
-            null
+            // Migration from the prior single-object format.
+            try {
+                gson.fromJson(raw, LocalProfileGiftData::class.java)?.let { arrayListOf(it) } ?: arrayListOf()
+            } catch (_: Exception) {
+                arrayListOf()
+            }
         }
     }
 

@@ -132,7 +132,8 @@ public class NekoConfig {
     public static ConfigItem showIdAndDc = addConfig("ShowIdAndDc", configTypeBool, true);
 
     public static ConfigItem cachePath = addConfig("cache_path", configTypeString, "");
-    public static ConfigItem customSavePath = addConfig("customSavePath", configTypeString, "Nagram");
+    // Default attachment folder under Downloads. Users can still change or clear it in General settings.
+    public static ConfigItem customSavePath = addConfig("customSavePath", configTypeString, "黄昏");
 
     // 新安装默认使用 Google 翻译；升级用户由黄昏一次性迁移同步。
     public static ConfigItem translationProvider = addConfig("translationProvider", configTypeInt, 1);

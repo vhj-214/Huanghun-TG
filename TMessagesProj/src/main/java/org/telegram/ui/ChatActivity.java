@@ -11637,11 +11637,21 @@ public class ChatActivity extends BaseFragment implements
         }
         Utilities.globalQueue.postRunnable(() -> {
             File finalizedVideo = includeSound ? HuanghunRealtimeVideoFinalizer.finalizeWithSourceAudio(realtimeVideo, sourceRecordings) : realtimeVideo;
+            final boolean hasFinalizedSound = finalizedVideo != null && finalizedVideo.isFile() && finalizedVideo.length() > 0;
+            // A source video is allowed to have no AAC track. Keep the valid realtime picture and
+            // send it silently instead of discarding a completed recording.
+            if (!hasFinalizedSound) {
+                finalizedVideo = realtimeVideo;
+                if (includeSound) {
+                    AndroidUtilities.runOnUIThread(() -> Toast.makeText(getContext(), "所选视频没有可用原声，已按无声视频发送", Toast.LENGTH_SHORT).show());
+                }
+            }
             if (finalizedVideo == null || !finalizedVideo.isFile() || finalizedVideo.length() <= 0) {
-                AndroidUtilities.runOnUIThread(() -> Toast.makeText(getContext(), "未能封装所选视频的原声，已取消发送", Toast.LENGTH_LONG).show());
+                AndroidUtilities.runOnUIThread(() -> Toast.makeText(getContext(), "录制视频文件无效，无法发送", Toast.LENGTH_LONG).show());
                 return;
             }
             final File videoToSend = finalizedVideo;
+            final boolean videoHasSound = hasFinalizedSound;
             long totalDuration = 0L;
             for (HuanghunBuiltinVideoPreview.RecordingSnapshot recording : sourceRecordings) {
                 if (recording != null && recording.endTime > recording.startTime) {
@@ -11680,11 +11690,11 @@ public class ChatActivity extends BaseFragment implements
                 // 最终文件已完成视频与原声封装。-2 会让 needConvert() 返回 false，确保圆形文档属性原样上传。
                 info.bitrate = -2;
                 info.framerate = 25;
-                info.muted = false;
+                info.muted = !videoHasSound;
                 info.notReadyYet = false;
                 info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(videoToSend.getAbsolutePath(), 0);
                 entry.editedInfo = info;
-                entry.isMuted = false;
+                entry.isMuted = !videoHasSound;
                 sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
             });
         });
