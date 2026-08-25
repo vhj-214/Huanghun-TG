@@ -306,6 +306,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         contentView = new SizeNotifierFrameLayout(context) {
             @Override
+            protected boolean isActionBarVisible() {
+                // 设置页动作栏为透明玻璃；有壁纸时不能按实体动作栏裁切背景，否则顶部会露出黑色窗口底。
+                return !hasSettingsWallpaperLayer();
+            }
+            @Override
+            protected boolean isStatusBarVisible() {
+                return !hasSettingsWallpaperLayer();
+            }
+            @Override
             protected void dispatchDraw(Canvas canvas) {
                 if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                     blur3_InvalidateBlur();
