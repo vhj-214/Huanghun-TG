@@ -215,6 +215,7 @@ public class Theme {
         // Cache immutable, user-provided local skin bitmaps by style ID. Individual MessageDrawable
         // instances retain only their style ID, so recycled chat cells cannot leak a skin to another message.
         private static final SparseArray<Bitmap> huanghunBubbleSkinCache = new SparseArray<>();
+        private static final SparseIntArray huanghunBubbleSkinBodyColorCache = new SparseIntArray();
         private final Paint huanghunDecorationPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Rect huanghunBubbleSkinSourceRect = new Rect();
         private final RectF huanghunBubbleSkinRect = new RectF();
@@ -369,14 +370,13 @@ public class Theme {
 
         private void drawHuanghunBubbleSkin(Canvas canvas, Rect bounds, Path bubblePath) {
             Bitmap bitmap = getHuanghunBubbleSkin();
-            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3) {
+            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3 || bubblePath == null) {
                 return;
             }
-            // A custom skin replaces the native blue/gradient body with the supplied skin's own
-            // central material. Only outer frame/character patches are then laid above it, keeping
-            // the result a complete cartoon chat bubble instead of a small sticker on a blue bubble.
-            int sourceCapX = Math.max(1, bitmap.getWidth() / 3);
-            int sourceCapY = Math.max(1, bitmap.getHeight() / 3);
+            // The MessageDrawable bounds are Telegram's official text-measured message box. They
+            // stay authoritative for short, long and multi-line messages. The asset is treated as
+            // a complete template: a clean native body encloses real text while source ornaments
+            // keep their own proportions and follow that body through anchored positions.
             float inset = dp(1);
             float left = bounds.left + inset;
             float top = bounds.top + inset;
@@ -384,51 +384,98 @@ public class Theme {
             float bottom = bounds.bottom - inset;
             float width = Math.max(1, right - left);
             float height = Math.max(1, bottom - top);
-            float destinationCapY = Math.min(Math.min(dp(50), height * 0.46f), height * 0.5f);
-            float destinationCapX = Math.min(width * 0.5f, destinationCapY * sourceCapX / (float) sourceCapY);
-            float centerLeft = left + destinationCapX;
-            float centerRight = right - destinationCapX;
-            float centerTop = top + destinationCapY;
-            float centerBottom = bottom - destinationCapY;
-            if (centerRight <= centerLeft || centerBottom <= centerTop) {
-                return;
-            }
-            // The official body bounds remain exactly text-measured. Only visual ornaments grow
-            // into the surrounding cell space so wings, ears and hanging parts are never cropped.
-            float ornamentOverflowX = Math.min(dp(18), Math.max(dp(6), destinationCapX * 0.28f));
-            float ornamentOverflowY = Math.min(dp(14), Math.max(dp(4), destinationCapY * 0.26f));
-            float ornamentLeft = left - ornamentOverflowX;
-            float ornamentTop = top - ornamentOverflowY;
-            float ornamentRight = right + ornamentOverflowX;
-            float ornamentBottom = bottom + ornamentOverflowY;
-            float ornamentCapX = destinationCapX + ornamentOverflowX;
-            float ornamentCapY = destinationCapY + ornamentOverflowY;
-            float ornamentCenterLeft = ornamentLeft + ornamentCapX;
-            float ornamentCenterRight = ornamentRight - ornamentCapX;
-            float ornamentCenterTop = ornamentTop + ornamentCapY;
-            float ornamentCenterBottom = ornamentBottom - ornamentCapY;
+            int sourceCapX = Math.max(1, Math.round(bitmap.getWidth() * 0.25f));
+            int sourceCapY = Math.max(1, Math.round(bitmap.getHeight() * 0.22f));
             int centerSourceRight = bitmap.getWidth() - sourceCapX;
             int centerSourceBottom = bitmap.getHeight() - sourceCapY;
-            // The center of every source image is now deliberately transparent after removing the
-            // catalog-only “大家好！” wording. Draw the native, per-message theme surface below it
-            // instead of sampling a center pixel from a source bitmap (which previously produced
-            // the opaque gray/blue square shown in the catalog and in chat).
-            huanghunDecorationPaint.setColor(getColor(key_chat_outBubble));
+            if (centerSourceRight <= sourceCapX || centerSourceBottom <= sourceCapY) {
+                return;
+            }
+
+            // One bounded scale is derived from this concrete native message height. Thus every
+            // character, pendant, wing and scenery fragment moves when the message changes size,
+            // but none is stretched horizontally into a banner when text becomes longer.
+            float ornamentScale = Math.max(0.55f, Math.min(0.95f, height / Math.max(1f, bitmap.getHeight() * 0.90f)));
+            float capWidth = sourceCapX * ornamentScale;
+            float capHeight = sourceCapY * ornamentScale;
+            float outerLeft = left - capWidth;
+            float outerRight = right + capWidth;
+            float outerTop = top - capHeight;
+            float outerBottom = bottom + capHeight;
+            float sourceMiddleWidth = centerSourceRight - sourceCapX;
+            float sourceMiddleHeight = centerSourceBottom - sourceCapY;
+            float topMiddleWidth = sourceMiddleWidth * ornamentScale;
+            float sideMiddleHeight = Math.min(height - capHeight * 2f, sourceMiddleHeight * ornamentScale);
+            float sideMiddleTop = top + (height - sideMiddleHeight) * 0.5f;
+
             huanghunDecorationPaint.setAlpha(alpha);
+            // The eight perimeter regions are independently anchored to the body corners/sides.
+            // They preserve the asset's original aspect ratio and never use the message width as
+            // an image scale, which keeps the complete template compact like QQ/official bubbles.
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceCapX, sourceCapY, outerLeft, outerTop, left, top);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, 0, centerSourceRight, sourceCapY, (left + right - topMiddleWidth) * 0.5f, outerTop, (left + right + topMiddleWidth) * 0.5f, top);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, 0, bitmap.getWidth(), sourceCapY, right, outerTop, outerRight, top);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, sourceCapY, sourceCapX, centerSourceBottom, outerLeft, sideMiddleTop, left, sideMiddleTop + sideMiddleHeight);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, sourceCapY, bitmap.getWidth(), centerSourceBottom, right, sideMiddleTop, outerRight, sideMiddleTop + sideMiddleHeight);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, centerSourceBottom, sourceCapX, bitmap.getHeight(), outerLeft, bottom, left, outerBottom);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, centerSourceBottom, centerSourceRight, bitmap.getHeight(), (left + right - topMiddleWidth) * 0.5f, bottom, (left + right + topMiddleWidth) * 0.5f, outerBottom);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, centerSourceBottom, bitmap.getWidth(), bitmap.getHeight(), right, bottom, outerRight, outerBottom);
+
+            // The full native body goes on top of the interior portions of the source fragments.
+            // It is therefore always a single, complete message frame that cleanly encloses text.
+            int bodyColor = getHuanghunBubbleSkinBodyColor(bitmap);
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+            huanghunDecorationPaint.setColor(bodyColor);
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
-            // Edge characters, wings and hanging ornaments are intentionally not clipped to the
-            // rounded native path. They remain fully visible around the separately path-clipped body.
-            // Keep all visual identity around the message body. The center is intentionally not
-            // copied because it contains catalog-preview text; Telegram draws actual message text there.
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceCapX, sourceCapY, ornamentLeft, ornamentTop, ornamentCenterLeft, ornamentCenterTop);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, 0, centerSourceRight, sourceCapY, ornamentCenterLeft, ornamentTop, ornamentCenterRight, ornamentCenterTop);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, 0, bitmap.getWidth(), sourceCapY, ornamentCenterRight, ornamentTop, ornamentRight, ornamentCenterTop);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, sourceCapY, sourceCapX, centerSourceBottom, ornamentLeft, ornamentCenterTop, ornamentCenterLeft, ornamentCenterBottom);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, sourceCapY, bitmap.getWidth(), centerSourceBottom, ornamentCenterRight, ornamentCenterTop, ornamentRight, ornamentCenterBottom);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, centerSourceBottom, sourceCapX, bitmap.getHeight(), ornamentLeft, ornamentCenterBottom, ornamentCenterLeft, ornamentBottom);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, centerSourceBottom, centerSourceRight, bitmap.getHeight(), ornamentCenterLeft, ornamentCenterBottom, ornamentCenterRight, ornamentBottom);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, centerSourceBottom, bitmap.getWidth(), bitmap.getHeight(), ornamentCenterRight, ornamentCenterBottom, ornamentRight, ornamentBottom);
+            huanghunDecorationPaint.setStyle(Paint.Style.STROKE);
+            huanghunDecorationPaint.setStrokeWidth(dp(2));
+            huanghunDecorationPaint.setColor(Color.rgb(Math.max(0, Color.red(bodyColor) - 42), Math.max(0, Color.green(bodyColor) - 42), Math.max(0, Color.blue(bodyColor) - 42)));
+            canvas.drawPath(bubblePath, huanghunDecorationPaint);
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setAlpha(255);
+        }
+
+        private int getHuanghunBubbleSkinBodyColor(Bitmap bitmap) {
+            int cached = huanghunBubbleSkinBodyColorCache.get(huanghunBubbleStyle, Integer.MIN_VALUE);
+            if (cached != Integer.MIN_VALUE) {
+                return cached;
+            }
+            int startX = Math.max(0, Math.round(bitmap.getWidth() * 0.34f));
+            int endX = Math.min(bitmap.getWidth(), Math.round(bitmap.getWidth() * 0.66f));
+            int startY = Math.max(0, Math.round(bitmap.getHeight() * 0.34f));
+            int endY = Math.min(bitmap.getHeight(), Math.round(bitmap.getHeight() * 0.66f));
+            int capacity = Math.max(1, ((endX - startX + 2) / 3) * ((endY - startY + 2) / 3));
+            int[] reds = new int[capacity];
+            int[] greens = new int[capacity];
+            int[] blues = new int[capacity];
+            int count = 0;
+            for (int y = startY; y < endY; y += 3) {
+                for (int x = startX; x < endX; x += 3) {
+                    int color = bitmap.getPixel(x, y);
+                    if (Color.alpha(color) < 180 || count >= capacity) {
+                        continue;
+                    }
+                    reds[count] = Color.red(color);
+                    greens[count] = Color.green(color);
+                    blues[count] = Color.blue(color);
+                    count++;
+                }
+            }
+            int bodyColor;
+            if (count == 0) {
+                bodyColor = getColor(key_chat_outBubble);
+            } else {
+                // Most of the central panel is its true material while “大家好！” occupies only
+                // a small dark area. Per-channel medians keep the original light/colorful body
+                // instead of averaging the wording into a muddy gray rectangle.
+                Arrays.sort(reds, 0, count);
+                Arrays.sort(greens, 0, count);
+                Arrays.sort(blues, 0, count);
+                int middle = count / 2;
+                bodyColor = Color.rgb(reds[middle], greens[middle], blues[middle]);
+            }
+            huanghunBubbleSkinBodyColorCache.put(huanghunBubbleStyle, bodyColor);
+            return bodyColor;
         }
 
         private void drawHuanghunBubbleSkinPatch(Canvas canvas, Bitmap bitmap, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
