@@ -384,42 +384,29 @@ public class Theme {
             float bottom = bounds.bottom - inset;
             float width = Math.max(1, right - left);
             float height = Math.max(1, bottom - top);
-            int sourceCapX = Math.max(1, Math.round(bitmap.getWidth() * 0.25f));
-            int sourceCapY = Math.max(1, Math.round(bitmap.getHeight() * 0.22f));
-            int centerSourceRight = bitmap.getWidth() - sourceCapX;
-            int centerSourceBottom = bitmap.getHeight() - sourceCapY;
-            if (centerSourceRight <= sourceCapX || centerSourceBottom <= sourceCapY) {
+            // Use the complete left/right illustration regions instead of splitting them into
+            // eight tiny patches. On a real ChatMessageCell the old tiny-patch path left only
+            // small square fragments visible around the native body. These two source blocks keep
+            // each character and its attached pendants intact, and move from the final text box.
+            int sourceDecorationWidth = Math.max(1, Math.round(bitmap.getWidth() * 0.30f));
+            if (sourceDecorationWidth * 2 >= bitmap.getWidth()) {
                 return;
             }
-
-            // One bounded scale is derived from this concrete native message height. Thus every
-            // character, pendant, wing and scenery fragment moves when the message changes size,
-            // but none is stretched horizontally into a banner when text becomes longer.
-            float ornamentScale = Math.max(0.55f, Math.min(0.95f, height / Math.max(1f, bitmap.getHeight() * 0.90f)));
-            float capWidth = sourceCapX * ornamentScale;
-            float capHeight = sourceCapY * ornamentScale;
-            float outerLeft = left - capWidth;
-            float outerRight = right + capWidth;
-            float outerTop = top - capHeight;
-            float outerBottom = bottom + capHeight;
-            float sourceMiddleWidth = centerSourceRight - sourceCapX;
-            float sourceMiddleHeight = centerSourceBottom - sourceCapY;
-            float topMiddleWidth = sourceMiddleWidth * ornamentScale;
-            float sideMiddleHeight = Math.min(height - capHeight * 2f, sourceMiddleHeight * ornamentScale);
-            float sideMiddleTop = top + (height - sideMiddleHeight) * 0.5f;
+            float ornamentScale = Math.max(0.70f, Math.min(1.02f, height / Math.max(1f, bitmap.getHeight() * 0.82f)));
+            float decorationWidth = sourceDecorationWidth * ornamentScale;
+            float decorationHeight = bitmap.getHeight() * ornamentScale;
+            float decorationTop = top + (height - decorationHeight) * 0.5f;
+            float leftDecorationLeft = left - decorationWidth * 0.80f;
+            float leftDecorationRight = left + decorationWidth * 0.20f;
+            float rightDecorationLeft = right - decorationWidth * 0.20f;
+            float rightDecorationRight = right + decorationWidth * 0.80f;
 
             huanghunDecorationPaint.setAlpha(alpha);
-            // The eight perimeter regions are independently anchored to the body corners/sides.
-            // They preserve the asset's original aspect ratio and never use the message width as
-            // an image scale, which keeps the complete template compact like QQ/official bubbles.
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceCapX, sourceCapY, outerLeft, outerTop, left, top);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, 0, centerSourceRight, sourceCapY, (left + right - topMiddleWidth) * 0.5f, outerTop, (left + right + topMiddleWidth) * 0.5f, top);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, 0, bitmap.getWidth(), sourceCapY, right, outerTop, outerRight, top);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, sourceCapY, sourceCapX, centerSourceBottom, outerLeft, sideMiddleTop, left, sideMiddleTop + sideMiddleHeight);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, sourceCapY, bitmap.getWidth(), centerSourceBottom, right, sideMiddleTop, outerRight, sideMiddleTop + sideMiddleHeight);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, centerSourceBottom, sourceCapX, bitmap.getHeight(), outerLeft, bottom, left, outerBottom);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, centerSourceBottom, centerSourceRight, bitmap.getHeight(), (left + right - topMiddleWidth) * 0.5f, bottom, (left + right + topMiddleWidth) * 0.5f, outerBottom);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, centerSourceBottom, bitmap.getWidth(), bitmap.getHeight(), right, bottom, outerRight, outerBottom);
+            // Every decoration uses one unbroken source region and a uniform scale. Its anchor is
+            // computed from this concrete native message frame, so short, long and multi-line
+            // messages move the complete character/pendant set without horizontal distortion.
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceDecorationWidth, bitmap.getHeight(), leftDecorationLeft, decorationTop, leftDecorationRight, decorationTop + decorationHeight);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, bitmap.getWidth() - sourceDecorationWidth, 0, bitmap.getWidth(), bitmap.getHeight(), rightDecorationLeft, decorationTop, rightDecorationRight, decorationTop + decorationHeight);
 
             // The full native body goes on top of the interior portions of the source fragments.
             // It is therefore always a single, complete message frame that cleanly encloses text.
