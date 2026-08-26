@@ -151,6 +151,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
+import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
@@ -9697,29 +9698,118 @@ public class Theme {
     }
 
     /**
-     * 黄昏默认液态玻璃消息气泡的全局最终取色规则。
+     * 黄昏消息气泡的最终取色规则。
      *
-     * 普通会话、群组、频道和机器人并不一定经过 ChatActivity 的局部主题委托，
-     * 因此必须在 Theme 的最终入口先统一这组键，避免回退到导入主题或官方默认的绿色/实体白色。
-     * 仅替换气泡表面色、选中层、阴影和渐变；原生 MessageDrawable 仍负责尺寸、尾巴与文字布局。
+     * 所有样式都只改 Theme 颜色键：官方 MessageDrawable 继续负责气泡路径、尾巴、圆角、
+     * 相邻消息拼接、媒体裁剪和点击区域，因此不会改变消息布局或发送行为。
      */
     private static int getHuanghunLiquidGlassBubbleColor(int key) {
-        if (key == key_chat_inBubble || key == key_chat_outBubble) {
-            return 0x36FFFFFF;
+        final int style = NekoConfig.huanghunBubbleStyle.Int();
+        if (style <= 0 || style > 5) {
+            // 默认保留已经验证过的液态玻璃气泡。
+            if (key == key_chat_inBubble || key == key_chat_outBubble) {
+                return 0x36FFFFFF;
+            }
+            if (key == key_chat_inBubbleSelected || key == key_chat_outBubbleSelected) {
+                return 0x4AFFFFFF;
+            }
+            if (key == key_chat_inBubbleSelectedOverlay
+                    || key == key_chat_outBubbleSelectedOverlay
+                    || key == key_chat_inBubbleShadow
+                    || key == key_chat_outBubbleShadow
+                    || key == key_chat_outBubbleGradient1
+                    || key == key_chat_outBubbleGradient2
+                    || key == key_chat_outBubbleGradient3
+                    || key == key_chat_outBubbleGradientSelectedOverlay
+                    || key == key_chat_outBubbleGradientAnimated) {
+                return Color.TRANSPARENT;
+            }
+            return Integer.MIN_VALUE;
         }
-        if (key == key_chat_inBubbleSelected || key == key_chat_outBubbleSelected) {
-            return 0x4AFFFFFF;
+
+        final boolean dark = currentTheme != null && currentTheme.isDark();
+        int inBubble;
+        int outBubble;
+        int outGradient1;
+        int outGradient2;
+        int outGradient3;
+        boolean animated;
+
+        switch (style) {
+            case 1: // 草莓果冻：柔软粉紫的静态渐变。
+                inBubble = dark ? 0xE52C2032 : 0xEFFFF8FC;
+                outBubble = dark ? 0xFF71365A : 0xFFFFD8E8;
+                outGradient1 = dark ? 0xFFB74F81 : 0xFFFFA6CB;
+                outGradient2 = dark ? 0xFF714A95 : 0xFFA999F8;
+                outGradient3 = 0;
+                animated = false;
+                break;
+            case 2: // 奶油云朵：暖奶油与天空蓝的静态渐变。
+                inBubble = dark ? 0xE5263547 : 0xEFFFFCF4;
+                outBubble = dark ? 0xFF46678B : 0xFFFFE1AA;
+                outGradient1 = dark ? 0xFF6F98C4 : 0xFF9EDBFF;
+                outGradient2 = dark ? 0xFF9077B1 : 0xFFE9B0FF;
+                outGradient3 = 0;
+                animated = false;
+                break;
+            case 3: // 星网脉冲：青蓝紫粉的轻量流动渐变。
+                inBubble = dark ? 0xE522314D : 0xEEECF5FF;
+                outBubble = dark ? 0xFF263F7C : 0xFF78C7FF;
+                outGradient1 = dark ? 0xFF315EF7 : 0xFF62D2FF;
+                outGradient2 = dark ? 0xFF7C3AED : 0xFFAF91FF;
+                outGradient3 = dark ? 0xFF00AFC5 : 0xFFFF8BC9;
+                animated = true;
+                break;
+            case 4: // 极光猫爪：薄荷、极光绿与紫光的轻量流动渐变。
+                inBubble = dark ? 0xE5183A3A : 0xEEEDFFF9;
+                outBubble = dark ? 0xFF147868 : 0xFF70DFC6;
+                outGradient1 = dark ? 0xFF00A98F : 0xFF49E4C0;
+                outGradient2 = dark ? 0xFF0077B6 : 0xFF70A7FF;
+                outGradient3 = dark ? 0xFF6A35A5 : 0xFFC49AFF;
+                animated = true;
+                break;
+            default: // 焰彩英雄：红橙紫的轻量流动渐变，不包含任何第三方角色素材。
+                inBubble = dark ? 0xE53A202C : 0xEEFFF4F6;
+                outBubble = dark ? 0xFF7B2940 : 0xFFFF9CA5;
+                outGradient1 = dark ? 0xFFD64260 : 0xFFFF7E72;
+                outGradient2 = dark ? 0xFFB72D73 : 0xFFFF5D9D;
+                outGradient3 = dark ? 0xFF6336A7 : 0xFF9B74FF;
+                animated = true;
+                break;
         }
-        if (key == key_chat_inBubbleSelectedOverlay
-                || key == key_chat_outBubbleSelectedOverlay
-                || key == key_chat_inBubbleShadow
-                || key == key_chat_outBubbleShadow
-                || key == key_chat_outBubbleGradient1
-                || key == key_chat_outBubbleGradient2
-                || key == key_chat_outBubbleGradient3
-                || key == key_chat_outBubbleGradientSelectedOverlay
-                || key == key_chat_outBubbleGradientAnimated) {
+
+        if (key == key_chat_inBubble) {
+            return inBubble;
+        }
+        if (key == key_chat_outBubble) {
+            return outBubble;
+        }
+        if (key == key_chat_inBubbleSelected) {
+            return dark ? 0xFF4C4051 : 0xFFF3E0EA;
+        }
+        if (key == key_chat_outBubbleSelected) {
+            return dark ? 0xFF624058 : 0xFFFFBED5;
+        }
+        if (key == key_chat_inBubbleSelectedOverlay || key == key_chat_outBubbleSelectedOverlay) {
             return Color.TRANSPARENT;
+        }
+        if (key == key_chat_inBubbleShadow || key == key_chat_outBubbleShadow) {
+            return dark ? 0x28000000 : 0x160E1530;
+        }
+        if (key == key_chat_outBubbleGradient1) {
+            return outGradient1;
+        }
+        if (key == key_chat_outBubbleGradient2) {
+            return outGradient2;
+        }
+        if (key == key_chat_outBubbleGradient3) {
+            return outGradient3;
+        }
+        if (key == key_chat_outBubbleGradientSelectedOverlay) {
+            return dark ? 0x24000000 : 0x18FFFFFF;
+        }
+        if (key == key_chat_outBubbleGradientAnimated) {
+            return animated ? 1 : Color.TRANSPARENT;
         }
         return Integer.MIN_VALUE;
     }

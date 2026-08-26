@@ -91,6 +91,8 @@ public class NekoConfig {
     public static ConfigItem typeface = addConfig("TypefaceUseDefault", configTypeBool, false);
     // 0 keeps the original font; positive values map to the bundled Huanghun fonts.
     public static ConfigItem huanghunCustomTypeface = addConfig("HuanghunCustomTypeface", configTypeInt, 0);
+    // 0 keeps the current liquid-glass surface; positive values select Huanghun bubble themes.
+    public static ConfigItem huanghunBubbleStyle = addConfig("HuanghunBubbleStyle", configTypeInt, 0);
     // Version marker for inserting a new user-provided font at index 1 without changing an
     // existing installation's current selection.
     private static ConfigItem huanghunTypefaceIndexShiftV2 = addConfig("HuanghunTypefaceIndexShiftV2", configTypeBool, false);

@@ -17,6 +17,13 @@
     <string name="LastFirst">姓氏 名字</string>
     <string name="TypefaceUseDefault">使用系统字体</string>
     <string name="HuanghunCustomTypeface">自定义字体</string>
+    <string name="HuanghunCustomBubbles">自定义气泡</string>
+    <string name="HuanghunBubbleLiquidGlass">液态玻璃</string>
+    <string name="HuanghunBubbleStrawberryJelly">草莓果冻</string>
+    <string name="HuanghunBubbleCreamCloud">奶油云朵</string>
+    <string name="HuanghunBubbleStarWebPulse">星网脉冲（动态）</string>
+    <string name="HuanghunBubbleAuroraPaws">极光猫爪（动态）</string>
+    <string name="HuanghunBubbleEmberHero">焰彩英雄（动态）</string>
     <string name="HuanghunTypefaceOriginal">黄昏默认字体</string>
     <string name="HuanghunTypefaceAiaiCute">唉，爱·可爱气字体</string>
     <string name="HuanghunTypefaceCute">可爱圆润字体</string>

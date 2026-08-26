@@ -17,6 +17,13 @@
     <string name="LastFirst">Last First</string>
     <string name="TypefaceUseDefault">Use System Font</string>
     <string name="HuanghunCustomTypeface">Custom Typeface</string>
+    <string name="HuanghunCustomBubbles">Custom Bubbles</string>
+    <string name="HuanghunBubbleLiquidGlass">Liquid Glass</string>
+    <string name="HuanghunBubbleStrawberryJelly">Strawberry Jelly</string>
+    <string name="HuanghunBubbleCreamCloud">Cream Cloud</string>
+    <string name="HuanghunBubbleStarWebPulse">Star Web Pulse</string>
+    <string name="HuanghunBubbleAuroraPaws">Aurora Paws</string>
+    <string name="HuanghunBubbleEmberHero">Ember Hero</string>
     <string name="HuanghunTypefaceOriginal">Huanghun Default</string>
     <string name="HuanghunTypefaceAiaiCute">Ai, Ai · Cute Air</string>
     <string name="HuanghunTypefaceCute">Cute Rounded</string>
