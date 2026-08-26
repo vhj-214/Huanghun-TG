@@ -24,6 +24,11 @@
     <string name="HuanghunBubbleStarWebPulse">Star Web Pulse</string>
     <string name="HuanghunBubbleAuroraPaws">Aurora Paws</string>
     <string name="HuanghunBubbleEmberHero">Ember Hero</string>
+    <string name="HuanghunBubbleBatch">Batch</string>
+    <string name="HuanghunBubbleBatchSelect">Choose Bubbles</string>
+    <string name="HuanghunBubbleBatchHint">Batch: tap a card to add or remove it from favorites</string>
+    <string name="HuanghunBubbleSelectHint">Tap a bubble to use it for the next message</string>
+    <string name="HuanghunBubblePreview">Preview message</string>
     <string name="HuanghunTypefaceOriginal">Huanghun Default</string>
     <string name="HuanghunTypefaceAiaiCute">Ai, Ai · Cute Air</string>
     <string name="HuanghunTypefaceCute">Cute Rounded</string>

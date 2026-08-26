@@ -133,6 +133,7 @@ import java.util.zip.ZipInputStream;
 
 import tw.nekomimi.nekogram.utils.StringUtils;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunBubbleStyleHelper;
 import xyz.nextalone.nagram.NaConfig;
 
 public class SendMessagesHelper extends BaseController implements NotificationCenter.NotificationCenterDelegate {
@@ -2667,6 +2668,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                                 msgObj1.messageOwner.ttl_period = message.ttl_period;
                                                 msgObj1.messageOwner.flags |= 33554432;
                                             }
+                                            // Preserve local-only values before the server message replaces the temporary message.
+                                            MessageCustomParamsHelper.copyParams(newMsgObj1, message);
                                             updateMediaPaths(msgObj1, message, message.id, null, true, message.params);
                                             int existFlags = msgObj1.getMediaExistanceFlags();
                                             newMsgObj1.id = message.id;
@@ -4811,6 +4814,13 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_HAS_BOT_ID;
             }
             newMsg.params = params;
+            if (retryMessageObject == null) {
+                // Selection affects only a newly created local outgoing message. Existing failed
+                // messages keep their original style when the user retries them.
+                newMsg.huanghunBubbleStyle = HuanghunBubbleStyleHelper.getNextMessageStyle();
+            } else {
+                newMsg.huanghunBubbleStyle = HuanghunBubbleStyleHelper.normalizeStyle(newMsg.huanghunBubbleStyle);
+            }
             if (retryMessageObject == null || !retryMessageObject.resendAsIs) {
                 if (quick_reply_shortcut != null) {
                     newMsg.date = 0;
@@ -7699,6 +7709,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     msgObj.messageOwner.ttl_period = message.ttl_period;
                                     msgObj.messageOwner.flags |= 33554432;
                                 }
+                                // The server object has no local custom_params; copy the per-message bubble style first.
+                                MessageCustomParamsHelper.copyParams(newMsgObj, message);
                                 if (request instanceof TLRPC.TL_messages_sendMedia) { // paid media
                                     updateMediaPaths(msgObjs.get(0), message, message.id, originalPaths, false, -1, message.params);
                                 } else {
@@ -8229,6 +8241,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     message.unread = value < message.id;
                                 }
                                 msgObj.messageOwner.post_author = message.post_author;
+                                // Keep local-only fields when a standard updates response replaces the temporary message.
+                                MessageCustomParamsHelper.copyParams(newMsgObj, message);
                                 if ((message.flags & 33554432) != 0) {
                                     msgObj.messageOwner.ttl_period = message.ttl_period;
                                     msgObj.messageOwner.flags |= 33554432;

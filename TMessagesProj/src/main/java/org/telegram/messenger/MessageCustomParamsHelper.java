@@ -29,7 +29,8 @@ public class MessageCustomParamsHelper {
             message.translatedText == null &&
             message.translatedRichMessage == null &&
             message.errorAllowedPriceStars == 0 &&
-            message.errorNewPriceStars == 0
+            message.errorNewPriceStars == 0 &&
+            message.huanghunBubbleStyle == 0
         );
     }
 
@@ -48,6 +49,7 @@ public class MessageCustomParamsHelper {
         toMessage.translatedRichMessage = fromMessage.translatedRichMessage;
         toMessage.errorAllowedPriceStars = fromMessage.errorAllowedPriceStars;
         toMessage.errorNewPriceStars = fromMessage.errorNewPriceStars;
+        toMessage.huanghunBubbleStyle = fromMessage.huanghunBubbleStyle;
         toMessage.translatedVoiceTranscription = fromMessage.translatedVoiceTranscription;
         toMessage.summarizedOpen = fromMessage.summarizedOpen;
         toMessage.summaryText = fromMessage.summaryText;
@@ -64,7 +66,10 @@ public class MessageCustomParamsHelper {
         TLObject params;
         switch (version) {
             case 1:
-                params = new Params_v1(message);
+                params = new Params_v1(message, 1);
+                break;
+            case 2:
+                params = new Params_v1(message, 2);
                 break;
             default:
                 throw new RuntimeException("can't read params version = " + version);
@@ -76,7 +81,7 @@ public class MessageCustomParamsHelper {
         if (isEmpty(message)) {
             return null;
         }
-        TLObject params = new Params_v1(message);
+        TLObject params = new Params_v1(message, 2);
         try {
             NativeByteBuffer nativeByteBuffer = new NativeByteBuffer(params.getObjectSize());
             params.serializeToStream(nativeByteBuffer);
@@ -89,12 +94,13 @@ public class MessageCustomParamsHelper {
 
     private static class Params_v1 extends TLObject {
 
-        private final static int VERSION = 1;
+        final int version;
         final TLRPC.Message message;
         int flags = 0;
 
-        private Params_v1(TLRPC.Message message) {
+        private Params_v1(TLRPC.Message message, int version) {
             this.message = message;
+            this.version = version;
             flags |= message.voiceTranscription != null ? 1 : 0;
             flags |= message.voiceTranscriptionForce ? 2 : 0;
 
@@ -114,11 +120,14 @@ public class MessageCustomParamsHelper {
             flags = setFlag(flags, FLAG_12, message.translatedSummaryLanguage != null);
 
             flags = setFlag(flags, FLAG_13, message.translatedRichMessage != null);
+            if (version >= 2) {
+                flags = setFlag(flags, FLAG_14, message.huanghunBubbleStyle != 0);
+            }
         }
 
         @Override
         public void serializeToStream(OutputSerializedData stream) {
-            stream.writeInt32(VERSION);
+            stream.writeInt32(version);
             flags = message.voiceTranscriptionForce ? (flags | 2) : (flags &~ 2);
             flags = message.summarizedOpen ? (flags | 512) : (flags &~ 512);
             stream.writeInt32(flags);
@@ -165,6 +174,9 @@ public class MessageCustomParamsHelper {
             }
             if (hasFlag(flags, FLAG_13)) {
                 message.translatedRichMessage.serializeToStream(stream);
+            }
+            if (version >= 2 && hasFlag(flags, FLAG_14)) {
+                stream.writeInt32(message.huanghunBubbleStyle);
             }
         }
 
@@ -215,6 +227,9 @@ public class MessageCustomParamsHelper {
             }
             if (hasFlag(flags, FLAG_13)) {
                 message.translatedRichMessage = TL_iv.RichMessage.TLdeserialize(stream, stream.readInt32(exception), exception);
+            }
+            if (version >= 2 && hasFlag(flags, FLAG_14)) {
+                message.huanghunBubbleStyle = stream.readInt32(exception);
             }
         }
 

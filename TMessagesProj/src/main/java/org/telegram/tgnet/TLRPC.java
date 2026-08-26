@@ -58175,6 +58175,8 @@ public class TLRPC {
         public int fwd_msg_id = 0; //custom
         public String attachPath = ""; //custom
         public HashMap<String, String> params; //custom
+        // Local-only Huanghun bubble style. It is stored in custom_params, never serialized to Telegram.
+        public int huanghunBubbleStyle; //custom
         public SparseArray<String> pollMediaAttachPaths; //custom
         public long random_id; //custom
         public int local_id = 0; //custom

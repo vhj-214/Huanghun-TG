@@ -46,6 +46,7 @@ import tw.nekomimi.nekogram.config.cell.ConfigCellCustom;
 import tw.nekomimi.nekogram.config.cell.ConfigCellDivider;
 import tw.nekomimi.nekogram.config.cell.ConfigCellHeader;
 import tw.nekomimi.nekogram.config.cell.ConfigCellSelectBox;
+import tw.nekomimi.nekogram.config.cell.ConfigCellText;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextCheck;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextDetail;
 import tw.nekomimi.nekogram.config.cell.ConfigCellTextInput;
@@ -203,15 +204,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             getString(R.string.HuanghunTypefaceZhuqueFangsong)
     };
     private final AbstractConfigCell huanghunCustomTypefaceRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomTypeface", NekoConfig.huanghunCustomTypeface, huanghunTypefaceNames, null));
-    private final String[] huanghunBubbleStyleNames = new String[]{
-            getString(R.string.HuanghunBubbleLiquidGlass),
-            getString(R.string.HuanghunBubbleStrawberryJelly),
-            getString(R.string.HuanghunBubbleCreamCloud),
-            getString(R.string.HuanghunBubbleStarWebPulse),
-            getString(R.string.HuanghunBubbleAuroraPaws),
-            getString(R.string.HuanghunBubbleEmberHero)
-    };
-    private final AbstractConfigCell huanghunCustomBubblesRow = cellGroup.appendCell(new ConfigCellSelectBox("HuanghunCustomBubbles", NekoConfig.huanghunBubbleStyle, huanghunBubbleStyleNames, null));
+    private final AbstractConfigCell huanghunCustomBubblesRow = cellGroup.appendCell(new ConfigCellText("HuanghunCustomBubbles", () -> presentFragment(new HuanghunBubbleCatalogActivity())));
     private final AbstractConfigCell hideDividers = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDividers()));
     private final AbstractConfigCell alwaysShowDownloadIconRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getAlwaysShowDownloadIcon()));
     private final AbstractConfigCell showStickersInTopLevelRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getShowStickersRowToplevel()));
@@ -404,10 +397,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
                 // Keep this identical to the system-font behavior: the user decides when to
                 // apply the restart from the “应用” action, instead of interrupting the task.
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
-            } else if (key.equals(NekoConfig.huanghunBubbleStyle.getKey())) {
-                // The style only changes Theme color keys; notify the existing chat cells to redraw
-                // instead of rebuilding fragments, which avoids black frames or a visible flash.
-                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.didSetNewTheme, false, false, false);
             } else if (key.equals(NaConfig.INSTANCE.getDisableDialogsFloatingButton().getKey())) {
                 tooltip.showWithAction(0, UndoView.ACTION_NEED_RESTART, null, null);
             } else if (key.equals(NaConfig.INSTANCE.getHidePremiumSection().getKey())) {

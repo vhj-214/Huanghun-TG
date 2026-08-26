@@ -261,6 +261,7 @@ import me.vkryl.core.BitwiseUtils;
 
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
+import tw.nekomimi.nekogram.helpers.HuanghunBubbleStyleHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.TimeStringHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
@@ -1557,6 +1558,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private boolean allowAssistant;
     public Theme.MessageDrawable currentBackgroundDrawable;
     private Theme.MessageDrawable currentBackgroundSelectedDrawable;
+    // Only custom outgoing messages use these independent instances. Stock theme drawables remain
+    // shared for every other message, preserving the normal Telegram drawing path.
+    private Theme.MessageDrawable huanghunBubbleTextDrawable;
+    private Theme.MessageDrawable huanghunBubbleTextSelectedDrawable;
+    private Theme.MessageDrawable huanghunBubbleMediaDrawable;
+    private Theme.MessageDrawable huanghunBubbleMediaSelectedDrawable;
     private int backgroundDrawableLeft;
     private int backgroundDrawableRight;
     private int backgroundDrawableTop;
@@ -20551,6 +20558,35 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
     }
 
+    private Theme.MessageDrawable getHuanghunBubbleDrawable(boolean media, boolean selected, int style) {
+        Theme.MessageDrawable drawable;
+        if (media) {
+            if (selected) {
+                if (huanghunBubbleMediaSelectedDrawable == null) {
+                    huanghunBubbleMediaSelectedDrawable = new Theme.MessageDrawable(Theme.MessageDrawable.TYPE_MEDIA, true, true, resourcesProvider);
+                }
+                drawable = huanghunBubbleMediaSelectedDrawable;
+            } else {
+                if (huanghunBubbleMediaDrawable == null) {
+                    huanghunBubbleMediaDrawable = new Theme.MessageDrawable(Theme.MessageDrawable.TYPE_MEDIA, true, false, resourcesProvider);
+                }
+                drawable = huanghunBubbleMediaDrawable;
+            }
+        } else if (selected) {
+            if (huanghunBubbleTextSelectedDrawable == null) {
+                huanghunBubbleTextSelectedDrawable = new Theme.MessageDrawable(Theme.MessageDrawable.TYPE_TEXT, true, true, resourcesProvider);
+            }
+            drawable = huanghunBubbleTextSelectedDrawable;
+        } else {
+            if (huanghunBubbleTextDrawable == null) {
+                huanghunBubbleTextDrawable = new Theme.MessageDrawable(Theme.MessageDrawable.TYPE_TEXT, true, false, resourcesProvider);
+            }
+            drawable = huanghunBubbleTextDrawable;
+        }
+        drawable.setHuanghunBubbleStyle(style);
+        return drawable;
+    }
+
     @SuppressLint("WrongCall")
     public void drawBackgroundInternal(Canvas canvas, boolean fromParent) {
         if (currentMessageObject == null) {
@@ -20568,13 +20604,15 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         int additionalBottom = 0;
         boolean forceMediaByGroup = currentPosition != null && (currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) == 0 && currentMessagesGroup.isDocuments && !drawPinnedBottom;
         if (currentMessageObject.isOutOwner()) {
+            final int huanghunBubbleStyle = HuanghunBubbleStyleHelper.normalizeStyle(currentMessageObject.messageOwner.huanghunBubbleStyle);
+            final boolean useHuanghunBubbleStyle = HuanghunBubbleStyleHelper.isCustomStyle(huanghunBubbleStyle);
             if (transitionParams.changePinnedBottomProgress >= 1 && !mediaBackground && !drawPinnedBottom && !forceMediaByGroup) {
-                currentBackgroundDrawable = (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOut);
-                currentBackgroundSelectedDrawable = (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutSelected);
+                currentBackgroundDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(false, false, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOut);
+                currentBackgroundSelectedDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(false, true, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutSelected);
                 transitionParams.drawPinnedBottomBackground = false;
             } else {
-                currentBackgroundDrawable = (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutMedia);
-                currentBackgroundSelectedDrawable = (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutMediaSelected);
+                currentBackgroundDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(true, false, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutMedia);
+                currentBackgroundSelectedDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(true, true, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutMediaSelected);
                 transitionParams.drawPinnedBottomBackground = true;
             }
             setBackgroundTopY(true);

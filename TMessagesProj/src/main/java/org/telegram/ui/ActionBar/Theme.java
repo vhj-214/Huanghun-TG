@@ -152,6 +152,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunBubbleStyleHelper;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
@@ -208,6 +209,15 @@ public class Theme {
         private int currentGradientColor2;
         private int currentGradientColor3;
         private boolean currentAnimateGradient;
+        // Local per-message style. Global theme drawables never carry this state; ChatMessageCell
+        // creates an independent MessageDrawable only for outgoing messages with a custom style.
+        private int huanghunBubbleStyle;
+        // Cache immutable, user-provided local skin bitmaps by style ID. Individual MessageDrawable
+        // instances retain only their style ID, so recycled chat cells cannot leak a skin to another message.
+        private static final SparseArray<Bitmap> huanghunBubbleSkinCache = new SparseArray<>();
+        private final Paint huanghunDecorationPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Rect huanghunBubbleSkinSourceRect = new Rect();
+        private final RectF huanghunBubbleSkinRect = new RectF();
 
         private RectF rect = new RectF();
         private Matrix matrix = new Matrix();
@@ -323,9 +333,119 @@ public class Theme {
             return matrix;
         }
 
+        public void setHuanghunBubbleStyle(int style) {
+            huanghunBubbleStyle = style >= 0 && style <= HuanghunBubbleStyleHelper.STYLE_COUNT ? style : 0;
+        }
+
+        public int getHuanghunBubbleStyle() {
+            return huanghunBubbleStyle;
+        }
+
+        private Bitmap getHuanghunBubbleSkin() {
+            if (huanghunBubbleStyle == HuanghunBubbleStyleHelper.DEFAULT_STYLE) {
+                return null;
+            }
+            Bitmap cached = huanghunBubbleSkinCache.get(huanghunBubbleStyle);
+            if (cached != null && !cached.isRecycled()) {
+                return cached;
+            }
+            Context context = ApplicationLoader.applicationContext;
+            if (context == null) {
+                return null;
+            }
+            String resourceName = HuanghunBubbleStyleHelper.getSkinResourceName(huanghunBubbleStyle);
+            int resourceId = resourceName == null ? 0 : context.getResources().getIdentifier(resourceName, "drawable", context.getPackageName());
+            if (resourceId == 0) {
+                return null;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = false;
+            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
+            if (bitmap != null) {
+                huanghunBubbleSkinCache.put(huanghunBubbleStyle, bitmap);
+            }
+            return bitmap;
+        }
+
+        private void drawHuanghunBubbleSkin(Canvas canvas, Rect bounds, Path bubblePath) {
+            Bitmap bitmap = getHuanghunBubbleSkin();
+            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3) {
+                return;
+            }
+            // A custom skin replaces the native blue/gradient body with the supplied skin's own
+            // central material. Only outer frame/character patches are then laid above it, keeping
+            // the result a complete cartoon chat bubble instead of a small sticker on a blue bubble.
+            int sourceCapX = Math.max(1, bitmap.getWidth() / 3);
+            int sourceCapY = Math.max(1, bitmap.getHeight() / 3);
+            float inset = dp(1);
+            float left = bounds.left + inset;
+            float top = bounds.top + inset;
+            float right = bounds.right - inset;
+            float bottom = bounds.bottom - inset;
+            float width = Math.max(1, right - left);
+            float height = Math.max(1, bottom - top);
+            float destinationCapY = Math.min(Math.min(dp(50), height * 0.46f), height * 0.5f);
+            float destinationCapX = Math.min(width * 0.5f, destinationCapY * sourceCapX / (float) sourceCapY);
+            float centerLeft = left + destinationCapX;
+            float centerRight = right - destinationCapX;
+            float centerTop = top + destinationCapY;
+            float centerBottom = bottom - destinationCapY;
+            if (centerRight <= centerLeft || centerBottom <= centerTop) {
+                return;
+            }
+            // The official body bounds remain exactly text-measured. Only visual ornaments grow
+            // into the surrounding cell space so wings, ears and hanging parts are never cropped.
+            float ornamentOverflowX = Math.min(dp(18), Math.max(dp(6), destinationCapX * 0.28f));
+            float ornamentOverflowY = Math.min(dp(14), Math.max(dp(4), destinationCapY * 0.26f));
+            float ornamentLeft = left - ornamentOverflowX;
+            float ornamentTop = top - ornamentOverflowY;
+            float ornamentRight = right + ornamentOverflowX;
+            float ornamentBottom = bottom + ornamentOverflowY;
+            float ornamentCapX = destinationCapX + ornamentOverflowX;
+            float ornamentCapY = destinationCapY + ornamentOverflowY;
+            float ornamentCenterLeft = ornamentLeft + ornamentCapX;
+            float ornamentCenterRight = ornamentRight - ornamentCapX;
+            float ornamentCenterTop = ornamentTop + ornamentCapY;
+            float ornamentCenterBottom = ornamentBottom - ornamentCapY;
+            int centerSourceRight = bitmap.getWidth() - sourceCapX;
+            int centerSourceBottom = bitmap.getHeight() - sourceCapY;
+            int centerX = bitmap.getWidth() / 2;
+            int centerY = bitmap.getHeight() / 2;
+            int bubbleColor = bitmap.getPixel(centerX, centerY);
+            huanghunDecorationPaint.setColor(bubbleColor);
+            huanghunDecorationPaint.setAlpha(alpha);
+            canvas.drawPath(bubblePath, huanghunDecorationPaint);
+            // Edge characters, wings and hanging ornaments are intentionally not clipped to the
+            // rounded native path. They remain fully visible around the separately path-clipped body.
+            // Keep all visual identity around the message body. The center is intentionally not
+            // copied because it contains catalog-preview text; Telegram draws actual message text there.
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceCapX, sourceCapY, ornamentLeft, ornamentTop, ornamentCenterLeft, ornamentCenterTop);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, 0, centerSourceRight, sourceCapY, ornamentCenterLeft, ornamentTop, ornamentCenterRight, ornamentCenterTop);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, 0, bitmap.getWidth(), sourceCapY, ornamentCenterRight, ornamentTop, ornamentRight, ornamentCenterTop);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, sourceCapY, sourceCapX, centerSourceBottom, ornamentLeft, ornamentCenterTop, ornamentCenterLeft, ornamentCenterBottom);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, sourceCapY, bitmap.getWidth(), centerSourceBottom, ornamentCenterRight, ornamentCenterTop, ornamentRight, ornamentCenterBottom);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, centerSourceBottom, sourceCapX, bitmap.getHeight(), ornamentLeft, ornamentCenterBottom, ornamentCenterLeft, ornamentBottom);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceCapX, centerSourceBottom, centerSourceRight, bitmap.getHeight(), ornamentCenterLeft, ornamentCenterBottom, ornamentCenterRight, ornamentBottom);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, centerSourceRight, centerSourceBottom, bitmap.getWidth(), bitmap.getHeight(), ornamentCenterRight, ornamentCenterBottom, ornamentRight, ornamentBottom);
+            huanghunDecorationPaint.setAlpha(255);
+        }
+
+        private void drawHuanghunBubbleSkinPatch(Canvas canvas, Bitmap bitmap, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop || destinationRight <= destinationLeft || destinationBottom <= destinationTop) {
+                return;
+            }
+            huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
+            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
+            canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
+        }
+
         protected int getColor(int key) {
             if (currentType == TYPE_PREVIEW) {
                 return Theme.getColor(key);
+            }
+            int bubbleColor = Theme.getHuanghunBubbleColor(key, huanghunBubbleStyle);
+            if (bubbleColor != Integer.MIN_VALUE) {
+                return bubbleColor;
             }
             if (resourcesProvider != null) {
                 return resourcesProvider.getColor(key);
@@ -337,9 +457,9 @@ public class Theme {
             if (currentType == TYPE_PREVIEW) {
                 return Theme.getColor(key);
             }
-            int glassBubbleColor = getHuanghunLiquidGlassBubbleColor(key);
-            if (glassBubbleColor != Integer.MIN_VALUE) {
-                return glassBubbleColor;
+            int bubbleColor = Theme.getHuanghunBubbleColor(key, huanghunBubbleStyle);
+            if (bubbleColor != Integer.MIN_VALUE) {
+                return bubbleColor;
             }
             return resourcesProvider != null ? resourcesProvider.getCurrentColor(key) : Theme.currentColors.get(key);
         }
@@ -721,7 +841,7 @@ public class Theme {
 
         public void draw(Canvas canvas, Paint paintToUse) {
             Rect bounds = getBounds();
-            if (paintToUse == null && gradientShader == null && overrideRoundRadius == 0 && overrideRounding <= 0) {
+            if (paintToUse == null && huanghunBubbleStyle == HuanghunBubbleStyleHelper.DEFAULT_STYLE && gradientShader == null && overrideRoundRadius == 0 && overrideRounding <= 0) {
                 Drawable background = getBackgroundDrawable();
                 if (background != null) {
                     background.setBounds(bounds);
@@ -780,6 +900,9 @@ public class Theme {
             }
 
             canvas.drawPath(path, p);
+            if (paintToUse == null && huanghunBubbleStyle != HuanghunBubbleStyleHelper.DEFAULT_STYLE) {
+                drawHuanghunBubbleSkin(canvas, bounds, path);
+            }
             if (gradientShader != null && isSelected && paintToUse == null) {
                 int color = getColor(key_chat_outBubbleGradientSelectedOverlay);
                 selectedPaint.setColor(ColorUtils.setAlphaComponent(color, (int) (Color.alpha(color) * alpha / 255f)));
@@ -9704,113 +9827,81 @@ public class Theme {
      * 相邻消息拼接、媒体裁剪和点击区域，因此不会改变消息布局或发送行为。
      */
     private static int getHuanghunLiquidGlassBubbleColor(int key) {
-        final int style = NekoConfig.huanghunBubbleStyle.Int();
-        if (style <= 0 || style > 5) {
-            // 默认保留已经验证过的液态玻璃气泡。
-            if (key == key_chat_inBubble || key == key_chat_outBubble) {
-                return 0x36FFFFFF;
-            }
-            if (key == key_chat_inBubbleSelected || key == key_chat_outBubbleSelected) {
-                return 0x4AFFFFFF;
-            }
-            if (key == key_chat_inBubbleSelectedOverlay
-                    || key == key_chat_outBubbleSelectedOverlay
-                    || key == key_chat_inBubbleShadow
-                    || key == key_chat_outBubbleShadow
-                    || key == key_chat_outBubbleGradient1
-                    || key == key_chat_outBubbleGradient2
-                    || key == key_chat_outBubbleGradient3
-                    || key == key_chat_outBubbleGradientSelectedOverlay
-                    || key == key_chat_outBubbleGradientAnimated) {
-                return Color.TRANSPARENT;
-            }
-            return Integer.MIN_VALUE;
+        // Existing verified default: all messages remain liquid glass until a local outgoing
+        // message carries its own non-zero style ID.
+        if (key == key_chat_inBubble || key == key_chat_outBubble) {
+            return 0x36FFFFFF;
         }
-
-        final boolean dark = currentTheme != null && currentTheme.isDark();
-        int inBubble;
-        int outBubble;
-        int outGradient1;
-        int outGradient2;
-        int outGradient3;
-        boolean animated;
-
-        switch (style) {
-            case 1: // 草莓果冻：柔软粉紫的静态渐变。
-                inBubble = dark ? 0xE52C2032 : 0xEFFFF8FC;
-                outBubble = dark ? 0xFF71365A : 0xFFFFD8E8;
-                outGradient1 = dark ? 0xFFB74F81 : 0xFFFFA6CB;
-                outGradient2 = dark ? 0xFF714A95 : 0xFFA999F8;
-                outGradient3 = 0;
-                animated = false;
-                break;
-            case 2: // 奶油云朵：暖奶油与天空蓝的静态渐变。
-                inBubble = dark ? 0xE5263547 : 0xEFFFFCF4;
-                outBubble = dark ? 0xFF46678B : 0xFFFFE1AA;
-                outGradient1 = dark ? 0xFF6F98C4 : 0xFF9EDBFF;
-                outGradient2 = dark ? 0xFF9077B1 : 0xFFE9B0FF;
-                outGradient3 = 0;
-                animated = false;
-                break;
-            case 3: // 星网脉冲：青蓝紫粉的轻量流动渐变。
-                inBubble = dark ? 0xE522314D : 0xEEECF5FF;
-                outBubble = dark ? 0xFF263F7C : 0xFF78C7FF;
-                outGradient1 = dark ? 0xFF315EF7 : 0xFF62D2FF;
-                outGradient2 = dark ? 0xFF7C3AED : 0xFFAF91FF;
-                outGradient3 = dark ? 0xFF00AFC5 : 0xFFFF8BC9;
-                animated = true;
-                break;
-            case 4: // 极光猫爪：薄荷、极光绿与紫光的轻量流动渐变。
-                inBubble = dark ? 0xE5183A3A : 0xEEEDFFF9;
-                outBubble = dark ? 0xFF147868 : 0xFF70DFC6;
-                outGradient1 = dark ? 0xFF00A98F : 0xFF49E4C0;
-                outGradient2 = dark ? 0xFF0077B6 : 0xFF70A7FF;
-                outGradient3 = dark ? 0xFF6A35A5 : 0xFFC49AFF;
-                animated = true;
-                break;
-            default: // 焰彩英雄：红橙紫的轻量流动渐变，不包含任何第三方角色素材。
-                inBubble = dark ? 0xE53A202C : 0xEEFFF4F6;
-                outBubble = dark ? 0xFF7B2940 : 0xFFFF9CA5;
-                outGradient1 = dark ? 0xFFD64260 : 0xFFFF7E72;
-                outGradient2 = dark ? 0xFFB72D73 : 0xFFFF5D9D;
-                outGradient3 = dark ? 0xFF6336A7 : 0xFF9B74FF;
-                animated = true;
-                break;
+        if (key == key_chat_inBubbleSelected || key == key_chat_outBubbleSelected) {
+            return 0x4AFFFFFF;
         }
-
-        if (key == key_chat_inBubble) {
-            return inBubble;
-        }
-        if (key == key_chat_outBubble) {
-            return outBubble;
-        }
-        if (key == key_chat_inBubbleSelected) {
-            return dark ? 0xFF4C4051 : 0xFFF3E0EA;
-        }
-        if (key == key_chat_outBubbleSelected) {
-            return dark ? 0xFF624058 : 0xFFFFBED5;
-        }
-        if (key == key_chat_inBubbleSelectedOverlay || key == key_chat_outBubbleSelectedOverlay) {
+        if (key == key_chat_inBubbleSelectedOverlay
+                || key == key_chat_outBubbleSelectedOverlay
+                || key == key_chat_inBubbleShadow
+                || key == key_chat_outBubbleShadow
+                || key == key_chat_outBubbleGradient1
+                || key == key_chat_outBubbleGradient2
+                || key == key_chat_outBubbleGradient3
+                || key == key_chat_outBubbleGradientSelectedOverlay
+                || key == key_chat_outBubbleGradientAnimated) {
             return Color.TRANSPARENT;
         }
-        if (key == key_chat_inBubbleShadow || key == key_chat_outBubbleShadow) {
-            return dark ? 0x28000000 : 0x160E1530;
+        return Integer.MIN_VALUE;
+    }
+
+    /**
+     * Per-message palette used only by an independently created outgoing MessageDrawable.
+     * It intentionally never reads the current selection preference, so history cannot change
+     * when the user selects a different bubble for the next message.
+     */
+    private static int getHuanghunBubbleColor(int key, int messageStyle) {
+        if (messageStyle <= 0 || messageStyle > HuanghunBubbleStyleHelper.STYLE_COUNT) {
+            return getHuanghunLiquidGlassBubbleColor(key);
         }
-        if (key == key_chat_outBubbleGradient1) {
-            return outGradient1;
+        final boolean dark = currentTheme != null && currentTheme.isDark();
+        final int palette = (messageStyle - 1) % 12;
+        int surface;
+        int selected;
+        int gradient1;
+        int gradient2;
+        int gradient3;
+        boolean animated;
+        switch (palette) {
+            case 0: // 桃源深处有人家
+                surface = dark ? 0xFF73594B : 0xFFFFDEC6; gradient1 = dark ? 0xFFA77E63 : 0xFFFFB8A2; gradient2 = dark ? 0xFF8B5B55 : 0xFFF4A7A7; gradient3 = 0; animated = false; break;
+            case 1: // 可爱蓝兔兔
+                surface = dark ? 0xFF355A88 : 0xFFCDEBFF; gradient1 = dark ? 0xFF5789BB : 0xFF8FCBFF; gradient2 = dark ? 0xFF8466AE : 0xFFC8B6FF; gradient3 = 0; animated = false; break;
+            case 2: // 线条小狗
+                surface = dark ? 0xFF6E5550 : 0xFFFFECE1; gradient1 = dark ? 0xFFA47D65 : 0xFFFFC997; gradient2 = dark ? 0xFF8A6C79 : 0xFFFFB5C3; gradient3 = 0; animated = false; break;
+            case 3: // 弹弹小考拉
+                surface = dark ? 0xFF78516D : 0xFFFFE2F1; gradient1 = dark ? 0xFFA76591 : 0xFFFFA9D6; gradient2 = dark ? 0xFF755C9E : 0xFFBAA0FF; gradient3 = 0; animated = false; break;
+            case 4: // 深海奶龙
+                surface = dark ? 0xFF1D5A78 : 0xFFAEEBFF; gradient1 = dark ? 0xFF258BAD : 0xFF6BD9FF; gradient2 = dark ? 0xFF376FB0 : 0xFF8EBAFF; gradient3 = 0; animated = true; break;
+            case 5: // 东方小女孩
+                surface = dark ? 0xFF604B5C : 0xFFFFEAF0; gradient1 = dark ? 0xFF9B6380 : 0xFFFFAFC8; gradient2 = dark ? 0xFF674A8C : 0xFFC6A4FF; gradient3 = 0; animated = false; break;
+            case 6: // 绵绵约会日
+                surface = dark ? 0xFF723D50 : 0xFFFFD8E8; gradient1 = dark ? 0xFFB44F78 : 0xFFFF8EBB; gradient2 = dark ? 0xFF845C98 : 0xFFD3A2FF; gradient3 = 0; animated = false; break;
+            case 7: // 彩虹独角兽
+                surface = dark ? 0xFF445E99 : 0xFFE0E9FF; gradient1 = dark ? 0xFF7C6DCC : 0xFFB4A5FF; gradient2 = dark ? 0xFF467CBE : 0xFF8FD7FF; gradient3 = dark ? 0xFFB35F9E : 0xFFFF9BD2; animated = true; break;
+            case 8: // 白光莹
+                surface = dark ? 0xFF76623C : 0xFFFFE9B4; gradient1 = dark ? 0xFFB79545 : 0xFFFFCC64; gradient2 = dark ? 0xFF82724D : 0xFFFFE89A; gradient3 = 0; animated = false; break;
+            case 9: // 亡灵之梦
+                surface = dark ? 0xFF25487E : 0xFFB8DBFF; gradient1 = dark ? 0xFF366DBB : 0xFF6DB9FF; gradient2 = dark ? 0xFF674EAB : 0xFFAA8DFF; gradient3 = dark ? 0xFF1A8290 : 0xFF76EBE1; animated = true; break;
+            case 10: // 黑白小园
+                surface = dark ? 0xFF4C4E58 : 0xFFF4F5F7; gradient1 = dark ? 0xFF727887 : 0xFFD4D9E2; gradient2 = dark ? 0xFF57515F : 0xFFF0D7E5; gradient3 = 0; animated = false; break;
+            default: // 星空/神明等高光动态款
+                surface = dark ? 0xFF34255E : 0xFFDAD0FF; gradient1 = dark ? 0xFF5E43AF : 0xFF9B82FF; gradient2 = dark ? 0xFF9350A7 : 0xFFFFA5E6; gradient3 = dark ? 0xFF215F99 : 0xFF78D4FF; animated = true; break;
         }
-        if (key == key_chat_outBubbleGradient2) {
-            return outGradient2;
-        }
-        if (key == key_chat_outBubbleGradient3) {
-            return outGradient3;
-        }
-        if (key == key_chat_outBubbleGradientSelectedOverlay) {
-            return dark ? 0x24000000 : 0x18FFFFFF;
-        }
-        if (key == key_chat_outBubbleGradientAnimated) {
-            return animated ? 1 : Color.TRANSPARENT;
-        }
+        selected = dark ? ColorUtils.blendARGB(surface, Color.BLACK, .22f) : ColorUtils.blendARGB(surface, Color.WHITE, .18f);
+        if (key == key_chat_outBubble) return surface;
+        if (key == key_chat_outBubbleSelected) return selected;
+        if (key == key_chat_outBubbleGradient1) return gradient1;
+        if (key == key_chat_outBubbleGradient2) return gradient2;
+        if (key == key_chat_outBubbleGradient3) return gradient3;
+        if (key == key_chat_outBubbleGradientAnimated) return animated ? 1 : 0;
+        if (key == key_chat_outBubbleGradientSelectedOverlay) return dark ? 0x26000000 : 0x1CFFFFFF;
+        if (key == key_chat_outBubbleShadow) return dark ? 0x30000000 : 0x1A25345A;
+        if (key == key_chat_outBubbleSelectedOverlay) return Color.TRANSPARENT;
         return Integer.MIN_VALUE;
     }
 
