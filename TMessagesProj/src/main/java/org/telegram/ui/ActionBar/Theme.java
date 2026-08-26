@@ -384,40 +384,46 @@ public class Theme {
             float bottom = bounds.bottom - inset;
             float width = Math.max(1, right - left);
             float height = Math.max(1, bottom - top);
-            // Use the complete left/right illustration regions instead of splitting them into
-            // eight tiny patches. On a real ChatMessageCell the old tiny-patch path left only
-            // small square fragments visible around the native body. These two source blocks keep
-            // each character and its attached pendants intact, and move from the final text box.
-            int sourceDecorationWidth = Math.max(1, Math.round(bitmap.getWidth() * 0.30f));
+            // Keep the left/right source regions intact. Their 34% boundary matches the approved
+            // full-template prototype and preserves more of every character, wing and pendant than
+            // the former 30% crop.
+            int sourceDecorationWidth = Math.max(1, Math.round(bitmap.getWidth() * 0.34f));
             if (sourceDecorationWidth * 2 >= bitmap.getWidth()) {
                 return;
             }
-            float ornamentScale = Math.max(0.70f, Math.min(1.02f, height / Math.max(1f, bitmap.getHeight() * 0.82f)));
+            float ornamentScale = Math.max(0.68f, Math.min(1.04f, height / Math.max(1f, bitmap.getHeight() * 0.81f)));
             float decorationWidth = sourceDecorationWidth * ornamentScale;
             float decorationHeight = bitmap.getHeight() * ornamentScale;
-            float decorationTop = top + (height - decorationHeight) * 0.5f;
+            // Anchor ornaments from the top edge of the actual native body. This avoids the
+            // vertical overlap caused by centering tall source art on a short message.
+            float decorationTop = top - bitmap.getHeight() * ornamentScale * 0.20f;
             float leftDecorationLeft = left - decorationWidth * 0.80f;
             float leftDecorationRight = left + decorationWidth * 0.20f;
             float rightDecorationLeft = right - decorationWidth * 0.20f;
             float rightDecorationRight = right + decorationWidth * 0.80f;
 
             huanghunDecorationPaint.setAlpha(alpha);
-            // Every decoration uses one unbroken source region and a uniform scale. Its anchor is
-            // computed from this concrete native message frame, so short, long and multi-line
-            // messages move the complete character/pendant set without horizontal distortion.
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceDecorationWidth, bitmap.getHeight(), leftDecorationLeft, decorationTop, leftDecorationRight, decorationTop + decorationHeight);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, bitmap.getWidth() - sourceDecorationWidth, 0, bitmap.getWidth(), bitmap.getHeight(), rightDecorationLeft, decorationTop, rightDecorationRight, decorationTop + decorationHeight);
-
-            // The full native body goes on top of the interior portions of the source fragments.
-            // It is therefore always a single, complete message frame that cleanly encloses text.
+            // First establish a fully opaque native body. It keeps actual text measured and laid
+            // out by Telegram and also prevents the catalog's “大家好！” wording from entering a
+            // real message.
             int bodyColor = getHuanghunBubbleSkinBodyColor(bitmap);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setColor(bodyColor);
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
             huanghunDecorationPaint.setStyle(Paint.Style.STROKE);
-            huanghunDecorationPaint.setStrokeWidth(dp(2));
-            huanghunDecorationPaint.setColor(Color.rgb(Math.max(0, Color.red(bodyColor) - 42), Math.max(0, Color.green(bodyColor) - 42), Math.max(0, Color.blue(bodyColor) - 42)));
+            huanghunDecorationPaint.setStrokeWidth(dp(1.5f));
+            huanghunDecorationPaint.setColor(Color.rgb(Math.max(0, Color.red(bodyColor) - 28), Math.max(0, Color.green(bodyColor) - 28), Math.max(0, Color.blue(bodyColor) - 28)));
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
+
+            // Both source strips sit over the finished body. These edge-only regions carry the
+            // original illustrations and border material, but exclude the central catalog sample
+            // wording; actual Telegram text is drawn later and stays readable above this layer.
+            // The ChatMessageCell reserves right-side room for the outgoing region before this
+            // draw, so no part of the complete ornament is lost at the screen edge.
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+            huanghunDecorationPaint.setAlpha(alpha);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceDecorationWidth, bitmap.getHeight(), leftDecorationLeft, decorationTop, leftDecorationRight, decorationTop + decorationHeight);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, bitmap.getWidth() - sourceDecorationWidth, 0, bitmap.getWidth(), bitmap.getHeight(), rightDecorationLeft, decorationTop, rightDecorationRight, decorationTop + decorationHeight);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setAlpha(255);
         }
@@ -431,35 +437,41 @@ public class Theme {
             int endX = Math.min(bitmap.getWidth(), Math.round(bitmap.getWidth() * 0.66f));
             int startY = Math.max(0, Math.round(bitmap.getHeight() * 0.34f));
             int endY = Math.min(bitmap.getHeight(), Math.round(bitmap.getHeight() * 0.66f));
-            int capacity = Math.max(1, ((endX - startX + 2) / 3) * ((endY - startY + 2) / 3));
-            int[] reds = new int[capacity];
-            int[] greens = new int[capacity];
-            int[] blues = new int[capacity];
-            int count = 0;
+            // Quantize the center material into a small RGB palette, then use the most frequent
+            // opaque bucket. A per-channel median can combine unrelated edge colors and the
+            // preview wording into a gray, hazy fill; the dominant material retains the actual
+            // template's intended panel color while the native body hides only the preview text.
+            final int bucketCount = 16 * 16 * 16;
+            int[] counts = new int[bucketCount];
+            int[] redSums = new int[bucketCount];
+            int[] greenSums = new int[bucketCount];
+            int[] blueSums = new int[bucketCount];
             for (int y = startY; y < endY; y += 3) {
                 for (int x = startX; x < endX; x += 3) {
                     int color = bitmap.getPixel(x, y);
-                    if (Color.alpha(color) < 180 || count >= capacity) {
+                    if (Color.alpha(color) < 180) {
                         continue;
                     }
-                    reds[count] = Color.red(color);
-                    greens[count] = Color.green(color);
-                    blues[count] = Color.blue(color);
-                    count++;
+                    int bucket = ((Color.red(color) >> 4) << 8) | ((Color.green(color) >> 4) << 4) | (Color.blue(color) >> 4);
+                    counts[bucket]++;
+                    redSums[bucket] += Color.red(color);
+                    greenSums[bucket] += Color.green(color);
+                    blueSums[bucket] += Color.blue(color);
+                }
+            }
+            int dominantBucket = -1;
+            int dominantCount = 0;
+            for (int bucket = 0; bucket < bucketCount; bucket++) {
+                if (counts[bucket] > dominantCount) {
+                    dominantBucket = bucket;
+                    dominantCount = counts[bucket];
                 }
             }
             int bodyColor;
-            if (count == 0) {
+            if (dominantBucket < 0 || dominantCount == 0) {
                 bodyColor = getColor(key_chat_outBubble);
             } else {
-                // Most of the central panel is its true material while “大家好！” occupies only
-                // a small dark area. Per-channel medians keep the original light/colorful body
-                // instead of averaging the wording into a muddy gray rectangle.
-                Arrays.sort(reds, 0, count);
-                Arrays.sort(greens, 0, count);
-                Arrays.sort(blues, 0, count);
-                int middle = count / 2;
-                bodyColor = Color.rgb(reds[middle], greens[middle], blues[middle]);
+                bodyColor = Color.rgb(redSums[dominantBucket] / dominantCount, greenSums[dominantBucket] / dominantCount, blueSums[dominantBucket] / dominantCount);
             }
             huanghunBubbleSkinBodyColorCache.put(huanghunBubbleStyle, bodyColor);
             return bodyColor;

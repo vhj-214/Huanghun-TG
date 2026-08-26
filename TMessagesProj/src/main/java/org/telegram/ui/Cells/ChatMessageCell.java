@@ -20629,6 +20629,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
             }
             int backgroundLeft = backgroundDrawableLeft;
+            if (useHuanghunBubbleStyle) {
+                // The native message body keeps its original measured width. Move the complete
+                // outgoing frame left by a small, fixed safety area so right-side characters and
+                // pendants remain inside this full-width ChatMessageCell instead of being clipped
+                // at the screen edge. All text/time/reaction positions derive from this same left
+                // coordinate, so the native body and its contents stay aligned.
+                final int decorationSafeInset = dp(54);
+                backgroundDrawableLeft -= decorationSafeInset;
+                backgroundLeft -= decorationSafeInset;
+            }
             if (!forceMediaByGroup && transitionParams.changePinnedBottomProgress != 1) {
                 if (!mediaBackground) {
                     backgroundDrawableRight -= dp(6);
