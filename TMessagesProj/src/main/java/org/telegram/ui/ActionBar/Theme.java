@@ -409,10 +409,11 @@ public class Theme {
             float ornamentCenterBottom = ornamentBottom - ornamentCapY;
             int centerSourceRight = bitmap.getWidth() - sourceCapX;
             int centerSourceBottom = bitmap.getHeight() - sourceCapY;
-            int centerX = bitmap.getWidth() / 2;
-            int centerY = bitmap.getHeight() / 2;
-            int bubbleColor = bitmap.getPixel(centerX, centerY);
-            huanghunDecorationPaint.setColor(bubbleColor);
+            // The center of every source image is now deliberately transparent after removing the
+            // catalog-only “大家好！” wording. Draw the native, per-message theme surface below it
+            // instead of sampling a center pixel from a source bitmap (which previously produced
+            // the opaque gray/blue square shown in the catalog and in chat).
+            huanghunDecorationPaint.setColor(getColor(key_chat_outBubble));
             huanghunDecorationPaint.setAlpha(alpha);
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
             // Edge characters, wings and hanging ornaments are intentionally not clipped to the

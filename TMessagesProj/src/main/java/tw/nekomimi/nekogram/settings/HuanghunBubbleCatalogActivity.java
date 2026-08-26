@@ -82,7 +82,17 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
     }
 
     private void toggleBatchMode() {
-        batchMode = !batchMode;
+        if (batchMode) {
+            // “完成” must activate the selected order, not merely save a passive collection.
+            saveFavorites();
+            batchMode = false;
+        } else {
+            // Start each batch edit from the previously persisted local collection. The linked
+            // insertion order is the exact sequence used for later message-by-message rotation.
+            favorites.clear();
+            favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
+            batchMode = true;
+        }
         actionBar.setTitle(LocaleController.getString(batchMode ? R.string.HuanghunBubbleBatchSelect : R.string.HuanghunCustomBubbles));
         ActionBarMenu menu = actionBar.createMenu();
         menu.clearItems();
@@ -92,7 +102,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
 
     private void saveFavorites() {
         NekoConfig.huanghunBubbleFavorites.setConfigString(HuanghunBubbleStyleHelper.writeFavorites(favorites));
-        batchMode = false;
+        HuanghunBubbleStyleHelper.setRotationStyles(favorites);
     }
 
     private void onStyleTapped(int style) {
@@ -105,6 +115,9 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
                 favorites.remove(style);
             }
         } else {
+            // A direct choice is intentionally a fixed style for following messages and cancels
+            // any earlier batch queue, including when the user selects the liquid-glass default.
+            HuanghunBubbleStyleHelper.clearRotationStyles();
             NekoConfig.huanghunBubbleStyle.setConfigInt(style);
         }
         adapter.notifyDataSetChanged();
@@ -144,7 +157,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
             BubbleStyleCell cell = (BubbleStyleCell) holder.itemView;
             int style = position;
-            boolean checked = batchMode ? favorites.contains(style) : HuanghunBubbleStyleHelper.getNextMessageStyle() == style;
+            boolean checked = batchMode ? favorites.contains(style) : HuanghunBubbleStyleHelper.getPendingMessageStyle() == style;
             cell.bind(style, checked);
         }
     }

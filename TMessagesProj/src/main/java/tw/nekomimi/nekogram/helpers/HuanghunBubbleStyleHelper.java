@@ -115,8 +115,48 @@ public final class HuanghunBubbleStyleHelper {
         return style >= DEFAULT_STYLE && style <= STYLE_COUNT ? style : DEFAULT_STYLE;
     }
 
-    public static int getNextMessageStyle() {
+    /**
+     * Returns the style that will be frozen on the next newly created local outgoing message.
+     * Unlike {@link #getNextMessageStyle()}, this method never advances a batch queue and is safe
+     * for UI binding, previews and repeated RecyclerView measurement.
+     */
+    public static synchronized int getPendingMessageStyle() {
+        ArrayList<Integer> rotation = readRotation();
+        if (!rotation.isEmpty()) {
+            return rotation.get(normalizeRotationIndex(NekoConfig.huanghunBubbleRotationIndex.Int(), rotation.size()));
+        }
         return normalizeStyle(NekoConfig.huanghunBubbleStyle.Int());
+    }
+
+    /**
+     * Freezes the current batch entry for a new local outgoing message and only then advances the
+     * queue. Retry paths never call this method, so the style already stored on a failed message
+     * remains unchanged.
+     */
+    public static synchronized int getNextMessageStyle() {
+        ArrayList<Integer> rotation = readRotation();
+        if (rotation.isEmpty()) {
+            return normalizeStyle(NekoConfig.huanghunBubbleStyle.Int());
+        }
+        int index = normalizeRotationIndex(NekoConfig.huanghunBubbleRotationIndex.Int(), rotation.size());
+        int style = rotation.get(index);
+        NekoConfig.huanghunBubbleRotationIndex.setConfigInt((index + 1) % rotation.size());
+        return style;
+    }
+
+    public static synchronized void setRotationStyles(Iterable<Integer> styles) {
+        String serialized = writeStyles(styles);
+        NekoConfig.huanghunBubbleRotation.setConfigString(serialized);
+        NekoConfig.huanghunBubbleRotationIndex.setConfigInt(0);
+        ArrayList<Integer> rotation = readRotation();
+        // An empty batch is an explicit request to stop custom rotation and return to the existing
+        // liquid-glass default, never to leave a stale single-choice skin active.
+        NekoConfig.huanghunBubbleStyle.setConfigInt(rotation.isEmpty() ? DEFAULT_STYLE : rotation.get(0));
+    }
+
+    public static synchronized void clearRotationStyles() {
+        NekoConfig.huanghunBubbleRotation.setConfigString("");
+        NekoConfig.huanghunBubbleRotationIndex.setConfigInt(0);
     }
 
     public static boolean isCustomStyle(int style) {
@@ -134,8 +174,19 @@ public final class HuanghunBubbleStyleHelper {
     }
 
     public static ArrayList<Integer> readFavorites() {
+        return readStyles(NekoConfig.huanghunBubbleFavorites.String());
+    }
+
+    public static ArrayList<Integer> readRotation() {
+        return readStyles(NekoConfig.huanghunBubbleRotation.String());
+    }
+
+    public static String writeFavorites(Iterable<Integer> styles) {
+        return writeStyles(styles);
+    }
+
+    private static ArrayList<Integer> readStyles(String raw) {
         LinkedHashSet<Integer> values = new LinkedHashSet<>();
-        String raw = NekoConfig.huanghunBubbleFavorites.String();
         if (raw != null && !raw.isEmpty()) {
             String[] split = raw.split(",");
             for (String item : split) {
@@ -152,7 +203,7 @@ public final class HuanghunBubbleStyleHelper {
         return new ArrayList<>(values);
     }
 
-    public static String writeFavorites(Iterable<Integer> styles) {
+    private static String writeStyles(Iterable<Integer> styles) {
         LinkedHashSet<Integer> values = new LinkedHashSet<>();
         for (Integer style : styles) {
             if (style == null) {
@@ -171,5 +222,9 @@ public final class HuanghunBubbleStyleHelper {
             result.append(style);
         }
         return result.toString();
+    }
+
+    private static int normalizeRotationIndex(int index, int size) {
+        return size <= 0 ? 0 : Math.floorMod(index, size);
     }
 }

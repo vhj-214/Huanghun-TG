@@ -95,6 +95,10 @@ public class NekoConfig {
     public static ConfigItem huanghunBubbleStyle = addConfig("HuanghunBubbleStyle", configTypeInt, 0);
     // Comma-separated local collection used by the batch selection page. It never changes sent history.
     public static ConfigItem huanghunBubbleFavorites = addConfig("HuanghunBubbleFavorites", configTypeString, "");
+    // Ordered local queue selected in batch mode. When non-empty it takes precedence for newly
+    // created outgoing messages and is advanced only after that message has frozen its own style.
+    public static ConfigItem huanghunBubbleRotation = addConfig("HuanghunBubbleRotation", configTypeString, "");
+    public static ConfigItem huanghunBubbleRotationIndex = addConfig("HuanghunBubbleRotationIndex", configTypeInt, 0);
     // Version marker for inserting a new user-provided font at index 1 without changing an
     // existing installation's current selection.
     private static ConfigItem huanghunTypefaceIndexShiftV2 = addConfig("HuanghunTypefaceIndexShiftV2", configTypeBool, false);
