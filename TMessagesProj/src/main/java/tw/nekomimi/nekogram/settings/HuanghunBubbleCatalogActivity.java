@@ -50,7 +50,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(LocaleController.getString(R.string.HuanghunCustomBubbles));
+        updateBatchPresentation();
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -68,6 +68,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
         menu.addItem(MENU_BATCH, LocaleController.getString(R.string.HuanghunBubbleBatch));
 
         favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
+        updateBatchPresentation();
         FrameLayout root = new FrameLayout(context);
         root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
 
@@ -93,16 +94,43 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
             favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
             batchMode = true;
         }
-        actionBar.setTitle(LocaleController.getString(batchMode ? R.string.HuanghunBubbleBatchSelect : R.string.HuanghunCustomBubbles));
-        ActionBarMenu menu = actionBar.createMenu();
-        menu.clearItems();
-        menu.addItem(MENU_BATCH, LocaleController.getString(batchMode ? R.string.Done : R.string.HuanghunBubbleBatch));
-        adapter.notifyDataSetChanged();
+        updateBatchPresentation();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
     }
 
     private void saveFavorites() {
         NekoConfig.huanghunBubbleFavorites.setConfigString(HuanghunBubbleStyleHelper.writeFavorites(favorites));
         HuanghunBubbleStyleHelper.setRotationStyles(favorites);
+    }
+
+    private boolean isBatchRotationActive() {
+        return !HuanghunBubbleStyleHelper.readRotation().isEmpty();
+    }
+
+    private int getBatchOrder(int style) {
+        java.util.ArrayList<Integer> rotation = batchMode ? new java.util.ArrayList<>(favorites) : HuanghunBubbleStyleHelper.readRotation();
+        for (int i = 0; i < rotation.size(); i++) {
+            if (rotation.get(i) == style) {
+                return i + 1;
+            }
+        }
+        return 0;
+    }
+
+    private void updateBatchPresentation() {
+        int selectedCount = batchMode ? favorites.size() : HuanghunBubbleStyleHelper.readRotation().size();
+        if (batchMode) {
+            actionBar.setTitle(LocaleController.getString(R.string.HuanghunBubbleBatchSelect));
+        } else if (selectedCount > 0) {
+            actionBar.setTitle(LocaleController.formatPluralString("HuanghunBubbleBatchActive", selectedCount));
+        } else {
+            actionBar.setTitle(LocaleController.getString(R.string.HuanghunCustomBubbles));
+        }
+        ActionBarMenu menu = actionBar.createMenu();
+        menu.clearItems();
+        menu.addItem(MENU_BATCH, LocaleController.getString(batchMode ? R.string.Done : R.string.HuanghunBubbleBatch));
     }
 
     private void onStyleTapped(int style) {
@@ -120,7 +148,12 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
             HuanghunBubbleStyleHelper.clearRotationStyles();
             NekoConfig.huanghunBubbleStyle.setConfigInt(style);
         }
-        adapter.notifyDataSetChanged();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+        if (!batchMode) {
+            updateBatchPresentation();
+        }
     }
 
     @Override
@@ -157,8 +190,12 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
             BubbleStyleCell cell = (BubbleStyleCell) holder.itemView;
             int style = position;
-            boolean checked = batchMode ? favorites.contains(style) : HuanghunBubbleStyleHelper.getPendingMessageStyle() == style;
-            cell.bind(style, checked);
+            int batchOrder = getBatchOrder(style);
+            boolean checked = batchMode ? favorites.contains(style) : batchOrder > 0;
+            if (!batchMode && !isBatchRotationActive()) {
+                checked = HuanghunBubbleStyleHelper.getPendingMessageStyle() == style;
+            }
+            cell.bind(style, checked, batchOrder);
         }
     }
 
@@ -209,7 +246,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
             borderPaint.setColor(Theme.getColor(Theme.key_featuredStickers_addButton));
         }
 
-        void bind(int style, boolean checked) {
+        void bind(int style, boolean checked, int batchOrder) {
             this.style = style;
             this.checked = checked;
             if (style == HuanghunBubbleStyleHelper.DEFAULT_STYLE) {
@@ -220,6 +257,11 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
                 int resourceId = getContext().getResources().getIdentifier(name, "drawable", getContext().getPackageName());
                 preview.setImageResource(resourceId);
                 title.setText(HuanghunBubbleStyleHelper.getStyleDisplayName(style));
+            }
+            if (checked && batchOrder > 0) {
+                check.setText(String.valueOf(batchOrder));
+            } else {
+                check.setText("✓");
             }
             check.setVisibility(checked ? VISIBLE : INVISIBLE);
             invalidate();

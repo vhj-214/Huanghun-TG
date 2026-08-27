@@ -26,6 +26,9 @@
     <string name="HuanghunBubbleEmberHero">焰彩英雄（动态）</string>
     <string name="HuanghunBubbleBatch">批量</string>
     <string name="HuanghunBubbleBatchSelect">选择气泡</string>
+    <plurals name="HuanghunBubbleBatchActive">
+        <item quantity="other">批量轮换已开启 · 已选 %d 款气泡</item>
+    </plurals>
     <string name="HuanghunBubbleBatchHint">批量：点击气泡卡片即可加入或移出收藏</string>
     <string name="HuanghunBubbleSelectHint">点击一个气泡，将它用于下一条发送消息</string>
     <string name="HuanghunBubblePreview">预览消息</string>

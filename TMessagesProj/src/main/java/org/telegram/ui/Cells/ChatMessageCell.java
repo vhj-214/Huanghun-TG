@@ -7443,7 +7443,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     // Reserve the exterior envelope on both sides before Telegram measures text.
                     // This preserves native wrapping while complete attached ornaments remain
                     // visible and cannot push the real body beyond the ChatMessageCell.
-                    int ornamentOutset = Theme.getHuanghunBubbleDecorationOutset(messageObject.messageOwner.huanghunBubbleStyle);
+                    int ornamentOutset = Theme.getHuanghunBubbleDecorationReserve(messageObject.messageOwner.huanghunBubbleStyle, maxWidth);
                     maxWidth = Math.max(dp(140), maxWidth - ornamentOutset * 2);
                 }
                 drawName = drawAvatar || isPinnedChat || isSavedChat && !messageObject.isOutOwner() && (messageObject.getSavedDialogId() < 0 || messageObject.getSavedDialogId() == UserObject.ANONYMOUS) || (messageObject.messageOwner.peer_id != null && messageObject.messageOwner.peer_id.channel_id != 0 && (!messageObject.isOutOwner() || messageObject.isSupergroup())) || messageObject.isImportedForward() && messageObject.messageOwner.fwd_from.from_id == null;
@@ -20612,7 +20612,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         boolean forceMediaByGroup = currentPosition != null && (currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) == 0 && currentMessagesGroup.isDocuments && !drawPinnedBottom;
         if (currentMessageObject.isOutOwner()) {
             final int huanghunBubbleStyle = HuanghunBubbleStyleHelper.normalizeStyle(currentMessageObject.messageOwner.huanghunBubbleStyle);
-            final boolean useHuanghunBubbleStyle = HuanghunBubbleStyleHelper.isCustomStyle(huanghunBubbleStyle);
+            // Custom skins are text-panel decorations. Media messages have a different Telegram
+            // preview/crop pipeline; forcing a text skin onto it creates blank strips and clips
+            // the photo/video/file thumbnail. Keep every media preview on its native Drawable.
+            final boolean useHuanghunBubbleStyle = HuanghunBubbleStyleHelper.isCustomStyle(huanghunBubbleStyle)
+                    && !mediaBackground && !forceMediaByGroup && !drawPinnedBottom;
             if (transitionParams.changePinnedBottomProgress >= 1 && !mediaBackground && !drawPinnedBottom && !forceMediaByGroup) {
                 currentBackgroundDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(false, false, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOut);
                 currentBackgroundSelectedDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(false, true, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutSelected);
@@ -20640,7 +20644,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 // Shift the Telegram-measured body left by the selected template's exact right
                 // exterior envelope. Text, time and read marks share this body coordinate, while
                 // the complete right ornament remains attached and wholly inside the chat row.
-                final int decorationSafeInset = Theme.getHuanghunBubbleDecorationOutset(huanghunBubbleStyle);
+                final int decorationSafeInset = Theme.getHuanghunBubbleDecorationOutset(huanghunBubbleStyle, backgroundWidth);
                 backgroundDrawableLeft -= decorationSafeInset;
                 backgroundLeft -= decorationSafeInset;
             }

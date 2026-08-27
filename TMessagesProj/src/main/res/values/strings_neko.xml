@@ -26,6 +26,10 @@
     <string name="HuanghunBubbleEmberHero">Ember Hero</string>
     <string name="HuanghunBubbleBatch">Batch</string>
     <string name="HuanghunBubbleBatchSelect">Choose Bubbles</string>
+    <plurals name="HuanghunBubbleBatchActive">
+        <item quantity="one">Batch active · %d bubble selected</item>
+        <item quantity="other">Batch active · %d bubbles selected</item>
+    </plurals>
     <string name="HuanghunBubbleBatchHint">Batch: tap a card to add or remove it from favorites</string>
     <string name="HuanghunBubbleSelectHint">Tap a bubble to use it for the next message</string>
     <string name="HuanghunBubblePreview">Preview message</string>

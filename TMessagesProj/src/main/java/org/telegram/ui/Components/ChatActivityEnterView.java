@@ -240,6 +240,7 @@ import tw.nekomimi.nekogram.utils.AndroidUtil;
 import tw.nekomimi.nekogram.utils.StringUtils;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
+import tw.nekomimi.nekogram.settings.HuanghunBubbleCatalogActivity;
 import tw.nekomimi.nekogram.settings.NekoExtensionsActivity;
 import tw.nekomimi.nekogram.settings.NekoTranslatorSettingsActivity;
 import tw.nekomimi.nekogram.translate.Translator;
@@ -5195,6 +5196,19 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
                 if (parentFragment != null) {
                     parentFragment.presentFragment(new NekoTranslatorSettingsActivity());
+                }
+            });
+            cell.setMinimumWidth(AndroidUtilities.dp(196));
+            menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
+            // Custom Bubbles: deliberately placed immediately below Translation Settings.
+            cell = new ActionBarMenuSubItem(getContext(), false, true);
+            cell.setTextAndIcon(getString(R.string.HuanghunCustomBubbles), R.drawable.msg_msgbubble2_solar);
+            cell.setOnClickListener(v -> {
+                if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
+                    menuPopupWindow.dismiss();
+                }
+                if (parentFragment != null) {
+                    parentFragment.presentFragment(new HuanghunBubbleCatalogActivity());
                 }
             });
             cell.setMinimumWidth(AndroidUtilities.dp(196));
