@@ -21001,6 +21001,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     public boolean drawBackgroundInParent() {
         if (canDrawBackgroundInParent && currentMessageObject != null && currentMessageObject.isOutOwner()) {
+            // A complete Huanghun template must be drawn in this cell's own canvas, where the
+            // native final bounds, text and ornament safety area are available together. Moving it
+            // to the parent gradient path would reintroduce clipping and a mismatched drawable.
+            if (HuanghunBubbleStyleHelper.isCustomStyle(currentMessageObject.messageOwner.huanghunBubbleStyle)) {
+                return false;
+            }
             return getThemedColor(Theme.key_chat_outBubbleGradient1) != 0;
         }
         return false;
@@ -23308,10 +23314,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         if (update) {
             boolean forceMediaByGroup = currentPosition != null && (currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) == 0 && currentMessagesGroup.isDocuments && !drawPinnedBottom;
             if (currentMessageObject.isOutOwner()) {
+                final int huanghunBubbleStyle = HuanghunBubbleStyleHelper.normalizeStyle(currentMessageObject.messageOwner.huanghunBubbleStyle);
+                final boolean useHuanghunBubbleStyle = HuanghunBubbleStyleHelper.isCustomStyle(huanghunBubbleStyle);
                 if (!mediaBackground && !drawPinnedBottom && !forceMediaByGroup) {
-                    currentBackgroundDrawable = (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOut);
+                    currentBackgroundDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(false, false, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOut);
                 } else {
-                    currentBackgroundDrawable = (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutMedia);
+                    currentBackgroundDrawable = useHuanghunBubbleStyle ? getHuanghunBubbleDrawable(true, false, huanghunBubbleStyle) : (Theme.MessageDrawable) getThemedDrawable(Theme.key_drawable_msgOutMedia);
                 }
             } else {
                 if (!mediaBackground && !drawPinnedBottom && !forceMediaByGroup) {

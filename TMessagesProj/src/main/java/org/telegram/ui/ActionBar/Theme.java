@@ -216,6 +216,276 @@ public class Theme {
         // instances retain only their style ID, so recycled chat cells cannot leak a skin to another message.
         private static final SparseArray<Bitmap> huanghunBubbleSkinCache = new SparseArray<>();
         private static final SparseIntArray huanghunBubbleSkinBodyColorCache = new SparseIntArray();
+    // Per-style catalog lettering bounds, normalized to 0..1000. Values were extracted from
+    // the original 85 preview assets; a small safety expansion includes glyph antialiasing.
+    private static final int[][] huanghunBubblePreviewTextRects = new int[][]{
+            null,
+            {303, 294, 691, 668}, // 001
+            {248, 282, 745, 614}, // 002
+            {385, 142, 637, 355}, // 003
+            {305, 230, 689, 725}, // 004
+            {318, 256, 720, 629}, // 005
+            {465, 265, 761, 632}, // 006
+            {309, 291, 710, 612}, // 007
+            {329, 138, 655, 432}, // 008
+            {228, 128, 682, 649}, // 009
+            {221, 275, 695, 611}, // 010
+            null, // 011
+            {281, 296, 719, 658}, // 012
+            {247, 250, 780, 610}, // 013
+            {242, 172, 646, 414}, // 014
+            {326, 297, 674, 575}, // 015
+            {277, 168, 670, 459}, // 016
+            {236, 201, 767, 603}, // 017
+            {354, 283, 752, 644}, // 018
+            {324, 321, 689, 684}, // 019
+            {288, 353, 712, 598}, // 020
+            {273, 102, 737, 321}, // 021
+            {221, 105, 711, 385}, // 022
+            {95, 13, 530, 264}, // 023
+            {83, 124, 521, 466}, // 024
+            {308, 297, 689, 632}, // 025
+            {298, 319, 756, 729}, // 026
+            {237, 268, 731, 690}, // 027
+            {334, 232, 746, 598}, // 028
+            {376, 249, 783, 660}, // 029
+            {248, 298, 662, 557}, // 030
+            {275, 146, 700, 452}, // 031
+            {156, 168, 701, 545}, // 032
+            {168, 176, 625, 647}, // 033
+            {195, 170, 799, 655}, // 034
+            {299, 258, 720, 618}, // 035
+            {278, 349, 722, 625}, // 036
+            {215, 238, 624, 587}, // 037
+            {318, 287, 774, 614}, // 038
+            {143, 186, 591, 557}, // 039
+            {279, 222, 736, 603}, // 040
+            {209, 241, 710, 648}, // 041
+            {301, 251, 699, 540}, // 042
+            {263, 307, 741, 659}, // 043
+            {264, 271, 655, 628}, // 044
+            {296, 78, 716, 319}, // 045
+            {305, 175, 677, 421}, // 046
+            {371, 254, 746, 657}, // 047
+            {241, 266, 547, 552}, // 048
+            {269, 321, 629, 679}, // 049
+            {294, 243, 706, 515}, // 050
+            {174, 146, 618, 401}, // 051
+            {271, 160, 736, 544}, // 052
+            {283, 265, 720, 630}, // 053
+            {262, 252, 661, 506}, // 054
+            {357, 303, 689, 603}, // 055
+            {372, 248, 769, 624}, // 056
+            {341, 198, 734, 581}, // 057
+            {307, 295, 655, 674}, // 058
+            {217, 81, 558, 276}, // 059
+            {217, 252, 682, 449}, // 060
+            {305, 222, 791, 513}, // 061
+            {303, 348, 585, 607}, // 062
+            {287, 177, 732, 582}, // 063
+            {369, 116, 785, 384}, // 064
+            {356, 364, 627, 631}, // 065
+            {273, 303, 731, 686}, // 066
+            {265, 191, 716, 447}, // 067
+            {363, 48, 673, 256}, // 068
+            {356, 97, 663, 291}, // 069
+            {323, 245, 666, 618}, // 070
+            {297, 207, 713, 664}, // 071
+            {332, 63, 710, 250}, // 072
+            {293, 188, 605, 368}, // 073
+            {249, 288, 787, 635}, // 074
+            {287, 204, 673, 471}, // 075
+            {343, 52, 704, 248}, // 076
+            {260, 59, 710, 223}, // 077
+            {271, 208, 644, 444}, // 078
+            {242, 86, 594, 262}, // 079
+            {19, 288, 640, 406}, // 080
+            {6, 252, 688, 398}, // 081
+            {172, 0, 824, 112}, // 082
+            {91, 258, 513, 424}, // 083
+            {308, 429, 722, 568}, // 084
+            {289, 701, 657, 849} // 085
+    };
+
+    // Per-style panel and frame colors sampled from the original catalog artwork.
+    // These values are used only by real outgoing messages; the catalog keeps its raw assets.
+    private static final int[] huanghunBubblePanelColors = new int[]{
+            0x00000000,
+            0xFF162743, // 001
+            0xFFEAF0F6, // 002
+            0xFF6F55FF, // 003
+            0xFF2A89C8, // 004
+            0xFFF4F7FB, // 005
+            0xFFF3F3F3, // 006
+            0xFF0A2033, // 007
+            0xFFF6EBC6, // 008
+            0xFFEAF6D0, // 009
+            0xFFAEBBD0, // 010
+            0xFFD4E9FF, // 011
+            0xFFF7EFE5, // 012
+            0xFFF7E9E3, // 013
+            0xFFE8F4F8, // 014
+            0xFFEEEBFF, // 015
+            0xFFF9EEF2, // 016
+            0xFFE6F0FB, // 017
+            0xFFF4E6E5, // 018
+            0xFFF6E7D4, // 019
+            0xFFDFF6FB, // 020
+            0xFFF7F3F4, // 021
+            0xFFC1E3FF, // 022
+            0xFFEFEEE9, // 023
+            0xFFF8F7F5, // 024
+            0xFF3B3C42, // 025
+            0xFFF3F6F8, // 026
+            0xFFFFF7F1, // 027
+            0xFFD9D2CB, // 028
+            0xFFF4ECE3, // 029
+            0xFFF7EAEA, // 030
+            0xFFF5F9FC, // 031
+            0xFFEAF9F2, // 032
+            0xFFF4FBFF, // 033
+            0xFFBDAEF1, // 034
+            0xFFF6ECE8, // 035
+            0xFFFFF2F3, // 036
+            0xFFF8F6F1, // 037
+            0xFFEFF1F4, // 038
+            0xFFF6F7F8, // 039
+            0xFF232A20, // 040
+            0xFFFFF7EE, // 041
+            0xFF09283A, // 042
+            0xFFF7F8D9, // 043
+            0xFFEFF6F4, // 044
+            0xFF7B3A31, // 045
+            0xFFF6B7C2, // 046
+            0xFF1E1E1E, // 047
+            0xFFEDE6E5, // 048
+            0xFF5A504D, // 049
+            0xFFF7EDEE, // 050
+            0xFFF6ECEB, // 051
+            0xFF5B5258, // 052
+            0xFFF7F1EF, // 053
+            0xFFF4E0E0, // 054
+            0xFFE8CDAF, // 055
+            0xFF4A4F50, // 056
+            0xFFFCF7EE, // 057
+            0xFFF4F7FB, // 058
+            0xFF7DA46D, // 059
+            0xFFFFF8E9, // 060
+            0xFFFBF6F0, // 061
+            0xFFF8F6F2, // 062
+            0xFFBEC8D7, // 063
+            0xFFFFF9F2, // 064
+            0xFFEFF3F6, // 065
+            0xFFF3F7FF, // 066
+            0xFFDFE9B8, // 067
+            0xFFF5F0E2, // 068
+            0xFFFDF9E6, // 069
+            0xFFF8F5EF, // 070
+            0xFFF7F6F4, // 071
+            0xFFD9DEE1, // 072
+            0xFFF6FBFF, // 073
+            0xFFE6EEF4, // 074
+            0xFFFFF8EB, // 075
+            0xFFF2F5F7, // 076
+            0xFFF4FBFF, // 077
+            0xFFEDE6CC, // 078
+            0xFFF7F4EE, // 079
+            0xFFF6F4EE, // 080
+            0xFFF7F1E0, // 081
+            0xFFEFF6F9, // 082
+            0xFFEAF4F7, // 083
+            0xFFDCDEE1, // 084
+            0xFFF3EFE6 // 085
+    };
+
+    private static final int[] huanghunBubbleBorderColors = new int[]{
+            0x00000000,
+            0xFF58B0E6, // 001
+            0xFF5B6775, // 002
+            0xFF200028, // 003
+            0xFF0A2840, // 004
+            0xFFC8D7EB, // 005
+            0xFF000000, // 006
+            0xFF2DE6FF, // 007
+            0xFF141A1D, // 008
+            0xFF8CB65A, // 009
+            0xFF363D44, // 010
+            0xFF4A2B7A, // 011
+            0xFF7C6A4F, // 012
+            0xFFA86A5E, // 013
+            0xFF8DAFC0, // 014
+            0xFF8C76C2, // 015
+            0xFFD9A6B3, // 016
+            0xFF6D8295, // 017
+            0xFFB28C84, // 018
+            0xFF9B7A5A, // 019
+            0xFFA7CFE0, // 020
+            0xFFD9BFC6, // 021
+            0xFF6A829B, // 022
+            0xFF3B3B3B, // 023
+            0xFF000000, // 024
+            0xFFD6D4E6, // 025
+            0xFF3B4754, // 026
+            0xFF7A4B44, // 027
+            0xFF6F6B67, // 028
+            0xFF6C6C6C, // 029
+            0xFFA85A62, // 030
+            0xFF0A0A0A, // 031
+            0xFF9FB99D, // 032
+            0xFF9ED6EA, // 033
+            0xFF4B2E6A, // 034
+            0xFF2F2F2F, // 035
+            0xFFF19BA6, // 036
+            0xFF1B1B1B, // 037
+            0xFF6B6B6B, // 038
+            0xFF4D4D4D, // 039
+            0xFFEED9B2, // 040
+            0xFFF4A95C, // 041
+            0xFF66D9FF, // 042
+            0xFF3E8A3A, // 043
+            0xFFA8B7B4, // 044
+            0xFFD9C9B1, // 045
+            0xFF2F2F2F, // 046
+            0xFF8F8F8F, // 047
+            0xFFBDB6B4, // 048
+            0xFF1A1616, // 049
+            0xFF7A2026, // 050
+            0xFFBFA0A0, // 051
+            0xFFEDEDED, // 052
+            0xFF9B8D8C, // 053
+            0xFF8B4F4F, // 054
+            0xFF4B3F2E, // 055
+            0xFFC1BEB9, // 056
+            0xFF4B3E3A, // 057
+            0xFF1A1A1A, // 058
+            0xFF1A1A1A, // 059
+            0xFFE7C97E, // 060
+            0xFF2E2E2E, // 061
+            0xFF0A2540, // 062
+            0xFF6B7E8E, // 063
+            0xFF000000, // 064
+            0xFF3B4751, // 065
+            0xFF2D2D2D, // 066
+            0xFF8F9D6B, // 067
+            0xFF4C4C4C, // 068
+            0xFF8DAFD0, // 069
+            0xFF2E2E2E, // 070
+            0xFF4B4F57, // 071
+            0xFF90A6B4, // 072
+            0xFF8C8F92, // 073
+            0xFF3B4046, // 074
+            0xFF6B9FB6, // 075
+            0xFFA9B6BE, // 076
+            0xFF00D6FF, // 077
+            0xFFCBB892, // 078
+            0xFFBFA06A, // 079
+            0xFF91B3C4, // 080
+            0xFFC9B88F, // 081
+            0xFF7A8A93, // 082
+            0xFF8FA3AE, // 083
+            0xFF49545D, // 084
+            0xFF9AA3AD // 085
+    };
         private final Paint huanghunDecorationPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Rect huanghunBubbleSkinSourceRect = new Rect();
         private final RectF huanghunBubbleSkinRect = new RectF();
@@ -391,35 +661,36 @@ public class Theme {
             if (sourceDecorationWidth * 2 >= bitmap.getWidth()) {
                 return;
             }
-            float ornamentScale = Math.max(0.68f, Math.min(1.04f, height / Math.max(1f, bitmap.getHeight() * 0.81f)));
+            // This is the same anchor rule as the approved complete-template prototype. The
+            // official measured body controls scale, while a bounded minimum preserves readable
+            // characters on a short message and a bounded maximum prevents tall art from growing
+            // without limit on a long message.
+            float ornamentScale = Math.max(0.68f, Math.min(1.04f, height / Math.max(1f, bitmap.getHeight() * 0.87f)));
             float decorationWidth = sourceDecorationWidth * ornamentScale;
             float decorationHeight = bitmap.getHeight() * ornamentScale;
-            // Anchor ornaments from the top edge of the actual native body. This avoids the
-            // vertical overlap caused by centering tall source art on a short message.
-            float decorationTop = top - bitmap.getHeight() * ornamentScale * 0.20f;
-            float leftDecorationLeft = left - decorationWidth * 0.80f;
-            float leftDecorationRight = left + decorationWidth * 0.20f;
-            float rightDecorationLeft = right - decorationWidth * 0.20f;
-            float rightDecorationRight = right + decorationWidth * 0.80f;
+            float decorationTop = top - decorationHeight * 0.20f;
+            float leftDecorationLeft = left - bitmap.getWidth() * ornamentScale * 0.18f;
+            float leftDecorationRight = leftDecorationLeft + decorationWidth;
+            float rightDecorationLeft = right - decorationWidth + bitmap.getWidth() * ornamentScale * 0.18f;
+            float rightDecorationRight = rightDecorationLeft + decorationWidth;
 
-            huanghunDecorationPaint.setAlpha(alpha);
-            // First establish a fully opaque native body. It keeps actual text measured and laid
-            // out by Telegram and also prevents the catalog's “大家好！” wording from entering a
-            // real message.
+            // The official native path remains the single final content panel. Its bounds are
+            // exactly Telegram's short/long/multi-line measurement and hide the original catalog
+            // wording beneath the live text area.
             int bodyColor = getHuanghunBubbleSkinBodyColor(bitmap);
+            huanghunDecorationPaint.setAlpha(alpha);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setColor(bodyColor);
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
             huanghunDecorationPaint.setStyle(Paint.Style.STROKE);
             huanghunDecorationPaint.setStrokeWidth(dp(1.5f));
-            huanghunDecorationPaint.setColor(Color.rgb(Math.max(0, Color.red(bodyColor) - 28), Math.max(0, Color.green(bodyColor) - 28), Math.max(0, Color.blue(bodyColor) - 28)));
+            huanghunDecorationPaint.setColor(getHuanghunBubbleSkinBorderColor(bodyColor));
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
 
-            // Both source strips sit over the finished body. These edge-only regions carry the
-            // original illustrations and border material, but exclude the central catalog sample
-            // wording; actual Telegram text is drawn later and stays readable above this layer.
-            // The ChatMessageCell reserves right-side room for the outgoing region before this
-            // draw, so no part of the complete ornament is lost at the screen edge.
+            // The complete, uniformly scaled source-side regions are drawn over the body after
+            // its sample lettering has been removed through per-style source metadata. This keeps
+            // original frame material, characters and pendants visible just like the catalog
+            // template without leaking “大家好！” into a real conversation.
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setAlpha(alpha);
             drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceDecorationWidth, bitmap.getHeight(), leftDecorationLeft, decorationTop, leftDecorationRight, decorationTop + decorationHeight);
@@ -433,48 +704,27 @@ public class Theme {
             if (cached != Integer.MIN_VALUE) {
                 return cached;
             }
-            int startX = Math.max(0, Math.round(bitmap.getWidth() * 0.34f));
-            int endX = Math.min(bitmap.getWidth(), Math.round(bitmap.getWidth() * 0.66f));
-            int startY = Math.max(0, Math.round(bitmap.getHeight() * 0.34f));
-            int endY = Math.min(bitmap.getHeight(), Math.round(bitmap.getHeight() * 0.66f));
-            // Quantize the center material into a small RGB palette, then use the most frequent
-            // opaque bucket. A per-channel median can combine unrelated edge colors and the
-            // preview wording into a gray, hazy fill; the dominant material retains the actual
-            // template's intended panel color while the native body hides only the preview text.
-            final int bucketCount = 16 * 16 * 16;
-            int[] counts = new int[bucketCount];
-            int[] redSums = new int[bucketCount];
-            int[] greenSums = new int[bucketCount];
-            int[] blueSums = new int[bucketCount];
-            for (int y = startY; y < endY; y += 3) {
-                for (int x = startX; x < endX; x += 3) {
-                    int color = bitmap.getPixel(x, y);
-                    if (Color.alpha(color) < 180) {
-                        continue;
-                    }
-                    int bucket = ((Color.red(color) >> 4) << 8) | ((Color.green(color) >> 4) << 4) | (Color.blue(color) >> 4);
-                    counts[bucket]++;
-                    redSums[bucket] += Color.red(color);
-                    greenSums[bucket] += Color.green(color);
-                    blueSums[bucket] += Color.blue(color);
-                }
-            }
-            int dominantBucket = -1;
-            int dominantCount = 0;
-            for (int bucket = 0; bucket < bucketCount; bucket++) {
-                if (counts[bucket] > dominantCount) {
-                    dominantBucket = bucket;
-                    dominantCount = counts[bucket];
-                }
-            }
-            int bodyColor;
-            if (dominantBucket < 0 || dominantCount == 0) {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            int bodyColor = style > 0 && style < huanghunBubblePanelColors.length ? huanghunBubblePanelColors[style] : 0;
+            if (bodyColor == 0) {
                 bodyColor = getColor(key_chat_outBubble);
-            } else {
-                bodyColor = Color.rgb(redSums[dominantBucket] / dominantCount, greenSums[dominantBucket] / dominantCount, blueSums[dominantBucket] / dominantCount);
             }
-            huanghunBubbleSkinBodyColorCache.put(huanghunBubbleStyle, bodyColor);
+            huanghunBubbleSkinBodyColorCache.put(style, bodyColor);
             return bodyColor;
+        }
+
+        private int getHuanghunBubbleSkinBorderColor(int bodyColor) {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            int borderColor = style > 0 && style < huanghunBubbleBorderColors.length ? huanghunBubbleBorderColors[style] : 0;
+            if (borderColor == 0) {
+                borderColor = Color.rgb(Math.max(0, Color.red(bodyColor) - 28), Math.max(0, Color.green(bodyColor) - 28), Math.max(0, Color.blue(bodyColor) - 28));
+            }
+            return borderColor;
+        }
+
+        private int[] getHuanghunBubblePreviewTextRect() {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            return style > 0 && style < huanghunBubblePreviewTextRects.length ? huanghunBubblePreviewTextRects[style] : null;
         }
 
         private void drawHuanghunBubbleSkinPatch(Canvas canvas, Bitmap bitmap, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
@@ -483,6 +733,30 @@ public class Theme {
             }
             huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
             huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
+
+            // The catalog preview text is not located at a common percentage across the 85
+            // original resources. Use the measured, per-style source rectangle instead of a
+            // generic crop so every real message removes its own sample lettering safely.
+            int[] wording = getHuanghunBubblePreviewTextRect();
+            if (wording != null) {
+                float wordingLeft = bitmap.getWidth() * wording[0] / 1000f;
+                float wordingTop = bitmap.getHeight() * wording[1] / 1000f;
+                float wordingRight = bitmap.getWidth() * wording[2] / 1000f;
+                float wordingBottom = bitmap.getHeight() * wording[3] / 1000f;
+                if (sourceLeft < wordingRight && sourceRight > wordingLeft && sourceTop < wordingBottom && sourceBottom > wordingTop) {
+                    float sourceWidth = sourceRight - sourceLeft;
+                    float sourceHeight = sourceBottom - sourceTop;
+                    float maskedLeft = destinationLeft + (Math.max(sourceLeft, wordingLeft) - sourceLeft) / sourceWidth * (destinationRight - destinationLeft);
+                    float maskedRight = destinationLeft + (Math.min(sourceRight, wordingRight) - sourceLeft) / sourceWidth * (destinationRight - destinationLeft);
+                    float maskedTop = destinationTop + (Math.max(sourceTop, wordingTop) - sourceTop) / sourceHeight * (destinationBottom - destinationTop);
+                    float maskedBottom = destinationTop + (Math.min(sourceBottom, wordingBottom) - sourceTop) / sourceHeight * (destinationBottom - destinationTop);
+                    canvas.save();
+                    canvas.clipOutRect(maskedLeft, maskedTop, maskedRight, maskedBottom);
+                    canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
+                    canvas.restore();
+                    return;
+                }
+            }
             canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
         }
 
@@ -9905,50 +10179,9 @@ public class Theme {
         if (messageStyle <= 0 || messageStyle > HuanghunBubbleStyleHelper.STYLE_COUNT) {
             return getHuanghunLiquidGlassBubbleColor(key);
         }
-        final boolean dark = currentTheme != null && currentTheme.isDark();
-        final int palette = (messageStyle - 1) % 12;
-        int surface;
-        int selected;
-        int gradient1;
-        int gradient2;
-        int gradient3;
-        boolean animated;
-        switch (palette) {
-            case 0: // 桃源深处有人家
-                surface = dark ? 0xFF73594B : 0xFFFFDEC6; gradient1 = dark ? 0xFFA77E63 : 0xFFFFB8A2; gradient2 = dark ? 0xFF8B5B55 : 0xFFF4A7A7; gradient3 = 0; animated = false; break;
-            case 1: // 可爱蓝兔兔
-                surface = dark ? 0xFF355A88 : 0xFFCDEBFF; gradient1 = dark ? 0xFF5789BB : 0xFF8FCBFF; gradient2 = dark ? 0xFF8466AE : 0xFFC8B6FF; gradient3 = 0; animated = false; break;
-            case 2: // 线条小狗
-                surface = dark ? 0xFF6E5550 : 0xFFFFECE1; gradient1 = dark ? 0xFFA47D65 : 0xFFFFC997; gradient2 = dark ? 0xFF8A6C79 : 0xFFFFB5C3; gradient3 = 0; animated = false; break;
-            case 3: // 弹弹小考拉
-                surface = dark ? 0xFF78516D : 0xFFFFE2F1; gradient1 = dark ? 0xFFA76591 : 0xFFFFA9D6; gradient2 = dark ? 0xFF755C9E : 0xFFBAA0FF; gradient3 = 0; animated = false; break;
-            case 4: // 深海奶龙
-                surface = dark ? 0xFF1D5A78 : 0xFFAEEBFF; gradient1 = dark ? 0xFF258BAD : 0xFF6BD9FF; gradient2 = dark ? 0xFF376FB0 : 0xFF8EBAFF; gradient3 = 0; animated = true; break;
-            case 5: // 东方小女孩
-                surface = dark ? 0xFF604B5C : 0xFFFFEAF0; gradient1 = dark ? 0xFF9B6380 : 0xFFFFAFC8; gradient2 = dark ? 0xFF674A8C : 0xFFC6A4FF; gradient3 = 0; animated = false; break;
-            case 6: // 绵绵约会日
-                surface = dark ? 0xFF723D50 : 0xFFFFD8E8; gradient1 = dark ? 0xFFB44F78 : 0xFFFF8EBB; gradient2 = dark ? 0xFF845C98 : 0xFFD3A2FF; gradient3 = 0; animated = false; break;
-            case 7: // 彩虹独角兽
-                surface = dark ? 0xFF445E99 : 0xFFE0E9FF; gradient1 = dark ? 0xFF7C6DCC : 0xFFB4A5FF; gradient2 = dark ? 0xFF467CBE : 0xFF8FD7FF; gradient3 = dark ? 0xFFB35F9E : 0xFFFF9BD2; animated = true; break;
-            case 8: // 白光莹
-                surface = dark ? 0xFF76623C : 0xFFFFE9B4; gradient1 = dark ? 0xFFB79545 : 0xFFFFCC64; gradient2 = dark ? 0xFF82724D : 0xFFFFE89A; gradient3 = 0; animated = false; break;
-            case 9: // 亡灵之梦
-                surface = dark ? 0xFF25487E : 0xFFB8DBFF; gradient1 = dark ? 0xFF366DBB : 0xFF6DB9FF; gradient2 = dark ? 0xFF674EAB : 0xFFAA8DFF; gradient3 = dark ? 0xFF1A8290 : 0xFF76EBE1; animated = true; break;
-            case 10: // 黑白小园
-                surface = dark ? 0xFF4C4E58 : 0xFFF4F5F7; gradient1 = dark ? 0xFF727887 : 0xFFD4D9E2; gradient2 = dark ? 0xFF57515F : 0xFFF0D7E5; gradient3 = 0; animated = false; break;
-            default: // 星空/神明等高光动态款
-                surface = dark ? 0xFF34255E : 0xFFDAD0FF; gradient1 = dark ? 0xFF5E43AF : 0xFF9B82FF; gradient2 = dark ? 0xFF9350A7 : 0xFFFFA5E6; gradient3 = dark ? 0xFF215F99 : 0xFF78D4FF; animated = true; break;
-        }
-        selected = dark ? ColorUtils.blendARGB(surface, Color.BLACK, .22f) : ColorUtils.blendARGB(surface, Color.WHITE, .18f);
-        if (key == key_chat_outBubble) return surface;
-        if (key == key_chat_outBubbleSelected) return selected;
-        if (key == key_chat_outBubbleGradient1) return gradient1;
-        if (key == key_chat_outBubbleGradient2) return gradient2;
-        if (key == key_chat_outBubbleGradient3) return gradient3;
-        if (key == key_chat_outBubbleGradientAnimated) return animated ? 1 : 0;
-        if (key == key_chat_outBubbleGradientSelectedOverlay) return dark ? 0x26000000 : 0x1CFFFFFF;
-        if (key == key_chat_outBubbleShadow) return dark ? 0x30000000 : 0x1A25345A;
-        if (key == key_chat_outBubbleSelectedOverlay) return Color.TRANSPARENT;
+        // A catalog resource is the source of truth for a custom style. Returning no synthetic
+        // Theme palette here prevents the old 12-color gradient table from turning a resource
+        // into an unrelated translucent or gray Telegram bubble before the template is drawn.
         return Integer.MIN_VALUE;
     }
 
