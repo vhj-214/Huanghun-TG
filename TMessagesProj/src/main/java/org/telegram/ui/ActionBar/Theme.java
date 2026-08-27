@@ -168,6 +168,29 @@ public class Theme {
     public static final int default_shadow_color = ColorUtils.setAlphaComponent(Color.BLACK, 27);
     public static boolean disallowChangeServiceMessageColor;
 
+    /**
+     * Returns the exact per-template horizontal envelope required by complete exterior
+     * ornaments. The native body remains Telegram-measured; ChatMessageCell reserves this
+     * separate space so no attached character can be clipped by a screen edge.
+     */
+    public static int getHuanghunBubbleDecorationOutset(int style) {
+        int normalizedStyle = HuanghunBubbleStyleHelper.normalizeStyle(style);
+        if (normalizedStyle <= HuanghunBubbleStyleHelper.DEFAULT_STYLE || normalizedStyle >= MessageDrawable.huanghunBubbleTemplateBounds.length) {
+            return 0;
+        }
+        if (normalizedStyle == 12) {
+            // Source-scale widths of the trimmed, complete transparent left/right rabbit layers.
+            return (int) Math.ceil(86 * 1.04f) + dp(2);
+        }
+        int[] template = MessageDrawable.huanghunBubbleTemplateBounds[normalizedStyle];
+        if (template == null || template.length < 12) {
+            return 0;
+        }
+        int leftWidth = Math.max(0, template[6] - template[4]);
+        int rightWidth = Math.max(0, template[10] - template[8]);
+        return (int) Math.ceil(Math.max(leftWidth, rightWidth) * 1.04f) + dp(2);
+    }
+
     public static void applyDefaultShadow(Paint paint) {
         paint.setShadowLayer(dpf2(1), 0, dpf2(0.33f), default_shadow_color);
     }
@@ -215,6 +238,9 @@ public class Theme {
         // Cache immutable, user-provided local skin bitmaps by style ID. Individual MessageDrawable
         // instances retain only their style ID, so recycled chat cells cannot leak a skin to another message.
         private static final SparseArray<Bitmap> huanghunBubbleSkinCache = new SparseArray<>();
+        // Separate chat-only complete ornaments never replace original catalog resources.  They
+        // exist only where catalog lettering and a character overlap irreversibly (style 012).
+        private static final SparseArray<Bitmap> huanghunBubbleChatOrnamentCache = new SparseArray<>();
         private static final SparseIntArray huanghunBubbleSkinBodyColorCache = new SparseIntArray();
     // Per-style catalog lettering bounds, normalized to 0..1000. Values were extracted from
     // the original 85 preview assets; a small safety expansion includes glyph antialiasing.
@@ -727,6 +753,36 @@ public class Theme {
             return bitmap;
         }
 
+        private Bitmap getHuanghunBubbleChatOrnament(boolean rightSide) {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            // Style 012 is the confirmed reference layout. Its catalog lettering intersects the
+            // bunny artwork, so the real chat uses a dedicated transparent full-bunny layer.
+            if (style != 12) {
+                return null;
+            }
+            int cacheKey = style * 2 + (rightSide ? 1 : 0);
+            Bitmap cached = huanghunBubbleChatOrnamentCache.get(cacheKey);
+            if (cached != null && !cached.isRecycled()) {
+                return cached;
+            }
+            Context context = ApplicationLoader.applicationContext;
+            if (context == null) {
+                return null;
+            }
+            String name = rightSide ? "huanghun_bubble_chat_012_right_clean" : "huanghun_bubble_chat_012_left_clean";
+            int resourceId = context.getResources().getIdentifier(name, "drawable", context.getPackageName());
+            if (resourceId == 0) {
+                return null;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = false;
+            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
+            if (bitmap != null) {
+                huanghunBubbleChatOrnamentCache.put(cacheKey, bitmap);
+            }
+            return bitmap;
+        }
+
         private void drawHuanghunBubbleSkin(Canvas canvas, Rect bounds, Path bubblePath) {
             Bitmap bitmap = getHuanghunBubbleSkin();
             int[] template = getHuanghunBubbleTemplateBounds();
@@ -748,12 +804,18 @@ public class Theme {
             huanghunDecorationPaint.setAlpha(alpha);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
 
-            // Draw complete source ornaments first. The native body below is deliberately drawn
-            // afterwards, so characters can touch the exterior outline but cannot pass through
-            // live text, timestamps or read marks. Per-style wording masks still remove only the
-            // catalog sample text and leave all character pixels intact.
-            drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, left, right, top, ornamentScale, false);
-            drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, left, right, top, ornamentScale, true);
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            Bitmap leftChatOrnament = getHuanghunBubbleChatOrnament(false);
+            Bitmap rightChatOrnament = getHuanghunBubbleChatOrnament(true);
+            // Other templates retain their existing source-resource fallback. The confirmed 012
+            // layout defers its separate complete rabbit layers until after the native panel so
+            // their paws visibly mount on the outline rather than floating beside it.
+            if (leftChatOrnament == null) {
+                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, left, right, top, ornamentScale, false);
+            }
+            if (rightChatOrnament == null) {
+                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, left, right, top, ornamentScale, true);
+            }
 
             // This is one continuous panel using the selected template's own material color.
             // It is the final opaque text-safe area and fully encloses real text for every size.
@@ -766,6 +828,14 @@ public class Theme {
             huanghunDecorationPaint.setColor(getHuanghunBubbleSkinBorderColor(bodyColor));
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+            // The finished rabbits are painted last with a tiny overlap on the native outline.
+            // They cannot cover text because ChatMessageCell has reserved exterior safe space.
+            if (leftChatOrnament != null) {
+                drawHuanghunBubbleChatOrnament(canvas, leftChatOrnament, template, 4, left, right, top, ornamentScale, false);
+            }
+            if (rightChatOrnament != null) {
+                drawHuanghunBubbleChatOrnament(canvas, rightChatOrnament, template, 8, left, right, top, ornamentScale, true);
+            }
             huanghunDecorationPaint.setAlpha(255);
         }
 
@@ -797,6 +867,18 @@ public class Theme {
             float destinationTop = bodyTop + (sourceTop - template[1]) * scale;
             float destinationBottom = destinationTop + (sourceBottom - sourceTop) * scale;
             drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceLeft, sourceTop, sourceRight, sourceBottom, destinationLeft, destinationTop, destinationRight, destinationBottom);
+        }
+
+        private void drawHuanghunBubbleChatOrnament(Canvas canvas, Bitmap ornament, int[] template, int offset, float bodyLeft, float bodyRight, float bodyTop, float scale, boolean rightSide) {
+            float width = ornament.getWidth() * scale;
+            float height = ornament.getHeight() * scale;
+            // Mount on the outline by one resource-scale gap instead of leaving a visual hole.
+            float overlap = dp(2);
+            float destinationLeft = rightSide ? bodyRight - overlap : bodyLeft - width + overlap;
+            float destinationTop = bodyTop + (template[offset + 1] - template[1]) * scale;
+            huanghunBubbleSkinSourceRect.set(0, 0, ornament.getWidth(), ornament.getHeight());
+            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationLeft + width, destinationTop + height);
+            canvas.drawBitmap(ornament, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
         }
 
         private int getHuanghunBubbleSkinBodyColor(Bitmap bitmap) {

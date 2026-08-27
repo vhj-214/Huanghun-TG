@@ -7439,6 +7439,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 } else {
                     maxWidth = Math.min(getParentWidth(), AndroidUtilities.displaySize.y) - dp((isArticle ? 40 : 80) + (isSideMenuEnabled ? ChatActivity.SIDE_MENU_WIDTH : drawAvatar ? 42 : 0));
                 }
+                if (messageObject.isOutOwner() && HuanghunBubbleStyleHelper.isCustomStyle(messageObject.messageOwner.huanghunBubbleStyle)) {
+                    // Reserve the exterior envelope on both sides before Telegram measures text.
+                    // This preserves native wrapping while complete attached ornaments remain
+                    // visible and cannot push the real body beyond the ChatMessageCell.
+                    int ornamentOutset = Theme.getHuanghunBubbleDecorationOutset(messageObject.messageOwner.huanghunBubbleStyle);
+                    maxWidth = Math.max(dp(140), maxWidth - ornamentOutset * 2);
+                }
                 drawName = drawAvatar || isPinnedChat || isSavedChat && !messageObject.isOutOwner() && (messageObject.getSavedDialogId() < 0 || messageObject.getSavedDialogId() == UserObject.ANONYMOUS) || (messageObject.messageOwner.peer_id != null && messageObject.messageOwner.peer_id.channel_id != 0 && (!messageObject.isOutOwner() || messageObject.isSupergroup())) || messageObject.isImportedForward() && messageObject.messageOwner.fwd_from.from_id == null;
 
                 availableTimeWidth = maxWidth;
@@ -20630,12 +20637,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
             int backgroundLeft = backgroundDrawableLeft;
             if (useHuanghunBubbleStyle) {
-                // The native message body keeps its original measured width. Move the complete
-                // outgoing frame left by a small, fixed safety area so right-side characters and
-                // pendants remain inside this full-width ChatMessageCell instead of being clipped
-                // at the screen edge. All text/time/reaction positions derive from this same left
-                // coordinate, so the native body and its contents stay aligned.
-                final int decorationSafeInset = dp(54);
+                // Shift the Telegram-measured body left by the selected template's exact right
+                // exterior envelope. Text, time and read marks share this body coordinate, while
+                // the complete right ornament remains attached and wholly inside the chat row.
+                final int decorationSafeInset = Theme.getHuanghunBubbleDecorationOutset(huanghunBubbleStyle);
                 backgroundDrawableLeft -= decorationSafeInset;
                 backgroundLeft -= decorationSafeInset;
             }
