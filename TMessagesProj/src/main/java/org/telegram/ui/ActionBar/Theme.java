@@ -307,6 +307,95 @@ public class Theme {
             {289, 701, 657, 849} // 085
     };
 
+        private static final int[][] huanghunBubbleTemplateBounds = new int[][]{
+                null,
+                {88, 46, 230, 138, 6, 12, 120, 156, 196, 12, 312, 156}, // 001
+                {48, 58, 275, 156, 6, 48, 80, 170, 275, 60, 317, 179}, // 002
+                {86, 34, 259, 153, 0, 8, 128, 186, 256, 10, 322, 174}, // 003
+                {46, 30, 264, 142, 0, 8, 78, 150, 242, 8, 309, 150}, // 004
+                {120, 78, 260, 132, 6, 44, 136, 161, 228, 36, 344, 132}, // 005
+                {106, 48, 238, 110, 6, 14, 130, 156, 0, 0, 0, 0}, // 006
+                {95, 52, 223, 126, 4, 18, 120, 160, 198, 18, 314, 160}, // 007
+                {46, 20, 271, 118, 6, 70, 114, 142, 250, 8, 316, 168}, // 008
+                {26, 12, 287, 110, 2, 50, 74, 116, 242, 62, 309, 118}, // 009
+                {44, 42, 268, 147, 0, 18, 110, 157, 268, 18, 318, 147}, // 010
+                {76, 18, 266, 178, 0, 6, 82, 186, 266, 8, 322, 208}, // 011
+                {82, 54, 233, 120, 2, 16, 125, 148, 205, 16, 313, 148}, // 012
+                {36, 44, 224, 143, 2, 12, 56, 150, 208, 86, 264, 186}, // 013
+                {68, 56, 234, 116, 6, 14, 88, 150, 234, 18, 318, 168}, // 014
+                {48, 34, 272, 152, 6, 12, 128, 178, 192, 10, 314, 184}, // 015
+                {12, 8, 307, 60, 4, 64, 72, 148, 220, 64, 318, 156}, // 016
+                {48, 8, 290, 78, 4, 4, 90, 86, 240, 12, 320, 86}, // 017
+                {94, 36, 276, 122, 2, 2, 136, 122, 268, 48, 293, 84}, // 018
+                {52, 46, 258, 136, 6, 20, 110, 148, 234, 18, 304, 148}, // 019
+                {54, 54, 246, 136, 18, 50, 76, 132, 230, 34, 296, 116}, // 020
+                {58, 30, 257, 150, 6, 20, 92, 164, 246, 20, 311, 164}, // 021
+                {54, 20, 235, 124, 10, 6, 64, 52, 225, 58, 315, 158}, // 022
+                {20, 8, 240, 64, 0, 0, 0, 0, 236, 12, 335, 112}, // 023
+                {6, 8, 206, 96, 0, 0, 0, 0, 176, 22, 294, 136}, // 024
+                {61, 36, 252, 136, 4, 12, 90, 152, 252, 22, 312, 154}, // 025
+                {48, 52, 276, 120, 4, 6, 86, 110, 236, 18, 295, 58}, // 026
+                {84, 46, 256, 128, 6, 8, 120, 140, 232, 24, 312, 164}, // 027
+                {96, 46, 232, 116, 4, 6, 114, 142, 220, 64, 301, 150}, // 028
+                {82, 46, 265, 122, 4, 6, 118, 128, 255, 64, 288, 104}, // 029
+                {30, 32, 291, 148, 6, 6, 90, 168, 206, 6, 322, 182}, // 030
+                {96, 44, 262, 132, 0, 8, 120, 152, 256, 6, 317, 108}, // 031
+                {64, 26, 292, 148, 2, 2, 104, 92, 208, 84, 320, 192}, // 032
+                {46, 30, 264, 128, 2, 6, 94, 144, 210, 34, 312, 156}, // 033
+                {28, 8, 248, 120, 0, 4, 48, 56, 242, 18, 301, 148}, // 034
+                {66, 46, 246, 114, 4, 6, 98, 114, 246, 18, 302, 116}, // 035
+                {60, 36, 248, 136, 6, 34, 64, 150, 248, 8, 322, 160}, // 036
+                {45, 46, 265, 128, 8, 24, 84, 152, 220, 8, 308, 96}, // 037
+                {48, 36, 268, 118, 6, 24, 98, 152, 246, 30, 312, 154}, // 038
+                {8, 8, 200, 92, 0, 0, 0, 0, 200, 48, 299, 155}, // 039
+                {88, 44, 235, 140, 2, 6, 120, 162, 200, 12, 321, 170}, // 040
+                {36, 14, 212, 86, 4, 2, 56, 92, 198, 46, 286, 128}, // 041
+                {84, 64, 224, 128, 2, 36, 104, 152, 204, 36, 306, 152}, // 042
+                {34, 20, 287, 168, 2, 8, 98, 154, 228, 8, 320, 186}, // 043
+                {46, 32, 278, 168, 0, 14, 96, 174, 252, 20, 319, 192}, // 044
+                {52, 28, 282, 126, 8, 6, 92, 152, 250, 8, 326, 152}, // 045
+                {103, 92, 236, 156, 4, 22, 140, 178, 236, 38, 333, 178}, // 046
+                {102, 39, 260, 117, 0, 8, 135, 142, 238, 22, 298, 50}, // 047
+                {60, 44, 255, 140, 8, 18, 110, 150, 230, 60, 318, 176}, // 048
+                {88, 48, 262, 110, 4, 10, 140, 120, 250, 28, 311, 114}, // 049
+                {44, 28, 269, 146, 6, 12, 84, 146, 206, 12, 308, 156}, // 050
+                {88, 34, 229, 136, 6, 6, 110, 150, 178, 6, 312, 203}, // 051
+                {36, 18, 278, 140, 6, 106, 86, 152, 266, 10, 311, 64}, // 052
+                {36, 15, 283, 144, 4, 2, 96, 140, 224, 4, 318, 162}, // 053
+                {40, 24, 260, 136, 6, 18, 72, 188, 230, 8, 321, 194}, // 054
+                {48, 22, 294, 142, 0, 10, 120, 150, 262, 8, 309, 66}, // 055
+                {88, 44, 262, 118, 6, 6, 126, 152, 246, 48, 294, 120}, // 056
+                {82, 34, 223, 92, 6, 22, 104, 103, 224, 38, 282, 88}, // 057
+                {86, 44, 226, 108, 8, 22, 106, 116, 226, 46, 278, 96}, // 058
+                {96, 34, 224, 106, 6, 8, 104, 118, 208, 30, 262, 106}, // 059
+                {80, 58, 320, 140, 6, 28, 120, 150, 300, 30, 362, 118}, // 060
+                {86, 30, 324, 102, 6, 6, 130, 118, 320, 12, 358, 110}, // 061
+                {46, 62, 226, 136, 4, 48, 110, 138, 216, 64, 268, 136}, // 062
+                {64, 30, 232, 124, 8, 8, 96, 124, 200, 6, 305, 162}, // 063
+                {60, 20, 270, 92, 6, 6, 74, 104, 266, 8, 304, 104}, // 064
+                {94, 86, 226, 144, 28, 74, 120, 150, 220, 78, 268, 112}, // 065
+                {42, 22, 248, 152, 0, 6, 110, 178, 196, 6, 289, 186}, // 066
+                {56, 26, 248, 144, 6, 8, 92, 156, 238, 6, 304, 156}, // 067
+                {48, 12, 244, 60, 0, 8, 68, 64, 244, 8, 304, 74}, // 068
+                {84, 36, 247, 106, 0, 8, 110, 138, 226, 12, 304, 140}, // 069
+                {30, 32, 235, 118, 4, 18, 88, 122, 216, 8, 264, 106}, // 070
+                {44, 36, 244, 132, 6, 18, 104, 140, 238, 10, 304, 156}, // 071
+                {46, 18, 220, 82, 12, 8, 90, 92, 212, 6, 302, 96}, // 072
+                {52, 86, 168, 130, 22, 68, 72, 120, 160, 100, 236, 168}, // 073
+                {44, 36, 230, 128, 6, 12, 80, 124, 208, 22, 276, 164}, // 074
+                {96, 28, 236, 108, 0, 8, 96, 132, 236, 8, 304, 140}, // 075
+                {70, 18, 230, 112, 18, 0, 110, 128, 218, 6, 280, 116}, // 076
+                {96, 18, 156, 64, 8, 68, 96, 132, 160, 4, 258, 140}, // 077
+                {44, 50, 214, 166, 6, 26, 90, 152, 190, 26, 256, 152}, // 078
+                {30, 26, 170, 84, 2, 12, 78, 92, 168, 18, 243, 106}, // 079
+                {44, 254, 252, 294, 8, 246, 92, 298, 208, 246, 274, 298}, // 080
+                {8, 144, 263, 287, 0, 212, 80, 287, 164, 212, 271, 287}, // 081
+                {52, 246, 252, 292, 6, 232, 86, 304, 0, 0, 0, 0}, // 082
+                {22, 86, 256, 110, 6, 76, 48, 136, 256, 80, 276, 120}, // 083
+                {68, 138, 246, 218, 12, 122, 112, 238, 230, 138, 292, 240}, // 084
+                {36, 244, 231, 287, 18, 252, 57, 291, 210, 232, 273, 312}, // 085
+        };
+
     // Per-style panel and frame colors sampled from the original catalog artwork.
     // These values are used only by real outgoing messages; the catalog keeps its raw assets.
     private static final int[] huanghunBubblePanelColors = new int[]{
@@ -322,7 +411,7 @@ public class Theme {
             0xFFEAF6D0, // 009
             0xFFAEBBD0, // 010
             0xFFD4E9FF, // 011
-            0xFFF7EFE5, // 012
+            0xFFF9E5DC, // 012
             0xFFF7E9E3, // 013
             0xFFE8F4F8, // 014
             0xFFEEEBFF, // 015
@@ -411,7 +500,7 @@ public class Theme {
             0xFF8CB65A, // 009
             0xFF363D44, // 010
             0xFF4A2B7A, // 011
-            0xFF7C6A4F, // 012
+            0xFF6B473F, // 012
             0xFFA86A5E, // 013
             0xFF8DAFC0, // 014
             0xFF8C76C2, // 015
@@ -640,45 +729,35 @@ public class Theme {
 
         private void drawHuanghunBubbleSkin(Canvas canvas, Rect bounds, Path bubblePath) {
             Bitmap bitmap = getHuanghunBubbleSkin();
-            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3 || bubblePath == null) {
+            int[] template = getHuanghunBubbleTemplateBounds();
+            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3 || bubblePath == null || template == null) {
                 return;
             }
-            // The MessageDrawable bounds are Telegram's official text-measured message box. They
-            // stay authoritative for short, long and multi-line messages. The asset is treated as
-            // a complete template: a clean native body encloses real text while source ornaments
-            // keep their own proportions and follow that body through anchored positions.
+            // The official MessageDrawable bounds are Telegram's final measured text box. They
+            // remain authoritative for compact short messages, long messages and multi-line text.
             float inset = dp(1);
             float left = bounds.left + inset;
             float top = bounds.top + inset;
             float right = bounds.right - inset;
             float bottom = bounds.bottom - inset;
-            float width = Math.max(1, right - left);
             float height = Math.max(1, bottom - top);
-            // Keep the left/right source regions intact. Their 34% boundary matches the approved
-            // full-template prototype and preserves more of every character, wing and pendant than
-            // the former 30% crop.
-            int sourceDecorationWidth = Math.max(1, Math.round(bitmap.getWidth() * 0.34f));
-            if (sourceDecorationWidth * 2 >= bitmap.getWidth()) {
-                return;
-            }
-            // This is the same anchor rule as the approved complete-template prototype. The
-            // official measured body controls scale, while a bounded minimum preserves readable
-            // characters on a short message and a bounded maximum prevents tall art from growing
-            // without limit on a long message.
-            float ornamentScale = Math.max(0.68f, Math.min(1.04f, height / Math.max(1f, bitmap.getHeight() * 0.87f)));
-            float decorationWidth = sourceDecorationWidth * ornamentScale;
-            float decorationHeight = bitmap.getHeight() * ornamentScale;
-            float decorationTop = top - decorationHeight * 0.20f;
-            float leftDecorationLeft = left - bitmap.getWidth() * ornamentScale * 0.18f;
-            float leftDecorationRight = leftDecorationLeft + decorationWidth;
-            float rightDecorationLeft = right - decorationWidth + bitmap.getWidth() * ornamentScale * 0.18f;
-            float rightDecorationRight = rightDecorationLeft + decorationWidth;
 
-            // The official native path remains the single final content panel. Its bounds are
-            // exactly Telegram's short/long/multi-line measurement and hide the original catalog
-            // wording beneath the live text area.
-            int bodyColor = getHuanghunBubbleSkinBodyColor(bitmap);
+            // Each source uses its own measured central-panel and complete ornament rectangles.
+            // Never infer a 30%/34% side strip: doing so cuts characters in half on many assets.
+            float ornamentScale = Math.max(0.68f, Math.min(1.04f, height / Math.max(1f, bitmap.getHeight() * 0.87f)));
             huanghunDecorationPaint.setAlpha(alpha);
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+
+            // Draw complete source ornaments first. The native body below is deliberately drawn
+            // afterwards, so characters can touch the exterior outline but cannot pass through
+            // live text, timestamps or read marks. Per-style wording masks still remove only the
+            // catalog sample text and leave all character pixels intact.
+            drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, left, right, top, ornamentScale, false);
+            drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, left, right, top, ornamentScale, true);
+
+            // This is one continuous panel using the selected template's own material color.
+            // It is the final opaque text-safe area and fully encloses real text for every size.
+            int bodyColor = getHuanghunBubbleSkinBodyColor(bitmap);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setColor(bodyColor);
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
@@ -686,17 +765,38 @@ public class Theme {
             huanghunDecorationPaint.setStrokeWidth(dp(1.5f));
             huanghunDecorationPaint.setColor(getHuanghunBubbleSkinBorderColor(bodyColor));
             canvas.drawPath(bubblePath, huanghunDecorationPaint);
-
-            // The complete, uniformly scaled source-side regions are drawn over the body after
-            // its sample lettering has been removed through per-style source metadata. This keeps
-            // original frame material, characters and pendants visible just like the catalog
-            // template without leaking “大家好！” into a real conversation.
-            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
-            huanghunDecorationPaint.setAlpha(alpha);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, sourceDecorationWidth, bitmap.getHeight(), leftDecorationLeft, decorationTop, leftDecorationRight, decorationTop + decorationHeight);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, bitmap.getWidth() - sourceDecorationWidth, 0, bitmap.getWidth(), bitmap.getHeight(), rightDecorationLeft, decorationTop, rightDecorationRight, decorationTop + decorationHeight);
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setAlpha(255);
+        }
+
+        private int[] getHuanghunBubbleTemplateBounds() {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            return style > 0 && style < huanghunBubbleTemplateBounds.length ? huanghunBubbleTemplateBounds[style] : null;
+        }
+
+        private void drawHuanghunBubbleSkinOrnament(Canvas canvas, Bitmap bitmap, int[] template, int offset, float bodyLeft, float bodyRight, float bodyTop, float scale, boolean anchorRight) {
+            int sourceLeft = template[offset];
+            int sourceTop = template[offset + 1];
+            int sourceRight = template[offset + 2];
+            int sourceBottom = template[offset + 3];
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop) {
+                return;
+            }
+            float destinationLeft;
+            float destinationRight;
+            if (anchorRight) {
+                // Right-side characters follow the measured right edge, so extending a long
+                // message never leaves the character behind in the middle of the text panel.
+                destinationRight = bodyRight + (sourceRight - template[2]) * scale;
+                destinationLeft = destinationRight - (sourceRight - sourceLeft) * scale;
+            } else {
+                // Left-side characters follow the measured left edge for compact short bubbles.
+                destinationLeft = bodyLeft + (sourceLeft - template[0]) * scale;
+                destinationRight = destinationLeft + (sourceRight - sourceLeft) * scale;
+            }
+            float destinationTop = bodyTop + (sourceTop - template[1]) * scale;
+            float destinationBottom = destinationTop + (sourceBottom - sourceTop) * scale;
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceLeft, sourceTop, sourceRight, sourceBottom, destinationLeft, destinationTop, destinationRight, destinationBottom);
         }
 
         private int getHuanghunBubbleSkinBodyColor(Bitmap bitmap) {
