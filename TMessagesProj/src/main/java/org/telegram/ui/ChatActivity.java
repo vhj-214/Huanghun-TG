@@ -11631,7 +11631,8 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
         final ArrayList<HuanghunBuiltinVideoPreview.RecordingSnapshot> sourceRecordings = recordings == null ? new ArrayList<>() : new ArrayList<>(recordings);
-        final boolean includeSound = NekoConfig.huanghunBuiltinVideoSound.Bool();
+        final boolean convertToGif = NekoConfig.huanghunVideoToGif.Bool();
+        final boolean includeSound = NekoConfig.huanghunBuiltinVideoSound.Bool() && !convertToGif;
         if (includeSound) {
             Toast.makeText(getContext(), "正在封装视频原声，请稍候", Toast.LENGTH_SHORT).show();
         }
@@ -11680,7 +11681,7 @@ public class ChatActivity extends BaseFragment implements
                 info.originalPath = videoToSend.getAbsolutePath();
                 info.startTime = -1;
                 info.endTime = -1;
-                info.roundVideo = roundVideo;
+                info.roundVideo = convertToGif ? false : roundVideo;
                 info.estimatedSize = estimatedSize;
                 info.originalDuration = duration * 1000L;
                 info.estimatedDuration = duration;
@@ -11688,13 +11689,14 @@ public class ChatActivity extends BaseFragment implements
                 info.originalHeight = info.resultHeight = 360;
                 info.originalBitrate = sourceBitrate;
                 // 最终文件已完成视频与原声封装。-2 会让 needConvert() 返回 false，确保圆形文档属性原样上传。
-                info.bitrate = -2;
+                // 正码率 + 静音会触发官方 SendMessagesHelper 的动画文档属性。
+                info.bitrate = convertToGif ? Math.max(850_000, sourceBitrate) : -2;
                 info.framerate = 25;
-                info.muted = !videoHasSound;
+                info.muted = convertToGif || !videoHasSound;
                 info.notReadyYet = false;
                 info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(videoToSend.getAbsolutePath(), 0);
                 entry.editedInfo = info;
-                entry.isMuted = !videoHasSound;
+                entry.isMuted = convertToGif || !videoHasSound;
                 sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
             });
         });
@@ -11751,7 +11753,8 @@ public class ChatActivity extends BaseFragment implements
 
         VideoEditedInfo info = new VideoEditedInfo();
         info.originalPath = combinedVideo.getAbsolutePath();
-        info.roundVideo = true;
+        boolean convertToGif = NekoConfig.huanghunVideoToGif.Bool();
+        info.roundVideo = convertToGif ? false : true;
         info.startTime = -1;
         info.endTime = -1;
         // VideoEditedInfo.originalDuration 与转换器时间轴均使用微秒；
@@ -11768,7 +11771,7 @@ public class ChatActivity extends BaseFragment implements
         info.framerate = 25;
         info.notReadyYet = false;
         info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(combinedVideo.getAbsolutePath(), 0);
-        info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+        info.muted = NekoConfig.huanghunVideoToGif.Bool() || !NekoConfig.huanghunBuiltinVideoSound.Bool();
         // 与官方 InstantCameraView 保持同一条元数据引用，确保 roundVideo 标记贯穿
         // 本地待发送消息、转换队列及最终 TL_documentAttributeVideo.round_message。
         entry.editedInfo = info;
@@ -11815,7 +11818,8 @@ public class ChatActivity extends BaseFragment implements
 
         VideoEditedInfo info = new VideoEditedInfo();
         info.originalPath = recording.path;
-        info.roundVideo = true;
+        boolean convertToGif = NekoConfig.huanghunVideoToGif.Bool();
+        info.roundVideo = convertToGif ? false : true;
         // VideoEditedInfo 的裁切时间使用微秒；录制快照与 MediaPlayer 使用毫秒。
         // 未转换会使转换器错误裁切到无效区间并长期无法生成输出文件。
         info.startTime = recording.startTime * 1000L;
@@ -11835,7 +11839,7 @@ public class ChatActivity extends BaseFragment implements
         // 延迟发送队列会主动跳过上传，且没有编码完成回调解除标记，导致永久卡发送。
         info.notReadyYet = false;
         info.thumb = SendMessagesHelper.createVideoThumbnailAtTime(recording.path, recording.startTime * 1000L);
-        info.muted = !NekoConfig.huanghunBuiltinVideoSound.Bool();
+        info.muted = convertToGif || !NekoConfig.huanghunBuiltinVideoSound.Bool();
 
         // 通过裁切状态强制官方转换器生成新的 360×360 圆形视频文件，
         // 同时保留用户在预览窗口中选择的缩放和位移取景。

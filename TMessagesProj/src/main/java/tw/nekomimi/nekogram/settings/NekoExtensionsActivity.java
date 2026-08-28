@@ -70,6 +70,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int builtinSquareVideoRow;
     private int viewBuiltinVideosRow;
     private int deleteBuiltinVideosRow;
+    private int videoToGifRow;
     private int videoNoticeRow;
     private int videoEndRow;
 
@@ -113,6 +114,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         builtinSquareVideoRow = addRow();
         viewBuiltinVideosRow = addRow();
         deleteBuiltinVideosRow = addRow();
+        videoToGifRow = addRow();
         videoNoticeRow = addRow();
         videoEndRow = addRow();
 
@@ -210,6 +212,13 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         if (position == deleteBuiltinVideosRow) {
             presentFragment(new HuanghunVideoLibraryActivity(true));
+            return;
+        }
+        if (position == videoToGifRow) {
+            boolean enabled = NekoConfig.huanghunVideoToGif.toggleConfigBool();
+            if (view instanceof TextCheckCell) {
+                ((TextCheckCell) view).setChecked(enabled);
+            }
             return;
         }
         if (position == createPrivacyFolderRow) {
@@ -962,6 +971,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setTextAndCheck("圆形视频", NekoConfig.huanghunBuiltinRoundVideo.Bool(), true);
                 } else if (position == builtinSquareVideoRow) {
                     cell.setTextAndCheck("方形视频", NekoConfig.huanghunBuiltinSquareVideo.Bool(), true);
+                } else if (position == videoToGifRow) {
+                    cell.setTextAndCheck("视频转 GIF（无声）", NekoConfig.huanghunVideoToGif.Bool(), true);
                 } else if (position == blockNonContactsRow) {
                     cell.setTextAndCheck(getString(R.string.HuanghunBlockNonContacts), NekoConfig.huanghunBlockNonContacts.Bool(), true);
                 } else {
@@ -981,7 +992,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             if (position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
+            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
                 return TYPE_CHECK;
             }
             if (position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {

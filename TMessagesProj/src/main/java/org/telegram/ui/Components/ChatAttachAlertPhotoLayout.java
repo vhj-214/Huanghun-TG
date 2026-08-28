@@ -113,6 +113,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.BasePermissionsActivity;
 import org.telegram.ui.Cells.PhotoAttachCameraCell;
 import org.telegram.ui.Cells.PhotoAttachPermissionCell;
+import tw.nekomimi.nekogram.settings.NekoExtensionsActivity;
 import org.telegram.ui.Cells.PhotoAttachPhotoCell;
 import org.telegram.ui.ChatActivity;
 import org.telegram.ui.Components.blur3.capture.IBlur3Capture;
@@ -4568,12 +4569,30 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     ButtonWithCounterView button = new ButtonWithCounterView(mContext, resourcesProvider);
                     button.setUseWrapContent(true);
                     button.setRound();
-                    button.setPadding(dp(28), 0, dp(28), 0);
+                    button.setPadding(dp(20), 0, dp(20), 0);
                     SpannableStringBuilder ssb = new SpannableStringBuilder("c");
                     ssb.setSpan(new ColoredImageSpan(R.drawable.camera), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     ssb.append("  ").append(getString(R.string.GalleryAccessAllowAccessCamera));
                     button.setText(ssb, false);
-                    frameLayout.addView(button, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 10, 0, 10, 12));
+                    button.setOnClickListener(v -> openCameraWithPermissionCheck());
+                    // 保留官方相机授权按钮行为；视频按钮只负责进入设置，不申请权限。
+                    frameLayout.addView(button, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44, Gravity.BOTTOM | Gravity.LEFT, 10, 0, 6, 12));
+
+                    ButtonWithCounterView videoButton = new ButtonWithCounterView(mContext, resourcesProvider);
+                    videoButton.setUseWrapContent(true);
+                    videoButton.setRound();
+                    videoButton.setPadding(dp(20), 0, dp(20), 0);
+                    SpannableStringBuilder videoText = new SpannableStringBuilder("c");
+                    videoText.setSpan(new ColoredImageSpan(R.drawable.input_video), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    videoText.append("  视频功能");
+                    videoButton.setText(videoText, false);
+                    videoButton.setOnClickListener(v -> {
+                        if (parentAlert.baseFragment != null) {
+                            parentAlert.baseFragment.presentFragment(new NekoExtensionsActivity());
+                        }
+                        parentAlert.dismiss();
+                    });
+                    frameLayout.addView(videoButton, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44, Gravity.BOTTOM | Gravity.RIGHT, 6, 0, 10, 12));
                     holder = new RecyclerListView.Holder(frameLayout);
                     break;
                 }

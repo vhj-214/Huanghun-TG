@@ -163,6 +163,8 @@ public class NekoConfig {
     // 设置页保证两者不会同时开启，二者同时关闭时内置视频录制入口会回退到官方真实相机。
     public static ConfigItem huanghunBuiltinRoundVideo = addConfig("HuanghunBuiltinRoundVideo", configTypeBool, true);
     public static ConfigItem huanghunBuiltinSquareVideo = addConfig("HuanghunBuiltinSquareVideo", configTypeBool, false);
+    // 默认关闭；开启后发送的视频走 Telegram 官方无声动画/GIF 文档语义。
+    public static ConfigItem huanghunVideoToGif = addConfig("HuanghunVideoToGif", configTypeBool, false);
 
     // 通话专区：0=前置，1=后置，2=手机屏幕；默认后置，保持官方默认通话体验。
     public static ConfigItem huanghunCallDefaultCamera = addConfig("HuanghunCallDefaultCamera", configTypeInt, 1);
