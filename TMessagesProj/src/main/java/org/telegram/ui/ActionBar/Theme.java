@@ -10359,10 +10359,41 @@ public class Theme {
         if (messageStyle <= 0 || messageStyle > HuanghunBubbleStyleHelper.STYLE_COUNT) {
             return getHuanghunLiquidGlassBubbleColor(key);
         }
-        // A catalog resource is the source of truth for a custom style. Returning no synthetic
-        // Theme palette here prevents the old 12-color gradient table from turning a resource
-        // into an unrelated translucent or gray Telegram bubble before the template is drawn.
+        // Keep the official liquid-glass contract for every custom style. The previous version
+        // returned Integer.MIN_VALUE here, allowing a ResourcesProvider/theme fallback to paint
+        // an opaque white Telegram bubble. A style may tint glass, but never replace its material.
+        if (key == key_chat_outBubble || key == key_chat_inBubble) {
+            return getHuanghunLiquidGlassStyleColor(messageStyle, 0x36);
+        }
+        if (key == key_chat_outBubbleSelected || key == key_chat_inBubbleSelected) {
+            return getHuanghunLiquidGlassStyleColor(messageStyle, 0x4A);
+        }
+        if (key == key_chat_inBubbleSelectedOverlay
+                || key == key_chat_outBubbleSelectedOverlay
+                || key == key_chat_inBubbleShadow
+                || key == key_chat_outBubbleShadow
+                || key == key_chat_outBubbleGradient1
+                || key == key_chat_outBubbleGradient2
+                || key == key_chat_outBubbleGradient3
+                || key == key_chat_outBubbleGradientSelectedOverlay
+                || key == key_chat_outBubbleGradientAnimated) {
+            return Color.TRANSPARENT;
+        }
         return Integer.MIN_VALUE;
+    }
+
+    private static int getHuanghunLiquidGlassStyleColor(int messageStyle, int alpha) {
+        int style = HuanghunBubbleStyleHelper.normalizeStyle(messageStyle);
+        int panelColor = style > 0 && style < MessageDrawable.huanghunBubblePanelColors.length
+                ? MessageDrawable.huanghunBubblePanelColors[style]
+                : 0;
+        if (panelColor == 0) {
+            return Color.argb(alpha, 255, 255, 255);
+        }
+        // The white blend preserves the iOS-like translucent glass highlight while retaining a
+        // recognisable shade from the selected catalog template under every wallpaper.
+        int glassTint = ColorUtils.blendARGB(Color.WHITE, panelColor | 0xFF000000, 0.28f);
+        return ColorUtils.setAlphaComponent(glassTint, alpha);
     }
 
     public static int getColor(int key, boolean[] isDefault, boolean ignoreAnimation) {
