@@ -11040,6 +11040,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         } else {
                             videoEditedInfo = info.videoEditedInfo != null ? info.videoEditedInfo : createCompressionSettings(info.path, info.livePhotoVideoOffset);
                         }
+                        // 相册/文件选择的普通本地视频同样遵循“视频转 GIF（无声）”开关；
+                        // Live Photo 维持官方原始发送语义，避免改变其封面与视频配对。
+                        if (info.isVideo && !info.isLivePhoto) {
+                            applyHuanghunVideoToGif(videoEditedInfo, forceDocument, storyItem);
+                        }
 
                         if (NaConfig.INSTANCE.getSendMp4DocumentAsVideo().Bool() || (!forceDocument && (videoEditedInfo != null || info.path.endsWith("mp4")) || info.isLivePhoto)) {
                             if (info.path == null && info.searchImage != null) {
@@ -11160,6 +11165,10 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     attributeVideo.supports_streaming = true;
                                 }
                                 document.attributes.add(attributeVideo);
+                                // 静音本地视频需带 animated 属性，Telegram 才会将其作为 GIF 显示。
+                                if (videoEditedInfo != null && videoEditedInfo.muted && info.isVideo) {
+                                    document.attributes.add(new TLRPC.TL_documentAttributeAnimated());
+                                }
 
                                 // na: Fix filename
                                 TLRPC.TL_documentAttributeFilename fileName = new TLRPC.TL_documentAttributeFilename();
@@ -11880,6 +11889,17 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         return videoEditedInfo;
     }
 
+    /**
+     * 将普通本地视频标记为 Telegram 的无声动画文档。该处理仅作用于聊天发送，
+     * 不改变“作为文件发送”与故事回复中的原有语义。
+     */
+    private static void applyHuanghunVideoToGif(VideoEditedInfo videoEditedInfo, boolean forceDocument, TL_stories.StoryItem storyItem) {
+        if (videoEditedInfo != null && !forceDocument && storyItem == null && NekoConfig.huanghunVideoToGif.Bool()) {
+            videoEditedInfo.roundVideo = false;
+            videoEditedInfo.muted = true;
+        }
+    }
+
     @UiThread
     public static void prepareSendingVideo(AccountInstance accountInstance, String videoPath, VideoEditedInfo info, String coverPath, TLRPC.Photo coverPhoto, long dialogId, MessageObject replyToMsg, MessageObject replyToTopMsg, TL_stories.StoryItem storyItem, ChatActivity.ReplyQuote quote, ArrayList<TLRPC.MessageEntity> entities, int ttl, MessageObject editingMessageObject, boolean notify, int scheduleDate, int scheduleRepeatPeriod, boolean forceDocument, boolean hasMediaSpoilers, CharSequence caption, String quickReplyShortcut, int quickReplyShortcutId, long effectId, long stars) {
         prepareSendingVideo(accountInstance, videoPath, info, coverPath, coverPhoto, dialogId, replyToMsg, replyToTopMsg, storyItem, quote, entities, ttl, editingMessageObject, notify, scheduleDate, scheduleRepeatPeriod, forceDocument, hasMediaSpoilers, caption, quickReplyShortcut, quickReplyShortcutId, effectId, stars, 0, null);
@@ -11895,6 +11915,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         }
         new Thread(() -> {
             final VideoEditedInfo videoEditedInfo = info != null ? info : createCompressionSettings(videoPath, 0);
+            applyHuanghunVideoToGif(videoEditedInfo, forceDocument, storyItem);
 
             boolean isEncrypted = DialogObject.isEncryptedDialog(dialogId);
 
