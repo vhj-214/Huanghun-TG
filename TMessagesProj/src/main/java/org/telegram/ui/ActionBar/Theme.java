@@ -252,186 +252,189 @@ public class Theme {
         // Cache immutable, user-provided local skin bitmaps by style ID. Individual MessageDrawable
         // instances retain only their style ID, so recycled chat cells cannot leak a skin to another message.
         private static final SparseArray<Bitmap> huanghunBubbleSkinCache = new SparseArray<>();
+        // The catalog source remains immutable. Chat-only assets are loaded only when a template
+        // has genuine wording/artwork overlap that cannot be safely removed by a source rectangle.
+        private static final SparseArray<Bitmap> huanghunBubbleChatOrnamentCache = new SparseArray<>();
         private static final SparseIntArray huanghunBubbleSkinBodyColorCache = new SparseIntArray();
     // Per-style catalog lettering bounds, normalized to 0..1000. Values were extracted from
     // the original 85 preview assets; a small safety expansion includes glyph antialiasing.
     private static final int[][] huanghunBubblePreviewTextRects = new int[][]{
             null,
-            {303, 294, 691, 668}, // 001
-            {248, 282, 745, 614}, // 002
-            {385, 142, 637, 355}, // 003
-            {305, 230, 689, 725}, // 004
-            {318, 256, 720, 629}, // 005
-            {465, 265, 761, 632}, // 006
-            {309, 291, 710, 612}, // 007
-            {329, 138, 655, 432}, // 008
-            {228, 128, 682, 649}, // 009
-            {221, 275, 695, 611}, // 010
+            {316, 406, 654, 600}, // 001
+            {266, 295, 706, 511}, // 002
+            {390, 288, 613, 413}, // 003
+            {322, 356, 648, 602}, // 004
+            {355, 302, 735, 529}, // 005
+            {413, 344, 629, 526}, // 006
+            {321, 403, 671, 569}, // 007
+            {341, 353, 624, 501}, // 008
+            {268, 356, 653, 560}, // 009
+            {248, 376, 662, 568}, // 010
             null, // 011
-            {281, 296, 719, 658}, // 012
-            {247, 250, 780, 610}, // 013
-            {242, 172, 646, 414}, // 014
-            {326, 297, 674, 575}, // 015
-            {277, 168, 670, 459}, // 016
-            {236, 201, 767, 603}, // 017
-            {354, 283, 752, 644}, // 018
-            {324, 321, 689, 684}, // 019
-            {288, 353, 712, 598}, // 020
-            {273, 102, 737, 321}, // 021
-            {221, 105, 711, 385}, // 022
-            {95, 13, 530, 264}, // 023
-            {83, 124, 521, 466}, // 024
-            {308, 297, 689, 632}, // 025
-            {298, 319, 756, 729}, // 026
-            {237, 268, 731, 690}, // 027
-            {334, 232, 746, 598}, // 028
-            {376, 249, 783, 660}, // 029
-            {248, 298, 662, 557}, // 030
-            {275, 146, 700, 452}, // 031
-            {156, 168, 701, 545}, // 032
-            {168, 176, 625, 647}, // 033
-            {195, 170, 799, 655}, // 034
-            {299, 258, 720, 618}, // 035
-            {278, 349, 722, 625}, // 036
-            {215, 238, 624, 587}, // 037
-            {318, 287, 774, 614}, // 038
-            {143, 186, 591, 557}, // 039
-            {279, 222, 736, 603}, // 040
-            {209, 241, 710, 648}, // 041
-            {301, 251, 699, 540}, // 042
-            {263, 307, 741, 659}, // 043
-            {264, 271, 655, 628}, // 044
-            {296, 78, 716, 319}, // 045
-            {305, 175, 677, 421}, // 046
-            {371, 254, 746, 657}, // 047
-            {241, 266, 547, 552}, // 048
-            {269, 321, 629, 679}, // 049
-            {294, 243, 706, 515}, // 050
-            {174, 146, 618, 401}, // 051
-            {271, 160, 736, 544}, // 052
-            {283, 265, 720, 630}, // 053
-            {262, 252, 661, 506}, // 054
-            {357, 303, 689, 603}, // 055
-            {372, 248, 769, 624}, // 056
-            {341, 198, 734, 581}, // 057
-            {307, 295, 655, 674}, // 058
-            {217, 81, 558, 276}, // 059
-            {217, 252, 682, 449}, // 060
-            {305, 222, 791, 513}, // 061
-            {303, 348, 585, 607}, // 062
-            {287, 177, 732, 582}, // 063
-            {369, 116, 785, 384}, // 064
-            {356, 364, 627, 631}, // 065
-            {273, 303, 731, 686}, // 066
-            {265, 191, 716, 447}, // 067
-            {363, 48, 673, 256}, // 068
-            {356, 97, 663, 291}, // 069
-            {323, 245, 666, 618}, // 070
-            {297, 207, 713, 664}, // 071
-            {332, 63, 710, 250}, // 072
-            {293, 188, 605, 368}, // 073
-            {249, 288, 787, 635}, // 074
-            {287, 204, 673, 471}, // 075
-            {343, 52, 704, 248}, // 076
-            {260, 59, 710, 223}, // 077
-            {271, 208, 644, 444}, // 078
-            {242, 86, 594, 262}, // 079
-            {19, 288, 640, 406}, // 080
-            {6, 252, 688, 398}, // 081
-            {172, 0, 824, 112}, // 082
-            {91, 258, 513, 424}, // 083
-            {308, 429, 722, 568}, // 084
-            {289, 701, 657, 849} // 085
+            {303, 362, 681, 537}, // 012
+            {312, 355, 700, 550}, // 013
+            {283, 326, 640, 464}, // 014
+            {335, 374, 640, 531}, // 015
+            {308, 319, 651, 468}, // 016
+            {277, 298, 747, 522}, // 017
+            {329, 298, 650, 466}, // 018
+            {355, 358, 665, 549}, // 019
+            {325, 347, 683, 473}, // 020
+            {292, 253, 695, 435}, // 021
+            {193, 291, 621, 513}, // 022
+            {120, 360, 521, 522}, // 023
+            {183, 456, 540, 606}, // 024
+            {338, 436, 665, 620}, // 025
+            {347, 404, 721, 596}, // 026
+            {270, 397, 695, 620}, // 027
+            {356, 364, 697, 552}, // 028
+            {370, 346, 699, 536}, // 029
+            {263, 396, 630, 542}, // 030
+            {294, 292, 665, 467}, // 031
+            {203, 306, 684, 520}, // 032
+            {202, 325, 593, 557}, // 033
+            {260, 326, 760, 544}, // 034
+            {319, 299, 669, 454}, // 035
+            {291, 382, 685, 533}, // 036
+            {259, 324, 607, 514}, // 037
+            {352, 362, 747, 548}, // 038
+            {227, 382, 595, 556}, // 039
+            {304, 311, 709, 532}, // 040
+            {326, 370, 720, 535}, // 041
+            {325, 318, 661, 474}, // 042
+            {289, 337, 709, 540}, // 043
+            {303, 316, 645, 526}, // 044
+            {271, 210, 655, 417}, // 045
+            {287, 300, 628, 509}, // 046
+            {370, 328, 677, 520}, // 047
+            {267, 360, 536, 523}, // 048
+            {308, 352, 618, 507}, // 049
+            {324, 351, 679, 503}, // 050
+            {237, 289, 618, 436}, // 051
+            {303, 277, 700, 470}, // 052
+            {297, 358, 679, 553}, // 053
+            {294, 340, 646, 487}, // 054
+            {383, 357, 665, 519}, // 055
+            {353, 300, 677, 490}, // 056
+            {344, 278, 675, 458}, // 057
+            {343, 329, 619, 500}, // 058
+            {217, 233, 558, 396}, // 059
+            {217, 389, 682, 550}, // 060
+            {305, 357, 791, 598}, // 061
+            {385, 356, 634, 509}, // 062
+            {287, 394, 732, 601}, // 063
+            {369, 283, 785, 434}, // 064
+            {356, 342, 627, 513}, // 065
+            {309, 392, 744, 608}, // 066
+            {265, 338, 716, 488}, // 067
+            {363, 208, 673, 381}, // 068
+            {356, 246, 663, 408}, // 069
+            {412, 309, 710, 485}, // 070
+            {297, 316, 713, 566}, // 071
+            {330, 84, 705, 266}, // 072
+            {330, 183, 601, 358}, // 073
+            {315, 365, 806, 564}, // 074
+            {287, 310, 673, 457}, // 075
+            {337, 52, 692, 248}, // 076
+            {298, 47, 683, 176}, // 077
+            {298, 263, 614, 444}, // 078
+            {315, 168, 610, 303}, // 079
+            {50, 288, 612, 406}, // 080
+            {5, 252, 611, 398}, // 081
+            {189, 0, 755, 112}, // 082
+            {158, 258, 543, 424}, // 083
+            {321, 429, 721, 568}, // 084
+            {290, 682, 622, 827}, // 085
     };
 
         private static final int[][] huanghunBubbleTemplateBounds = new int[][]{
                 null,
-                {88, 46, 230, 138, 6, 12, 120, 156, 196, 12, 312, 156}, // 001
-                {48, 58, 275, 156, 6, 48, 80, 170, 275, 60, 317, 179}, // 002
-                {86, 34, 259, 153, 0, 8, 128, 186, 256, 10, 322, 174}, // 003
-                {46, 30, 264, 142, 0, 8, 78, 150, 242, 8, 309, 150}, // 004
-                {120, 78, 260, 132, 6, 44, 136, 161, 228, 36, 344, 132}, // 005
-                {106, 48, 238, 110, 6, 14, 130, 156, 0, 0, 0, 0}, // 006
-                {95, 52, 223, 126, 4, 18, 120, 160, 198, 18, 314, 160}, // 007
-                {46, 20, 271, 118, 6, 70, 114, 142, 250, 8, 316, 168}, // 008
-                {26, 12, 287, 110, 2, 50, 74, 116, 242, 62, 309, 118}, // 009
-                {44, 42, 268, 147, 0, 18, 110, 157, 268, 18, 318, 147}, // 010
-                {76, 18, 266, 178, 0, 6, 82, 186, 266, 8, 322, 208}, // 011
-                {82, 54, 233, 120, 2, 16, 125, 148, 205, 16, 313, 148}, // 012
-                {36, 44, 224, 143, 2, 12, 56, 150, 208, 86, 264, 186}, // 013
-                {68, 56, 234, 116, 6, 14, 88, 150, 234, 18, 318, 168}, // 014
-                {48, 34, 272, 152, 6, 12, 128, 178, 192, 10, 314, 184}, // 015
-                {12, 8, 307, 60, 4, 64, 72, 148, 220, 64, 318, 156}, // 016
-                {48, 8, 290, 78, 4, 4, 90, 86, 240, 12, 320, 86}, // 017
-                {94, 36, 276, 122, 2, 2, 136, 122, 268, 48, 293, 84}, // 018
-                {52, 46, 258, 136, 6, 20, 110, 148, 234, 18, 304, 148}, // 019
-                {54, 54, 246, 136, 18, 50, 76, 132, 230, 34, 296, 116}, // 020
-                {58, 30, 257, 150, 6, 20, 92, 164, 246, 20, 311, 164}, // 021
-                {54, 20, 235, 124, 10, 6, 64, 52, 225, 58, 315, 158}, // 022
-                {20, 8, 240, 64, 0, 0, 0, 0, 236, 12, 335, 112}, // 023
-                {6, 8, 206, 96, 0, 0, 0, 0, 176, 22, 294, 136}, // 024
-                {61, 36, 252, 136, 4, 12, 90, 152, 252, 22, 312, 154}, // 025
-                {48, 52, 276, 120, 4, 6, 86, 110, 236, 18, 295, 58}, // 026
-                {84, 46, 256, 128, 6, 8, 120, 140, 232, 24, 312, 164}, // 027
-                {96, 46, 232, 116, 4, 6, 114, 142, 220, 64, 301, 150}, // 028
-                {82, 46, 265, 122, 4, 6, 118, 128, 255, 64, 288, 104}, // 029
-                {30, 32, 291, 148, 6, 6, 90, 168, 206, 6, 322, 182}, // 030
-                {96, 44, 262, 132, 0, 8, 120, 152, 256, 6, 317, 108}, // 031
-                {64, 26, 292, 148, 2, 2, 104, 92, 208, 84, 320, 192}, // 032
-                {46, 30, 264, 128, 2, 6, 94, 144, 210, 34, 312, 156}, // 033
-                {28, 8, 248, 120, 0, 4, 48, 56, 242, 18, 301, 148}, // 034
-                {66, 46, 246, 114, 4, 6, 98, 114, 246, 18, 302, 116}, // 035
-                {60, 36, 248, 136, 6, 34, 64, 150, 248, 8, 322, 160}, // 036
-                {45, 46, 265, 128, 8, 24, 84, 152, 220, 8, 308, 96}, // 037
-                {48, 36, 268, 118, 6, 24, 98, 152, 246, 30, 312, 154}, // 038
-                {8, 8, 200, 92, 0, 0, 0, 0, 200, 48, 299, 155}, // 039
-                {88, 44, 235, 140, 2, 6, 120, 162, 200, 12, 321, 170}, // 040
-                {36, 14, 212, 86, 4, 2, 56, 92, 198, 46, 286, 128}, // 041
-                {84, 64, 224, 128, 2, 36, 104, 152, 204, 36, 306, 152}, // 042
-                {34, 20, 287, 168, 2, 8, 98, 154, 228, 8, 320, 186}, // 043
-                {46, 32, 278, 168, 0, 14, 96, 174, 252, 20, 319, 192}, // 044
-                {52, 28, 282, 126, 8, 6, 92, 152, 250, 8, 326, 152}, // 045
-                {103, 92, 236, 156, 4, 22, 140, 178, 236, 38, 333, 178}, // 046
-                {102, 39, 260, 117, 0, 8, 135, 142, 238, 22, 298, 50}, // 047
-                {60, 44, 255, 140, 8, 18, 110, 150, 230, 60, 318, 176}, // 048
-                {88, 48, 262, 110, 4, 10, 140, 120, 250, 28, 311, 114}, // 049
-                {44, 28, 269, 146, 6, 12, 84, 146, 206, 12, 308, 156}, // 050
-                {88, 34, 229, 136, 6, 6, 110, 150, 178, 6, 312, 203}, // 051
-                {36, 18, 278, 140, 6, 106, 86, 152, 266, 10, 311, 64}, // 052
-                {36, 15, 283, 144, 4, 2, 96, 140, 224, 4, 318, 162}, // 053
-                {40, 24, 260, 136, 6, 18, 72, 188, 230, 8, 321, 194}, // 054
-                {48, 22, 294, 142, 0, 10, 120, 150, 262, 8, 309, 66}, // 055
-                {88, 44, 262, 118, 6, 6, 126, 152, 246, 48, 294, 120}, // 056
-                {82, 34, 223, 92, 6, 22, 104, 103, 224, 38, 282, 88}, // 057
-                {86, 44, 226, 108, 8, 22, 106, 116, 226, 46, 278, 96}, // 058
-                {96, 34, 224, 106, 6, 8, 104, 118, 208, 30, 262, 106}, // 059
-                {80, 58, 320, 140, 6, 28, 120, 150, 300, 30, 362, 118}, // 060
-                {86, 30, 324, 102, 6, 6, 130, 118, 320, 12, 358, 110}, // 061
-                {46, 62, 226, 136, 4, 48, 110, 138, 216, 64, 268, 136}, // 062
-                {64, 30, 232, 124, 8, 8, 96, 124, 200, 6, 305, 162}, // 063
-                {60, 20, 270, 92, 6, 6, 74, 104, 266, 8, 304, 104}, // 064
-                {94, 86, 226, 144, 28, 74, 120, 150, 220, 78, 268, 112}, // 065
-                {42, 22, 248, 152, 0, 6, 110, 178, 196, 6, 289, 186}, // 066
-                {56, 26, 248, 144, 6, 8, 92, 156, 238, 6, 304, 156}, // 067
-                {48, 12, 244, 60, 0, 8, 68, 64, 244, 8, 304, 74}, // 068
-                {84, 36, 247, 106, 0, 8, 110, 138, 226, 12, 304, 140}, // 069
-                {30, 32, 235, 118, 4, 18, 88, 122, 216, 8, 264, 106}, // 070
-                {44, 36, 244, 132, 6, 18, 104, 140, 238, 10, 304, 156}, // 071
-                {46, 18, 220, 82, 12, 8, 90, 92, 212, 6, 302, 96}, // 072
-                {52, 86, 168, 130, 22, 68, 72, 120, 160, 100, 236, 168}, // 073
-                {44, 36, 230, 128, 6, 12, 80, 124, 208, 22, 276, 164}, // 074
-                {96, 28, 236, 108, 0, 8, 96, 132, 236, 8, 304, 140}, // 075
-                {70, 18, 230, 112, 18, 0, 110, 128, 218, 6, 280, 116}, // 076
-                {96, 18, 156, 64, 8, 68, 96, 132, 160, 4, 258, 140}, // 077
-                {44, 50, 214, 166, 6, 26, 90, 152, 190, 26, 256, 152}, // 078
-                {30, 26, 170, 84, 2, 12, 78, 92, 168, 18, 243, 106}, // 079
-                {44, 254, 252, 294, 8, 246, 92, 298, 208, 246, 274, 298}, // 080
-                {8, 144, 263, 287, 0, 212, 80, 287, 164, 212, 271, 287}, // 081
-                {52, 246, 252, 292, 6, 232, 86, 304, 0, 0, 0, 0}, // 082
-                {22, 86, 256, 110, 6, 76, 48, 136, 256, 80, 276, 120}, // 083
-                {68, 138, 246, 218, 12, 122, 112, 238, 230, 138, 292, 240}, // 084
-                {36, 244, 231, 287, 18, 252, 57, 291, 210, 232, 273, 312}, // 085
-        };
+            {107, 136, 249, 228, 25, 102, 139, 246, 215, 102, 331, 246}, // 001
+            {65, 98, 292, 196, 23, 88, 97, 210, 292, 100, 334, 219}, // 002
+            {104, 107, 277, 226, 18, 81, 146, 259, 274, 83, 340, 247}, // 003
+            {69, 116, 287, 228, 23, 94, 101, 236, 265, 94, 332, 236}, // 004
+            {140, 130, 280, 184, 26, 96, 156, 213, 248, 88, 364, 184}, // 005
+            {133, 124, 265, 186, 33, 90, 157, 232, 27, 76, 27, 76}, // 006
+            {114, 142, 242, 216, 23, 108, 139, 250, 217, 108, 333, 250}, // 007
+            {66, 121, 291, 219, 26, 171, 134, 243, 270, 109, 336, 269}, // 008
+            {53, 121, 314, 219, 29, 159, 101, 225, 269, 171, 336, 227}, // 009
+            {64, 120, 288, 225, 20, 96, 130, 235, 288, 96, 338, 225}, // 010
+            {96, 92, 286, 252, 20, 80, 102, 260, 286, 82, 342, 282}, // 011
+            {104, 132, 255, 198, 24, 94, 147, 226, 227, 94, 335, 226}, // 012
+            {84, 122, 272, 221, 50, 90, 104, 228, 256, 164, 312, 264}, // 013
+            {93, 137, 259, 197, 31, 95, 113, 231, 259, 99, 343, 249}, // 014
+            {66, 107, 290, 225, 24, 85, 146, 251, 210, 83, 332, 257}, // 015
+            {36, 91, 331, 143, 28, 147, 96, 231, 244, 147, 342, 239}, // 016
+            {73, 74, 315, 144, 29, 70, 115, 152, 265, 78, 345, 152}, // 017
+            {110, 95, 292, 181, 18, 61, 152, 181, 284, 107, 309, 143}, // 018
+            {81, 113, 287, 203, 35, 87, 139, 215, 263, 85, 333, 215}, // 019
+            {84, 113, 276, 195, 48, 109, 106, 191, 260, 93, 326, 175}, // 020
+            {78, 90, 277, 210, 26, 80, 112, 224, 266, 80, 331, 224}, // 021
+            {54, 94, 235, 198, 10, 80, 64, 126, 225, 132, 315, 232}, // 022
+            {32, 133, 252, 189, 12, 125, 12, 125, 248, 137, 347, 237}, // 023
+            {48, 151, 248, 239, 42, 143, 42, 143, 218, 165, 336, 279}, // 024
+            {88, 133, 279, 233, 31, 109, 117, 249, 279, 119, 339, 251}, // 025
+            {86, 143, 314, 211, 42, 97, 124, 201, 274, 109, 333, 149}, // 026
+            {108, 137, 280, 219, 30, 99, 144, 231, 256, 115, 336, 255}, // 027
+            {125, 133, 261, 203, 33, 93, 143, 229, 249, 151, 330, 237}, // 028
+            {106, 128, 289, 204, 28, 88, 142, 210, 279, 146, 312, 186}, // 029
+            {46, 113, 307, 229, 22, 87, 106, 249, 222, 87, 338, 263}, // 030
+            {116, 118, 282, 206, 20, 82, 140, 226, 276, 80, 337, 182}, // 031
+            {88, 101, 316, 223, 26, 77, 128, 167, 232, 159, 344, 267}, // 032
+            {67, 115, 285, 213, 23, 91, 115, 229, 231, 119, 333, 241}, // 033
+            {64, 97, 284, 209, 36, 93, 84, 145, 278, 107, 337, 237}, // 034
+            {92, 113, 272, 181, 30, 73, 124, 181, 272, 85, 328, 183}, // 035
+            {76, 104, 264, 204, 22, 102, 80, 218, 264, 76, 338, 228}, // 036
+            {73, 115, 293, 197, 36, 93, 112, 221, 248, 77, 336, 165}, // 037
+            {76, 107, 296, 189, 34, 95, 126, 223, 274, 101, 340, 225}, // 038
+            {48, 113, 240, 197, 40, 105, 40, 105, 240, 153, 339, 260}, // 039
+            {109, 109, 256, 205, 23, 71, 141, 227, 221, 77, 342, 235}, // 040
+            {95, 111, 271, 183, 63, 99, 115, 189, 257, 143, 345, 225}, // 041
+            {110, 129, 250, 193, 28, 101, 130, 217, 230, 101, 332, 217}, // 042
+            {55, 77, 308, 225, 23, 65, 119, 211, 249, 65, 341, 243}, // 043
+            {72, 88, 304, 224, 26, 70, 122, 230, 278, 76, 345, 248}, // 044
+            {52, 79, 282, 177, 8, 57, 92, 203, 250, 59, 326, 203}, // 045
+            {106, 146, 239, 210, 7, 76, 143, 232, 239, 92, 336, 232}, // 046
+            {126, 113, 284, 191, 24, 82, 159, 216, 262, 96, 322, 124}, // 047
+            {80, 118, 275, 214, 28, 92, 130, 224, 250, 134, 338, 250}, // 048
+            {116, 124, 290, 186, 32, 86, 168, 196, 278, 104, 339, 190}, // 049
+            {70, 105, 295, 223, 32, 89, 110, 223, 232, 89, 334, 233}, // 050
+            {120, 107, 261, 209, 38, 79, 142, 223, 210, 79, 344, 276}, // 051
+            {62, 88, 304, 210, 32, 176, 112, 222, 292, 80, 337, 134}, // 052
+            {54, 92, 301, 221, 22, 79, 114, 217, 242, 81, 336, 239}, // 053
+            {63, 93, 283, 205, 29, 87, 95, 257, 253, 77, 344, 263}, // 054
+            {77, 91, 323, 211, 29, 79, 149, 219, 291, 77, 338, 135}, // 055
+            {106, 106, 280, 180, 24, 68, 144, 214, 264, 110, 312, 182}, // 056
+            {103, 100, 244, 158, 27, 88, 125, 169, 245, 104, 303, 154}, // 057
+            {122, 114, 262, 178, 44, 92, 142, 186, 262, 116, 314, 166}, // 058
+            {96, 93, 224, 165, 6, 67, 104, 177, 208, 89, 262, 165}, // 059
+            {80, 123, 320, 205, 6, 93, 120, 215, 300, 95, 362, 183}, // 060
+            {86, 92, 324, 164, 6, 68, 130, 180, 320, 74, 358, 172}, // 061
+            {82, 113, 262, 187, 40, 99, 146, 189, 252, 115, 304, 187}, // 062
+            {64, 133, 232, 227, 8, 111, 96, 227, 200, 109, 305, 265}, // 063
+            {60, 94, 270, 166, 6, 80, 74, 178, 266, 82, 304, 178}, // 064
+            {94, 123, 226, 181, 28, 111, 120, 187, 220, 115, 268, 149}, // 065
+            {57, 97, 263, 227, 15, 81, 125, 253, 211, 81, 304, 261}, // 066
+            {56, 103, 248, 221, 6, 85, 92, 233, 238, 83, 304, 233}, // 067
+            {48, 69, 244, 117, 0, 65, 68, 121, 244, 65, 304, 131}, // 068
+            {84, 92, 247, 162, 0, 64, 110, 194, 226, 68, 304, 196}, // 069
+            {70, 98, 275, 184, 44, 84, 128, 188, 256, 74, 304, 172}, // 070
+            {44, 105, 244, 201, 6, 87, 104, 209, 238, 79, 304, 225}, // 071
+            {46, 25, 220, 89, 12, 15, 90, 99, 212, 13, 302, 103}, // 072
+            {75, 86, 191, 130, 45, 68, 95, 120, 183, 100, 259, 168}, // 073
+            {71, 104, 257, 196, 33, 80, 107, 192, 235, 90, 303, 232}, // 074
+            {96, 95, 236, 175, 0, 75, 96, 199, 236, 75, 304, 207}, // 075
+            {70, 18, 230, 112, 18, 0, 110, 128, 218, 6, 280, 116}, // 076
+            {119, 18, 179, 64, 31, 68, 119, 132, 183, 4, 281, 140}, // 077
+            {65, 85, 235, 201, 27, 61, 111, 187, 211, 61, 277, 187}, // 078
+            {64, 61, 204, 119, 36, 47, 112, 127, 202, 53, 277, 141}, // 079
+            {54, 254, 262, 294, 18, 246, 102, 298, 218, 246, 284, 298}, // 080
+            {8, 144, 263, 287, 0, 212, 80, 287, 164, 212, 271, 287}, // 081
+            {64, 246, 264, 292, 18, 232, 98, 304, 12, 0, 12, 0}, // 082
+            {45, 86, 279, 110, 29, 76, 71, 136, 279, 80, 299, 120}, // 083
+            {75, 138, 253, 218, 19, 122, 119, 238, 237, 138, 299, 240}, // 084
+            {45, 244, 240, 287, 27, 252, 66, 291, 219, 232, 282, 312}, // 085
+    };
 
     // Per-style panel and frame colors sampled from the original catalog artwork.
     // These values are used only by real outgoing messages; the catalog keeps its raw assets.
@@ -764,10 +767,37 @@ public class Theme {
             return bitmap;
         }
 
+        private Bitmap getHuanghunBubbleChatOrnament(boolean rightSide) {
+            final int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            // This pair is an already committed, text-free source asset. It is not a generated
+            // preview and it lets the two rabbits remain whole without any clipping in real chat.
+            if (style != 12) {
+                return null;
+            }
+            final int cacheKey = style * 2 + (rightSide ? 1 : 0);
+            Bitmap cached = huanghunBubbleChatOrnamentCache.get(cacheKey);
+            if (cached != null && !cached.isRecycled()) {
+                return cached;
+            }
+            Context context = ApplicationLoader.applicationContext;
+            if (context == null) {
+                return null;
+            }
+            String resourceName = rightSide ? "huanghun_bubble_chat_012_right_clean" : "huanghun_bubble_chat_012_left_clean";
+            int resourceId = context.getResources().getIdentifier(resourceName, "drawable", context.getPackageName());
+            if (resourceId == 0) {
+                return null;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = false;
+            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
+            if (bitmap != null) {
+                huanghunBubbleChatOrnamentCache.put(cacheKey, bitmap);
+            }
+            return bitmap;
+        }
+
         private static boolean hasCompleteHuanghunChatOrnaments(int style) {
-            // Every catalog entry is drawn as one complete source composition. The central
-            // preview panel is then covered by the native MessageDrawable body, so no character
-            // has to be cut out of its source image just to remove “大家好！”.
             return style > HuanghunBubbleStyleHelper.DEFAULT_STYLE && style < huanghunBubbleTemplateBounds.length;
         }
 
@@ -777,50 +807,109 @@ public class Theme {
             if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3 || bubblePath == null || template == null) {
                 return;
             }
-            // The official MessageDrawable bounds are Telegram's final measured text box. They
-            // remain authoritative for compact short messages, long messages and multi-line text.
-            float inset = dp(1);
-            float left = bounds.left + inset;
-            float top = bounds.top + inset;
-            float right = bounds.right - inset;
-            float bottom = bounds.bottom - inset;
-            float height = Math.max(1, bottom - top);
+            // bounds is the final body measured by Telegram after all wrapping, timestamp and
+            // receipt calculations. It remains untouched: the official MessageDrawable drawn
+            // immediately before this method owns the transparent body, tail, corners and state.
+            final float inset = dp(1);
+            final float bodyLeft = bounds.left + inset;
+            final float bodyTop = bounds.top + inset;
+            final float bodyRight = bounds.right - inset;
+            final float bodyBottom = bounds.bottom - inset;
+            final float bodyWidth = Math.max(1f, bodyRight - bodyLeft);
+            final float bodyHeight = Math.max(1f, bodyBottom - bodyTop);
+            final float sourceBodyWidth = Math.max(1f, template[2] - template[0]);
+            final float sourceBodyHeight = Math.max(1f, template[3] - template[1]);
+            final float sourceOrnamentHeight = Math.max(1f, Math.max(template[7] - template[5], template[11] - template[9]));
 
-            // Draw the entire catalog composition once, scaled from its own central panel to
-            // Telegram's final text-measured body. This preserves complete people, animals,
-            // frames and hanging accessories instead of slicing each side into fragile patches.
-            drawHuanghunBubbleWholeTemplate(canvas, bitmap, template, left, right, top, bottom);
-
-            // The native body is deliberately drawn after the complete composition. It masks
-            // only the catalog preview lettering in the center while retaining the official
-            // Telegram text/time/receipt geometry and a continuous selected-template panel.
-            huanghunDecorationPaint.setAlpha(alpha);
-            int bodyColor = getHuanghunBubbleSkinBodyColor(bitmap);
+            // One uniform scale is taken from the live native body and the selected template's
+            // own geometry. Limiting it by the complete ornament height keeps a full character
+            // inside this ChatMessageCell rather than producing a vertically clipped half figure.
+            final float scale = Math.max(0.01f, Math.min(
+                    Math.min(bodyWidth / sourceBodyWidth, bodyHeight / sourceBodyHeight),
+                    bodyHeight / sourceOrnamentHeight
+            ));
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
-            huanghunDecorationPaint.setColor(bodyColor);
-            canvas.drawPath(bubblePath, huanghunDecorationPaint);
-            huanghunDecorationPaint.setStyle(Paint.Style.STROKE);
-            huanghunDecorationPaint.setStrokeWidth(dp(1.5f));
-            huanghunDecorationPaint.setColor(getHuanghunBubbleSkinBorderColor(bodyColor));
-            canvas.drawPath(bubblePath, huanghunDecorationPaint);
+            huanghunDecorationPaint.setAlpha(alpha);
+            Bitmap leftChatOrnament = getHuanghunBubbleChatOrnament(false);
+            Bitmap rightChatOrnament = getHuanghunBubbleChatOrnament(true);
+            if (leftChatOrnament != null) {
+                drawHuanghunBubbleChatOrnament(canvas, leftChatOrnament, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, false);
+            } else {
+                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, false);
+            }
+            if (rightChatOrnament != null) {
+                drawHuanghunBubbleChatOrnament(canvas, rightChatOrnament, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, true);
+            } else {
+                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, true);
+            }
             huanghunDecorationPaint.setAlpha(255);
         }
 
-        private void drawHuanghunBubbleWholeTemplate(Canvas canvas, Bitmap bitmap, int[] template, float bodyLeft, float bodyRight, float bodyTop, float bodyBottom) {
-            float sourceBodyWidth = Math.max(1f, template[2] - template[0]);
-            float sourceBodyHeight = Math.max(1f, template[3] - template[1]);
-            float scaleX = (bodyRight - bodyLeft) / sourceBodyWidth;
-            float scaleY = (bodyBottom - bodyTop) / sourceBodyHeight;
-            // The source composition follows the final native body edges. Both dimensions are
-            // independently derived from Telegram's actual layout, so no fixed bubble/image
-            // size or static screen coordinate can leave a floating half-character.
-            float destinationLeft = bodyLeft - template[0] * scaleX;
-            float destinationTop = bodyTop - template[1] * scaleY;
-            huanghunBubbleSkinSourceRect.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
-            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationLeft + bitmap.getWidth() * scaleX, destinationTop + bitmap.getHeight() * scaleY);
-            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
-            huanghunDecorationPaint.setAlpha(alpha);
+        private void drawHuanghunBubbleSkinOrnament(Canvas canvas, Bitmap bitmap, int[] template, int offset, float bodyLeft, float bodyRight, float bodyTop, float bodyBottom, float scale, boolean anchorRight) {
+            final int sourceLeft = template[offset];
+            final int sourceTop = template[offset + 1];
+            final int sourceRight = template[offset + 2];
+            final int sourceBottom = template[offset + 3];
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop) {
+                return;
+            }
+            final float ornamentWidth = (sourceRight - sourceLeft) * scale;
+            final float ornamentHeight = (sourceBottom - sourceTop) * scale;
+            // The small overlap joins the artwork to the official outline. It is deliberately
+            // independent of template size: it cannot reach Telegram's text, time or receipt area.
+            final float edgeOverlap = dp(2);
+            final float destinationLeft = anchorRight ? bodyRight - edgeOverlap : bodyLeft - ornamentWidth + edgeOverlap;
+            // The scale above already limits the whole decoration to this live body height.
+            // Center it in that final measured body so neither a hat nor a pendant can be clipped
+            // at the ChatMessageCell's top or bottom on compact one-line messages.
+            final float destinationTop = bodyTop + ((bodyBottom - bodyTop) - ornamentHeight) * 0.5f;
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, sourceLeft, sourceTop, sourceRight, sourceBottom, destinationLeft, destinationTop, destinationLeft + ornamentWidth, destinationTop + ornamentHeight);
+        }
+
+        private void drawHuanghunBubbleChatOrnament(Canvas canvas, Bitmap ornament, float bodyLeft, float bodyRight, float bodyTop, float bodyBottom, float scale, boolean rightSide) {
+            final float ornamentWidth = ornament.getWidth() * scale;
+            final float ornamentHeight = ornament.getHeight() * scale;
+            final float edgeOverlap = dp(2);
+            final float destinationLeft = rightSide ? bodyRight - edgeOverlap : bodyLeft - ornamentWidth + edgeOverlap;
+            final float destinationTop = bodyTop + ((bodyBottom - bodyTop) - ornamentHeight) * 0.5f;
+            huanghunBubbleSkinSourceRect.set(0, 0, ornament.getWidth(), ornament.getHeight());
+            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationLeft + ornamentWidth, destinationTop + ornamentHeight);
+            canvas.drawBitmap(ornament, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
+        }
+
+        private void drawHuanghunBubbleSkinPatch(Canvas canvas, Bitmap bitmap, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop || destinationRight <= destinationLeft || destinationBottom <= destinationTop) {
+                return;
+            }
+            huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
+            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
+            // Only the pre-measured catalog wording is removed from the ornament source. No body
+            // rectangle is cleared and no character is scaled in two axes, so an ornament remains
+            // complete even when the real Telegram message becomes short, long or multi-line.
+            int[] wording = getHuanghunBubblePreviewTextRect();
+            int save = canvas.save();
+            if (wording != null) {
+                float wordingLeft = bitmap.getWidth() * wording[0] / 1000f;
+                float wordingTop = bitmap.getHeight() * wording[1] / 1000f;
+                float wordingRight = bitmap.getWidth() * wording[2] / 1000f;
+                float wordingBottom = bitmap.getHeight() * wording[3] / 1000f;
+                if (sourceLeft < wordingRight && sourceRight > wordingLeft && sourceTop < wordingBottom && sourceBottom > wordingTop) {
+                    float sourceWidth = sourceRight - sourceLeft;
+                    float sourceHeight = sourceBottom - sourceTop;
+                    float maskedLeft = destinationLeft + (Math.max(sourceLeft, wordingLeft) - sourceLeft) * (destinationRight - destinationLeft) / sourceWidth;
+                    float maskedTop = destinationTop + (Math.max(sourceTop, wordingTop) - sourceTop) * (destinationBottom - destinationTop) / sourceHeight;
+                    float maskedRight = destinationLeft + (Math.min(sourceRight, wordingRight) - sourceLeft) * (destinationRight - destinationLeft) / sourceWidth;
+                    float maskedBottom = destinationTop + (Math.min(sourceBottom, wordingBottom) - sourceTop) * (destinationBottom - destinationTop) / sourceHeight;
+                    canvas.clipOutRect(maskedLeft, maskedTop, maskedRight, maskedBottom);
+                }
+            }
             canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
+            canvas.restoreToCount(save);
+        }
+
+        private int[] getHuanghunBubblePreviewTextRect() {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            return style > 0 && style < huanghunBubblePreviewTextRects.length ? huanghunBubblePreviewTextRects[style] : null;
         }
 
         private int[] getHuanghunBubbleTemplateBounds() {
