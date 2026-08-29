@@ -1458,8 +1458,14 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
     }
 
     private boolean startAtProfile;
+    private boolean localGiftPurchaseOnly;
     public PeerColorActivity startOnProfile() {
         this.startAtProfile = true;
+        return this;
+    }
+    public PeerColorActivity startLocalGiftPurchase() {
+        this.startAtProfile = true;
+        this.localGiftPurchaseOnly = true;
         return this;
     }
 
@@ -1791,13 +1797,29 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
     private boolean applyingName, applyingProfile;
     private boolean applying;
     private void apply() {
-        if (applying || !isChannel && !getUserConfig().isPremiumOrLocal()) {
+        if (applying || !localGiftPurchaseOnly && !isChannel && !getUserConfig().isPremiumOrLocal()) {
             return;
         }
 
         if (isChannel) {
             finishFragment();
         } else {
+            if (localGiftPurchaseOnly) {
+                if (!profilePage.uniqueGifts.isEmpty()) {
+                    LocalProfileGiftHelper.applyAll(profilePage.uniqueGifts);
+                }
+                if (bulletinFragment instanceof ProfileActivity) {
+                    ((ProfileActivity) bulletinFragment).refreshLocalStyleGifts();
+                }
+                applying = true;
+                getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_EMOJI_STATUS);
+                finishFragment();
+                if (bulletinFragment != null) {
+                    BulletinFactory.of(bulletinFragment).createSimpleBulletin(R.raw.done, "本地购买成功，礼物已显示在你的个人资料中").show();
+                    bulletinFragment = null;
+                }
+                return;
+            }
             LocalPeerColorHelper.apply(namePage.selectedColor, namePage.selectedEmoji, profilePage.selectedColor, profilePage.selectedEmoji);
             // 本地应用风格同步保存当前资料页选中的可收藏礼物，仅用于本机资料头展示。
             // 不会修改服务器的礼物置顶、emoji 状态或账户授权数据。

@@ -547,17 +547,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private void showActiveTargetDialog() {
         Context context = getParentActivity();
         if (context == null) return;
-        String[] items = {"全部用户（默认）", "选择指定用户", "输入用户 ID 或用户名"};
-        int checked = NekoConfig.huanghunActiveZoneTargetMode.Int() == HuanghunActiveZoneHelper.TARGET_SELECTED ? 1 : 0;
+        String[] items = {"全部对象（群/频道+用户）", "群或频道", "联系人", "非联系人", "机器人", "选择指定用户", "输入用户 ID 或用户名"};
+        int checked = NekoConfig.huanghunActiveZoneTargetMode.Int() == HuanghunActiveZoneHelper.TARGET_SELECTED ? 5 : Math.max(0, Math.min(4, NekoConfig.huanghunActiveZonePeerScope.Int()));
         showDialog(new AlertDialog.Builder(context, resourceProvider)
                 .setTitle("点赞对象")
-                .setMessage("默认对所有用户生效；可以从会话和全局搜索选择用户，也可以直接输入用户 ID 或用户名。")
+                .setMessage("“全部对象”同时包含群组、频道、联系人、非联系人和机器人；消息方向仍由上一项控制为对方、自己或双方。")
                 .setItems(items, (dialog, which) -> {
-                    if (which == 0) {
+                    if (which <= 4) {
                         NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(HuanghunActiveZoneHelper.TARGET_ALL);
+                        NekoConfig.huanghunActiveZonePeerScope.setConfigInt(which);
                         dialog.dismiss();
                         notifyActiveRows();
-                    } else if (which == 1) {
+                    } else if (which == 5) {
                         dialog.dismiss();
                         selectActiveUser();
                     } else {

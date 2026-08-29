@@ -172,6 +172,8 @@ public class NekoConfig {
     // 默认全部用户；指定用户以逗号分隔保存 user id 或 username。
     public static ConfigItem huanghunActiveZoneTargetMode = addConfig("HuanghunActiveZoneTargetMode", configTypeInt, 0);
     public static ConfigItem huanghunActiveZoneTargetUsers = addConfig("HuanghunActiveZoneTargetUsers", configTypeString, "");
+    // 0=全部对象，1=群或频道，2=联系人，3=非联系人，4=机器人。
+    public static ConfigItem huanghunActiveZonePeerScope = addConfig("HuanghunActiveZonePeerScope", configTypeInt, 0);
     public static ConfigItem huanghunActiveZoneEmoji = addConfig("HuanghunActiveZoneEmoji", configTypeString, "👍");
 
     // 本地功能专区：只影响本机显示或本地测试账本，不向 Telegram 服务器发送购买/修改请求。

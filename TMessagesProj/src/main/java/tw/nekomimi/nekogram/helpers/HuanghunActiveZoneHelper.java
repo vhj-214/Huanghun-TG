@@ -29,6 +29,11 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
     public static final int DIRECTION_BOTH = 2;
     public static final int TARGET_ALL = 0;
     public static final int TARGET_SELECTED = 1;
+    public static final int SCOPE_ALL = 0;
+    public static final int SCOPE_CHATS = 1;
+    public static final int SCOPE_CONTACTS = 2;
+    public static final int SCOPE_NON_CONTACTS = 3;
+    public static final int SCOPE_BOTS = 4;
 
     private static final int MAX_PENDING_MESSAGES = 512;
     private final Map<String, Boolean> pendingMessages = Collections.synchronizedMap(
@@ -90,7 +95,7 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         if (direction == DIRECTION_OTHER && self || direction == DIRECTION_SELF && !self) {
             return;
         }
-        if (!matchesTarget(message)) {
+        if (!matchesTarget(message) || !matchesPeerScope(message)) {
             return;
         }
         String emoji = NekoConfig.huanghunActiveZoneEmoji.String();
@@ -108,6 +113,19 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             pendingMessages.put(key, Boolean.TRUE);
         }
         sendReaction(message, emoji, key);
+    }
+
+    private boolean matchesPeerScope(MessageObject message) {
+        int scope = NekoConfig.huanghunActiveZonePeerScope.Int();
+        if (scope == SCOPE_ALL) return true;
+        boolean chat = message.getDialogId() < 0;
+        if (scope == SCOPE_CHATS) return chat;
+        if (chat) return false;
+        TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(message.getSenderId());
+        if (user == null) return false;
+        if (scope == SCOPE_BOTS) return user.bot;
+        boolean contact = user.contact || user.mutual_contact;
+        return scope == SCOPE_CONTACTS ? contact : !contact;
     }
 
     private boolean matchesTarget(MessageObject message) {
@@ -170,10 +188,16 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
     }
 
     public static String getTargetSummary() {
-        if (NekoConfig.huanghunActiveZoneTargetMode.Int() != TARGET_SELECTED) {
-            return "全部用户（默认）";
+        if (NekoConfig.huanghunActiveZoneTargetMode.Int() == TARGET_SELECTED) {
+            String users = NekoConfig.huanghunActiveZoneTargetUsers.String();
+            return TextUtils.isEmpty(users) ? "未选择用户" : "指定用户：" + users;
         }
-        String users = NekoConfig.huanghunActiveZoneTargetUsers.String();
-        return TextUtils.isEmpty(users) ? "未选择用户" : users;
+        switch (NekoConfig.huanghunActiveZonePeerScope.Int()) {
+            case SCOPE_CHATS: return "群或频道";
+            case SCOPE_CONTACTS: return "联系人";
+            case SCOPE_NON_CONTACTS: return "非联系人";
+            case SCOPE_BOTS: return "机器人";
+            default: return "全部对象（默认）";
+        }
     }
 }

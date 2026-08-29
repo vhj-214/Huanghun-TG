@@ -646,6 +646,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private final static int set_username = 43;
     private final static int local_edit_avatar = 48;
     private final static int local_edit_bio = 49;
+    private final static int local_buy_gift = 50;
     private static final int REQUEST_LOCAL_PROFILE_AVATAR = 7654;
     private final static int bot_privacy = 44;
     private final static int delete_group = 45;
@@ -2876,6 +2877,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     openDiscussion();
                 } else if (id == gift_premium) {
                     onGiftPermiumClicked();
+                } else if (id == local_buy_gift) {
+                    presentFragment(new PeerColorActivity(0).startLocalGiftPurchase().setOnApplied(ProfileActivity.this));
                 } else if (id == channel_stories) {
                     Bundle args = new Bundle();
                     args.putInt("type", MediaActivity.TYPE_ARCHIVED_CHANNEL_STORIES);
@@ -7385,6 +7388,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
                 .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> {
                     LocalProfileOverrideHelper.setBio(userId, input.getText().toString(), currentAccount);
+                    getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_STATUS);
                     updateProfileData(true);
                     if (listAdapter != null) listAdapter.notifyDataSetChanged();
                 }).create());
@@ -7413,6 +7417,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             int count;
             while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
             LocalProfileOverrideHelper.setAvatarUri(userId, target.getAbsolutePath(), currentAccount);
+            getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_AVATAR);
             updateProfileData(true);
             if (listAdapter != null) listAdapter.notifyDataSetChanged();
         } catch (Throwable e) {
@@ -12863,6 +12868,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 if (!isBot && getContactsController().contactsDict.get(userId) != null) {
                     otherItem.addSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
+                }
+                // Huanghun: local self-purchase is separate from the real Telegram gift flow.
+                if (UserObject.isUserSelf(user)) {
+                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, "为自己购买礼物（本地）");
                 }
                 // Huanghun: these are additional local-only actions; existing menu items remain unchanged.
                 if (!UserObject.isUserSelf(user)) {

@@ -47,7 +47,7 @@ object LocalProfileGiftHelper {
      */
     @JvmStatic
     fun getMountedGifts(user: TLRPC.User?): ArrayList<TLRPC.TL_emojiStatusCollectible> {
-        if (!NekoConfig.localPremium.Bool() || user == null || !isLocalUser(user.id)) return arrayListOf()
+        if (user == null || !isLocalUser(user.id)) return arrayListOf()
         return ArrayList(getDataForUser(user.id).map(::toStatus))
     }
 
@@ -56,13 +56,13 @@ object LocalProfileGiftHelper {
      */
     @JvmStatic
     fun getMountedGiftData(user: TLRPC.User?): ArrayList<LocalProfileGiftData> {
-        if (!NekoConfig.localPremium.Bool() || user == null || !isLocalUser(user.id)) return arrayListOf()
+        if (user == null || !isLocalUser(user.id)) return arrayListOf()
         return ArrayList(getDataForUser(user.id))
     }
 
     @JvmStatic
     fun isMountedGift(userId: Long, collectibleId: Long): Boolean {
-        if (!NekoConfig.localPremium.Bool() || !isLocalUser(userId)) return false
+        if (!isLocalUser(userId)) return false
         return getDataForUser(userId).any { it.collectibleId == collectibleId }
     }
 
@@ -126,7 +126,7 @@ object LocalProfileGiftHelper {
 
     private fun applyData(data: ArrayList<LocalProfileGiftData>) {
         val userId = currentUserId()
-        if (!NekoConfig.localPremium.Bool() || userId == 0L || data.isEmpty()) return
+        if (userId == 0L || data.isEmpty()) return
         saveData(userId, data)
     }
 

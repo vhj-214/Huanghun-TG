@@ -425,6 +425,7 @@ import tw.nekomimi.nekogram.utils.ProxyUtil;
 import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.ToggleResult;
 import xyz.nextalone.nagram.helper.BookmarksHelper;
+import xyz.nextalone.nagram.helper.LocalMessageOverrideHelper;
 import xyz.nextalone.nagram.helper.DoubleTap;
 
 @SuppressWarnings("unchecked")
@@ -1387,6 +1388,8 @@ public class ChatActivity extends BaseFragment implements
     public final static int OPTION_SUGGESTION_EDIT_PRICE = 111;
     public final static int OPTION_SUGGESTION_EDIT_TIME = 112;
     public final static int OPTION_SUGGESTION_EDIT_MESSAGE = 113;
+    public final static int OPTION_LOCAL_EDIT_MESSAGE = 116;
+    public final static int OPTION_LOCAL_EDIT_TIME = 117;
     public final static int OPTION_SUGGESTION_ADD_OFFER = 114;
 
     public final static int OPTION_VIEW_STATISTICS = 115;
@@ -35409,12 +35412,57 @@ public class ChatActivity extends BaseFragment implements
         MediaController.saveFile(messageObject, path, getParentActivity(), messageObject.isVideo() ? 1 : 0, null, null);
     }
 
+    private void showLocalMessageTextDialog() {
+        if (selectedObject == null || getParentActivity() == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(getParentActivity());
+        input.setSingleLine(false);
+        input.setMinLines(3);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        input.setText(selectedObject.messageOwner.message == null ? "" : selectedObject.messageOwner.message);
+        showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                .setTitle("本地修改消息")
+                .setMessage("只修改当前设备显示，不会向 Telegram 发送编辑请求。")
+                .setView(input)
+                .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
+                .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> {
+                    String text = input.getText().toString();
+                    LocalMessageOverrideHelper.setText(currentAccount, selectedObject.getDialogId(), selectedObject.getId(), text);
+                    selectedObject.messageOwner.message = text;
+                    selectedObject.applyNewText();
+                    updateMessageAnimatedInternal(selectedObject, false);
+                    updateVisibleRows();
+                }).create());
+    }
+
+    private void showLocalMessageTimeDialog() {
+        if (selectedObject == null || getParentActivity() == null) return;
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis((long) selectedObject.messageOwner.date * 1000L);
+        DatePickerDialog picker = new DatePickerDialog(getParentActivity(), (view, year, month, day) -> {
+            Calendar result = Calendar.getInstance();
+            result.set(year, month, day, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND));
+            int date = (int) (result.getTimeInMillis() / 1000L);
+            LocalMessageOverrideHelper.setDate(currentAccount, selectedObject.getDialogId(), selectedObject.getId(), date);
+            selectedObject.messageOwner.date = date;
+            updateMessageAnimatedInternal(selectedObject, false);
+            updateVisibleRows();
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+        picker.setTitle("本地修改消息时间");
+        picker.show();
+    }
+
     public void processSelectedOption(int option) {
         if (selectedObject == null || getParentActivity() == null) {
             return;
         }
         boolean preserveDim = false;
         switch (option) {
+            case OPTION_LOCAL_EDIT_MESSAGE:
+                showLocalMessageTextDialog();
+                break;
+            case OPTION_LOCAL_EDIT_TIME:
+                showLocalMessageTimeDialog();
+                break;
             case AyuConstants.OPTION_HISTORY:
                 presentFragment(new AyuMessageHistory(selectedObject));
                 break;
@@ -49677,6 +49725,18 @@ public class ChatActivity extends BaseFragment implements
                     options.add(OPTION_TRANSLATE);
                     icons.add(R.drawable.msg_translate);
                 }*/
+                if (message != null && message.messageOwner != null && message.getId() > 0 && !isAyuDeleted) {
+                    if (NekoConfig.huanghunLocalEditMessage.Bool()) {
+                        items.add(LocaleController.getString(R.string.Edit) + "（本地）");
+                        options.add(OPTION_LOCAL_EDIT_MESSAGE);
+                        icons.add(R.drawable.msg_edit);
+                    }
+                    if (NekoConfig.huanghunLocalEditTime.Bool()) {
+                        items.add(LocaleController.getString(R.string.MessageScheduleEditTime) + "（本地）");
+                        options.add(OPTION_LOCAL_EDIT_TIME);
+                        icons.add(R.drawable.msg_calendar2);
+                    }
+                }
                 if (allowEdit && !GroupedIconsView.useGroupedIcons()) {
                     items.add(LocaleController.getString(R.string.Edit));
                     options.add(OPTION_EDIT);
