@@ -426,6 +426,7 @@ import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.ToggleResult;
 import xyz.nextalone.nagram.helper.BookmarksHelper;
 import xyz.nextalone.nagram.helper.LocalMessageOverrideHelper;
+import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
 import xyz.nextalone.nagram.helper.DoubleTap;
 
 @SuppressWarnings("unchecked")
@@ -21104,6 +21105,14 @@ public class ChatActivity extends BaseFragment implements
             currentChat = chat;
         }
         if (avatarContainer != null) {
+            if (currentUser != null) {
+                String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(currentUser.id, currentAccount);
+                if (!TextUtils.isEmpty(localAvatarPath) && avatarContainer.getAvatarImageView() != null) {
+                    avatarContainer.getAvatarImageView().setImage(ImageLocation.getForPath(localAvatarPath), "50_50", (Drawable) null, currentUser);
+                    avatarContainer.getAvatarImageView().setVisibility(View.VISIBLE);
+                    return;
+                }
+            }
             avatarContainer.checkAndUpdateAvatar();
         }
     }

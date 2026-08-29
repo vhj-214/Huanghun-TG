@@ -7393,6 +7393,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     LocalProfileOverrideHelper.setBio(userId, input.getText().toString(), currentAccount);
                     getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_STATUS);
                     updateProfileData(true);
+                    updateRowsIds();
                     if (listAdapter != null) listAdapter.notifyDataSetChanged();
                 }).create());
     }

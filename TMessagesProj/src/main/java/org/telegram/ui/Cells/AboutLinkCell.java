@@ -141,6 +141,8 @@ public class AboutLinkCell extends FrameLayout {
         Drawable shadowDrawable = context.getResources().getDrawable(R.drawable.gradient_bottom).mutate();
         // 简介卡内部渐变使用低透明高光，不能再以主题实体白色覆盖外层玻璃卡。
         shadowDrawable.setColorFilter(new PorterDuffColorFilter(0x24FFFFFF, PorterDuff.Mode.SRC_ATOP));
+        // Do not draw the legacy dark gradient over the liquid-glass profile card.
+        shadowDrawable.setAlpha(0);
         bottomShadow.setBackground(shadowDrawable);
         addView(bottomShadow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 12, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL, 16, 0, 16, 0));
 
