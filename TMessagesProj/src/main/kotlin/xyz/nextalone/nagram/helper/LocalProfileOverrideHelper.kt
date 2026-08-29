@@ -27,7 +27,8 @@ object LocalProfileOverrideHelper {
     @JvmStatic
     fun getAvatarUri(userId: Long, account: Int = UserConfig.selectedAccount): String? {
         if (userId == 0L) return null
-        return NaConfig.getPreferences().getString(AVATAR_PREFIX + account + "_" + userId, null)
+        val value = NaConfig.getPreferences().getString(AVATAR_PREFIX + account + "_" + userId, null)
+        return value?.takeIf { java.io.File(it).isFile }
     }
 
     @JvmStatic

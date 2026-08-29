@@ -96,6 +96,7 @@ import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.tgnet.tl.TL_stories;
 import org.telegram.ui.AccountFrozenAlert;
+import tw.nekomimi.nekogram.NekoConfig;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BackDrawable;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -879,8 +880,14 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
             boolean loading;
             long balance;
             if (dialogId == UserConfig.getInstance(currentAccount).getClientUserId()) {
-                loading = !c.balanceAvailable();
-                balance = c.getBalance().amount;
+                final long localBalance = NekoConfig.huanghunLocalStars.Long();
+                if (localBalance >= 0) {
+                    loading = false;
+                    balance = localBalance;
+                } else {
+                    loading = !c.balanceAvailable();
+                    balance = c.getBalance().amount;
+                }
 
                 if (tc != null) {
                     loading |= !tc.balanceAvailable();

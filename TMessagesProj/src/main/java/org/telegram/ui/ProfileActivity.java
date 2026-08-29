@@ -7409,7 +7409,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private void saveLocalAvatar(Uri uri) {
         if (uri == null || getParentActivity() == null || userId == 0) return;
-        File target = new File(getParentActivity().getCacheDir(), "local_avatar_" + currentAccount + "_" + userId + ".jpg");
+        File target = new File(getParentActivity().getFilesDir(), "local_avatar_" + currentAccount + "_" + userId + ".jpg");
         try (java.io.InputStream input = getParentActivity().getContentResolver().openInputStream(uri);
              FileOutputStream output = new FileOutputStream(target)) {
             if (input == null) return;
@@ -14677,8 +14677,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         textCell.setImageLeft(23);
                     } else if (position == starsRow) {
                         StarsController c = StarsController.getInstance(currentAccount);
-                        long balance = c.getBalance().amount;
-                        textCell.setTextAndValueAndIcon(LocaleController.getString(R.string.MenuTelegramStars), c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : "", new AnimatedEmojiDrawable.WrapSizeDrawable(PremiumGradient.getInstance().goldenStarMenuDrawable, dp(24), dp(24)), true);
+                        long localBalance = NekoConfig.huanghunLocalStars.Long();
+                        long balance = localBalance >= 0 ? localBalance : c.getBalance().amount;
+                        textCell.setTextAndValueAndIcon(LocaleController.getString(R.string.MenuTelegramStars), balance > 0 ? LocaleController.formatNumber(balance, ' ') : "0", new AnimatedEmojiDrawable.WrapSizeDrawable(PremiumGradient.getInstance().goldenStarMenuDrawable, dp(24), dp(24)), true);
                         textCell.setImageLeft(23);
                     } else if (position == tonRow) {
                         StarsController c = StarsController.getTonInstance(currentAccount);

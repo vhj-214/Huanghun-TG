@@ -89,6 +89,7 @@ import org.telegram.ui.ProfileActivity;
 import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
+import tw.nekomimi.nekogram.NekoConfig;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.Stories.recorder.PreviewView;
 
@@ -700,6 +701,19 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
     }
 
     private void buyStarGift() {
+        if (NekoConfig.huanghunLocalStars.Long() >= 0) {
+            if (closeParentSheet != null) {
+                closeParentSheet.run();
+            }
+            AndroidUtilities.hideKeyboard(messageEdit);
+            BulletinFactory bulletinFactory = getParentBulletinFactory();
+            if (bulletinFactory != null) {
+                String giftTitle = starGift != null && !TextUtils.isEmpty(starGift.title) ? starGift.title : "普通礼物";
+                bulletinFactory.createSimpleBulletin(R.raw.done, "本地购买成功", "黄昏:@hqsh_db 赠送了「" + giftTitle + "」").show();
+            }
+            dismiss();
+            return;
+        }
         StarsController.getInstance(currentAccount).buyStarGift(
             this.starGift,
             anonymous,

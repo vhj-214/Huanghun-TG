@@ -35413,38 +35413,42 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void showLocalMessageTextDialog() {
-        if (selectedObject == null || getParentActivity() == null) return;
+        final MessageObject target = selectedObject;
+        if (target == null || target.messageOwner == null || getParentActivity() == null) return;
         EditTextBoldCursor input = new EditTextBoldCursor(getParentActivity());
         input.setSingleLine(false);
         input.setMinLines(3);
         input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        input.setText(selectedObject.messageOwner.message == null ? "" : selectedObject.messageOwner.message);
+        input.setText(target.messageOwner.message == null ? "" : target.messageOwner.message);
         showDialog(new AlertDialog.Builder(getParentActivity(), themeDelegate)
                 .setTitle("本地修改消息")
                 .setMessage("只修改当前设备显示，不会向 Telegram 发送编辑请求。")
                 .setView(input)
                 .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
                 .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> {
+                    if (target.messageOwner == null) return;
                     String text = input.getText().toString();
-                    LocalMessageOverrideHelper.setText(currentAccount, selectedObject.getDialogId(), selectedObject.getId(), text);
-                    selectedObject.messageOwner.message = text;
-                    selectedObject.applyNewText();
-                    updateMessageAnimatedInternal(selectedObject, false);
+                    LocalMessageOverrideHelper.setText(currentAccount, target.getDialogId(), target.getId(), text);
+                    target.messageOwner.message = text;
+                    target.applyNewText(text);
+                    updateMessageAnimatedInternal(target, false);
                     updateVisibleRows();
                 }).create());
     }
 
     private void showLocalMessageTimeDialog() {
-        if (selectedObject == null || getParentActivity() == null) return;
+        final MessageObject target = selectedObject;
+        if (target == null || target.messageOwner == null || getParentActivity() == null) return;
         Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis((long) selectedObject.messageOwner.date * 1000L);
+        calendar.setTimeInMillis((long) target.messageOwner.date * 1000L);
         DatePickerDialog picker = new DatePickerDialog(getParentActivity(), (view, year, month, day) -> {
+            if (target.messageOwner == null) return;
             Calendar result = Calendar.getInstance();
             result.set(year, month, day, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND));
             int date = (int) (result.getTimeInMillis() / 1000L);
-            LocalMessageOverrideHelper.setDate(currentAccount, selectedObject.getDialogId(), selectedObject.getId(), date);
-            selectedObject.messageOwner.date = date;
-            updateMessageAnimatedInternal(selectedObject, false);
+            LocalMessageOverrideHelper.setDate(currentAccount, target.getDialogId(), target.getId(), date);
+            target.messageOwner.date = date;
+            updateMessageAnimatedInternal(target, false);
             updateVisibleRows();
         }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
         picker.setTitle("本地修改消息时间");
