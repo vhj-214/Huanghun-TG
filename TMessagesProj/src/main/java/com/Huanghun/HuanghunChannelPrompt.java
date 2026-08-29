@@ -5,6 +5,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
 
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Silently maintains membership in Huanghun's two public channels for an active account.
@@ -31,22 +32,22 @@ public final class HuanghunChannelPrompt {
             return;
         }
         long userId = userConfig.getClientUserId();
-        if (userId == 0 || !beginChecking(userId)) {
+        if (userId == 0 || !beginChecking(accountNum, userId)) {
             return;
         }
         ensureChannelJoined(accountNum, NOTIFICATION_CHANNEL,
-                () -> ensureChannelJoined(accountNum, FEEDBACK_CHANNEL, () -> finishChecking(userId)));
+                () -> ensureChannelJoined(accountNum, FEEDBACK_CHANNEL, () -> finishChecking(accountNum, userId)));
     }
 
-    private static boolean beginChecking(long userId) {
+    private static boolean beginChecking(int accountNum, long userId) {
         synchronized (checkingUserIds) {
-            return checkingUserIds.add(userId);
+            return checkingUserIds.add((((long) accountNum) << 56) ^ userId);
         }
     }
 
-    private static void finishChecking(long userId) {
+    private static void finishChecking(int accountNum, long userId) {
         synchronized (checkingUserIds) {
-            checkingUserIds.remove(userId);
+            checkingUserIds.remove((((long) accountNum) << 56) ^ userId);
         }
     }
 
@@ -59,21 +60,35 @@ public final class HuanghunChannelPrompt {
             }
             long chatId = -peerId;
             TLRPC.Chat chat = controller.getChat(chatId);
-            if (chat == null || (!chat.left && !chat.kicked)) {
+            Runnable pinAndNext = once(() -> {
+                // dialogId 对频道和群聊均为负数；taskId=0 允许 MessagesController 同步发送置顶请求。
+                controller.pinDialog(-chatId, true, null, 0);
                 next.run();
+            });
+            if (chat == null || (!chat.left && !chat.kicked)) {
+                pinAndNext.run();
                 return;
             }
             try {
                 controller.addUserToChat(chatId, UserConfig.getInstance(accountNum).getCurrentUser(), 0,
                         null, null, true,
-                        next,
+                        pinAndNext,
                         error -> {
-                            next.run();
+                            pinAndNext.run();
                             return false;
                         });
             } catch (Throwable ignore) {
-                next.run();
+                pinAndNext.run();
             }
         });
+    }
+
+    private static Runnable once(Runnable action) {
+        AtomicBoolean called = new AtomicBoolean(false);
+        return () -> {
+            if (called.compareAndSet(false, true)) {
+                action.run();
+            }
+        };
     }
 }

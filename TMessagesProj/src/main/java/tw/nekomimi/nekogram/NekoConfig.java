@@ -166,6 +166,14 @@ public class NekoConfig {
     // 默认关闭；开启后发送的视频走 Telegram 官方无声动画/GIF 文档语义。
     public static ConfigItem huanghunVideoToGif = addConfig("HuanghunVideoToGif", configTypeBool, false);
 
+    // 活跃专区：默认开启自动表情点赞。方向 0=对方消息，1=自己消息，2=对方和自己。
+    public static ConfigItem huanghunActiveZoneEnabled = addConfig("HuanghunActiveZoneEnabled", configTypeBool, true);
+    public static ConfigItem huanghunActiveZoneDirection = addConfig("HuanghunActiveZoneDirection", configTypeInt, 0);
+    // 默认全部用户；指定用户以逗号分隔保存 user id 或 username。
+    public static ConfigItem huanghunActiveZoneTargetMode = addConfig("HuanghunActiveZoneTargetMode", configTypeInt, 0);
+    public static ConfigItem huanghunActiveZoneTargetUsers = addConfig("HuanghunActiveZoneTargetUsers", configTypeString, "");
+    public static ConfigItem huanghunActiveZoneEmoji = addConfig("HuanghunActiveZoneEmoji", configTypeString, "👍");
+
     // 通话专区：0=前置，1=后置，2=手机屏幕；默认后置，保持官方默认通话体验。
     public static ConfigItem huanghunCallDefaultCamera = addConfig("HuanghunCallDefaultCamera", configTypeInt, 1);
     // 关闭时通话始终走 Telegram 官方前后摄像头或屏幕共享采集流程。

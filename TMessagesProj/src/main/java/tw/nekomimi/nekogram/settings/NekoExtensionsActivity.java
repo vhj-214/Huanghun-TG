@@ -4,6 +4,7 @@ import static org.telegram.messenger.LocaleController.getString;
 
 import android.app.Activity;
 import android.app.DatePickerDialog;
+import android.os.Bundle;
 import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
@@ -38,6 +39,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
+import org.telegram.ui.ContactsActivity;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
@@ -50,6 +52,7 @@ import java.util.Date;
 import java.util.Locale;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunActiveZoneHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
@@ -59,6 +62,14 @@ import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
     private static final int REQUEST_HUANGHUN_BUILTIN_VIDEOS = 10937;
+
+    private int activeHeaderRow;
+    private int activeEnabledRow;
+    private int activeDirectionRow;
+    private int activeTargetRow;
+    private int activeEmojiRow;
+    private int activeNoticeRow;
+    private int activeEndRow;
 
     private int videoHeaderRow;
     private int builtinCameraRow;
@@ -105,6 +116,14 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     @Override
     protected void updateRows() {
         super.updateRows();
+        activeHeaderRow = addRow();
+        activeEnabledRow = addRow();
+        activeDirectionRow = addRow();
+        activeTargetRow = addRow();
+        activeEmojiRow = addRow();
+        activeNoticeRow = addRow();
+        activeEndRow = addRow();
+
         videoHeaderRow = addRow();
         builtinCameraRow = addRow();
         selectBuiltinVideosRow = addRow();
@@ -150,6 +169,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     @Override
     public void onResume() {
         super.onResume();
+        notifyActiveRows();
         notifyVideoRows();
         notifyPrivacyRows();
     }
@@ -161,6 +181,25 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
+        if (position == activeEnabledRow) {
+            boolean enabled = NekoConfig.huanghunActiveZoneEnabled.toggleConfigBool();
+            if (view instanceof TextCheckCell) {
+                ((TextCheckCell) view).setChecked(enabled);
+            }
+            return;
+        }
+        if (position == activeDirectionRow) {
+            showActiveDirectionDialog();
+            return;
+        }
+        if (position == activeTargetRow) {
+            showActiveTargetDialog();
+            return;
+        }
+        if (position == activeEmojiRow) {
+            showActiveEmojiDialog();
+            return;
+        }
         if (position == builtinCameraRow) {
             boolean enabled = NekoConfig.huanghunBuiltinCameraEnabled.toggleConfigBool();
             if (view instanceof TextCheckCell) {
@@ -437,6 +476,140 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 break;
         }
         return "确认要" + target + "吗？\n\n点击“确认清理”后将立即开始执行；点击“取消”则不会进行任何清理。";
+    }
+
+    private void showActiveDirectionDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        String[] items = {"对方消息", "自己消息", "对方和自己"};
+        int checked = Math.max(0, Math.min(2, NekoConfig.huanghunActiveZoneDirection.Int()));
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("点赞消息方向")
+                .setSingleChoiceItems(items, checked, (dialog, which) -> {
+                    NekoConfig.huanghunActiveZoneDirection.setConfigInt(which);
+                    dialog.dismiss();
+                    notifyActiveRows();
+                })
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .create());
+    }
+
+    private void showActiveTargetDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        String[] items = {"全部用户（默认）", "选择指定用户", "输入用户 ID 或用户名"};
+        int checked = NekoConfig.huanghunActiveZoneTargetMode.Int() == HuanghunActiveZoneHelper.TARGET_SELECTED ? 1 : 0;
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("点赞对象")
+                .setMessage("默认对所有用户生效；可以从会话和全局搜索选择用户，也可以直接输入用户 ID 或用户名。")
+                .setSingleChoiceItems(items, checked, (dialog, which) -> {
+                    if (which == 0) {
+                        NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(HuanghunActiveZoneHelper.TARGET_ALL);
+                        dialog.dismiss();
+                        notifyActiveRows();
+                    } else if (which == 1) {
+                        dialog.dismiss();
+                        selectActiveUser();
+                    } else {
+                        dialog.dismiss();
+                        showActiveUserInputDialog();
+                    }
+                })
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .create());
+    }
+
+    private void selectActiveUser() {
+        Bundle args = new Bundle();
+        args.putBoolean("onlyUsers", true);
+        args.putBoolean("destroyAfterSelect", true);
+        args.putBoolean("returnAsResult", true);
+        args.putBoolean("allowBots", true);
+        args.putBoolean("allowSelf", true);
+        ContactsActivity contactsActivity = new ContactsActivity(args);
+        contactsActivity.setDelegate((user, param, activity) -> {
+            String current = NekoConfig.huanghunActiveZoneTargetUsers.String();
+            String id = String.valueOf(user.id);
+            ArrayList<String> users = new ArrayList<>();
+            if (current != null && !current.trim().isEmpty()) {
+                for (String value : current.split(",")) {
+                    value = value.trim();
+                    if (!value.isEmpty() && !users.contains(value)) users.add(value);
+                }
+            }
+            if (!users.contains(id)) users.add(id);
+            NekoConfig.huanghunActiveZoneTargetUsers.setConfigString(android.text.TextUtils.join(",", users));
+            NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(HuanghunActiveZoneHelper.TARGET_SELECTED);
+            activity.removeSelfFromStack();
+            notifyActiveRows();
+        });
+        presentFragment(contactsActivity);
+    }
+
+    private void showActiveUserInputDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setSingleLine(true);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        input.setHintTextColor(getThemedColor(Theme.key_dialogTextHint));
+        input.setHint("例如：123456789 或 @username");
+        input.setText(NekoConfig.huanghunActiveZoneTargetUsers.String());
+        input.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(8), AndroidUtilities.dp(12), AndroidUtilities.dp(8));
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("输入用户 ID 或用户名")
+                .setView(input)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
+                    String value = input.getText().toString().trim();
+                    NekoConfig.huanghunActiveZoneTargetUsers.setConfigString(value);
+                    NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(value.isEmpty() ? HuanghunActiveZoneHelper.TARGET_ALL : HuanghunActiveZoneHelper.TARGET_SELECTED);
+                    notifyActiveRows();
+                })
+                .create());
+    }
+
+    private void showActiveEmojiDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setSingleLine(true);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        input.setText(NekoConfig.huanghunActiveZoneEmoji.String());
+        input.setGravity(Gravity.CENTER);
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("点赞表情")
+                .setMessage("请输入一个 Telegram 支持的普通表情，例如 👍。")
+                .setView(input)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
+                    String value = input.getText().toString().trim();
+                    NekoConfig.huanghunActiveZoneEmoji.setConfigString(value.isEmpty() ? "👍" : value);
+                    notifyActiveRows();
+                })
+                .create());
+    }
+
+    private String getActiveDirectionSummary() {
+        switch (NekoConfig.huanghunActiveZoneDirection.Int()) {
+            case HuanghunActiveZoneHelper.DIRECTION_SELF:
+                return "自己消息";
+            case HuanghunActiveZoneHelper.DIRECTION_BOTH:
+                return "对方和自己";
+            case HuanghunActiveZoneHelper.DIRECTION_OTHER:
+            default:
+                return "对方消息";
+        }
+    }
+
+    private void notifyActiveRows() {
+        if (listAdapter == null) return;
+        listAdapter.notifyItemChanged(activeEnabledRow);
+        listAdapter.notifyItemChanged(activeDirectionRow);
+        listAdapter.notifyItemChanged(activeTargetRow);
+        listAdapter.notifyItemChanged(activeEmojiRow);
     }
 
     private void showKeywordsDialog() {
@@ -908,16 +1081,24 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             int type = holder.getItemViewType();
             if (type == TYPE_HEADER) {
                 HeaderCell cell = (HeaderCell) holder.itemView;
-                String headerText = position == videoHeaderRow
+                String headerText = position == activeHeaderRow
+                        ? "活跃专区"
+                        : (position == videoHeaderRow
                         ? "视频专区"
                         : (position == privacyHeaderRow
                         ? "隐私专区"
-                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone)));
+                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone))));
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
                 cell.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
-                if (position == selectBuiltinVideosRow) {
+                if (position == activeDirectionRow) {
+                    cell.setTextAndValue("点赞消息方向", getActiveDirectionSummary(), true);
+                } else if (position == activeTargetRow) {
+                    cell.setTextAndValue("点赞对象", HuanghunActiveZoneHelper.getTargetSummary(), true);
+                } else if (position == activeEmojiRow) {
+                    cell.setTextAndValue("点赞表情", NekoConfig.huanghunActiveZoneEmoji.String(), false);
+                } else if (position == selectBuiltinVideosRow) {
                     int count = HuanghunVideoLibraryHelper.getVideoCount(mContext, currentAccount);
                     cell.setTextAndValue("选取内置视频", "已选 " + count + " 个", true);
                 } else if (position == callCameraFeatureRow) {
@@ -963,7 +1144,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 }
             } else if (type == TYPE_CHECK) {
                 TextCheckCell cell = (TextCheckCell) holder.itemView;
-                if (position == builtinCameraRow) {
+                if (position == activeEnabledRow) {
+                    cell.setTextAndCheck("自动表情点赞", NekoConfig.huanghunActiveZoneEnabled.Bool(), true);
+                } else if (position == builtinCameraRow) {
                     cell.setTextAndCheck("启动内置相机", NekoConfig.huanghunBuiltinCameraEnabled.Bool(), true);
                 } else if (position == builtinVideoSoundRow) {
                     cell.setTextAndCheck("视频声音", NekoConfig.huanghunBuiltinVideoSound.Bool(), true);
@@ -980,7 +1163,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))));
+                cell.setText(position == activeNoticeRow ? "新消息到达后自动添加点赞表情。可以选择对方消息、自己消息或双方消息，也可以限定为全部用户或指定用户。默认开启、默认点赞对象为全部用户、默认表情为 👍。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice)))));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
@@ -989,16 +1172,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
+            if (position == activeHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
+            if (position == activeEnabledRow || position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
                 return TYPE_CHECK;
             }
-            if (position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
+            if (position == activeNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
+            if (position == activeEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;
