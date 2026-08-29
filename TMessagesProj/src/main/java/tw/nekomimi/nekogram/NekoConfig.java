@@ -174,6 +174,13 @@ public class NekoConfig {
     public static ConfigItem huanghunActiveZoneTargetUsers = addConfig("HuanghunActiveZoneTargetUsers", configTypeString, "");
     public static ConfigItem huanghunActiveZoneEmoji = addConfig("HuanghunActiveZoneEmoji", configTypeString, "👍");
 
+    // 本地功能专区：只影响本机显示或本地测试账本，不向 Telegram 服务器发送购买/修改请求。
+    public static ConfigItem huanghunLocalEditMessage = addConfig("HuanghunLocalEditMessage", configTypeBool, true);
+    public static ConfigItem huanghunLocalEditTime = addConfig("HuanghunLocalEditTime", configTypeBool, true);
+    public static ConfigItem huanghunLocalEditAvatar = addConfig("HuanghunLocalEditAvatar", configTypeBool, true);
+    public static ConfigItem huanghunLocalEditBio = addConfig("HuanghunLocalEditBio", configTypeBool, true);
+    public static ConfigItem huanghunLocalStars = addConfig("HuanghunLocalStars", configTypeLong, 0L);
+
     // 通话专区：0=前置，1=后置，2=手机屏幕；默认后置，保持官方默认通话体验。
     public static ConfigItem huanghunCallDefaultCamera = addConfig("HuanghunCallDefaultCamera", configTypeInt, 1);
     // 关闭时通话始终走 Telegram 官方前后摄像头或屏幕共享采集流程。

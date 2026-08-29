@@ -103,6 +103,18 @@ object LocalProfileGiftHelper {
         }
     }
 
+    /** Returns a compact local-only summary for the current account's purchased virtual gifts. */
+    @JvmStatic
+    fun getCurrentMountedGiftSummary(): String {
+        val userId = currentUserId()
+        if (userId == 0L) return "当前 0 个"
+        val data = getDataForUser(userId)
+        if (data.isEmpty()) return "当前 0 个"
+        val titles = data.mapNotNull { it.title.takeIf(String::isNotBlank) }.take(3)
+        val suffix = if (data.size > titles.size) " 等" else ""
+        return "当前 ${data.size} 个：" + titles.joinToString("、") + suffix
+    }
+
     /** Explicit removal is the only operation that clears all local style gifts. */
     @JvmStatic
     fun clear(userId: Long = currentUserId()) {

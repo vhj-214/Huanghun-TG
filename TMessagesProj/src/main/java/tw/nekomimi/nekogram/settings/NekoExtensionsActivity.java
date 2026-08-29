@@ -55,6 +55,7 @@ import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunActiveZoneHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
@@ -70,6 +71,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int activeEmojiRow;
     private int activeNoticeRow;
     private int activeEndRow;
+
+    private int localHeaderRow;
+    private int localEditMessageRow;
+    private int localEditTimeRow;
+    private int localEditAvatarRow;
+    private int localEditBioRow;
+    private int localStarsRow;
+    private int localClearGiftsRow;
+    private int localNoticeRow;
+    private int localEndRow;
 
     private int videoHeaderRow;
     private int builtinCameraRow;
@@ -124,6 +135,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         activeNoticeRow = addRow();
         activeEndRow = addRow();
 
+        localHeaderRow = addRow();
+        localEditMessageRow = addRow();
+        localEditTimeRow = addRow();
+        localEditAvatarRow = addRow();
+        localEditBioRow = addRow();
+        localStarsRow = addRow();
+        localClearGiftsRow = addRow();
+        localNoticeRow = addRow();
+        localEndRow = addRow();
+
         videoHeaderRow = addRow();
         builtinCameraRow = addRow();
         selectBuiltinVideosRow = addRow();
@@ -170,6 +191,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     public void onResume() {
         super.onResume();
         notifyActiveRows();
+        notifyLocalRows();
         notifyVideoRows();
         notifyPrivacyRows();
     }
@@ -198,6 +220,34 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         if (position == activeEmojiRow) {
             showActiveEmojiDialog();
+            return;
+        }
+        if (position == localEditMessageRow) {
+            boolean enabled = NekoConfig.huanghunLocalEditMessage.toggleConfigBool();
+            if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(enabled);
+            return;
+        }
+        if (position == localEditTimeRow) {
+            boolean enabled = NekoConfig.huanghunLocalEditTime.toggleConfigBool();
+            if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(enabled);
+            return;
+        }
+        if (position == localEditAvatarRow) {
+            boolean enabled = NekoConfig.huanghunLocalEditAvatar.toggleConfigBool();
+            if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(enabled);
+            return;
+        }
+        if (position == localEditBioRow) {
+            boolean enabled = NekoConfig.huanghunLocalEditBio.toggleConfigBool();
+            if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(enabled);
+            return;
+        }
+        if (position == localStarsRow) {
+            showLocalStarsDialog();
+            return;
+        }
+        if (position == localClearGiftsRow) {
+            showClearLocalGiftsDialog();
             return;
         }
         if (position == builtinCameraRow) {
@@ -568,6 +618,59 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     notifyActiveRows();
                 })
                 .create());
+    }
+
+    private void showLocalStarsDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        input.setHint("例如：1000");
+        input.setText(String.valueOf(NekoConfig.huanghunLocalStars.Long()));
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("定义星星数量")
+                .setMessage("这里只修改当前账号的本地虚拟星星余额，仅用于本地购买测试，无法真实购买、充值或扣款。")
+                .setView(input)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
+                    try {
+                        long value = Math.max(0L, Math.min(9_999_999_999L, Long.parseLong(input.getText().toString().trim())));
+                        NekoConfig.huanghunLocalStars.setConfigLong(value);
+                        notifyLocalRows();
+                    } catch (Throwable ignore) {
+                        showVideoInfo("输入无效", "星星数量必须是非负整数。\n");
+                    }
+                })
+                .create());
+    }
+
+    private void showClearLocalGiftsDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        String summary = LocalProfileGiftHelper.getCurrentMountedGiftSummary();
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("清空本地虚拟礼物")
+                .setMessage("当前账号" + summary + "\n\n是否清除全部这些购买的虚拟礼物？此操作只清除本机记录，不会影响 Telegram 真实礼物或账户数据。")
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton("清除全部", (dialog, which) -> {
+                    LocalProfileGiftHelper.clear();
+                    notifyLocalRows();
+                    BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "已清空本地虚拟礼物记录。").show();
+                })
+                .create());
+    }
+
+    private void notifyLocalRows() {
+        if (listAdapter == null) return;
+        listAdapter.notifyItemChanged(localEditMessageRow);
+        listAdapter.notifyItemChanged(localEditTimeRow);
+        listAdapter.notifyItemChanged(localEditAvatarRow);
+        listAdapter.notifyItemChanged(localEditBioRow);
+        listAdapter.notifyItemChanged(localStarsRow);
+        listAdapter.notifyItemChanged(localClearGiftsRow);
     }
 
     private void showActiveEmojiDialog() {
@@ -1083,11 +1186,13 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 HeaderCell cell = (HeaderCell) holder.itemView;
                 String headerText = position == activeHeaderRow
                         ? "活跃专区"
+                        : (position == localHeaderRow
+                        ? "本地功能专区"
                         : (position == videoHeaderRow
                         ? "视频专区"
                         : (position == privacyHeaderRow
                         ? "隐私专区"
-                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone))));
+                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone)))));
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
@@ -1098,6 +1203,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setTextAndValue("点赞对象", HuanghunActiveZoneHelper.getTargetSummary(), true);
                 } else if (position == activeEmojiRow) {
                     cell.setTextAndValue("点赞表情", NekoConfig.huanghunActiveZoneEmoji.String(), false);
+                } else if (position == localStarsRow) {
+                    cell.setTextAndValue("定义星星数量", String.valueOf(NekoConfig.huanghunLocalStars.Long()) + " 颗（仅本地测试）", true);
+                } else if (position == localClearGiftsRow) {
+                    cell.setTextAndValue("清空本地虚拟礼物", LocalProfileGiftHelper.getCurrentMountedGiftSummary(), true);
                 } else if (position == selectBuiltinVideosRow) {
                     int count = HuanghunVideoLibraryHelper.getVideoCount(mContext, currentAccount);
                     cell.setTextAndValue("选取内置视频", "已选 " + count + " 个", true);
@@ -1146,6 +1255,14 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 TextCheckCell cell = (TextCheckCell) holder.itemView;
                 if (position == activeEnabledRow) {
                     cell.setTextAndCheck("自动表情点赞", NekoConfig.huanghunActiveZoneEnabled.Bool(), true);
+                } else if (position == localEditMessageRow) {
+                    cell.setTextAndCheck("本地修改消息", NekoConfig.huanghunLocalEditMessage.Bool(), true);
+                } else if (position == localEditTimeRow) {
+                    cell.setTextAndCheck("本地修改时间", NekoConfig.huanghunLocalEditTime.Bool(), true);
+                } else if (position == localEditAvatarRow) {
+                    cell.setTextAndCheck("本地修改头像", NekoConfig.huanghunLocalEditAvatar.Bool(), true);
+                } else if (position == localEditBioRow) {
+                    cell.setTextAndCheck("本地修改用户简介", NekoConfig.huanghunLocalEditBio.Bool(), true);
                 } else if (position == builtinCameraRow) {
                     cell.setTextAndCheck("启动内置相机", NekoConfig.huanghunBuiltinCameraEnabled.Bool(), true);
                 } else if (position == builtinVideoSoundRow) {
@@ -1163,7 +1280,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == activeNoticeRow ? "新消息到达后自动添加点赞表情。可以选择对方消息、自己消息或双方消息，也可以限定为全部用户或指定用户。默认开启、默认点赞对象为全部用户、默认表情为 👍。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice)))));
+                cell.setText(position == activeNoticeRow ? "新消息到达后自动添加点赞表情。可以选择对方消息、自己消息或双方消息，也可以限定为全部用户或指定用户。默认开启、默认点赞对象为全部用户、默认表情为 👍。" : (position == localNoticeRow ? "本专区只修改本机显示和本地测试数据，不会修改 Telegram 服务器内容。虚拟星星不能真实购买；本地礼物也不会产生真实订单或扣款。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))))));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
@@ -1172,16 +1289,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == activeHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
+            if (position == activeHeaderRow || position == localHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == activeEnabledRow || position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
+            if (position == activeEnabledRow || position == localEditMessageRow || position == localEditTimeRow || position == localEditAvatarRow || position == localEditBioRow || position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
                 return TYPE_CHECK;
             }
-            if (position == activeNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
+            if (position == activeNoticeRow || position == localNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == activeEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
+            if (position == activeEndRow || position == localEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;

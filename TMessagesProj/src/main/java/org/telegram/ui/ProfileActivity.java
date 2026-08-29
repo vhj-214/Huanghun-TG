@@ -355,6 +355,7 @@ import me.vkryl.android.animator.BoolAnimator;
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.DatacenterActivity;
 import tw.nekomimi.nekogram.NekoConfig;
+import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
 import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.RegexChatFiltersListActivity;
 import tw.nekomimi.nekogram.filters.RegexFiltersSettingActivity;
@@ -643,6 +644,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private final static int edit_profile = 41;
     private final static int copy_link_profile = 42;
     private final static int set_username = 43;
+    private final static int local_edit_avatar = 48;
+    private final static int local_edit_bio = 49;
+    private static final int REQUEST_LOCAL_PROFILE_AVATAR = 7654;
     private final static int bot_privacy = 44;
     private final static int delete_group = 45;
     private final static int enable_no_forwards = 46;
@@ -2920,6 +2924,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             BulletinFactory.createSaveToGalleryBulletin(ProfileActivity.this, isVideo, null).show();
                         });
                     }
+                } else if (id == local_edit_avatar) {
+                    showLocalAvatarPicker();
+                } else if (id == local_edit_bio) {
+                    showLocalBioDialog();
                 } else if (id == edit_info) {
                     presentFragment(new UserInfoActivity());
                 } else if (id == edit_color) {
@@ -7358,6 +7366,58 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             return true;
         });
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.closeSearchByActiveAction);
+    }
+
+    private void showLocalBioDialog() {
+        if (userId == 0 || getParentActivity() == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(getParentActivity());
+        input.setSingleLine(false);
+        input.setMinLines(3);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        String current = LocalProfileOverrideHelper.getBio(userId, currentAccount);
+        if (current != null) input.setText(current);
+        input.setHint("仅在本机显示的用户简介");
+        showDialog(new AlertDialog.Builder(getParentActivity(), resourcesProvider)
+                .setTitle("本地修改用户简介")
+                .setMessage("只修改当前设备显示，不会同步到 Telegram 服务器。留空可清除本地简介。")
+                .setView(input)
+                .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
+                .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> {
+                    LocalProfileOverrideHelper.setBio(userId, input.getText().toString(), currentAccount);
+                    updateProfileData(true);
+                    if (listAdapter != null) listAdapter.notifyDataSetChanged();
+                }).create());
+    }
+
+    private void showLocalAvatarPicker() {
+        if (userId == 0 || getParentActivity() == null) return;
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_LOCAL_PROFILE_AVATAR);
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
+    private void saveLocalAvatar(Uri uri) {
+        if (uri == null || getParentActivity() == null || userId == 0) return;
+        File target = new File(getParentActivity().getCacheDir(), "local_avatar_" + currentAccount + "_" + userId + ".jpg");
+        try (java.io.InputStream input = getParentActivity().getContentResolver().openInputStream(uri);
+             FileOutputStream output = new FileOutputStream(target)) {
+            if (input == null) return;
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            LocalProfileOverrideHelper.setAvatarUri(userId, target.getAbsolutePath(), currentAccount);
+            updateProfileData(true);
+            if (listAdapter != null) listAdapter.notifyDataSetChanged();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
     }
 
     private void onWriteButtonClick() {
@@ -11895,7 +11955,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (avatar == null) {
                 avatarsViewPager.initIfEmpty(vectorAvatarThumbDrawable, imageLocation, thumbLocation, reload);
             }
-            if (avatarBig == null) {
+            String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(userId, currentAccount);
+            boolean hasLocalAvatar = !TextUtils.isEmpty(localAvatarPath) && new File(localAvatarPath).exists();
+            if (avatarBig == null && hasLocalAvatar) {
+                avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "100_100", avatarDrawable, user);
+            } else if (avatarBig == null) {
                 if (vectorAvatar != null) {
                     avatarImage.setImageDrawable(vectorAvatarThumbDrawable);
                 } else if (videoThumbLocation != null && !user.photo.personal) {
@@ -12800,6 +12864,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (!isBot && getContactsController().contactsDict.get(userId) != null) {
                     otherItem.addSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
                 }
+                // Huanghun: these are additional local-only actions; existing menu items remain unchanged.
+                if (!UserObject.isUserSelf(user)) {
+                    if (NekoConfig.huanghunLocalEditAvatar.Bool()) {
+                        otherItem.addSubItem(local_edit_avatar, R.drawable.photo_paint, "本地修改头像");
+                    }
+                    if (NekoConfig.huanghunLocalEditBio.Bool()) {
+                        otherItem.addSubItem(local_edit_bio, R.drawable.msg_edit, "本地修改用户简介");
+                    }
+                }
             }
         } else if (chatId != 0) {
             TLRPC.Chat chat = getMessagesController().getChat(chatId);
@@ -13616,6 +13689,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_LOCAL_PROFILE_AVATAR && resultCode == Activity.RESULT_OK && data != null) {
+            saveLocalAvatar(data.getData());
+            return;
+        }
         if (imageUpdater != null) {
             imageUpdater.onActivityResult(requestCode, resultCode, data);
         }
@@ -14363,7 +14440,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (position == userInfoRow) {
                         // TLRPC.User user = userInfo.user != null ? userInfo.user : getMessagesController().getUser(userInfo.id);
                         // boolean addlinks = isBot || (user != null && user.premium && userInfo.about != null);
-                        aboutLinkCell.setTextAndValue(MessageHelper.zalgoFilter(userInfo.about), LocaleController.getString(R.string.UserBio), true);
+                        String localBio = LocalProfileOverrideHelper.getBio(userId, currentAccount);
+                        aboutLinkCell.setTextAndValue(MessageHelper.zalgoFilter(localBio != null ? localBio : userInfo.about), LocaleController.getString(R.string.UserBio), true);
                     } else if (position == channelInfoRow) {
                         String text = chatInfo.about;
                         while (text.contains("\n\n\n")) {
@@ -14372,10 +14450,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         aboutLinkCell.setTextAndValue(MessageHelper.zalgoFilter(text), LocaleController.getString(R.string.DescriptionPlaceholder), ChatObject.isChannel(currentChat) && !currentChat.megagroup);
                     } else if (position == bioRow) {
                         String value;
-                        if (userInfo == null || !TextUtils.isEmpty(userInfo.about)) {
-                            value = userInfo == null ? LocaleController.getString(R.string.Loading) : userInfo.about;
+                        String localBio = LocalProfileOverrideHelper.getBio(userId, currentAccount);
+                        if (localBio != null || userInfo == null || !TextUtils.isEmpty(userInfo.about)) {
+                            value = userInfo == null ? LocaleController.getString(R.string.Loading) : (localBio != null ? localBio : userInfo.about);
                             aboutLinkCell.setTextAndValue(MessageHelper.zalgoFilter(value), LocaleController.getString(R.string.UserBio), true/*getUserConfig().isPremium()*/);
-                            currentBio = userInfo != null ? userInfo.about : null;
+                            currentBio = userInfo != null ? (localBio != null ? localBio : userInfo.about) : null;
                         } else {
                             aboutLinkCell.setTextAndValue(LocaleController.getString(R.string.UserBio), LocaleController.getString(R.string.UserBioDetail), false);
                             currentBio = null;
