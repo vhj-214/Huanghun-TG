@@ -90,6 +90,7 @@ import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
 import tw.nekomimi.nekogram.NekoConfig;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.Stories.recorder.PreviewView;
 
@@ -706,6 +707,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
                 closeParentSheet.run();
             }
             AndroidUtilities.hideKeyboard(messageEdit);
+            LocalProfileGiftHelper.addLocalGift(dialogId, starGift, "黄昏:@hqsh_db");
             BulletinFactory bulletinFactory = getParentBulletinFactory();
             if (bulletinFactory != null) {
                 String giftTitle = starGift != null && !TextUtils.isEmpty(starGift.title) ? starGift.title : "普通礼物";

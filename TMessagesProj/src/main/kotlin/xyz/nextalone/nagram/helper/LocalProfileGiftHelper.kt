@@ -19,7 +19,9 @@ data class LocalProfileGiftData(
     var centerColor: Int,
     var edgeColor: Int,
     var patternColor: Int,
-    var textColor: Int
+    var textColor: Int,
+    var localStyle: Boolean = true,
+    var senderName: String = ""
 )
 
 /**
@@ -56,8 +58,21 @@ object LocalProfileGiftHelper {
      */
     @JvmStatic
     fun getMountedGiftData(user: TLRPC.User?): ArrayList<LocalProfileGiftData> {
-        if (user == null || !isLocalUser(user.id)) return arrayListOf()
+        if (user == null) return arrayListOf()
         return ArrayList(getDataForUser(user.id))
+    }
+
+    /** Saves a normal gift as a local-only profile card for the recipient. */
+    @JvmStatic
+    fun addLocalGift(userId: Long, gift: TL_stars.StarGift?, senderName: String = "黄昏:@hqsh_db") {
+        if (userId == 0L || gift == null) return
+        val documentId = gift.getDocument()?.id ?: 0L
+        val giftId = if (gift.id != 0L) gift.id else documentId
+        if (giftId == 0L) return
+        val current = ArrayList(getDataForUser(userId))
+        current.removeAll { it.collectibleId == giftId && !it.localStyle }
+        current.add(LocalProfileGiftData(giftId, documentId, gift.title ?: "普通礼物", gift.slug ?: "", 0L, 0, 0, 0, 0, false, senderName))
+        saveData(userId, current)
     }
 
     @JvmStatic
@@ -150,7 +165,9 @@ object LocalProfileGiftHelper {
             status.center_color,
             status.edge_color,
             status.pattern_color,
-            status.text_color
+            status.text_color,
+            true,
+            ""
         )
     }
 

@@ -618,11 +618,10 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             if (list == null)
                 return;
-            final boolean ownMainGiftsPage = parent.list == list && parent.dialogId == UserConfig.getInstance(currentAccount).getClientUserId();
-            final TLRPC.User profileUser = ownMainGiftsPage ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId) : null;
-            final ArrayList<LocalProfileGiftData> localStyleGifts = ownMainGiftsPage
-                    ? LocalProfileGiftHelper.getMountedGiftData(profileUser)
-                    : new ArrayList<>();
+            final TLRPC.User profileUser = parent.dialogId > 0
+                    ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
+                    : null;
+            final ArrayList<LocalProfileGiftData> localStyleGifts = LocalProfileGiftHelper.getMountedGiftData(profileUser);
             if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading && localStyleGifts.isEmpty())
                 return;
             final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
@@ -1925,7 +1924,10 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             titlePaint.setTypeface(null);
             titlePaint.setTextSize(dp(11));
             titlePaint.setColor(0xDFFFFFFF);
-            canvas.drawText(LocaleController.getString(R.string.LocalStyleGiftLabel), getWidth() / 2f, dp(148), titlePaint);
+            final String subtitle = data != null && !data.getLocalStyle() && !TextUtils.isEmpty(data.getSenderName())
+                    ? data.getSenderName()
+                    : LocaleController.getString(R.string.LocalStyleGiftLabel);
+            canvas.drawText(subtitle, getWidth() / 2f, dp(148), titlePaint);
             titlePaint.setTypeface(AndroidUtilities.bold());
             titlePaint.setTextSize(dp(13));
         }
