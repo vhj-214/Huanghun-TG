@@ -89,6 +89,13 @@ object LocalProfileGiftHelper {
         val backdrop = gift.attributes
             .filterIsInstance<TL_stars.starGiftAttributeBackdrop>()
             .firstOrNull()
+        val background = gift.background
+        // Telegram supplies the official palette on collectible backdrops and on
+        // ordinary catalog gifts through StarGift.background.
+        val centerColor = backdrop?.center_color ?: background?.center_color ?: DEFAULT_CENTER_COLOR
+        val edgeColor = backdrop?.edge_color ?: background?.edge_color ?: DEFAULT_EDGE_COLOR
+        val patternColor = backdrop?.pattern_color ?: centerColor
+        val textColor = backdrop?.text_color ?: background?.text_color ?: DEFAULT_TEXT_COLOR
         current.add(
             LocalProfileGiftData(
                 cardId,
@@ -96,10 +103,10 @@ object LocalProfileGiftHelper {
                 gift.title ?: if (isCollectible) "典藏礼物" else "普通礼物",
                 gift.slug ?: "",
                 0L,
-                backdrop?.center_color ?: DEFAULT_CENTER_COLOR,
-                backdrop?.edge_color ?: DEFAULT_EDGE_COLOR,
-                backdrop?.pattern_color ?: DEFAULT_PATTERN_COLOR,
-                backdrop?.text_color ?: DEFAULT_TEXT_COLOR,
+                centerColor,
+                edgeColor,
+                patternColor,
+                textColor,
                 false,
                 senderName
             )

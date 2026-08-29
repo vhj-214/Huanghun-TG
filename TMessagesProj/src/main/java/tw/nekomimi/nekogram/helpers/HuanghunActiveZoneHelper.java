@@ -115,8 +115,14 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             pendingMessages.put(key, Boolean.TRUE);
         }
         boolean customEmoji = LocalMessageReactionHelper.isCustomEmoji(emoji);
-        // 高级自定义表情可能无法作为真实 reaction 发送；对外发送普通点赞，本机仍显示用户选择的表情。
-        sendReaction(message, customEmoji ? "👍" : emoji, customEmoji ? emoji : null, key);
+        if (customEmoji) {
+            // Non-Premium accounts cannot safely submit a custom reaction. Keep it
+            // as a local overlay instead of sending 👍 first and then adding a
+            // second reaction, which can make the reaction row crash.
+            applyLocalReaction(message, emoji, key);
+        } else {
+            sendReaction(message, emoji, null, key);
+        }
     }
 
     private boolean matchesPeerScope(MessageObject message) {
@@ -165,6 +171,17 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             }
         }
         return false;
+    }
+
+    private void applyLocalReaction(MessageObject message, String reaction, String key) {
+        try {
+            LocalMessageReactionHelper.set(currentAccount, message.getDialogId(), message.getId(), reaction);
+            LocalMessageReactionHelper.apply(message.messageOwner, currentAccount);
+            getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
+                    message.getDialogId(), message.getId(), message.messageOwner.reactions);
+        } finally {
+            pendingMessages.remove(key);
+        }
     }
 
     private void sendReaction(MessageObject message, String serverEmoji, String localReaction, String key) {

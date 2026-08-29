@@ -95,6 +95,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Adapters.DialogsAdapter;
 import org.telegram.ui.AvatarSpan;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
+import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
 import org.telegram.ui.Components.AnimatedEmojiSpan;
 import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.AvatarDrawable;
@@ -3666,7 +3667,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     avatarImage.setForUserOrChat(message.getFromPeerObject(), avatarDrawable);
                 } else if (user != null) {
                     avatarDrawable.setInfo(currentAccount, user);
-                    if (UserObject.isReplyUser(user)) {
+                    final String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(user.id, currentAccount);
+                    if (!TextUtils.isEmpty(localAvatarPath)) {
+                        avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "50_50", avatarDrawable, user);
+                    } else if (UserObject.isReplyUser(user)) {
                         avatarDrawable.setAvatarType(AvatarDrawable.AVATAR_TYPE_REPLIES);
                         avatarImage.setImage(null, null, avatarDrawable, null, user, 0);
                     } else if (UserObject.isAnonymous(user)) {

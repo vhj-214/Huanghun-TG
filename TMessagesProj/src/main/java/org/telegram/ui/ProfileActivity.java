@@ -7423,10 +7423,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (userId == 0 || getParentActivity() == null) return;
         LocalProfileOverrideHelper.setBio(userId, null, currentAccount);
         LocalProfileOverrideHelper.clearAvatar(userId, currentAccount);
+
+        // Drop the currently displayed local image so updateProfileData() cannot
+        // retain it through the avatarBig fast path.
+        avatarBig = null;
+        if (avatarImage != null) {
+            TLRPC.User user = getMessagesController().getUser(userId);
+            avatarImage.setImage(null, null, avatarDrawable, null, user, 0);
+        }
+        currentBio = userInfo != null ? userInfo.about : null;
         getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces,
                 MessagesController.UPDATE_MASK_AVATAR | MessagesController.UPDATE_MASK_STATUS);
         updateProfileData(true);
-        if (listAdapter != null) listAdapter.notifyDataSetChanged();
+        updateRowsIds();
+        if (listAdapter != null) {
+            listAdapter.notifyDataSetChanged();
+        }
         BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "已还原初始设置").show();
     }
 
