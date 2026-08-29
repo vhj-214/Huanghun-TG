@@ -3805,7 +3805,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         int initialTab = -1;
         if (openCommonChats) {
             initialTab = SharedMediaLayout.TAB_COMMON_GROUPS;
-        } else if (openGifts && (userInfo != null && userInfo.stargifts_count > 0 || chatInfo != null && chatInfo.stargifts_count > 0)) {
+        } else if (openGifts && (userInfo != null && userInfo.stargifts_count > 0 || chatInfo != null && chatInfo.stargifts_count > 0 || LocalProfileGiftHelper.hasLocalGifts(getMessagesController().getUser(did)))) {
             initialTab = SharedMediaLayout.TAB_GIFTS;
             openedGifts = true;
         } else if (openSimilar) {
@@ -9994,6 +9994,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         } else if (id == NotificationCenter.starUserGiftsLoaded) {
             final long dialogId = (long) args[0];
             if (dialogId == getDialogId() && !isSettings()) {
+                if (giftsView != null) {
+                    giftsView.update();
+                }
                 if (sharedMediaRow < 0) {
                     updateRowsIds();
                     updateSelectedMediaTabText();
@@ -11488,7 +11491,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     reportDividerRow = rowCount++;
                 }
 
-                if (hasMedia || (user != null && user.bot && user.bot_can_edit && user.bot_has_main_app) || userInfo != null && userInfo.common_chats_count != 0 || myProfile) {
+                if (hasMedia || LocalProfileGiftHelper.hasLocalGifts(user) || (user != null && user.bot && user.bot_can_edit && user.bot_has_main_app) || userInfo != null && userInfo.common_chats_count != 0 || myProfile) {
                     sharedMediaRow = rowCount++;
                 } else if (lastSectionRow == -1 && needSendMessage) {
                     sendMessageRow = rowCount++;

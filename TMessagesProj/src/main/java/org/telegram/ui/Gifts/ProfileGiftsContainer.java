@@ -434,7 +434,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         @Override
         public void didReceivedNotification(int id, int account, Object... args) {
             if (id == NotificationCenter.starUserGiftsLoaded) {
-                if (args[1] != list)
+                if ((Long) args[0] != parent.dialogId || (args.length > 1 && args[1] != null && args[1] != list))
                     return;
 
                 update(true);
@@ -1717,22 +1717,19 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
     }
 
     public int getGiftsCount() {
+        final int localGiftCount = dialogId > 0
+            ? LocalProfileGiftHelper.getMountedGiftData(MessagesController.getInstance(currentAccount).getUser(dialogId)).size()
+            : 0;
         final Page page = getCurrentPage();
         if (page == null || page.list == list) {
-            final int localStyleCount;
-            if (dialogId == UserConfig.getInstance(currentAccount).getClientUserId()) {
-                localStyleCount = LocalProfileGiftHelper.getMountedGiftData(MessagesController.getInstance(currentAccount).getUser(dialogId)).size();
-            } else {
-                localStyleCount = 0;
-            }
-            if (list != null && list.totalCount > 0) return list.totalCount + localStyleCount;
-            if (localStyleCount > 0) return localStyleCount;
+            if (list != null && list.totalCount > 0) return list.totalCount + localGiftCount;
+            if (localGiftCount > 0) return localGiftCount;
         } else {
             if (page.list != null && page.list.totalCount > 0) return page.list.totalCount;
         }
         if (dialogId >= 0) {
             final TLRPC.UserFull userFull = MessagesController.getInstance(currentAccount).getUserFull(dialogId);
-            return (userFull != null ? userFull.stargifts_count : 0) + (dialogId == UserConfig.getInstance(currentAccount).getClientUserId() ? LocalProfileGiftHelper.getMountedGiftData(MessagesController.getInstance(currentAccount).getUser(dialogId)).size() : 0);
+            return (userFull != null ? userFull.stargifts_count : 0) + localGiftCount;
         } else {
             final TLRPC.ChatFull chatFull = MessagesController.getInstance(currentAccount).getChatFull(-dialogId);
             return chatFull != null ? chatFull.stargifts_count : 0;

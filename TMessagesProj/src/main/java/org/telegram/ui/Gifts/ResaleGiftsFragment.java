@@ -86,6 +86,8 @@ import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -2146,6 +2148,38 @@ public class ResaleGiftsFragment extends BaseFragment implements FactorAnimator.
 
                 new StarGiftSheet.ResaleBuyTransferAlert(getContext(), resourcesProvider, gift, initial, currentAccount, to, gift.title + " #" + LocaleController.formatNumber(gift.num, ','), true, (state, progress) -> {
                     progress.init();
+                    if (state.currency == AmountUtils.Currency.STARS) {
+                        final long price = state.amount.asDecimal();
+                        if (!LocalStarsHelper.spend(currentAccount, price)) {
+                            progress.end();
+                            new StarsIntroActivity.StarsNeededSheet(
+                                getContext(),
+                                resourcesProvider,
+                                price,
+                                StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
+                                null,
+                                null,
+                                0
+                            ).show();
+                            return;
+                        }
+
+                        LocalProfileGiftHelper.addLocalGift(to, gift, "黄昏:@hqsh_db");
+                        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, to);
+                        progress.end();
+                        if (onSelect != null) {
+                            onSelect.run(gift);
+                        }
+                        final BaseFragment lastFragment = LaunchActivity.getSafeLastFragment();
+                        if (lastFragment != null) {
+                            BulletinFactory.of(lastFragment)
+                                .createSimpleBulletin(gift.getDocument(), "购买成功", "典藏礼物已自动添加到个人资料礼物专区")
+                                .show();
+                        }
+                        dismiss();
+                        return;
+                    }
+
                     StarsController.getInstance(currentAccount, state.currency).buyResellingGift(state.form, gift, to, (status, err) -> {
                         progress.end();
                         if (status) {

@@ -62,6 +62,7 @@ import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
@@ -650,7 +651,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
                     try {
                         long value = Math.max(0L, Math.min(9_999_999_999L, Long.parseLong(input.getText().toString().trim())));
-                        NekoConfig.huanghunLocalStars.setConfigLong(value);
+                        LocalStarsHelper.setBalance(currentAccount, value);
                         notifyLocalRows();
                     } catch (Throwable ignore) {
                         showVideoInfo("输入无效", "星星数量必须是非负整数。\n");

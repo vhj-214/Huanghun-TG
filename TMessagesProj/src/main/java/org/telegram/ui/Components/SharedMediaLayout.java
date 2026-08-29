@@ -181,6 +181,7 @@ import tw.nekomimi.nekogram.ui.BottomBuilder;
 import tw.nekomimi.nekogram.utils.AlertUtil;
 import tw.nekomimi.nekogram.utils.ProxyUtil;
 import xyz.nextalone.nagram.NaConfig;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 
 @SuppressWarnings("unchecked")
 public class SharedMediaLayout extends FrameLayout implements NotificationCenter.NotificationCenterDelegate, DialogCell.DialogCellDelegate {
@@ -7006,7 +7007,12 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         boolean hasBotPreviews = user != null && user.bot && !user.bot_can_edit && (userInfo != null && userInfo.bot_info != null && userInfo.bot_info.has_preview_medias) && !hasEditBotPreviews;
         boolean hasStories = (DialogObject.isUserDialog(dialog_id) || DialogObject.isChatDialog(dialog_id)) && !DialogObject.isEncryptedDialog(dialog_id) && (userInfo != null && userInfo.stories_pinned_available || info != null && info.stories_pinned_available || isStoriesView()) && includeStories();
         hasStories = !NaConfig.INSTANCE.getDisableStories().Bool() && hasStories;
-        boolean hasGifts = giftsContainer != null && (userInfo != null && userInfo.stargifts_count > 0 || info != null && info.stargifts_count > 0);
+        final boolean hasLocalProfileGifts = LocalProfileGiftHelper.hasLocalGifts(user);
+        boolean hasGifts = giftsContainer != null && (
+            userInfo != null && userInfo.stargifts_count > 0
+                || info != null && info.stargifts_count > 0
+                || hasLocalProfileGifts
+        );
         final TLRPC.ProfileTab main_tab = info != null ? info.main_tab : userInfo != null ? userInfo.main_tab : null;
         int changed = 0;
         if (wasReordering != scrollSlidingTextTabStrip.isReordering()) {

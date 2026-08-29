@@ -143,6 +143,8 @@ import org.telegram.ui.Components.FireworksOverlay;
 import org.telegram.ui.Components.HorizontalRoundTabsLayout;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
+
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 import org.telegram.ui.Components.LinkPath;
 import org.telegram.ui.Components.LinkSpanDrawable;
 import org.telegram.ui.Components.LoadingSpan;
@@ -7846,8 +7848,9 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
                     }
 
                     final StarsController starsController = StarsController.getInstance(currentAccount, selectedCurrency);
-                    final AmountUtils.Amount balance = starsController.balanceAvailable() ?
-                            AmountUtils.Amount.of(starsController.getBalance()) : null;
+                    final AmountUtils.Amount balance = selectedCurrency == AmountUtils.Currency.STARS
+                        ? AmountUtils.Amount.fromDecimal(LocalStarsHelper.getBalance(), AmountUtils.Currency.STARS)
+                        : starsController.balanceAvailable() ? AmountUtils.Amount.of(starsController.getBalance()) : null;
 
                     if (balance != null && state.amount.asNano() > balance.asNano()) {
                         if (selectedCurrency == AmountUtils.Currency.STARS) {

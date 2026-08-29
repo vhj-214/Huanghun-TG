@@ -89,8 +89,8 @@ import org.telegram.ui.ProfileActivity;
 import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
-import tw.nekomimi.nekogram.NekoConfig;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.Stories.recorder.PreviewView;
 
@@ -652,10 +652,10 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
                 button.setSubText(null, animated);
             }
         } else if (starGift != null) {
-            final long balance = StarsController.getInstance(currentAccount).getBalance().amount;
+            final long balance = LocalStarsHelper.getBalance();
             final long price = this.starGift.stars + (upgrade ? this.starGift.upgrade_stars : 0) + (TextUtils.isEmpty(messageEdit.getText()) ? 0 : send_paid_messages_stars);
             button.setText(StarsIntroActivity.replaceStars(LocaleController.formatPluralStringComma(self ? "Gift2SendSelf" : "Gift2Send", (int) price), cachedStarSpan), animated);
-            if (StarsController.getInstance(currentAccount).balanceAvailable() && price > balance) {
+            if (price > balance) {
                 button.setSubText(LocaleController.formatPluralStringComma("Gift2SendYourBalance", (int) balance), animated);
             } else {
                 button.setSubText(null, animated);
@@ -701,21 +701,46 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
         }
     }
 
+    private long getLocalStarGiftPrice() {
+        if (starGift == null) {
+            return 0L;
+        }
+        return starGift.stars
+            + (upgrade ? starGift.upgrade_stars : 0)
+            + (TextUtils.isEmpty(messageEdit.getText()) ? 0 : send_paid_messages_stars);
+    }
+
     private void buyStarGift() {
-        if (NekoConfig.huanghunLocalStars.Long() >= 0) {
-            if (closeParentSheet != null) {
-                closeParentSheet.run();
-            }
-            AndroidUtilities.hideKeyboard(messageEdit);
-            LocalProfileGiftHelper.addLocalGift(dialogId, starGift, "黄昏:@hqsh_db");
-            BulletinFactory bulletinFactory = getParentBulletinFactory();
-            if (bulletinFactory != null) {
-                String giftTitle = starGift != null && !TextUtils.isEmpty(starGift.title) ? starGift.title : "普通礼物";
-                bulletinFactory.createSimpleBulletin(R.raw.done, "本地购买成功", "黄昏:@hqsh_db 赠送了「" + giftTitle + "」").show();
-            }
-            dismiss();
+        final long price = getLocalStarGiftPrice();
+        if (!LocalStarsHelper.spend(currentAccount, price)) {
+            new StarsIntroActivity.StarsNeededSheet(
+                getContext(),
+                resourcesProvider,
+                price,
+                StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
+                null,
+                null,
+                0
+            ).show();
+            button.setLoading(false);
             return;
         }
+
+        if (closeParentSheet != null) {
+            closeParentSheet.run();
+        }
+        AndroidUtilities.hideKeyboard(messageEdit);
+        LocalProfileGiftHelper.addLocalGift(dialogId, starGift, "黄昏:@hqsh_db");
+        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
+        BulletinFactory bulletinFactory = getParentBulletinFactory();
+        if (bulletinFactory != null) {
+            String giftTitle = starGift != null && !TextUtils.isEmpty(starGift.title) ? starGift.title : "普通礼物";
+            bulletinFactory.createSimpleBulletin(R.raw.done, "购买成功", "黄昏:@hqsh_db 赠送了「" + giftTitle + "」").show();
+        }
+        dismiss();
+    }
+
+    private void buyStarGiftFromServer() {
         StarsController.getInstance(currentAccount).buyStarGift(
             this.starGift,
             anonymous,
@@ -973,7 +998,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
             }
             if (premiumTier != null && premiumTier.isStarsPaymentAvailable()) {
                 items.add(UItem.asCheck(3, StarsIntroActivity.replaceStarsWithPlain(formatString(R.string.Gift2MessageStars, (int) premiumTier.getStarsPrice()), .78f)).setChecked(useStars));
-                final long balance = StarsController.getInstance(currentAccount).getBalance().amount;
+                final long balance = LocalStarsHelper.getBalance();
                 SpannableStringBuilder boldBalance = new SpannableStringBuilder(LocaleController.formatNumber(balance, ','));
                 boldBalance.setSpan(new TypefaceSpan(AndroidUtilities.bold()), 0, boldBalance.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 items.add(UItem.asShadow(-7, TextUtils.concat(

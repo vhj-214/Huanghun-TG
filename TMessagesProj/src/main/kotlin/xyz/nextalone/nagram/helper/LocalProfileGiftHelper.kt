@@ -4,6 +4,7 @@ import androidx.core.content.edit
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import org.telegram.messenger.MessagesController
+import org.telegram.messenger.NotificationCenter
 import org.telegram.messenger.UserConfig
 import org.telegram.tgnet.TLRPC
 import org.telegram.tgnet.tl.TL_stars
@@ -62,18 +63,60 @@ object LocalProfileGiftHelper {
         return ArrayList(getDataForUser(user.id))
     }
 
-    /** Saves a normal gift as a local-only profile card for the recipient. */
+    /**
+     * Saves a purchased gift as a local-only profile card for the recipient.
+     *
+     * Ordinary gifts use a fresh local card ID so repeated purchases of the
+     * same catalog item remain visible as separate gifts. Collectibles keep
+     * their unique server ID and their original visual backdrop.
+     */
     @JvmStatic
     fun addLocalGift(userId: Long, gift: TL_stars.StarGift?, senderName: String = "黄昏:@hqsh_db") {
         if (userId == 0L || gift == null) return
         val documentId = gift.getDocument()?.id ?: 0L
-        val giftId = if (gift.id != 0L) gift.id else documentId
-        if (giftId == 0L) return
         val current = ArrayList(getDataForUser(userId))
-        current.removeAll { it.collectibleId == giftId && !it.localStyle }
-        current.add(LocalProfileGiftData(giftId, documentId, gift.title ?: "普通礼物", gift.slug ?: "", 0L, 0, 0, 0, 0, false, senderName))
+        val isCollectible = gift is TL_stars.TL_starGiftUnique
+        val cardId = if (isCollectible && gift.id != 0L) {
+            gift.id
+        } else {
+            nextLocalGiftId(current)
+        }
+        if (cardId == 0L) return
+
+        if (isCollectible) {
+            current.removeAll { it.collectibleId == cardId && !it.localStyle }
+        }
+        val backdrop = gift.attributes
+            .filterIsInstance<TL_stars.starGiftAttributeBackdrop>()
+            .firstOrNull()
+        current.add(
+            LocalProfileGiftData(
+                cardId,
+                documentId,
+                gift.title ?: if (isCollectible) "典藏礼物" else "普通礼物",
+                gift.slug ?: "",
+                0L,
+                backdrop?.center_color ?: DEFAULT_CENTER_COLOR,
+                backdrop?.edge_color ?: DEFAULT_EDGE_COLOR,
+                backdrop?.pattern_color ?: DEFAULT_PATTERN_COLOR,
+                backdrop?.text_color ?: DEFAULT_TEXT_COLOR,
+                false,
+                senderName
+            )
+        )
         saveData(userId, current)
     }
+
+    /** Broadcasts a local gift mutation through Telegram's established gift-refresh channel. */
+    @JvmStatic
+    fun notifyProfileGiftChanged(currentAccount: Int, userId: Long) {
+        if (userId == 0L) return
+        NotificationCenter.getInstance(currentAccount)
+            .postNotificationName(NotificationCenter.starUserGiftsLoaded, userId, null)
+    }
+
+    @JvmStatic
+    fun hasLocalGifts(user: TLRPC.User?): Boolean = user != null && getDataForUser(user.id).isNotEmpty()
 
     @JvmStatic
     fun isMountedGift(userId: Long, collectibleId: Long): Boolean {
@@ -137,6 +180,14 @@ object LocalProfileGiftHelper {
         dataMap[userId] = arrayListOf()
         loadedUsers.add(userId)
         NaConfig.getPreferences().edit { remove(KEY_PREFIX + userId) }
+    }
+
+    private fun nextLocalGiftId(current: List<LocalProfileGiftData>): Long {
+        var candidate = System.currentTimeMillis()
+        while (current.any { it.collectibleId == candidate }) {
+            candidate++
+        }
+        return candidate
     }
 
     private fun applyData(data: ArrayList<LocalProfileGiftData>) {
@@ -212,6 +263,11 @@ object LocalProfileGiftHelper {
             }
         }
     }
+
+    private const val DEFAULT_CENTER_COLOR = -11825174
+    private const val DEFAULT_EDGE_COLOR = -14195010
+    private const val DEFAULT_PATTERN_COLOR = -4597505
+    private const val DEFAULT_TEXT_COLOR = -1
 
     private fun currentUserId(): Long = UserConfig.getInstance(UserConfig.selectedAccount).clientUserId
 
