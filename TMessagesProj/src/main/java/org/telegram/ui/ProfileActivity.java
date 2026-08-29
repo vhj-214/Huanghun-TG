@@ -12867,7 +12867,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 // Huanghun: these are additional local-only actions; existing menu items remain unchanged.
                 if (!UserObject.isUserSelf(user)) {
                     if (NekoConfig.huanghunLocalEditAvatar.Bool()) {
-                        otherItem.addSubItem(local_edit_avatar, R.drawable.photo_paint, "本地修改头像");
+                        otherItem.addSubItem(local_edit_avatar, R.drawable.msg_edit, "本地修改头像");
                     }
                     if (NekoConfig.huanghunLocalEditBio.Bool()) {
                         otherItem.addSubItem(local_edit_bio, R.drawable.msg_edit, "本地修改用户简介");

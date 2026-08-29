@@ -535,7 +535,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         int checked = Math.max(0, Math.min(2, NekoConfig.huanghunActiveZoneDirection.Int()));
         showDialog(new AlertDialog.Builder(context, resourceProvider)
                 .setTitle("点赞消息方向")
-                .setSingleChoiceItems(items, checked, (dialog, which) -> {
+                .setItems(items, (dialog, which) -> {
                     NekoConfig.huanghunActiveZoneDirection.setConfigInt(which);
                     dialog.dismiss();
                     notifyActiveRows();
@@ -552,7 +552,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         showDialog(new AlertDialog.Builder(context, resourceProvider)
                 .setTitle("点赞对象")
                 .setMessage("默认对所有用户生效；可以从会话和全局搜索选择用户，也可以直接输入用户 ID 或用户名。")
-                .setSingleChoiceItems(items, checked, (dialog, which) -> {
+                .setItems(items, (dialog, which) -> {
                     if (which == 0) {
                         NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(HuanghunActiveZoneHelper.TARGET_ALL);
                         dialog.dismiss();
@@ -656,7 +656,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .setMessage("当前账号" + summary + "\n\n是否清除全部这些购买的虚拟礼物？此操作只清除本机记录，不会影响 Telegram 真实礼物或账户数据。")
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .setPositiveButton("清除全部", (dialog, which) -> {
-                    LocalProfileGiftHelper.clear();
+                    LocalProfileGiftHelper.clear(currentAccount);
                     notifyLocalRows();
                     BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "已清空本地虚拟礼物记录。").show();
                 })
