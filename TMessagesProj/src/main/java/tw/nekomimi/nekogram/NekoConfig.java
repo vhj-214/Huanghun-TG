@@ -166,7 +166,7 @@ public class NekoConfig {
     // 默认关闭；开启后发送的视频走 Telegram 官方无声动画/GIF 文档语义。
     public static ConfigItem huanghunVideoToGif = addConfig("HuanghunVideoToGif", configTypeBool, false);
 
-    // 活跃专区：默认开启本地自动表情点赞。方向 0=对方消息，1=自己消息，2=对方和自己。
+    // 活跃专区：默认开启自动真实表情点赞；高级自定义表情仅作为本机显示覆盖。方向 0=对方消息，1=自己消息，2=对方和自己。
     public static ConfigItem huanghunActiveZoneEnabled = addConfig("HuanghunActiveZoneEnabled", configTypeBool, true);
     public static ConfigItem huanghunActiveZoneDirection = addConfig("HuanghunActiveZoneDirection", configTypeInt, 0);
     // 默认全部对象；指定用户支持每行一个 user id 或 username，也兼容逗号和分号。
@@ -174,7 +174,7 @@ public class NekoConfig {
     public static ConfigItem huanghunActiveZoneTargetUsers = addConfig("HuanghunActiveZoneTargetUsers", configTypeString, "");
     // 0=全部对象，1=群或频道，2=所有用户（联系人、非联系人和机器人）。
     public static ConfigItem huanghunActiveZonePeerScope = addConfig("HuanghunActiveZonePeerScope", configTypeInt, 0);
-    // 普通表情直接保存，自定义表情使用 custom:<documentId> 保存；两者均只在本机展示。
+    // 普通表情直接保存并真实发送；自定义表情使用 custom:<documentId> 保存，仅本机替换显示，服务器发送普通点赞。
     public static ConfigItem huanghunActiveZoneEmoji = addConfig("HuanghunActiveZoneEmoji", configTypeString, "👍");
 
     // 本地功能专区：只影响本机显示或本地测试账本，不向 Telegram 服务器发送购买/修改请求。

@@ -32,6 +32,10 @@ public final class LocalMessageReactionHelper {
         return emoji;
     }
 
+    public static boolean isCustomEmoji(String reaction) {
+        return reaction != null && reaction.startsWith(CUSTOM_PREFIX);
+    }
+
     public static String encodeCustomEmoji(long documentId) {
         return CUSTOM_PREFIX + documentId;
     }

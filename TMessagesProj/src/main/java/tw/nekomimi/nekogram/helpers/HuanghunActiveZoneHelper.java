@@ -20,7 +20,7 @@ import tw.nekomimi.nekogram.NekoConfig;
 import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 
 /**
- * 自动为新消息添加仅本机可见的表情点赞。
+ * 自动为新消息发送真实表情点赞；高级自定义表情只作为本机显示覆盖。
  * 方向：0=对方消息，1=自己消息，2=对方和自己。
  * 对象范围：0=全部对象，1=群或频道，2=所有用户（联系人、非联系人和机器人）。
  */
@@ -114,7 +114,9 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             }
             pendingMessages.put(key, Boolean.TRUE);
         }
-        applyLocalReaction(message, emoji, key);
+        boolean customEmoji = LocalMessageReactionHelper.isCustomEmoji(emoji);
+        // 高级自定义表情可能无法作为真实 reaction 发送；对外发送普通点赞，本机仍显示用户选择的表情。
+        sendReaction(message, customEmoji ? "👍" : emoji, customEmoji ? emoji : null, key);
     }
 
     private boolean matchesPeerScope(MessageObject message) {
@@ -165,16 +167,31 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         return false;
     }
 
-    private void applyLocalReaction(MessageObject message, String reaction, String key) {
-        try {
-            LocalMessageReactionHelper.set(currentAccount, message.getDialogId(), message.getId(), reaction);
-            LocalMessageReactionHelper.apply(message.messageOwner, currentAccount);
-            // 复用官方反应刷新通知，让当前聊天立即重绘；不会写入数据库或发送网络请求。
-            getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
-                    message.getDialogId(), message.getId(), message.messageOwner.reactions);
-        } finally {
+    private void sendReaction(MessageObject message, String serverEmoji, String localReaction, String key) {
+        TLRPC.InputPeer peer = MessagesController.getInstance(currentAccount).getInputPeer(message.getDialogId());
+        if (peer == null) {
             pendingMessages.remove(key);
+            return;
         }
+        TLRPC.TL_messages_sendReaction request = new TLRPC.TL_messages_sendReaction();
+        request.peer = peer;
+        request.msg_id = message.getId();
+        request.flags |= 1;
+        TLRPC.TL_reactionEmoji reaction = new TLRPC.TL_reactionEmoji();
+        reaction.emoticon = serverEmoji;
+        request.reaction.add(reaction);
+        getConnectionsManager().sendRequest(request, (response, error) -> {
+            if (error == null && response instanceof TLRPC.Updates) {
+                getMessagesController().processUpdates((TLRPC.Updates) response, false);
+                if (!TextUtils.isEmpty(localReaction)) {
+                    LocalMessageReactionHelper.set(currentAccount, message.getDialogId(), message.getId(), localReaction);
+                    LocalMessageReactionHelper.apply(message.messageOwner, currentAccount);
+                    getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
+                            message.getDialogId(), message.getId(), message.messageOwner.reactions);
+                }
+            }
+            pendingMessages.remove(key);
+        });
     }
 
     public static String getTargetSummary() {
