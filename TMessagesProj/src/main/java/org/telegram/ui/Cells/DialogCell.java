@@ -3669,7 +3669,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     avatarDrawable.setInfo(currentAccount, user);
                     final String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(user.id, currentAccount);
                     if (!TextUtils.isEmpty(localAvatarPath)) {
-                        avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "50_50", avatarDrawable, user);
+                        avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "50_50", avatarDrawable, null, user, 0);
                     } else if (UserObject.isReplyUser(user)) {
                         avatarDrawable.setAvatarType(AvatarDrawable.AVATAR_TYPE_REPLIES);
                         avatarImage.setImage(null, null, avatarDrawable, null, user, 0);

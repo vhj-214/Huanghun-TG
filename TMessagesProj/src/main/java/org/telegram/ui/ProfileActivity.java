@@ -7429,7 +7429,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         avatarBig = null;
         if (avatarImage != null) {
             TLRPC.User user = getMessagesController().getUser(userId);
-            avatarImage.setImage(null, null, avatarDrawable, null, user, 0);
+            avatarImage.setImage(null, null, avatarDrawable, null);
         }
         currentBio = userInfo != null ? userInfo.about : null;
         getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces,
