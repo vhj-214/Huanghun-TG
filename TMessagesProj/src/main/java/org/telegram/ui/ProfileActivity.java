@@ -7278,6 +7278,27 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (listView.getScrollState() == RecyclerView.SCROLL_STATE_DRAGGING && !ignoreDragging) {
             return;
         }
+        if (userId != 0) {
+            String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(userId, currentAccount);
+            if (!TextUtils.isEmpty(localAvatarPath) && new File(localAvatarPath).exists()) {
+                ArrayList<Object> localAvatar = new ArrayList<>();
+                localAvatar.add(new MediaController.PhotoEntry(0, 0, 0, localAvatarPath, 0, false, 0, 0, 0));
+                PhotoViewer.getInstance().setParentActivity(ProfileActivity.this);
+                PhotoViewer.getInstance().openPhotoForSelect(localAvatar, 0, 0, false, new PhotoViewer.EmptyPhotoViewerProvider() {
+                    @Override
+                    public boolean canScrollAway() {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean canCaptureMorePhotos() {
+                        return false;
+                    }
+                }, null);
+                return;
+            }
+        }
+
         int carouselPosition = avatarsViewPager != null ? avatarsViewPager.getRealPosition() : 0;
         ImageLocation carouselImageLocation = avatarsViewPager != null ? avatarsViewPager.getRealImageLocation(carouselPosition) : null;
         TLRPC.Photo carouselPhoto = avatarsViewPager != null ? avatarsViewPager.getPhoto(carouselPosition) : null;
@@ -7424,7 +7445,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private void saveLocalAvatar(Uri uri) {
         if (uri == null || getParentActivity() == null || userId == 0) return;
-        File target = new File(getParentActivity().getFilesDir(), "local_avatar_" + currentAccount + "_" + userId + ".jpg");
+        String previousAvatarPath = LocalProfileOverrideHelper.getAvatarUri(userId, currentAccount);
+        // 每次替换都使用新路径，避免 ImageLoader 按路径生成的缓存键命中旧位图。
+        File target = new File(getParentActivity().getFilesDir(), "local_avatar_" + currentAccount + "_" + userId + "_" + System.nanoTime() + ".jpg");
         try (java.io.InputStream input = getParentActivity().getContentResolver().openInputStream(uri)) {
             if (input == null) return;
             android.graphics.Bitmap source = android.graphics.BitmapFactory.decodeStream(input);
@@ -7446,6 +7469,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 bitmap.recycle();
             }
             LocalProfileOverrideHelper.setAvatarUri(userId, target.getAbsolutePath(), currentAccount);
+            if (!TextUtils.isEmpty(previousAvatarPath) && !target.getAbsolutePath().equals(previousAvatarPath)) {
+                new File(previousAvatarPath).delete();
+            }
             getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_AVATAR);
             updateProfileData(true);
             if (listAdapter != null) listAdapter.notifyDataSetChanged();

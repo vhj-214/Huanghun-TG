@@ -426,6 +426,7 @@ import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.ToggleResult;
 import xyz.nextalone.nagram.helper.BookmarksHelper;
 import xyz.nextalone.nagram.helper.LocalMessageOverrideHelper;
+import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
 import xyz.nextalone.nagram.helper.DoubleTap;
 
@@ -24972,6 +24973,7 @@ public class ChatActivity extends BaseFragment implements
                 MessageObject messageObject = messagesDict[did == dialog_id ? 0 : 1].get(msgId);
                 if (messageObject != null) {
                     MessageObject.updateReactions(messageObject.messageOwner, (TLRPC.TL_messageReactions) args[2]);
+                    LocalMessageReactionHelper.apply(messageObject.messageOwner, currentAccount);
                     messageObject.forceUpdate = true;
                     messageObject.reactionsChanged = true;
                     updateMessageAnimated(messageObject, true);

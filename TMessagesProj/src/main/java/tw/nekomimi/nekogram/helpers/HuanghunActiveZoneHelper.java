@@ -17,11 +17,12 @@ import java.util.Locale;
 import java.util.Map;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 
 /**
- * 自动为新消息添加表情 reaction。
+ * 自动为新消息添加仅本机可见的表情点赞。
  * 方向：0=对方消息，1=自己消息，2=对方和自己。
- * 对象：0=全部用户，1=配置中的指定用户。
+ * 对象范围：0=全部对象，1=群或频道，2=所有用户（联系人、非联系人和机器人）。
  */
 public final class HuanghunActiveZoneHelper extends BaseController implements NotificationCenter.NotificationCenterDelegate {
     public static final int DIRECTION_OTHER = 0;
@@ -31,9 +32,7 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
     public static final int TARGET_SELECTED = 1;
     public static final int SCOPE_ALL = 0;
     public static final int SCOPE_CHATS = 1;
-    public static final int SCOPE_CONTACTS = 2;
-    public static final int SCOPE_NON_CONTACTS = 3;
-    public static final int SCOPE_BOTS = 4;
+    public static final int SCOPE_USERS = 2;
 
     private static final int MAX_PENDING_MESSAGES = 512;
     private final Map<String, Boolean> pendingMessages = Collections.synchronizedMap(
@@ -47,6 +46,8 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
     private HuanghunActiveZoneHelper(int account) {
         super(account);
         NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.didReceiveNewMessages);
+        // 已发送消息不会进入 didReceiveNewMessages；确认送达后从这里处理“自己消息”方向。
+        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messageReceivedByServer);
     }
 
     private static final HuanghunActiveZoneHelper[] INSTANCES = new HuanghunActiveZoneHelper[UserConfig.MAX_ACCOUNT_COUNT];
@@ -66,19 +67,23 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id != NotificationCenter.didReceiveNewMessages || !NekoConfig.huanghunActiveZoneEnabled.Bool() || args == null || args.length < 2) {
+        if (!NekoConfig.huanghunActiveZoneEnabled.Bool() || args == null) {
             return;
         }
-        if (args.length > 2 && args[2] instanceof Boolean && (Boolean) args[2]) {
-            return;
-        }
-        if (!(args[1] instanceof ArrayList)) {
-            return;
-        }
-        ArrayList<?> objects = (ArrayList<?>) args[1];
-        for (Object object : objects) {
-            if (object instanceof MessageObject) {
-                consider((MessageObject) object);
+        if (id == NotificationCenter.didReceiveNewMessages) {
+            if (args.length < 2 || args.length > 2 && args[2] instanceof Boolean && (Boolean) args[2] || !(args[1] instanceof ArrayList)) {
+                return;
+            }
+            ArrayList<?> objects = (ArrayList<?>) args[1];
+            for (Object object : objects) {
+                if (object instanceof MessageObject) {
+                    consider((MessageObject) object);
+                }
+            }
+        } else if (id == NotificationCenter.messageReceivedByServer && args.length > 2 && args[2] instanceof TLRPC.Message) {
+            TLRPC.Message sentMessage = (TLRPC.Message) args[2];
+            if (sentMessage.out) {
+                consider(new MessageObject(currentAccount, sentMessage, false, false));
             }
         }
     }
@@ -102,9 +107,6 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         if (TextUtils.isEmpty(emoji)) {
             emoji = "👍";
         }
-        if (hasChosenEmoji(message, emoji)) {
-            return;
-        }
         String key = message.getDialogId() + ":" + message.getId();
         synchronized (pendingMessages) {
             if (pendingMessages.containsKey(key)) {
@@ -112,7 +114,7 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             }
             pendingMessages.put(key, Boolean.TRUE);
         }
-        sendReaction(message, emoji, key);
+        applyLocalReaction(message, emoji, key);
     }
 
     private boolean matchesPeerScope(MessageObject message) {
@@ -120,12 +122,8 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         if (scope == SCOPE_ALL) return true;
         boolean chat = message.getDialogId() < 0;
         if (scope == SCOPE_CHATS) return chat;
-        if (chat) return false;
-        TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(message.getSenderId());
-        if (user == null) return false;
-        if (scope == SCOPE_BOTS) return user.bot;
-        boolean contact = user.contact || user.mutual_contact;
-        return scope == SCOPE_CONTACTS ? contact : !contact;
+        // SCOPE_USERS 同时包含联系人、非联系人和机器人；旧的 3/4 值也兼容为用户范围。
+        return !chat;
     }
 
     private boolean matchesTarget(MessageObject message) {
@@ -136,16 +134,17 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         if (TextUtils.isEmpty(raw)) {
             return false;
         }
-        long senderId = message.getSenderId();
-        for (String value : raw.split(",")) {
+        // 私聊中，无论消息由谁发送，指定对象都是对话另一方；群/频道中则匹配实际发送者。
+        long targetUserId = message.getDialogId() > 0 ? message.getDialogId() : message.getSenderId();
+        TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(targetUserId);
+        for (String value : raw.split("[,\\n\\r;]+")) {
             String token = value.trim().toLowerCase(Locale.ROOT);
             if (token.startsWith("@")) {
                 token = token.substring(1);
             }
-            if (String.valueOf(senderId).equals(token)) {
+            if (String.valueOf(targetUserId).equals(token)) {
                 return true;
             }
-            TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(senderId);
             if (user != null && !TextUtils.isEmpty(user.username) && user.username.equalsIgnoreCase(token)) {
                 return true;
             }
@@ -166,25 +165,16 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         return false;
     }
 
-    private void sendReaction(MessageObject message, String emoji, String key) {
-        TLRPC.InputPeer peer = MessagesController.getInstance(currentAccount).getInputPeer(message.getDialogId());
-        if (peer == null) {
+    private void applyLocalReaction(MessageObject message, String reaction, String key) {
+        try {
+            LocalMessageReactionHelper.set(currentAccount, message.getDialogId(), message.getId(), reaction);
+            LocalMessageReactionHelper.apply(message.messageOwner, currentAccount);
+            // 复用官方反应刷新通知，让当前聊天立即重绘；不会写入数据库或发送网络请求。
+            getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
+                    message.getDialogId(), message.getId(), message.messageOwner.reactions);
+        } finally {
             pendingMessages.remove(key);
-            return;
         }
-        TLRPC.TL_messages_sendReaction request = new TLRPC.TL_messages_sendReaction();
-        request.peer = peer;
-        request.msg_id = message.getId();
-        request.flags |= 1;
-        TLRPC.TL_reactionEmoji reaction = new TLRPC.TL_reactionEmoji();
-        reaction.emoticon = emoji;
-        request.reaction.add(reaction);
-        getConnectionsManager().sendRequest(request, (response, error) -> {
-            if (error == null && response instanceof TLRPC.Updates) {
-                getMessagesController().processUpdates((TLRPC.Updates) response, false);
-            }
-            pendingMessages.remove(key);
-        });
     }
 
     public static String getTargetSummary() {
@@ -194,10 +184,10 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         }
         switch (NekoConfig.huanghunActiveZonePeerScope.Int()) {
             case SCOPE_CHATS: return "群或频道";
-            case SCOPE_CONTACTS: return "联系人";
-            case SCOPE_NON_CONTACTS: return "非联系人";
-            case SCOPE_BOTS: return "机器人";
-            default: return "全部对象（默认）";
+            case SCOPE_USERS:
+            default: return NekoConfig.huanghunActiveZonePeerScope.Int() == SCOPE_ALL
+                    ? "全部对象（默认）"
+                    : "用户（联系人、非联系人、机器人）";
         }
     }
 }

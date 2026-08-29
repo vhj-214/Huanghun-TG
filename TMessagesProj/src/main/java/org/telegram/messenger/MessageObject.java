@@ -130,6 +130,7 @@ import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
 import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.helper.LocalMessageOverrideHelper;
+import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.syntaxhighlight.SyntaxHighlight;
 
@@ -1934,6 +1935,7 @@ public class MessageObject {
         currentAccount = accountNum;
         messageOwner = message;
         LocalMessageOverrideHelper.apply(messageOwner, accountNum);
+        LocalMessageReactionHelper.apply(messageOwner, accountNum);
         replyMessageObject = replyToMessage;
         eventId = eid;
         wasUnread = !messageOwner.out && messageOwner.unread;

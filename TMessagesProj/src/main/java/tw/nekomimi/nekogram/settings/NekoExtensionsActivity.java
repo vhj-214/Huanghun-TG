@@ -13,6 +13,7 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.InputFilter;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.InputType;
 import android.util.TypedValue;
@@ -31,30 +32,35 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
+import org.telegram.tgnet.TLRPC;
+import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.ContactsActivity;
+import org.telegram.ui.SelectAnimatedEmojiDialog;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
-
+import org.telegram.ui.Components.Reactions.ReactionsLayoutInBubble;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
-
+import java.util.List;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunActiveZoneHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
@@ -63,6 +69,7 @@ import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
 
     private static final int REQUEST_HUANGHUN_BUILTIN_VIDEOS = 10937;
+    private SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow activeEmojiDialog;
 
     private int activeHeaderRow;
     private int activeEnabledRow;
@@ -219,7 +226,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             return;
         }
         if (position == activeEmojiRow) {
-            showActiveEmojiDialog();
+            showActiveEmojiDialog(view);
             return;
         }
         if (position == localEditMessageRow) {
@@ -547,20 +554,19 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private void showActiveTargetDialog() {
         Context context = getParentActivity();
         if (context == null) return;
-        String[] items = {"全部对象（群/频道+用户）", "群或频道", "联系人", "非联系人", "机器人", "选择指定用户", "输入用户 ID 或用户名"};
-        int checked = NekoConfig.huanghunActiveZoneTargetMode.Int() == HuanghunActiveZoneHelper.TARGET_SELECTED ? 5 : Math.max(0, Math.min(4, NekoConfig.huanghunActiveZonePeerScope.Int()));
+        String[] items = {"全部对象", "群或频道", "用户（联系人、非联系人、机器人）", "指定用户"};
+        int checked = NekoConfig.huanghunActiveZoneTargetMode.Int() == HuanghunActiveZoneHelper.TARGET_SELECTED
+                ? 3
+                : Math.max(0, Math.min(2, NekoConfig.huanghunActiveZonePeerScope.Int()));
         showDialog(new AlertDialog.Builder(context, resourceProvider)
                 .setTitle("点赞对象")
-                .setMessage("“全部对象”同时包含群组、频道、联系人、非联系人和机器人；消息方向仍由上一项控制为对方、自己或双方。")
+                .setMessage("请选择需要自动点赞的对象范围。选择“指定用户”后，可批量输入用户 ID 或用户名。")
                 .setItems(items, (dialog, which) -> {
-                    if (which <= 4) {
+                    if (which < 3) {
                         NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(HuanghunActiveZoneHelper.TARGET_ALL);
                         NekoConfig.huanghunActiveZonePeerScope.setConfigInt(which);
                         dialog.dismiss();
                         notifyActiveRows();
-                    } else if (which == 5) {
-                        dialog.dismiss();
-                        selectActiveUser();
                     } else {
                         dialog.dismiss();
                         showActiveUserInputDialog();
@@ -601,15 +607,20 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         Context context = getParentActivity();
         if (context == null) return;
         EditTextBoldCursor input = new EditTextBoldCursor(context);
-        input.setSingleLine(true);
+        input.setSingleLine(false);
+        input.setMinLines(5);
+        input.setMaxLines(10);
+        input.setGravity(Gravity.TOP | Gravity.START);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
         input.setHintTextColor(getThemedColor(Theme.key_dialogTextHint));
-        input.setHint("例如：123456789 或 @username");
+        input.setHint("每行一个用户 ID 或用户名\n例如：\n123456789\n@username");
         input.setText(NekoConfig.huanghunActiveZoneTargetUsers.String());
         input.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(8), AndroidUtilities.dp(12), AndroidUtilities.dp(8));
         showDialog(new AlertDialog.Builder(context, resourceProvider)
-                .setTitle("输入用户 ID 或用户名")
+                .setTitle("指定用户")
+                .setMessage("支持批量输入：默认一行一个用户 ID 或用户名，也兼容逗号和分号分隔。")
                 .setView(input)
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
@@ -674,26 +685,63 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         listAdapter.notifyItemChanged(localClearGiftsRow);
     }
 
-    private void showActiveEmojiDialog() {
+    private void showActiveEmojiDialog(View anchor) {
         Context context = getParentActivity();
-        if (context == null) return;
-        EditTextBoldCursor input = new EditTextBoldCursor(context);
-        input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
-        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        input.setText(NekoConfig.huanghunActiveZoneEmoji.String());
-        input.setGravity(Gravity.CENTER);
-        showDialog(new AlertDialog.Builder(context, resourceProvider)
-                .setTitle("点赞表情")
-                .setMessage("请输入一个 Telegram 支持的普通表情，例如 👍。")
-                .setView(input)
-                .setNegativeButton(getString(R.string.Cancel), null)
-                .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
-                    String value = input.getText().toString().trim();
-                    NekoConfig.huanghunActiveZoneEmoji.setConfigString(value.isEmpty() ? "👍" : value);
-                    notifyActiveRows();
-                })
-                .create());
+        if (context == null || activeEmojiDialog != null) return;
+
+        final SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow[] popup = new SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow[1];
+        SelectAnimatedEmojiDialog popupLayout = new SelectAnimatedEmojiDialog(this, context, false, 0,
+                SelectAnimatedEmojiDialog.TYPE_SET_DEFAULT_REACTION, resourceProvider) {
+            @Override
+            protected void onReactionClick(SelectAnimatedEmojiDialog.ImageViewEmoji emojiView, ReactionsLayoutInBubble.VisibleReaction reaction) {
+                if (reaction == null || TextUtils.isEmpty(reaction.emojicon)) return;
+                NekoConfig.huanghunActiveZoneEmoji.setConfigString(LocalMessageReactionHelper.encodeEmoji(reaction.emojicon));
+                notifyActiveRows();
+                if (popup[0] != null) popup[0].dismiss();
+            }
+
+            @Override
+            protected void onEmojiSelected(View emojiView, Long documentId, TLRPC.Document document, TL_stars.TL_starGiftUnique gift, Integer until) {
+                if (documentId == null || documentId <= 0) return;
+                NekoConfig.huanghunActiveZoneEmoji.setConfigString(LocalMessageReactionHelper.encodeCustomEmoji(documentId));
+                notifyActiveRows();
+                if (popup[0] != null) popup[0].dismiss();
+            }
+        };
+        String current = NekoConfig.huanghunActiveZoneEmoji.String();
+        if (!TextUtils.isEmpty(current) && current.startsWith("custom:")) {
+            try {
+                popupLayout.setSelected(Long.parseLong(current.substring("custom:".length())));
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        List<TLRPC.TL_availableReaction> availableReactions = MediaDataController.getInstance(currentAccount).getEnabledReactionsList();
+        ArrayList<ReactionsLayoutInBubble.VisibleReaction> reactions = new ArrayList<>();
+        for (TLRPC.TL_availableReaction available : availableReactions) {
+            ReactionsLayoutInBubble.VisibleReaction reaction = new ReactionsLayoutInBubble.VisibleReaction();
+            reaction.emojicon = available.reaction;
+            reactions.add(reaction);
+        }
+        popupLayout.setRecentReactions(reactions);
+        popupLayout.setSaveState(3);
+        popup[0] = activeEmojiDialog = new SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow(popupLayout,
+                LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT) {
+            @Override
+            public void dismiss() {
+                super.dismiss();
+                activeEmojiDialog = null;
+            }
+        };
+        popup[0].showAsDropDown(anchor, 0, -Math.min(AndroidUtilities.dp(420), AndroidUtilities.displaySize.y * 3 / 4),
+                Gravity.TOP | (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT));
+        popup[0].dimBehind();
+    }
+
+    private String getActiveEmojiSummary() {
+        String reaction = NekoConfig.huanghunActiveZoneEmoji.String();
+        return !TextUtils.isEmpty(reaction) && reaction.startsWith("custom:")
+                ? "自定义表情（仅本机展示）"
+                : (TextUtils.isEmpty(reaction) ? "👍" : reaction);
     }
 
     private String getActiveDirectionSummary() {
@@ -1203,7 +1251,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 } else if (position == activeTargetRow) {
                     cell.setTextAndValue("点赞对象", HuanghunActiveZoneHelper.getTargetSummary(), true);
                 } else if (position == activeEmojiRow) {
-                    cell.setTextAndValue("点赞表情", NekoConfig.huanghunActiveZoneEmoji.String(), false);
+                    cell.setTextAndValue("点赞表情", getActiveEmojiSummary(), false);
                 } else if (position == localStarsRow) {
                     cell.setTextAndValue("定义星星数量", String.valueOf(NekoConfig.huanghunLocalStars.Long()) + " 颗（仅本地测试）", true);
                 } else if (position == localClearGiftsRow) {
@@ -1281,7 +1329,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                cell.setText(position == activeNoticeRow ? "新消息到达后自动添加点赞表情。可以选择对方消息、自己消息或双方消息，也可以限定为全部用户或指定用户。默认开启、默认点赞对象为全部用户、默认表情为 👍。" : (position == localNoticeRow ? "本专区只修改本机显示和本地测试数据，不会修改 Telegram 服务器内容。虚拟星星不能真实购买；本地礼物也不会产生真实订单或扣款。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))))));
+                cell.setText(position == activeNoticeRow ? "新消息到达后自动添加本地点赞表情。可选择对方消息、自己消息或双方消息；点赞对象可限定为全部对象、群或频道、所有用户或指定用户。普通和自定义表情均仅在本机展示，不会向 Telegram 服务器发送反应。" : (position == localNoticeRow ? "本专区只修改本机显示和本地测试数据，不会修改 Telegram 服务器内容。虚拟星星不能真实购买；本地礼物也不会产生真实订单或扣款。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))))));
                 cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
             } else if (type == TYPE_SHADOW) {
                 holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
