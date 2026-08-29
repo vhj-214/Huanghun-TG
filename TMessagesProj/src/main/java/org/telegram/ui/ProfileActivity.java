@@ -646,6 +646,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private final static int set_username = 43;
     private final static int local_edit_avatar = 48;
     private final static int local_edit_bio = 49;
+    private final static int local_reset_profile = 51;
     private final static int local_buy_gift = 50;
     private static final int REQUEST_LOCAL_PROFILE_AVATAR = 7654;
     private final static int bot_privacy = 44;
@@ -2931,6 +2932,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     showLocalAvatarPicker();
                 } else if (id == local_edit_bio) {
                     showLocalBioDialog();
+                } else if (id == local_reset_profile) {
+                    resetLocalProfileOverrides();
                 } else if (id == edit_info) {
                     presentFragment(new UserInfoActivity());
                 } else if (id == edit_color) {
@@ -7394,6 +7397,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }).create());
     }
 
+    private void resetLocalProfileOverrides() {
+        if (userId == 0 || getParentActivity() == null) return;
+        LocalProfileOverrideHelper.setBio(userId, null, currentAccount);
+        LocalProfileOverrideHelper.clearAvatar(userId, currentAccount);
+        getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces,
+                MessagesController.UPDATE_MASK_AVATAR | MessagesController.UPDATE_MASK_STATUS);
+        updateProfileData(true);
+        if (listAdapter != null) listAdapter.notifyDataSetChanged();
+        BulletinFactory bulletinFactory = getParentBulletinFactory();
+        if (bulletinFactory != null) {
+            bulletinFactory.createSimpleBulletin(R.raw.done, "已还原初始设置").show();
+        }
+    }
+
     private void showLocalAvatarPicker() {
         if (userId == 0 || getParentActivity() == null) return;
         try {
@@ -11316,7 +11333,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (!isBot && (hasPhone || !hasInfo) && !hideNumber) {
                     phoneRow = rowCount++;
                 }
-                if (userInfo != null && !TextUtils.isEmpty(userInfo.about)) {
+                if ((userInfo != null && !TextUtils.isEmpty(userInfo.about))
+                        || !TextUtils.isEmpty(LocalProfileOverrideHelper.getBio(userId, currentAccount))) {
                     userInfoRow = rowCount++;
                 }
                 if (user != null && username != null) {
@@ -12881,6 +12899,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (NekoConfig.huanghunLocalEditBio.Bool()) {
                         otherItem.addSubItem(local_edit_bio, R.drawable.msg_edit, "本地修改用户简介");
                     }
+                    otherItem.addSubItem(local_reset_profile, R.drawable.msg_delete, "一键还原初始设置");
                 }
             }
         } else if (chatId != 0) {

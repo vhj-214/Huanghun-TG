@@ -39,4 +39,14 @@ object LocalProfileOverrideHelper {
             else putString(AVATAR_PREFIX + account + "_" + userId, uri)
         }
     }
+
+    @JvmStatic
+    fun clearAvatar(userId: Long, account: Int = UserConfig.selectedAccount) {
+        if (userId == 0L) return
+        val path = NaConfig.getPreferences().getString(AVATAR_PREFIX + account + "_" + userId, null)
+        NaConfig.getPreferences().edit { remove(AVATAR_PREFIX + account + "_" + userId) }
+        if (!path.isNullOrBlank()) {
+            runCatching { java.io.File(path).delete() }
+        }
+    }
 }

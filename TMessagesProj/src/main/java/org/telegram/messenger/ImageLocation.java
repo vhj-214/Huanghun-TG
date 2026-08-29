@@ -9,8 +9,6 @@ import org.telegram.ui.web.WebInstantView;
 
 import com.radolyn.ayugram.utils.AyuFileLocation;
 
-import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
-
 public class ImageLocation {
 
     public int dc_id;
@@ -187,12 +185,6 @@ public class ImageLocation {
     public static ImageLocation getForUser(int currentAccount, TLRPC.User user, int type) {
         if (user == null) {
             return null;
-        }
-        if (type == TYPE_BIG || type == TYPE_SMALL) {
-            final String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(user.id, currentAccount);
-            if (!TextUtils.isEmpty(localAvatarPath)) {
-                return ImageLocation.getForPath(localAvatarPath);
-            }
         }
         if (user.photo == null) {
             return null;
