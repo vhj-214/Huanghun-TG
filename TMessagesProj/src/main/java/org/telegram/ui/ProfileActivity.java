@@ -7405,10 +7405,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 MessagesController.UPDATE_MASK_AVATAR | MessagesController.UPDATE_MASK_STATUS);
         updateProfileData(true);
         if (listAdapter != null) listAdapter.notifyDataSetChanged();
-        BulletinFactory bulletinFactory = getParentBulletinFactory();
-        if (bulletinFactory != null) {
-            bulletinFactory.createSimpleBulletin(R.raw.done, "已还原初始设置").show();
-        }
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "已还原初始设置").show();
     }
 
     private void showLocalAvatarPicker() {
@@ -7427,12 +7424,26 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private void saveLocalAvatar(Uri uri) {
         if (uri == null || getParentActivity() == null || userId == 0) return;
         File target = new File(getParentActivity().getFilesDir(), "local_avatar_" + currentAccount + "_" + userId + ".jpg");
-        try (java.io.InputStream input = getParentActivity().getContentResolver().openInputStream(uri);
-             FileOutputStream output = new FileOutputStream(target)) {
+        try (java.io.InputStream input = getParentActivity().getContentResolver().openInputStream(uri)) {
             if (input == null) return;
-            byte[] buffer = new byte[8192];
-            int count;
-            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            android.graphics.Bitmap source = android.graphics.BitmapFactory.decodeStream(input);
+            if (source == null) return;
+            final int maxSize = 1024;
+            android.graphics.Bitmap bitmap = source;
+            int width = source.getWidth();
+            int height = source.getHeight();
+            if (width > maxSize || height > maxSize) {
+                float scale = Math.min((float) maxSize / width, (float) maxSize / height);
+                bitmap = android.graphics.Bitmap.createScaledBitmap(source,
+                        Math.max(1, Math.round(width * scale)),
+                        Math.max(1, Math.round(height * scale)), true);
+                if (bitmap != source) source.recycle();
+            }
+            try (FileOutputStream output = new FileOutputStream(target)) {
+                if (!bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, output)) return;
+            } finally {
+                bitmap.recycle();
+            }
             LocalProfileOverrideHelper.setAvatarUri(userId, target.getAbsolutePath(), currentAccount);
             getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_AVATAR);
             updateProfileData(true);
