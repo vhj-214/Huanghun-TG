@@ -24,7 +24,6 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.Utilities;
-import org.telegram.messenger.browser.Browser;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -34,8 +33,6 @@ import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.ButtonBounce;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.ProfileActivity;
-
-import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -169,6 +166,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         public final long documentId;
         public final int color;
         public final String slug;
+        public final TL_stars.TL_starGiftUnique uniqueGift;
         private StarsReactionsSheet.Particles particles;
 
         public int position = -1;
@@ -177,6 +175,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
         public Gift(TL_stars.TL_starGiftUnique gift) {
             id = gift.id;
+            uniqueGift = gift;
             document = gift.getDocument();
             documentId = document == null ? 0 : document.id;
             final TL_stars.starGiftAttributeBackdrop backdrop = findAttribute(gift.attributes, TL_stars.starGiftAttributeBackdrop.class);
@@ -187,6 +186,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
         public Gift(TLRPC.TL_emojiStatusCollectible status) {
             id = status.collectible_id;
+            uniqueGift = null;
             document = null;
             documentId = status.document_id;
             color = status.center_color | 0xFF000000;
@@ -263,38 +263,11 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
     public void update() {
         final boolean serverGiftsEnabled = MessagesController.getInstance(currentAccount).enableGiftsInProfile;
-        final TLRPC.User profileUser;
-        final TLRPC.EmojiStatus emojiStatus;
-        if (dialogId >= 0) {
-            profileUser = MessagesController.getInstance(currentAccount).getUser(dialogId);
-            emojiStatus = profileUser == null ? null : profileUser.emoji_status;
-        } else {
-            profileUser = null;
-            final TLRPC.User chat = MessagesController.getInstance(currentAccount).getUser(-dialogId);
-            emojiStatus = chat == null ? null : chat.emoji_status;
-        }
-        final ArrayList<TLRPC.TL_emojiStatusCollectible> localMountedGifts = LocalProfileGiftHelper.getMountedGifts(profileUser);
-
         maxCount = serverGiftsEnabled ? MessagesController.getInstance(currentAccount).stargiftsPinnedToTopLimit : 0;
-        if (!localMountedGifts.isEmpty()) {
-            // Local style mounting is visual-only and remains available even when server profile gifts are unavailable.
-            maxCount = Math.max(maxCount, localMountedGifts.size());
-        }
         oldGifts.clear();
         oldGifts.addAll(gifts);
         gifts.clear();
         giftIds.clear();
-
-        if (emojiStatus instanceof TLRPC.TL_emojiStatusCollectible) {
-            giftIds.add(((TLRPC.TL_emojiStatusCollectible) emojiStatus).collectible_id);
-        }
-        for (int i = 0; i < localMountedGifts.size(); i++) {
-            final Gift localGift = new Gift(localMountedGifts.get(i));
-            if (giftIds.add(localGift.id)) {
-                localGift.localMounted = true;
-                gifts.add(localGift);
-            }
-        }
         list = serverGiftsEnabled ? StarsController.getInstance(currentAccount).getProfileGiftsList(dialogId) : null;
         if (list != null) {
             for (int i = 0; i < list.gifts.size(); i++) {
@@ -539,6 +512,11 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
     }
 
     public void onGiftClick(Gift gift) {
-        Browser.openUrl(getContext(), "https://t.me/nft/" + gift.slug);
+        if (gift == null || gift.uniqueGift == null) {
+            return;
+        }
+        final StarGiftSheet sheet = new StarGiftSheet(getContext(), currentAccount, dialogId, resourcesProvider);
+        sheet.set(gift.uniqueGift, false);
+        sheet.show();
     }
 }

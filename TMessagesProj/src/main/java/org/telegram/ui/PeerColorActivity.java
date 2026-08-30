@@ -133,6 +133,7 @@ import java.util.List;
 
 import xyz.nextalone.nagram.helper.LocalPeerColorHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 
 public class PeerColorActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
@@ -1767,6 +1768,32 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
 
     public void buy(TL_stars.TL_starGiftUnique gift, Utilities.Callback<Boolean> bought) {
         final long to = UserConfig.getInstance(currentAccount).getClientUserId();
+        if (localGiftPurchaseOnly) {
+            final long price = gift.getResellAmount(AmountUtils.Currency.STARS).asDecimal();
+            if (price <= 0) {
+                if (bought != null) {
+                    bought.run(false);
+                }
+                return;
+            }
+            if (!LocalStarsHelper.spend(currentAccount, price)) {
+                if (bought != null) {
+                    bought.run(false);
+                }
+                new StarsIntroActivity.StarsNeededSheet(
+                        getContext(), resourceProvider, price,
+                        StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
+                        null, null, 0
+                ).show();
+                return;
+            }
+            LocalProfileGiftHelper.addLocalGift(to, gift, "");
+            LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, to);
+            if (bought != null) {
+                bought.run(true);
+            }
+            return;
+        }
         final AmountUtils.Currency currency = gift.resale_ton_only ?
                 AmountUtils.Currency.TON : AmountUtils.Currency.STARS;
         StarsController.getInstance(currentAccount, currency).getResellingGiftForm(gift, to, form -> {
@@ -1815,7 +1842,17 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
                 getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_EMOJI_STATUS);
                 finishFragment();
                 if (bulletinFragment != null) {
-                    BulletinFactory.of(bulletinFragment).createSimpleBulletin(R.raw.done, "本地购买成功，礼物已显示在你的个人资料中").show();
+                    final TL_stars.TL_starGiftUnique purchasedGift = profilePage.selectedResaleGift;
+                    final String purchasedName = purchasedGift == null
+                            ? getString(R.string.Gift2ActionPurchasedTitle)
+                            : purchasedGift.title + " #" + LocaleController.formatNumber(purchasedGift.num, ',');
+                    BulletinFactory.of(bulletinFragment)
+                            .createSimpleBulletin(
+                                    purchasedGift == null ? null : purchasedGift.getDocument(),
+                                    getString(R.string.BoughtResoldGiftTitle),
+                                    LocaleController.formatString(R.string.BoughtResoldGiftText, purchasedName)
+                            )
+                            .show();
                     bulletinFragment = null;
                 }
                 return;

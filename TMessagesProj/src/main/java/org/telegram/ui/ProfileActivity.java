@@ -3805,7 +3805,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         int initialTab = -1;
         if (openCommonChats) {
             initialTab = SharedMediaLayout.TAB_COMMON_GROUPS;
-        } else if (openGifts && (userInfo != null && userInfo.stargifts_count > 0 || chatInfo != null && chatInfo.stargifts_count > 0 || LocalProfileGiftHelper.hasLocalGifts(getMessagesController().getUser(did)))) {
+        } else if (openGifts && (userInfo != null && userInfo.stargifts_count > 0 || chatInfo != null && chatInfo.stargifts_count > 0)) {
             initialTab = SharedMediaLayout.TAB_GIFTS;
             openedGifts = true;
         } else if (openSimilar) {
@@ -6050,17 +6050,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             avatarImage.setHasStories(needInsetForStories());
         }
         avatarContainer2.addView(storyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        giftsView = new ProfileGiftsView(context, currentAccount, getDialogId(), avatarContainer, avatarImage, resourcesProvider) {
-            @Override
-            public void onGiftClick(Gift gift) {
-                // 仅本机选择的本地挂件进入管理菜单；服务器礼物继续使用原有 NFT 详情行为。
-                if (gift.localMounted && userId == getUserConfig().getClientUserId()) {
-                    showLocalProfileGiftOptions(gift.id);
-                    return;
-                }
-                super.onGiftClick(gift);
-            }
-        };
+        giftsView = new ProfileGiftsView(context, currentAccount, getDialogId(), avatarContainer, avatarImage, resourcesProvider);
         avatarContainer2.addView(giftsView, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         updateProfileData(true);
 
@@ -9618,23 +9608,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         isInLandscapeMode = size.x > size.y;
     }
 
-    private void showLocalProfileGiftOptions(long collectibleId) {
-        if (getParentActivity() == null) {
-            return;
-        }
-        final AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourcesProvider);
-        builder.setTitle("本地资料挂件");
-        builder.setItems(new CharSequence[]{"替换为新的礼物", "移除此礼物"}, (dialog, which) -> {
-            if (which == 0) {
-                presentFragment(new PeerColorActivity(0).startOnProfile().setOnApplied(ProfileActivity.this));
-            } else {
-                LocalProfileGiftHelper.remove(getUserConfig().getClientUserId(), collectibleId);
-                refreshLocalStyleGifts();
-            }
-        });
-        showDialog(builder.create());
-    }
-
     /** Refreshes visual-only style gifts after Apply Style or a single local-gift removal. */
     public void refreshLocalStyleGifts() {
         if (giftsView != null) {
@@ -11503,7 +11476,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     reportDividerRow = rowCount++;
                 }
 
-                if (hasMedia || LocalProfileGiftHelper.hasLocalGifts(user) || (user != null && user.bot && user.bot_can_edit && user.bot_has_main_app) || userInfo != null && userInfo.common_chats_count != 0 || myProfile) {
+                if (hasMedia || (user != null && user.bot && user.bot_can_edit && user.bot_has_main_app) || userInfo != null && userInfo.common_chats_count != 0 || myProfile) {
                     sharedMediaRow = rowCount++;
                 } else if (lastSectionRow == -1 && needSendMessage) {
                     sendMessageRow = rowCount++;
@@ -12942,7 +12915,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 // Huanghun: local self-purchase is separate from the real Telegram gift flow.
                 if (UserObject.isUserSelf(user)) {
-                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, "为自己购买礼物（本地）");
+                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, LocaleController.getString(R.string.ProfileSendAGift));
                 }
                 // Huanghun: these are additional local-only actions; existing menu items remain unchanged.
                 if (!UserObject.isUserSelf(user)) {
