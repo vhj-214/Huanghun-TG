@@ -2816,7 +2816,7 @@ public class StarsController {
     }
 
     private void completeLocalStarGiftPurchase(TL_stars.StarGift gift, long dialogId, long stars, Utilities.Callback2<Boolean, String> whenDone) {
-        LocalProfileGiftHelper.addLocalGift(dialogId, gift);
+        LocalProfileGiftHelper.addLocalGift(dialogId, gift, "");
         LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
         invalidateStarGifts();
         invalidateProfileGifts(dialogId);

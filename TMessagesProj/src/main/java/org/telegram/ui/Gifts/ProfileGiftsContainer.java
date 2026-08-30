@@ -692,7 +692,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
                     savedGift.gift = officialGift;
                     savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
-                    savedGift.gift_num = localGift.giftNum;
+                    savedGift.gift_num = localGift.getGiftNum();
                     savedGift.flags |= 2;
                     final TLRPC.TL_peerUser from = new TLRPC.TL_peerUser();
                     from.user_id = UserConfig.getInstance(currentAccount).getClientUserId();
