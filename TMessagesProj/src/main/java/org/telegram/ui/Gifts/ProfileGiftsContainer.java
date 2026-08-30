@@ -625,17 +625,10 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading && localStyleGifts.isEmpty())
                 return;
             final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
-            if (!localStyleGifts.isEmpty()) {
-                items.add(TextFactory.asBoldText(
-                        Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider),
-                        Gravity.LEFT,
-                        16,
-                        LocaleController.getString(R.string.LocalStyleGiftsHeader)
-                ).setSpanCount(3));
-                for (int i = 0; i < localStyleGifts.size(); i++) {
-                    items.add(LocalStyleGiftCell.Factory.asLocalStyleGift(localStyleGifts.get(i)));
-                }
-                items.add(UItem.asSpace(dp(10)).setSpanCount(3));
+            // Local purchases use the same gift grid without exposing their
+            // implementation origin or adding a separate local-style section.
+            for (int i = 0; i < localStyleGifts.size(); i++) {
+                items.add(LocalStyleGiftCell.Factory.asLocalStyleGift(localStyleGifts.get(i)));
             }
             if (list != null) {
                 int spanCountLeft = 3;
@@ -686,8 +679,22 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         public void onItemClick(UItem item, View view, int position, float x, float y) {
             if (list == null) return;
             if (item.object instanceof LocalProfileGiftData) {
-                // Individual local style cards reopen the style picker, where the whole local set can be replaced.
-                parent.fragment.presentFragment(new PeerColorActivity(0).startOnProfile().setOnApplied(parent.fragment));
+                final LocalProfileGiftData localGiftData = (LocalProfileGiftData) item.object;
+                final long userId = parent.dialogId;
+                final TL_stars.StarGift localGift = LocalProfileGiftHelper.getLocalGift(userId, localGiftData.getCollectibleId());
+                if (localGift instanceof TL_stars.TL_starGiftUnique) {
+                    new StarGiftSheet(getContext(), currentAccount, userId, resourcesProvider)
+                            .set((TL_stars.TL_starGiftUnique) localGift, false)
+                            .show();
+                } else if (localGift != null) {
+                    final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
+                    savedGift.gift = localGift;
+                    savedGift.saved_id = localGiftData.getCollectibleId();
+                    savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
+                    new StarGiftSheet(getContext(), currentAccount, userId, resourcesProvider)
+                            .set(savedGift, list)
+                            .show();
+                }
                 return;
             }
             if (item.object instanceof TL_stars.SavedStarGift) {
@@ -1912,19 +1919,19 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 emojiDrawable.draw(canvas);
             }
 
-            final String title = data == null || TextUtils.isEmpty(data.getTitle())
-                    ? LocaleController.getString(R.string.LocalStyleGiftLabel)
-                    : data.getTitle();
+            final String title = data == null ? "" : data.getTitle();
             titlePaint.setColor(data != null && data.getTextColor() != 0 ? data.getTextColor() | 0xFF000000 : Color.WHITE);
-            final CharSequence safeTitle = TextUtils.ellipsize(title, titlePaint, getWidth() - dp(20), TextUtils.TruncateAt.END);
-            canvas.drawText(safeTitle.toString(), getWidth() / 2f, dp(126), titlePaint);
+            if (!TextUtils.isEmpty(title)) {
+                final CharSequence safeTitle = TextUtils.ellipsize(title, titlePaint, getWidth() - dp(20), TextUtils.TruncateAt.END);
+                canvas.drawText(safeTitle.toString(), getWidth() / 2f, dp(126), titlePaint);
+            }
             titlePaint.setTypeface(null);
             titlePaint.setTextSize(dp(11));
             titlePaint.setColor(0xDFFFFFFF);
-            final String subtitle = data != null && !data.getLocalStyle() && !TextUtils.isEmpty(data.getSenderName())
-                    ? data.getSenderName()
-                    : LocaleController.getString(R.string.LocalStyleGiftLabel);
-            canvas.drawText(subtitle, getWidth() / 2f, dp(148), titlePaint);
+            final String subtitle = data == null ? "" : data.getSenderName();
+            if (!TextUtils.isEmpty(subtitle)) {
+                canvas.drawText(subtitle, getWidth() / 2f, dp(148), titlePaint);
+            }
             titlePaint.setTypeface(AndroidUtilities.bold());
             titlePaint.setTextSize(dp(13));
         }

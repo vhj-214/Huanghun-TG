@@ -734,7 +734,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
         LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
         BulletinFactory bulletinFactory = getParentBulletinFactory();
         if (bulletinFactory != null) {
-            bulletinFactory.createSimpleBulletin(R.raw.done, "购买成功").show();
+            bulletinFactory.createSimpleBulletin(R.raw.done, LocalProfileGiftHelper.getPurchaseSuccessText()).show();
         }
         dismiss();
     }

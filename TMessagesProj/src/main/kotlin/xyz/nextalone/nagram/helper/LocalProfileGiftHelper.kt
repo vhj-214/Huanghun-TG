@@ -10,6 +10,9 @@ import org.telegram.tgnet.TLRPC
 import org.telegram.tgnet.tl.TL_stars
 import tw.nekomimi.nekogram.NekoConfig
 import xyz.nextalone.nagram.NaConfig
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class LocalProfileGiftData(
     var collectibleId: Long,
@@ -35,6 +38,9 @@ object LocalProfileGiftHelper {
     private val gson = Gson()
     private val listType = object : TypeToken<ArrayList<LocalProfileGiftData>>() {}.type
     private val dataMap = mutableMapOf<Long, ArrayList<LocalProfileGiftData>>()
+    // Keep the original catalog object during this session so local purchases
+    // can reuse Telegram's official gift detail sheet.
+    private val giftObjects = mutableMapOf<Pair<Long, Long>, TL_stars.StarGift>()
     private val loadedUsers = mutableSetOf<Long>()
 
     /**
@@ -96,6 +102,7 @@ object LocalProfileGiftHelper {
         val edgeColor = backdrop?.edge_color ?: background?.edge_color ?: DEFAULT_EDGE_COLOR
         val patternColor = backdrop?.pattern_color ?: centerColor
         val textColor = backdrop?.text_color ?: background?.text_color ?: DEFAULT_TEXT_COLOR
+        giftObjects[userId to cardId] = gift
         current.add(
             LocalProfileGiftData(
                 cardId,
@@ -113,6 +120,14 @@ object LocalProfileGiftHelper {
         )
         saveData(userId, current)
     }
+
+    /** Formats the same compact purchase confirmation used by the official UI. */
+    @JvmStatic
+    fun getPurchaseSuccessText(): String = "您于 ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())} 购买了此礼物"
+
+    /** Returns the original catalog gift for the official detail sheet. */
+    @JvmStatic
+    fun getLocalGift(userId: Long, collectibleId: Long): TL_stars.StarGift? = giftObjects[userId to collectibleId]
 
     /** Broadcasts a local gift mutation through Telegram's established gift-refresh channel. */
     @JvmStatic

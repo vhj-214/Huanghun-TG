@@ -2166,7 +2166,7 @@ public class ResaleGiftsFragment extends BaseFragment implements FactorAnimator.
                     final BaseFragment lastFragment = LaunchActivity.getSafeLastFragment();
                     if (lastFragment != null) {
                         BulletinFactory.of(lastFragment)
-                            .createSimpleBulletin(gift.getDocument(), "购买成功")
+                            .createSimpleBulletin(gift.getDocument(), LocalProfileGiftHelper.getPurchaseSuccessText())
                             .show();
                     }
                     dismiss();

@@ -6962,7 +6962,7 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
                 if (boughtGift != null) {
                     boughtGift.run(gift, to);
                 }
-                getBulletinFactory().createSimpleBulletin(gift.getDocument(), "购买成功").show();
+                getBulletinFactory().createSimpleBulletin(gift.getDocument(), LocalProfileGiftHelper.getPurchaseSuccessText()).show();
                 dismiss();
             }).show();
         });
