@@ -90,7 +90,6 @@ import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
-import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.Stories.recorder.PreviewView;
 
@@ -509,7 +508,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
                 messageEdit.editTextEmoji.closeKeyboard();
             }
             if (starGift != null) {
-                buyStarGiftLocally();
+                buyStarGiftFromServer();
             } else {
                 buyPremiumTier();
             }
@@ -710,35 +709,6 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
             + (TextUtils.isEmpty(messageEdit.getText()) ? 0 : send_paid_messages_stars);
     }
 
-    private void buyStarGiftLocally() {
-        final long price = getLocalStarGiftPrice();
-        if (!LocalStarsHelper.spend(currentAccount, price)) {
-            new StarsIntroActivity.StarsNeededSheet(
-                getContext(),
-                resourcesProvider,
-                price,
-                StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
-                null,
-                null,
-                0
-            ).show();
-            button.setLoading(false);
-            return;
-        }
-
-        if (closeParentSheet != null) {
-            closeParentSheet.run();
-        }
-        AndroidUtilities.hideKeyboard(messageEdit);
-        LocalProfileGiftHelper.addLocalGift(dialogId, starGift, "");
-        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
-        BulletinFactory bulletinFactory = getParentBulletinFactory();
-        if (bulletinFactory != null) {
-            bulletinFactory.createSimpleBulletin(R.raw.done, "购买成功").show();
-        }
-        dismiss();
-    }
-
     private void buyStarGiftFromServer() {
         StarsController.getInstance(currentAccount).buyStarGift(
             this.starGift,
@@ -746,6 +716,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
             upgrade,
             dialogId,
             getMessage(),
+            true,
             (status, err) -> {
                 if (status) {
                     if (closeParentSheet != null) {

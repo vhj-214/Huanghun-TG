@@ -75,6 +75,9 @@ import org.telegram.ui.ProfileActivity;
 import org.telegram.ui.TON.TONIntroActivity;
 import org.telegram.ui.bots.BotWebViewSheet;
 
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -2619,6 +2622,11 @@ public class StarsController {
     }
 
     public void buyStarGift(TL_stars.StarGift gift, boolean anonymous, boolean upgraded, long dialogId, TLRPC.TL_textWithEntities text, Utilities.Callback2<Boolean, String> whenDone) {
+        buyStarGift(gift, anonymous, upgraded, dialogId, text, false, whenDone);
+    }
+
+    /** Official gift flow with an optional local-only payment substitute. */
+    public void buyStarGift(TL_stars.StarGift gift, boolean anonymous, boolean upgraded, long dialogId, TLRPC.TL_textWithEntities text, boolean useLocalPayment, Utilities.Callback2<Boolean, String> whenDone) {
         final Context context = LaunchActivity.instance != null ? LaunchActivity.instance : ApplicationLoader.applicationContext;
         final Theme.ResourcesProvider resourcesProvider = getResourceProvider();
 
@@ -2626,7 +2634,7 @@ public class StarsController {
             return;
         }
 
-        if (!balanceAvailable()) {
+        if (!useLocalPayment && !balanceAvailable()) {
             getBalance(() -> {
                 if (!balanceAvailable()) {
                     bulletinError("NO_BALANCE");
@@ -2635,7 +2643,7 @@ public class StarsController {
                     }
                     return;
                 }
-                buyStarGift(gift, anonymous, upgraded, dialogId, text, whenDone);
+                buyStarGift(gift, anonymous, upgraded, dialogId, text, useLocalPayment, whenDone);
             });
             return;
         }
@@ -2677,6 +2685,16 @@ public class StarsController {
                 _stars += price.amount;
             }
             final long stars = _stars;
+            if (useLocalPayment) {
+                if (!LocalStarsHelper.spend(currentAccount, stars)) {
+                    if (whenDone != null) {
+                        whenDone.run(false, "BALANCE_TOO_LOW");
+                    }
+                    return;
+                }
+                completeLocalStarGiftPurchase(gift, dialogId, stars, whenDone);
+                return;
+            }
             ConnectionsManager.getInstance(currentAccount).sendRequest(req2, (res2, err2) -> AndroidUtilities.runOnUIThread(() -> {
                 final BaseFragment fragment = LaunchActivity.getLastFragment();
                 BulletinFactory b = fragment != null && fragment.visibleDialog == null ? BulletinFactory.of(fragment) : BulletinFactory.global();
@@ -2693,7 +2711,7 @@ public class StarsController {
                         final boolean[] purchased = new boolean[] { false };
                         StarsIntroActivity.StarsNeededSheet sheet = new StarsIntroActivity.StarsNeededSheet(context, resourcesProvider, stars, StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY, name, () -> {
                             purchased[0] = true;
-                            buyStarGift(gift, anonymous, upgraded, dialogId, text, whenDone);
+                            buyStarGift(gift, anonymous, upgraded, dialogId, text, useLocalPayment, whenDone);
                         }, 0);
                         sheet.setOnDismissListener(d -> {
                             if (whenDone != null && !purchased[0]) {
@@ -2795,6 +2813,27 @@ public class StarsController {
                 }
             }));
         }));
+    }
+
+    private void completeLocalStarGiftPurchase(TL_stars.StarGift gift, long dialogId, long stars, Utilities.Callback2<Boolean, String> whenDone) {
+        LocalProfileGiftHelper.addLocalGift(dialogId, gift);
+        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
+        invalidateStarGifts();
+        invalidateProfileGifts(dialogId);
+        invalidateTransactions(true);
+        if (whenDone != null) {
+            whenDone.run(true, null);
+        }
+        if (BirthdayController.getInstance(currentAccount).contains(dialogId)) {
+            MessagesController.getInstance(currentAccount).getMainSettings().edit().putBoolean(Calendar.getInstance().get(Calendar.YEAR) + "bdayhint_" + dialogId, false).apply();
+        }
+        MessagesController.getInstance(currentAccount).getMainSettings().edit()
+            .putBoolean("show_gift_for_" + dialogId, true)
+            .putBoolean(Calendar.getInstance().get(Calendar.YEAR) + "show_gift_for_" + dialogId, true)
+            .apply();
+        if (LaunchActivity.instance != null && LaunchActivity.instance.getFireworksOverlay() != null) {
+            LaunchActivity.instance.getFireworksOverlay().start(true);
+        }
     }
 
     public void getResellingGiftForm(TL_stars.StarGift gift, long dialogId, Utilities.Callback<TLRPC.TL_payments_paymentFormStarGift> whenDone) {

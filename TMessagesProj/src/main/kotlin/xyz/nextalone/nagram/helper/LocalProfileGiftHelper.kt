@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken
 import org.telegram.messenger.MessagesController
 import org.telegram.messenger.NotificationCenter
 import org.telegram.messenger.UserConfig
+import org.telegram.ui.Stars.StarsController
 import org.telegram.tgnet.TLRPC
 import org.telegram.tgnet.tl.TL_stars
 import tw.nekomimi.nekogram.NekoConfig
@@ -22,7 +23,9 @@ data class LocalProfileGiftData(
     var patternColor: Int,
     var textColor: Int,
     var localStyle: Boolean = true,
-    var senderName: String = ""
+    var senderName: String = "",
+    var catalogGiftId: Long = 0L,
+    var giftNum: Int = 0
 )
 
 /**
@@ -36,6 +39,7 @@ object LocalProfileGiftHelper {
     private val listType = object : TypeToken<ArrayList<LocalProfileGiftData>>() {}.type
     private val dataMap = mutableMapOf<Long, ArrayList<LocalProfileGiftData>>()
     private val loadedUsers = mutableSetOf<Long>()
+    private val sessionGifts = mutableMapOf<Long, MutableMap<Long, TL_stars.StarGift>>()
 
     /**
      * Compatibility accessor for callers that only need a single visible collectible.
@@ -108,10 +112,20 @@ object LocalProfileGiftHelper {
                 patternColor,
                 textColor,
                 false,
-                senderName
+                senderName,
+                gift.id,
+                if (isCollectible) gift.num else 0
             )
         )
+        sessionGifts.getOrPut(userId) { mutableMapOf() }[cardId] = gift
         saveData(userId, current)
+    }
+
+    /** Returns the original official gift object while it is available in this session. */
+    @JvmStatic
+    fun getSessionGift(currentAccount: Int, userId: Long, data: LocalProfileGiftData): TL_stars.StarGift? {
+        return sessionGifts[userId]?.get(data.collectibleId)
+            ?: if (data.catalogGiftId != 0L) StarsController.getInstance(currentAccount).getStarGift(data.catalogGiftId) else null
     }
 
     /** Broadcasts a local gift mutation through Telegram's established gift-refresh channel. */
@@ -225,7 +239,9 @@ object LocalProfileGiftHelper {
             status.pattern_color,
             status.text_color,
             true,
-            ""
+            "",
+            gift?.id ?: 0L,
+            gift?.num ?: 0
         )
     }
 
