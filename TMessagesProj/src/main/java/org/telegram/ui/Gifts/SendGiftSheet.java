@@ -89,7 +89,6 @@ import org.telegram.ui.ProfileActivity;
 import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
-import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.Stories.recorder.PreviewView;
@@ -509,7 +508,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
                 messageEdit.editTextEmoji.closeKeyboard();
             }
             if (starGift != null) {
-                buyStarGift();
+                buyStarGiftFromServer();
             } else {
                 buyPremiumTier();
             }
@@ -708,36 +707,6 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
         return starGift.stars
             + (upgrade ? starGift.upgrade_stars : 0)
             + (TextUtils.isEmpty(messageEdit.getText()) ? 0 : send_paid_messages_stars);
-    }
-
-    private void buyStarGift() {
-        final long price = getLocalStarGiftPrice();
-        if (!LocalStarsHelper.spend(currentAccount, price)) {
-            new StarsIntroActivity.StarsNeededSheet(
-                getContext(),
-                resourcesProvider,
-                price,
-                StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
-                null,
-                null,
-                0
-            ).show();
-            button.setLoading(false);
-            return;
-        }
-
-        if (closeParentSheet != null) {
-            closeParentSheet.run();
-        }
-        AndroidUtilities.hideKeyboard(messageEdit);
-        LocalProfileGiftHelper.addLocalGift(dialogId, starGift, "黄昏:@hqsh_db");
-        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
-        BulletinFactory bulletinFactory = getParentBulletinFactory();
-        if (bulletinFactory != null) {
-            String giftTitle = starGift != null && !TextUtils.isEmpty(starGift.title) ? starGift.title : "普通礼物";
-            bulletinFactory.createSimpleBulletin(R.raw.done, "购买成功", "黄昏:@hqsh_db 赠送了「" + giftTitle + "」").show();
-        }
-        dismiss();
     }
 
     private void buyStarGiftFromServer() {

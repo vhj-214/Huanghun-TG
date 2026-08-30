@@ -145,7 +145,6 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
-import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import org.telegram.ui.Components.LinkPath;
 import org.telegram.ui.Components.LinkSpanDrawable;
 import org.telegram.ui.Components.LoadingSpan;
@@ -6937,20 +6936,27 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
     public void onBuyPressed() {
         final TL_stars.TL_starGiftUnique gift = getUniqueGift();
         if (button.isLoading() || gift == null) return;
-
-        // Local preview purchase: no invoice, balance change, or server request.
-        final long to = slugStarGift != null && resale && dialogId != 0
-            ? dialogId
-            : UserConfig.getInstance(currentAccount).getClientUserId();
-        LocalProfileGiftHelper.addLocalGift(to, gift, "黄昏:@hqsh_db");
-        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, to);
-        if (boughtGift != null) {
-            boughtGift.run(gift, to);
-        }
-        getBulletinFactory()
-            .createSimpleBulletin(gift.getDocument(), "购买成功", "典藏礼物已添加到本地个人资料礼物专区")
-            .show();
-        dismiss();
+        button.setLoading(true);
+        final long to = slugStarGift != null && resale && dialogId != 0 ? dialogId : UserConfig.getInstance(currentAccount).getClientUserId();
+        final AmountUtils.Currency currency = gift.resale_ton_only ?
+            AmountUtils.Currency.TON : AmountUtils.Currency.STARS;
+        StarsController.getInstance(currentAccount, currency).getResellingGiftForm(gift, to, form -> {
+            button.setLoading(false);
+            if (form == null) return;
+            final PaymentFormState initial = new PaymentFormState(currency, form);
+            new ResaleBuyTransferAlert(getContext(), resourcesProvider, gift, initial, currentAccount, to, getGiftName(), false, (state, progress) -> {
+                progress.init();
+                StarsController.getInstance(currentAccount, state.currency).buyResellingGift(state.form, gift, to, (status, err) -> {
+                    progress.end();
+                    if (status) {
+                        if (boughtGift != null) {
+                            boughtGift.run(gift, to);
+                        }
+                        dismiss();
+                    }
+                });
+            }).show();
+        });
     }
 
     @Override
