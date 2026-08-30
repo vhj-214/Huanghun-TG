@@ -97,6 +97,7 @@ import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.tgnet.tl.TL_stories;
 import org.telegram.ui.AccountFrozenAlert;
 import tw.nekomimi.nekogram.NekoConfig;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BackDrawable;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -880,8 +881,8 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
             boolean loading;
             long balance;
             if (dialogId == UserConfig.getInstance(currentAccount).getClientUserId()) {
-                final long localBalance = NekoConfig.huanghunLocalStars.Long();
-                if (localBalance >= 0) {
+                final long localBalance = LocalStarsHelper.getBalance();
+                if (NekoConfig.huanghunLocalStars.Long() >= 0) {
                     loading = false;
                     balance = localBalance;
                 } else {
@@ -2493,7 +2494,7 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
 
         @Override
         public void show() {
-            long balance = StarsController.getInstance(currentAccount).getBalance().amount;
+            long balance = LocalStarsHelper.getBalance();
             BaseFragment lastFragment = LaunchActivity.getLastFragment();
             if (lastFragment instanceof ChatActivity) {
                 ChatActivity chatActivity = (ChatActivity) lastFragment;
@@ -2652,7 +2653,7 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
                 if (adapter != null) {
                     adapter.update(true);
                 }
-                long balance = StarsController.getInstance(currentAccount).getBalance().amount;
+                long balance = LocalStarsHelper.getBalance();
                 headerView.titleView.setText(formatPluralStringComma("StarsNeededTitle", (int) (starsNeeded - balance)));
                 if (actionBar != null) {
                     actionBar.setTitle(getTitle());
@@ -2678,7 +2679,7 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
             }
 
 
-            long balance = StarsController.getInstance(currentAccount).getBalance().amount;
+            long balance = LocalStarsHelper.getBalance();
             if (balance >= starsNeeded) {
                 if (whenPurchased != null) {
                     whenPurchased.run();
@@ -2760,7 +2761,7 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
             this.starsNeeded = starsNeeded;
             headerView = new HeaderView(context, currentAccount, resourcesProvider);
 
-            long balance = StarsController.getInstance(currentAccount).getBalance().amount;
+            long balance = LocalStarsHelper.getBalance();
             headerView.titleView.setText(formatPluralString("StarsNeededTitle", (int) Math.max(0, starsNeeded - balance)));
             String stringRes;
             if (type == TYPE_SUBSCRIPTION_BUY) {
