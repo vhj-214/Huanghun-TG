@@ -315,8 +315,6 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
         fireworksOverlay = new FireworksOverlay(getContext());
         contentView.addView(fireworksOverlay, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        final StarsController s = StarsController.getInstance(currentAccount);
-
         balanceLayout = new LinearLayout(getContext());
         balanceLayout.setOrientation(LinearLayout.VERTICAL);
         balanceLayout.setPadding(0, dp(24), 0, dp(10));
@@ -420,21 +418,25 @@ public class StarsIntroActivity extends GradientHeaderActivity implements Notifi
 
         BotStarsController.getInstance(currentAccount).preloadStarsStats(getUserConfig().getClientUserId());
         final TLRPC.TL_payments_starsRevenueStats stats = BotStarsController.getInstance(currentAccount).getStarsRevenueStats(getUserConfig().getClientUserId());
-        updateButtonsLayouts(s.getBalance().amount > 0 && stats != null && stats.status != null && stats.status.overall_revenue.positive(), false);
+        updateButtonsLayouts(getDisplayedStarsBalance() > 0 && stats != null && stats.status != null && stats.status.overall_revenue.positive(), false);
 
         return fragmentView;
     }
 
-    private void updateBalance() {
-        final StarsController s = StarsController.getInstance(currentAccount);
+    private long getDisplayedStarsBalance() {
+        if (NekoConfig.huanghunLocalStars.Long() >= 0) {
+            return LocalStarsHelper.getBalance();
+        }
+        return StarsController.getInstance(currentAccount).getBalance().amount;
+    }
 
+    private void updateBalance() {
+        final long balance = getDisplayedStarsBalance();
         final SpannableStringBuilder sb = new SpannableStringBuilder();
         sb.append(starBalanceIcon);
-        sb.append(formatStarsAmount(s.getBalance(), 0.66f, ' '));
+        sb.append(formatStarsAmount(TL_stars.StarsAmount.ofStars(balance), 0.66f, ' '));
         starBalanceTextView.setText(sb);
-
-        buyButton.setText(LocaleController.getString(s.getBalance().amount > 0 ? R.string.StarsBuyMore : R.string.StarsBuy), true);
-
+        buyButton.setText(LocaleController.getString(balance > 0 ? R.string.StarsBuyMore : R.string.StarsBuy), true);
         final TLRPC.TL_payments_starsRevenueStats stats = BotStarsController.getInstance(currentAccount).getStarsRevenueStats(getUserConfig().getClientUserId());
         updateButtonsLayouts(stats != null && stats.status != null && stats.status.overall_revenue.positive(), true);
     }

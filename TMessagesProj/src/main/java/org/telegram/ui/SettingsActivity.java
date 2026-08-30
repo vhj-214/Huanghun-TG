@@ -92,6 +92,7 @@ import org.telegram.messenger.UserObject;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
@@ -165,6 +166,7 @@ import tw.nekomimi.nekogram.settings.NekoSettingsActivity;
 import tw.nekomimi.nekogram.ui.BottomBuilder;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 
 import kotlin.Unit;
 
@@ -888,9 +890,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 ));
             }
             if (getMessagesController().starsPurchaseAvailable()) {
-                StarsController c = StarsController.getInstance(currentAccount);
-                long balance = c.getBalance().amount;
-                items.add(SettingCell.Factory.of(12, 0xFFEFA612, 0xFFE77512, R.drawable.settings_stars, getString(R.string.TelegramStars), null, c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : ""));
+                long balance = LocalStarsHelper.getBalance();
+                items.add(SettingCell.Factory.of(12, 0xFFEFA612, 0xFFE77512, R.drawable.settings_stars, getString(R.string.TelegramStars), null, balance > 0 ? StarsIntroActivity.formatStarsAmount(TL_stars.StarsAmount.ofStars(balance), 0.85f, ' ') : ""));
             }
             StarsController.getInstance(currentAccount, true).getBalance();
             if (ApplicationLoader.isBetaBuild() || ApplicationLoader.isStandaloneBuild() || ApplicationLoader.isHuaweiStoreBuild() || (StarsController.getInstance(currentAccount, true).balanceAvailable() && (StarsController.getInstance(currentAccount, true).hasTransactions() || StarsController.getInstance(currentAccount, true).getBalance().positive()))) {
