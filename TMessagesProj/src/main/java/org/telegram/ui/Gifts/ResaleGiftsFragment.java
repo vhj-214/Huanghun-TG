@@ -2157,7 +2157,7 @@ public class ResaleGiftsFragment extends BaseFragment implements FactorAnimator.
                         ).show();
                         return;
                     }
-                    LocalProfileGiftHelper.addLocalGift(to, gift);
+                    LocalProfileGiftHelper.addLocalGift(to, gift, "");
                     LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, to);
                     progress.end();
                     if (onSelect != null) {

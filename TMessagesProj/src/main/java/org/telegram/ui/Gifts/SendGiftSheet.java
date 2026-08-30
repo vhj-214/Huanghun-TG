@@ -730,7 +730,7 @@ public class SendGiftSheet extends BottomSheetWithRecyclerListView implements No
             closeParentSheet.run();
         }
         AndroidUtilities.hideKeyboard(messageEdit);
-        LocalProfileGiftHelper.addLocalGift(dialogId, starGift);
+        LocalProfileGiftHelper.addLocalGift(dialogId, starGift, "");
         LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, dialogId);
         BulletinFactory bulletinFactory = getParentBulletinFactory();
         if (bulletinFactory != null) {

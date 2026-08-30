@@ -6956,7 +6956,7 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
                     ).show();
                     return;
                 }
-                LocalProfileGiftHelper.addLocalGift(to, gift);
+                LocalProfileGiftHelper.addLocalGift(to, gift, "");
                 LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, to);
                 progress.end();
                 if (boughtGift != null) {
