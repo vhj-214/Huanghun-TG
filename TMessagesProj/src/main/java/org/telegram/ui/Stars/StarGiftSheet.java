@@ -145,6 +145,7 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import org.telegram.ui.Components.LinkPath;
 import org.telegram.ui.Components.LinkSpanDrawable;
 import org.telegram.ui.Components.LoadingSpan;
@@ -6946,15 +6947,23 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
             final PaymentFormState initial = new PaymentFormState(currency, form);
             new ResaleBuyTransferAlert(getContext(), resourcesProvider, gift, initial, currentAccount, to, getGiftName(), false, (state, progress) -> {
                 progress.init();
-                StarsController.getInstance(currentAccount, state.currency).buyResellingGift(state.form, gift, to, (status, err) -> {
+                if (state.currency == AmountUtils.Currency.STARS && !LocalStarsHelper.spend(currentAccount, state.amount.asDecimal())) {
                     progress.end();
-                    if (status) {
-                        if (boughtGift != null) {
-                            boughtGift.run(gift, to);
-                        }
-                        dismiss();
-                    }
-                });
+                    new StarsIntroActivity.StarsNeededSheet(
+                        getContext(), resourcesProvider, state.amount.asDecimal(),
+                        StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
+                        null, null, 0
+                    ).show();
+                    return;
+                }
+                LocalProfileGiftHelper.addLocalGift(to, gift);
+                LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, to);
+                progress.end();
+                if (boughtGift != null) {
+                    boughtGift.run(gift, to);
+                }
+                getBulletinFactory().createSimpleBulletin(gift.getDocument(), "购买成功").show();
+                dismiss();
             }).show();
         });
     }
