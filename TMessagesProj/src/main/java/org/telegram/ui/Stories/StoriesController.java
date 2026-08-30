@@ -18,6 +18,7 @@ import org.telegram.SQLite.SQLiteCursor;
 import org.telegram.SQLite.SQLiteDatabase;
 import org.telegram.SQLite.SQLitePreparedStatement;
 import org.telegram.messenger.AccountInstance;
+import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BuildVars;
@@ -1833,31 +1834,66 @@ public class StoriesController {
         if (storyItem == null) {
             return;
         }
-        TL_stories.TL_stories_sendReaction req = new TL_stories.TL_stories_sendReaction();
-        req.story_id = storyItem.id;
-        req.peer = MessagesController.getInstance(currentAccount).getInputPeer(dialogId);
-        if (visibleReaction == null) {
-            req.reaction = new TLRPC.TL_reactionEmpty();
-           // req.flags |= 1;
+
+        TLRPC.Reaction localReaction = null;
+        TLRPC.Reaction requestReaction = new TLRPC.TL_reactionEmpty();
+        if (visibleReaction != null) {
+            if (visibleReaction.documentId != 0) {
+                TLRPC.TL_reactionCustomEmoji customEmoji = new TLRPC.TL_reactionCustomEmoji();
+                customEmoji.document_id = visibleReaction.documentId;
+                localReaction = customEmoji;
+
+                // Keep the custom emoji locally, but use its alt emoji for non-Premium users.
+                if (UserConfig.getInstance(currentAccount).isPremium()) {
+                    requestReaction = customEmoji;
+                } else {
+                    TLRPC.Document document = AnimatedEmojiDrawable.findDocument(currentAccount, visibleReaction.documentId);
+                    String fallbackEmoji = MessageObject.findAnimatedEmojiEmoticon(document, null);
+                    if (!TextUtils.isEmpty(fallbackEmoji)) {
+                        TLRPC.TL_reactionEmoji fallbackReaction = new TLRPC.TL_reactionEmoji();
+                        fallbackReaction.emoticon = fallbackEmoji;
+                        requestReaction = fallbackReaction;
+                    } else {
+                        final long documentId = visibleReaction.documentId;
+                        storyItem.flags |= 32768;
+                        storyItem.sent_reaction = localReaction;
+                        updateStoryItem(dialogId, storyItem, true);
+                        AnimatedEmojiDrawable.getDocumentFetcher(currentAccount).fetchDocument(documentId, fetchedDocument -> {
+                            String fetchedFallbackEmoji = MessageObject.findAnimatedEmojiEmoticon(fetchedDocument, null);
+                            if (!TextUtils.isEmpty(fetchedFallbackEmoji)) {
+                                TLRPC.TL_reactionEmoji fallbackReaction = new TLRPC.TL_reactionEmoji();
+                                fallbackReaction.emoticon = fetchedFallbackEmoji;
+                                sendStoryReactionRequest(dialogId, storyItem.id, fallbackReaction);
+                            }
+                        });
+                        return;
+                    }
+                }
+            } else if (visibleReaction.emojicon != null) {
+                TLRPC.TL_reactionEmoji emojiReaction = new TLRPC.TL_reactionEmoji();
+                emojiReaction.emoticon = visibleReaction.emojicon;
+                localReaction = emojiReaction;
+                requestReaction = emojiReaction;
+            }
+        }
+
+        if (localReaction == null) {
             storyItem.flags &= ~32768;
             storyItem.sent_reaction = null;
-        } else if (visibleReaction.documentId != 0) {
-            TLRPC.TL_reactionCustomEmoji reactionCustomEmoji = new TLRPC.TL_reactionCustomEmoji();
-            reactionCustomEmoji.document_id = visibleReaction.documentId;
-            req.reaction = reactionCustomEmoji;
-           // req.flags |= 1;
+        } else {
             storyItem.flags |= 32768;
-            storyItem.sent_reaction = reactionCustomEmoji;
-        } else if (visibleReaction.emojicon != null) {
-            TLRPC.TL_reactionEmoji reactionEmoji = new TLRPC.TL_reactionEmoji();
-            reactionEmoji.emoticon = visibleReaction.emojicon;
-            req.reaction = reactionEmoji;
-            storyItem.flags |= 32768;
-            storyItem.sent_reaction = reactionEmoji;
+            storyItem.sent_reaction = localReaction;
         }
         updateStoryItem(dialogId, storyItem, true);
-        ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
+        sendStoryReactionRequest(dialogId, storyItem.id, requestReaction);
+    }
 
+    private void sendStoryReactionRequest(long dialogId, int storyId, TLRPC.Reaction reaction) {
+        TL_stories.TL_stories_sendReaction req = new TL_stories.TL_stories_sendReaction();
+        req.story_id = storyId;
+        req.peer = MessagesController.getInstance(currentAccount).getInputPeer(dialogId);
+        req.reaction = reaction;
+        ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
         });
     }
 

@@ -710,6 +710,26 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                             if (LaunchActivity.instance != null) {
                                 LaunchActivity.instance.getFireworksOverlay().start(true);
                             }
+
+                            // Open the same official gift details sheet used for received gifts.
+                            // The purchase response is a unique gift, so build the minimal
+                            // SavedStarGift wrapper required by StarGiftSheet.set(...).
+                            AndroidUtilities.runOnUIThread(() -> {
+                                TL_stars.TL_savedStarGift purchasedGift = new TL_stars.TL_savedStarGift();
+                                purchasedGift.flags |= 2; // from_id is present
+                                TLRPC.TL_peerUser sender = new TLRPC.TL_peerUser();
+                                sender.user_id = UserConfig.getInstance(currentAccount).getClientUserId();
+                                purchasedGift.from_id = sender;
+                                purchasedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
+                                purchasedGift.gift = boughtGift;
+                                purchasedGift.gift_num = boughtGift.num;
+                                purchasedGift.name_hidden = false;
+                                purchasedGift.unsaved = false;
+                                purchasedGift.refunded = false;
+                                new StarGiftSheet(getContext(), currentAccount, dialogId, resourcesProvider)
+                                    .set(purchasedGift, null)
+                                    .show();
+                            }, 350);
                         })
                         .set(userGift, list)
                         .show();
