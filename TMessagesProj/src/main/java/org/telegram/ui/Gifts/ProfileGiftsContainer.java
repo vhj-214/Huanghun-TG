@@ -626,16 +626,9 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 return;
             final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
             if (!localStyleGifts.isEmpty()) {
-                items.add(TextFactory.asBoldText(
-                        Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider),
-                        Gravity.LEFT,
-                        16,
-                        LocaleController.getString(R.string.LocalStyleGiftsHeader)
-                ).setSpanCount(3));
                 for (int i = 0; i < localStyleGifts.size(); i++) {
                     items.add(LocalStyleGiftCell.Factory.asLocalStyleGift(localStyleGifts.get(i)));
                 }
-                items.add(UItem.asSpace(dp(10)).setSpanCount(3));
             }
             if (list != null) {
                 int spanCountLeft = 3;
@@ -689,13 +682,24 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 final LocalProfileGiftData localGift = (LocalProfileGiftData) item.object;
                 final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, localGift);
                 if (officialGift != null) {
+                    final long currentUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+                    if (officialGift instanceof TL_stars.TL_starGiftUnique) {
+                        // Local purchases are owned by the active account for the purpose of this
+                        // official-looking detail page. Do not retain the catalog/resale owner.
+                        final TLRPC.TL_peerUser owner = new TLRPC.TL_peerUser();
+                        owner.user_id = currentUserId;
+                        officialGift.owner_id = owner;
+                        officialGift.flags |= 1;
+                        officialGift.owner_name = DialogObject.getShortName(currentAccount, currentUserId);
+                        officialGift.flags |= 2;
+                    }
                     final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
                     savedGift.gift = officialGift;
                     savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
                     savedGift.gift_num = localGift.getGiftNum();
                     savedGift.flags |= 2;
                     final TLRPC.TL_peerUser from = new TLRPC.TL_peerUser();
-                    from.user_id = UserConfig.getInstance(currentAccount).getClientUserId();
+                    from.user_id = currentUserId;
                     savedGift.from_id = from;
                     new StarGiftSheet(getContext(), currentAccount, parent.dialogId, resourcesProvider)
                         .set(savedGift, null)
@@ -1934,10 +1938,12 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             titlePaint.setTypeface(null);
             titlePaint.setTextSize(dp(11));
             titlePaint.setColor(0xDFFFFFFF);
-            final String subtitle = data != null && !data.getLocalStyle() && !TextUtils.isEmpty(data.getSenderName())
+            final String subtitle = data != null && !TextUtils.isEmpty(data.getSenderName())
                     ? data.getSenderName()
-                    : LocaleController.getString(R.string.LocalStyleGiftLabel);
-            canvas.drawText(subtitle, getWidth() / 2f, dp(148), titlePaint);
+                    : "";
+            if (!subtitle.isEmpty()) {
+                canvas.drawText(subtitle, getWidth() / 2f, dp(148), titlePaint);
+            }
             titlePaint.setTypeface(AndroidUtilities.bold());
             titlePaint.setTextSize(dp(13));
         }

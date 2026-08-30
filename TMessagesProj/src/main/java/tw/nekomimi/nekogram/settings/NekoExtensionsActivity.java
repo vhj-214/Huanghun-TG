@@ -63,6 +63,7 @@ import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
+import xyz.nextalone.nagram.helper.LocalGramHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
@@ -86,6 +87,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private int localEditAvatarRow;
     private int localEditBioRow;
     private int localStarsRow;
+    private int localGramRow;
     private int localClearGiftsRow;
     private int localNoticeRow;
     private int localEndRow;
@@ -149,6 +151,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         localEditAvatarRow = addRow();
         localEditBioRow = addRow();
         localStarsRow = addRow();
+        localGramRow = addRow();
         localClearGiftsRow = addRow();
         localNoticeRow = addRow();
         localEndRow = addRow();
@@ -252,6 +255,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         }
         if (position == localStarsRow) {
             showLocalStarsDialog();
+            return;
+        }
+        if (position == localGramRow) {
+            showLocalGramDialog();
             return;
         }
         if (position == localClearGiftsRow) {
@@ -660,6 +667,33 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .create());
     }
 
+    private void showLocalGramDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        input.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        input.setHint("例如：100");
+        input.setText(String.valueOf(NekoConfig.huanghunLocalGram.Long()));
+        showDialog(new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("定义我的 Gram")
+                .setMessage("设置当前账号的本地 Gram 余额。购买需要 Gram 的礼物时只从此余额扣除，不会发起真实支付。")
+                .setView(input)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton(getString(R.string.OK), (dialog, which) -> {
+                    try {
+                        long value = Math.max(0L, Math.min(9_999_999_999L, Long.parseLong(input.getText().toString().trim())));
+                        LocalGramHelper.setBalance(currentAccount, value);
+                        notifyLocalRows();
+                    } catch (Throwable ignore) {
+                        showVideoInfo("输入无效", "Gram 数量必须是非负整数。\\n");
+                    }
+                })
+                .create());
+    }
+
     private void showClearLocalGiftsDialog() {
         Context context = getParentActivity();
         if (context == null) return;
@@ -683,6 +717,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         listAdapter.notifyItemChanged(localEditAvatarRow);
         listAdapter.notifyItemChanged(localEditBioRow);
         listAdapter.notifyItemChanged(localStarsRow);
+        listAdapter.notifyItemChanged(localGramRow);
         listAdapter.notifyItemChanged(localClearGiftsRow);
     }
 
@@ -1255,6 +1290,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                     cell.setTextAndValue("点赞表情", getActiveEmojiSummary(), false);
                 } else if (position == localStarsRow) {
                     cell.setTextAndValue("定义星星数量", String.valueOf(NekoConfig.huanghunLocalStars.Long()) + " 颗（仅本地测试）", true);
+                } else if (position == localGramRow) {
+                    cell.setTextAndValue("定义我的 Gram", String.valueOf(NekoConfig.huanghunLocalGram.Long()) + " Gram（仅本地测试）", true);
                 } else if (position == localClearGiftsRow) {
                     cell.setTextAndValue("清空本地虚拟礼物", LocalProfileGiftHelper.getCurrentMountedGiftSummary(), true);
                 } else if (position == selectBuiltinVideosRow) {

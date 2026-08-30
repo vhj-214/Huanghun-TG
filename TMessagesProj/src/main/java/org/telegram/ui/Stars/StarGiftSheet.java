@@ -145,6 +145,7 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
+import xyz.nextalone.nagram.helper.LocalGramHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 import org.telegram.ui.Components.LinkPath;
 import org.telegram.ui.Components.LinkSpanDrawable;
@@ -6947,9 +6948,15 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
             final PaymentFormState initial = new PaymentFormState(currency, form);
             new ResaleBuyTransferAlert(getContext(), resourcesProvider, gift, initial, currentAccount, to, getGiftName(), false, (state, progress) -> {
                 progress.init();
-                if (state.currency == AmountUtils.Currency.STARS && !LocalStarsHelper.spend(currentAccount, state.amount.asDecimal())) {
+                final long localAmount = state.currency == AmountUtils.Currency.TON
+                        ? Math.max(1L, (state.amount.asNano() + 999_999_999L) / 1_000_000_000L)
+                        : state.amount.asDecimal();
+                final boolean paidLocally = state.currency == AmountUtils.Currency.STARS
+                        ? LocalStarsHelper.spend(currentAccount, localAmount)
+                        : LocalGramHelper.spend(currentAccount, localAmount);
+                if (!paidLocally) {
                     progress.end();
-                    new StarsIntroActivity.StarsNeededSheet(
+                        new StarsIntroActivity.StarsNeededSheet(
                         getContext(), resourcesProvider, state.amount.asDecimal(),
                         StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE,
                         null, null, 0
@@ -7864,13 +7871,17 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
                     final StarsController starsController = StarsController.getInstance(currentAccount, selectedCurrency);
                     final AmountUtils.Amount balance = selectedCurrency == AmountUtils.Currency.STARS
                         ? AmountUtils.Amount.fromDecimal(LocalStarsHelper.getBalance(), AmountUtils.Currency.STARS)
-                        : starsController.balanceAvailable() ? AmountUtils.Amount.of(starsController.getBalance()) : null;
+                        : AmountUtils.Amount.fromNano(Math.min(Long.MAX_VALUE / 1_000_000_000L, LocalGramHelper.getBalance()) * 1_000_000_000L, AmountUtils.Currency.TON);
 
                     if (balance != null && state.amount.asNano() > balance.asNano()) {
                         if (selectedCurrency == AmountUtils.Currency.STARS) {
                             new StarsIntroActivity.StarsNeededSheet(context, resourcesProvider, state.amount.asDecimal(), StarsIntroActivity.StarsNeededSheet.TYPE_STAR_GIFT_BUY_RESALE, null, null, 0).show();
                         } else if (selectedCurrency == AmountUtils.Currency.TON){
-                            new TONIntroActivity.StarsNeededSheet(context, resourcesProvider, state.amount, true, null).show();
+                            new AlertDialog.Builder(context, resourcesProvider)
+                                    .setTitle("Gram 余额不足")
+                                    .setMessage("当前 Gram 余额不足以购买此礼物。请先在黄昏设置中定义 Gram 数量。")
+                                    .setPositiveButton(getString(R.string.OK), null)
+                                    .show();
                         }
                         return;
                     }

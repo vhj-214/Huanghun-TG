@@ -24,6 +24,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.LinkSpanDrawable;
 
 import xyz.nextalone.nagram.helper.LocalStarsHelper;
+import xyz.nextalone.nagram.helper.LocalGramHelper;
 
 public class BalanceCloud extends LinearLayout implements NotificationCenter.NotificationCenterDelegate {
 
@@ -79,7 +80,7 @@ public class BalanceCloud extends LinearLayout implements NotificationCenter.Not
         final StarsController c = StarsController.getInstance(currentAccount, currency);
         final AmountUtils.Amount balance = currency == AmountUtils.Currency.STARS
             ? AmountUtils.Amount.fromDecimal(LocalStarsHelper.getBalance(), AmountUtils.Currency.STARS)
-            : c.getBalanceAmount();
+            : AmountUtils.Amount.fromNano(Math.min(Long.MAX_VALUE / 1_000_000_000L, LocalGramHelper.getBalance()) * 1_000_000_000L, AmountUtils.Currency.TON);
 
         if (currency == AmountUtils.Currency.STARS) {
             textView1.setText(StarsIntroActivity.replaceStarsWithPlain(LocaleController.formatString(R.string.Gift2MessageStarsInfo, LocaleController.formatNumber(balance.asDecimal(), ',')), .60f));
