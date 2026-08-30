@@ -37,7 +37,28 @@ public final class LocalMessageReactionHelper {
     }
 
     public static String encodeCustomEmoji(long documentId) {
-        return CUSTOM_PREFIX + documentId;
+        return encodeCustomEmoji(documentId, "👍");
+    }
+
+    public static String encodeCustomEmoji(long documentId, String fallbackEmoji) {
+        if (documentId <= 0) {
+            return "";
+        }
+        return CUSTOM_PREFIX + documentId + ":" + (TextUtils.isEmpty(fallbackEmoji) ? "👍" : fallbackEmoji);
+    }
+
+    /** Returns the ordinary emoji associated with a stored custom reaction. */
+    public static String getCustomEmojiFallback(String reaction) {
+        if (!isCustomEmoji(reaction)) {
+            return reaction;
+        }
+        int separator = reaction.indexOf(':', CUSTOM_PREFIX.length());
+        if (separator >= 0 && separator + 1 < reaction.length()) {
+            String fallback = reaction.substring(separator + 1);
+            return TextUtils.isEmpty(fallback) ? "👍" : fallback;
+        }
+        // Configurations written by older builds did not store a fallback.
+        return "👍";
     }
 
     public static void apply(TLRPC.Message message, int account) {
@@ -81,7 +102,9 @@ public final class LocalMessageReactionHelper {
     private static TLRPC.Reaction decode(String stored) {
         if (stored.startsWith(CUSTOM_PREFIX)) {
             try {
-                long documentId = Long.parseLong(stored.substring(CUSTOM_PREFIX.length()));
+                int separator = stored.indexOf(':', CUSTOM_PREFIX.length());
+                String idText = separator >= 0 ? stored.substring(CUSTOM_PREFIX.length(), separator) : stored.substring(CUSTOM_PREFIX.length());
+                long documentId = Long.parseLong(idText);
                 if (documentId <= 0) {
                     return null;
                 }

@@ -32,6 +32,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -704,7 +705,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
             @Override
             protected void onEmojiSelected(View emojiView, Long documentId, TLRPC.Document document, TL_stars.TL_starGiftUnique gift, Integer until) {
                 if (documentId == null || documentId <= 0) return;
-                NekoConfig.huanghunActiveZoneEmoji.setConfigString(LocalMessageReactionHelper.encodeCustomEmoji(documentId));
+                final String fallbackEmoji = document == null ? "👍" : MessageObject.findAnimatedEmojiEmoticon(document, "👍");
+                NekoConfig.huanghunActiveZoneEmoji.setConfigString(LocalMessageReactionHelper.encodeCustomEmoji(documentId, fallbackEmoji));
                 notifyActiveRows();
                 if (popup[0] != null) popup[0].dismiss();
             }

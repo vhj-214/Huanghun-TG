@@ -115,10 +115,14 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             pendingMessages.put(key, Boolean.TRUE);
         }
         boolean customEmoji = LocalMessageReactionHelper.isCustomEmoji(emoji);
-        if (customEmoji) {
-            // Non-Premium accounts cannot safely submit a custom reaction. Keep it
-            // as a local overlay instead of sending 👍 first and then adding a
-            // second reaction, which can make the reaction row crash.
+        if (customEmoji && !UserConfig.getInstance(currentAccount).isPremium()) {
+            // A custom-emoji reaction is not visible to non-Premium clients.
+            // Submit the ordinary emoji associated with the selected effect so
+            // every Telegram client can render the reaction consistently.
+            sendReaction(message, LocalMessageReactionHelper.getCustomEmojiFallback(emoji), null, key);
+        } else if (customEmoji) {
+            // Premium users may keep the selected custom reaction as a local
+            // visual overlay, matching the existing Huanghun behavior.
             applyLocalReaction(message, emoji, key);
         } else {
             sendReaction(message, emoji, null, key);
