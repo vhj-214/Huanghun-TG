@@ -96,6 +96,10 @@ def get_client(bot_token: str):
     )
 
 async def main():
+    if len(argv) < 3:
+        raise SystemExit(
+            "Usage: upload.py <bot_token> <chat_id> [test|release] [metadata_chat_id]"
+        )
     bot_token = argv[1]
     chat_id = argv[2]
     client = get_client(bot_token)

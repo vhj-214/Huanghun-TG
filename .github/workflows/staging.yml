@@ -96,6 +96,10 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
+    env:
+      HELPER_BOT_TOKEN: ${{ secrets.HELPER_BOT_TOKEN }}
+      HELPER_BOT_TARGET: ${{ secrets.HELPER_BOT_TARGET }}
+      HELPER_BOT_CANARY_TARGET: ${{ secrets.HELPER_BOT_CANARY_TARGET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -108,6 +112,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Send to Telegram
+        if: env.HELPER_BOT_TOKEN != '' && env.HELPER_BOT_TARGET != '' && env.HELPER_BOT_CANARY_TARGET != ''
         env:
           APP_ID: ${{ secrets.APP_ID }}
           APP_HASH: ${{ secrets.APP_HASH }}
@@ -117,4 +122,7 @@ jobs:
           BUILD_TIMESTAMP: ${{ needs.build.outputs.build_timestamp }}
         run: |
           python -m pip install -r Tools/scripts/requirements.txt
-          python Tools/scripts/upload.py ${{ secrets.HELPER_BOT_TOKEN }} ${{ secrets.HELPER_BOT_TARGET }} test ${{ secrets.HELPER_BOT_CANARY_TARGET }}
+          python Tools/scripts/upload.py "$HELPER_BOT_TOKEN" "$HELPER_BOT_TARGET" test "$HELPER_BOT_CANARY_TARGET"
+      - name: Report skipped Telegram upload
+        if: env.HELPER_BOT_TOKEN == '' || env.HELPER_BOT_TARGET == '' || env.HELPER_BOT_CANARY_TARGET == ''
+        run: echo 'Telegram upload skipped because required helper secrets are not configured; GitHub artifact remains available.'
