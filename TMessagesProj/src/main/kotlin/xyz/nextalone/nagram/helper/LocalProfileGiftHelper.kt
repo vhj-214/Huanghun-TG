@@ -71,7 +71,7 @@ object LocalProfileGiftHelper {
      * their unique server ID and their original visual backdrop.
      */
     @JvmStatic
-    fun addLocalGift(userId: Long, gift: TL_stars.StarGift?, senderName: String = "黄昏:@hqsh_db") {
+    fun addLocalGift(userId: Long, gift: TL_stars.StarGift?, senderName: String = "") {
         if (userId == 0L || gift == null) return
         val documentId = gift.getDocument()?.id ?: 0L
         val current = ArrayList(getDataForUser(userId))
