@@ -116,7 +116,6 @@ import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProviderThemed;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.LaunchActivity;
-import org.telegram.ui.PeerColorActivity;
 import org.telegram.ui.ProfileActivity;
 import org.telegram.ui.Stars.StarGiftSheet;
 import org.telegram.ui.Stars.StarsController;
@@ -686,8 +685,23 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         public void onItemClick(UItem item, View view, int position, float x, float y) {
             if (list == null) return;
             if (item.object instanceof LocalProfileGiftData) {
-                // Individual local style cards reopen the style picker, where the whole local set can be replaced.
-                parent.fragment.presentFragment(new PeerColorActivity(0).startOnProfile().setOnApplied(parent.fragment));
+                final LocalProfileGiftData localGift = (LocalProfileGiftData) item.object;
+                StarsController.getInstance(currentAccount).getStarGift(localGift.getCollectibleId(), gift -> {
+                    if (gift == null) {
+                        return;
+                    }
+                    final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
+                    savedGift.flags |= 2;
+                    final TLRPC.TL_peerUser sender = new TLRPC.TL_peerUser();
+                    sender.user_id = UserConfig.getInstance(currentAccount).getClientUserId();
+                    savedGift.from_id = sender;
+                    savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
+                    savedGift.gift = gift;
+                    savedGift.gift_num = gift instanceof TL_stars.TL_starGiftUnique ? ((TL_stars.TL_starGiftUnique) gift).num : 0;
+                    new StarGiftSheet(getContext(), currentAccount, parent.dialogId, resourcesProvider)
+                        .set(savedGift, null)
+                        .show();
+                });
                 return;
             }
             if (item.object instanceof TL_stars.SavedStarGift) {
