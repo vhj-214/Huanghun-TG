@@ -615,6 +615,29 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             return reordering;
         }
 
+        private TL_stars.SavedStarGift buildOfficialSavedGift(LocalProfileGiftData data) {
+            final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, data);
+            if (officialGift == null) return null;
+            if (officialGift instanceof TL_stars.TL_starGiftUnique) {
+                final long currentUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+                final TLRPC.TL_peerUser owner = new TLRPC.TL_peerUser();
+                owner.user_id = currentUserId;
+                officialGift.owner_id = owner;
+                officialGift.flags |= 1;
+                officialGift.owner_name = DialogObject.getShortName(currentAccount, currentUserId);
+                officialGift.flags |= 2;
+            }
+            final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
+            savedGift.gift = officialGift;
+            savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
+            savedGift.gift_num = data.getGiftNum();
+            savedGift.flags |= 2;
+            final TLRPC.TL_peerUser from = new TLRPC.TL_peerUser();
+            from.user_id = UserConfig.getInstance(currentAccount).getClientUserId();
+            savedGift.from_id = from;
+            return savedGift;
+        }
+
         public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
             if (list == null)
                 return;
@@ -627,7 +650,12 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
             if (!localStyleGifts.isEmpty()) {
                 for (int i = 0; i < localStyleGifts.size(); i++) {
-                    items.add(LocalStyleGiftCell.Factory.asLocalStyleGift(localStyleGifts.get(i)));
+                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localStyleGifts.get(i));
+                    if (savedGift != null) {
+                        // Use Telegram's own GiftCell so ordinary gifts keep white cards while
+                        // collectible gifts use their official backdrop/pattern palette.
+                        items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, false));
+                    }
                 }
             }
             if (list != null) {
@@ -682,25 +710,8 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 final LocalProfileGiftData localGift = (LocalProfileGiftData) item.object;
                 final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, localGift);
                 if (officialGift != null) {
-                    final long currentUserId = UserConfig.getInstance(currentAccount).getClientUserId();
-                    if (officialGift instanceof TL_stars.TL_starGiftUnique) {
-                        // Local purchases are owned by the active account for the purpose of this
-                        // official-looking detail page. Do not retain the catalog/resale owner.
-                        final TLRPC.TL_peerUser owner = new TLRPC.TL_peerUser();
-                        owner.user_id = currentUserId;
-                        officialGift.owner_id = owner;
-                        officialGift.flags |= 1;
-                        officialGift.owner_name = DialogObject.getShortName(currentAccount, currentUserId);
-                        officialGift.flags |= 2;
-                    }
-                    final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
-                    savedGift.gift = officialGift;
-                    savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
-                    savedGift.gift_num = localGift.getGiftNum();
-                    savedGift.flags |= 2;
-                    final TLRPC.TL_peerUser from = new TLRPC.TL_peerUser();
-                    from.user_id = currentUserId;
-                    savedGift.from_id = from;
+                    final TL_stars.TL_savedStarGift savedGift = buildOfficialSavedGift(localGift);
+                    if (savedGift == null) return;
                     new StarGiftSheet(getContext(), currentAccount, parent.dialogId, resourcesProvider)
                         .set(savedGift, null)
                         .show();
