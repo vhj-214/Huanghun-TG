@@ -1702,7 +1702,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         }
         if (dialogId >= 0) {
             final TLRPC.UserFull userFull = MessagesController.getInstance(currentAccount).getUserFull(dialogId);
-            return (userFull != null ? userFull.stargifts_count : 0) + localGiftCount;
+            return userFull != null ? userFull.stargifts_count : 0;
         } else {
             final TLRPC.ChatFull chatFull = MessagesController.getInstance(currentAccount).getChatFull(-dialogId);
             return chatFull != null ? chatFull.stargifts_count : 0;
