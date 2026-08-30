@@ -174,7 +174,7 @@ public class NekoConfig {
     public static ConfigItem huanghunActiveZoneTargetUsers = addConfig("HuanghunActiveZoneTargetUsers", configTypeString, "");
     // 0=全部对象，1=群或频道，2=所有用户（联系人、非联系人和机器人）。
     public static ConfigItem huanghunActiveZonePeerScope = addConfig("HuanghunActiveZonePeerScope", configTypeInt, 0);
-    // 普通表情直接保存并真实发送；自定义表情使用 custom:<documentId> 保存，仅本机替换显示，服务器发送普通点赞。
+    // 普通表情直接真实发送；高级表情使用 custom:<documentId>:<fallbackEmoji> 保存，非会员发送对应普通点赞，会员保留本机高级效果。
     public static ConfigItem huanghunActiveZoneEmoji = addConfig("HuanghunActiveZoneEmoji", configTypeString, "👍");
 
     // 本地功能专区：只影响本机显示或本地测试账本，不向 Telegram 服务器发送购买/修改请求。

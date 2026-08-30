@@ -714,7 +714,12 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         String current = NekoConfig.huanghunActiveZoneEmoji.String();
         if (!TextUtils.isEmpty(current) && current.startsWith("custom:")) {
             try {
-                popupLayout.setSelected(Long.parseLong(current.substring("custom:".length())));
+                String customId = current.substring("custom:".length());
+                int separator = customId.indexOf(':');
+                if (separator >= 0) {
+                    customId = customId.substring(0, separator);
+                }
+                popupLayout.setSelected(Long.parseLong(customId));
             } catch (NumberFormatException ignore) {
             }
         }
@@ -743,7 +748,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
     private String getActiveEmojiSummary() {
         String reaction = NekoConfig.huanghunActiveZoneEmoji.String();
         return !TextUtils.isEmpty(reaction) && reaction.startsWith("custom:")
-                ? "自定义表情（仅本机展示）"
+                ? "高级表情（" + LocalMessageReactionHelper.getCustomEmojiFallback(reaction) + "）"
                 : (TextUtils.isEmpty(reaction) ? "👍" : reaction);
     }
 
