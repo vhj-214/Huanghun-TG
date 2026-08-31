@@ -3,6 +3,7 @@ package tw.nekomimi.nekogram.helpers;
 import android.text.TextUtils;
 
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
+import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BaseController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
@@ -83,7 +84,11 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
             }
         } else if (id == NotificationCenter.messageReceivedByServer && args.length > 2 && args[2] instanceof TLRPC.Message) {
             TLRPC.Message sentMessage = (TLRPC.Message) args[2];
-            if (sentMessage.out) {
+            if (sentMessage.out && MessageObject.getDialogId(sentMessage) != 0) {
+                // The server-ack callback is the reliable point at which an outgoing
+                // message has a usable positive id. Calculate dialog_id explicitly
+                // before wrapping it, because locally-created messages may not have
+                // populated it yet when this notification is delivered.
                 consider(new MessageObject(currentAccount, sentMessage, false, false));
             }
         }
@@ -199,9 +204,17 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
     }
 
     private void sendReaction(MessageObject message, String serverEmoji, String localReaction, String key) {
+        sendReaction(message, serverEmoji, localReaction, key, 0);
+    }
+
+    private void sendReaction(MessageObject message, String serverEmoji, String localReaction, String key, int attempt) {
         TLRPC.InputPeer peer = MessagesController.getInstance(currentAccount).getInputPeer(message.getDialogId());
         if (peer == null) {
-            pendingMessages.remove(key);
+            if (attempt < 2) {
+                AndroidUtilities.runOnUIThread(() -> sendReaction(message, serverEmoji, localReaction, key, attempt + 1), 500);
+            } else {
+                pendingMessages.remove(key);
+            }
             return;
         }
         TLRPC.TL_messages_sendReaction request = new TLRPC.TL_messages_sendReaction();
@@ -220,8 +233,12 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
                     getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
                             message.getDialogId(), message.getId(), message.messageOwner.reactions);
                 }
+                pendingMessages.remove(key);
+            } else if (attempt < 2) {
+                AndroidUtilities.runOnUIThread(() -> sendReaction(message, serverEmoji, localReaction, key, attempt + 1), 700);
+            } else {
+                pendingMessages.remove(key);
             }
-            pendingMessages.remove(key);
         });
     }
 

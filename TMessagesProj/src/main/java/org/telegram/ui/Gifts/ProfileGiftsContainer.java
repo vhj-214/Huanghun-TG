@@ -653,6 +653,15 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
                     : null;
             final ArrayList<LocalProfileGiftData> localStyleGifts = LocalProfileGiftHelper.getMountedGiftData(profileUser);
+            // A mounted collectible is rendered in the official-style wall above the list.
+            // The server gift list still contains the owned gift, so do not render it again
+            // in the main "All Gifts" list; otherwise wearing a gift creates a visual duplicate.
+            final HashSet<Long> mountedGiftIds = new HashSet<>();
+            for (LocalProfileGiftData localGift : localStyleGifts) {
+                if (localGift.isLocalStyle() && localGift.getCollectibleId() != 0L) {
+                    mountedGiftIds.add(localGift.getCollectibleId());
+                }
+            }
             if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading && localStyleGifts.isEmpty())
                 return;
             final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
@@ -669,6 +678,13 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             if (list != null) {
                 int spanCountLeft = 3;
                 for (TL_stars.SavedStarGift userGift : list.gifts) {
+                    // Keep the mounted copy in the wall only. Collections retain their
+                    // independent contents, matching Telegram's tab behavior.
+                    if (parent.list == list
+                            && userGift.gift instanceof TL_stars.TL_starGiftUnique
+                            && mountedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id)) {
+                        continue;
+                    }
                     items.add(
                         GiftSheet.GiftCell.Factory.asStarGift(0, userGift, true, false, isCollection)
                             .setReordering(reordering && (list == parent.list ? userGift.pinned_to_top : true))
