@@ -618,6 +618,14 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         private TL_stars.SavedStarGift buildOfficialSavedGift(LocalProfileGiftData data) {
             final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, data);
             if (officialGift == null) return null;
+            // A gift bought locally may come from the resale catalog and still carry
+            // the catalog item's resale price. It is now owned by this profile, so
+            // do not let GiftCell render it as "On sale"; show its unique number.
+            officialGift.resell_amount = null;
+            officialGift.resale_ton_only = false;
+            if (officialGift instanceof TL_stars.TL_starGiftUnique && data.getGiftNum() > 0) {
+                ((TL_stars.TL_starGiftUnique) officialGift).num = data.getGiftNum();
+            }
             if (officialGift instanceof TL_stars.TL_starGiftUnique) {
                 final long currentUserId = UserConfig.getInstance(currentAccount).getClientUserId();
                 final TLRPC.TL_peerUser owner = new TLRPC.TL_peerUser();

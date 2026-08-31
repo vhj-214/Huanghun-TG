@@ -146,12 +146,18 @@ object LocalProfileGiftHelper {
     }
 
     /**
-     * Retains the previous single-gift API for explicit replacements. A null status never clears data.
+     * Adds one collectible to the locally mounted set without replacing other gifts.
+     * A repeated collectible replaces its old metadata instead of creating a duplicate.
+     * A null status never clears data.
      */
     @JvmStatic
     fun apply(status: TLRPC.TL_emojiStatusCollectible?, gift: TL_stars.TL_starGiftUnique?) {
         if (status == null) return
-        applyData(arrayListOf(toData(status, gift)))
+        val mounted = ArrayList(getDataForUser(currentUserId()))
+        val newData = toData(status, gift)
+        mounted.removeAll { it.collectibleId == newData.collectibleId }
+        mounted.add(newData)
+        applyData(mounted)
     }
 
     /**

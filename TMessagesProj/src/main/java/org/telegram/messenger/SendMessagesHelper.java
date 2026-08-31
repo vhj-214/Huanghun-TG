@@ -3798,6 +3798,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         if (visibleReactions != null && !visibleReactions.isEmpty()) {
             for (int i = 0; i < visibleReactions.size(); i++ ) {
                 ReactionsLayoutInBubble.VisibleReaction visibleReaction = visibleReactions.get(i);
+                // Send the ordinary alt emoji when this custom emoji document has
+                // one, so clients without custom-reaction support still see the like.
+                visibleReaction = visibleReaction.flatten(currentAccount);
                 if (visibleReaction.documentId != 0) {
                     TLRPC.TL_reactionCustomEmoji reactionCustomEmoji = new TLRPC.TL_reactionCustomEmoji();
                     reactionCustomEmoji.document_id = visibleReaction.documentId;

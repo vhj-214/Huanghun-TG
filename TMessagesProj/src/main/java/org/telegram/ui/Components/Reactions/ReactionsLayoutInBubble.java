@@ -1772,9 +1772,18 @@ public class ReactionsLayoutInBubble {
         }
 
         public VisibleReaction flatten() {
+            return flatten(UserConfig.selectedAccount);
+        }
+
+        /**
+         * Returns the ordinary emoji represented by a custom emoji reaction when
+         * the document metadata provides an alt emoji. This is used for network
+         * compatibility with clients that cannot render custom reactions.
+         */
+        public VisibleReaction flatten(int account) {
             if (documentId != 0) {
-                TLRPC.Document document = AnimatedEmojiDrawable.findDocument(UserConfig.selectedAccount, documentId);
-                String emoji = MessageObject.findAnimatedEmojiEmoticon(document, null);
+                TLRPC.Document document = AnimatedEmojiDrawable.findDocument(account, documentId);
+                String emoji = MessageObject.findAnimatedEmojiEmoticon(document, null, account);
                 if (emoji != null) {
                     return VisibleReaction.fromEmojicon(emoji);
                 }

@@ -2879,7 +2879,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else if (id == gift_premium) {
                     onGiftPermiumClicked();
                 } else if (id == local_buy_gift) {
-                    presentFragment(new PeerColorActivity(0).startLocalGiftPurchase().setOnApplied(ProfileActivity.this));
+                    // Open the self-purchase GiftSheet with balance and gift tabs.
+                    showDialog(new GiftSheet(getContext(), currentAccount, getUserConfig().getClientUserId(), null, null));
                 } else if (id == channel_stories) {
                     Bundle args = new Bundle();
                     args.putInt("type", MediaActivity.TYPE_ARCHIVED_CHANNEL_STORIES);
@@ -12915,7 +12916,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 // Huanghun: local self-purchase is separate from the real Telegram gift flow.
                 if (UserObject.isUserSelf(user)) {
-                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, LocaleController.getString(R.string.ProfileSendAGift));
+                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, LocaleController.getString(R.string.Gift2StarsSelf));
                 }
                 // Huanghun: these are additional local-only actions; existing menu items remain unchanged.
                 if (!UserObject.isUserSelf(user)) {
