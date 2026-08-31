@@ -25,6 +25,7 @@ import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DatePickerDialog;
+import android.widget.NumberPicker;
 import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -35450,19 +35451,56 @@ public class ChatActivity extends BaseFragment implements
     private void showLocalMessageTimeDialog() {
         final MessageObject target = selectedObject;
         if (target == null || target.messageOwner == null || getParentActivity() == null) return;
-        Calendar calendar = Calendar.getInstance();
+        final Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis((long) target.messageOwner.date * 1000L);
         DatePickerDialog picker = new DatePickerDialog(getParentActivity(), (view, year, month, day) -> {
             if (target.messageOwner == null) return;
-            Calendar result = Calendar.getInstance();
-            result.set(year, month, day, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND));
-            int date = (int) (result.getTimeInMillis() / 1000L);
-            LocalMessageOverrideHelper.setDate(currentAccount, target.getDialogId(), target.getId(), date);
-            target.messageOwner.date = date;
-            updateMessageAnimatedInternal(target, false);
-            updateVisibleRows();
+            final Calendar result = Calendar.getInstance();
+            result.setTimeInMillis(calendar.getTimeInMillis());
+            result.set(Calendar.YEAR, year);
+            result.set(Calendar.MONTH, month);
+            result.set(Calendar.DAY_OF_MONTH, day);
+
+            final LinearLayout timeLayout = new LinearLayout(getParentActivity());
+            timeLayout.setOrientation(LinearLayout.HORIZONTAL);
+            timeLayout.setGravity(Gravity.CENTER);
+            timeLayout.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+
+            final NumberPicker hourPicker = new NumberPicker(getParentActivity());
+            hourPicker.setMinValue(0);
+            hourPicker.setMaxValue(23);
+            hourPicker.setValue(result.get(Calendar.HOUR_OF_DAY));
+            final NumberPicker minutePicker = new NumberPicker(getParentActivity());
+            minutePicker.setMinValue(0);
+            minutePicker.setMaxValue(59);
+            minutePicker.setValue(result.get(Calendar.MINUTE));
+            final NumberPicker secondPicker = new NumberPicker(getParentActivity());
+            secondPicker.setMinValue(0);
+            secondPicker.setMaxValue(59);
+            secondPicker.setValue(result.get(Calendar.SECOND));
+            timeLayout.addView(hourPicker, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            timeLayout.addView(minutePicker, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            timeLayout.addView(secondPicker, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+            new AlertDialog.Builder(getParentActivity(), themeDelegate)
+                    .setTitle("本地修改消息时间（时:分:秒）")
+                    .setView(timeLayout)
+                    .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
+                    .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> {
+                        if (target.messageOwner == null) return;
+                        result.set(Calendar.HOUR_OF_DAY, hourPicker.getValue());
+                        result.set(Calendar.MINUTE, minutePicker.getValue());
+                        result.set(Calendar.SECOND, secondPicker.getValue());
+                        result.set(Calendar.MILLISECOND, 0);
+                        int date = (int) (result.getTimeInMillis() / 1000L);
+                        LocalMessageOverrideHelper.setDate(currentAccount, target.getDialogId(), target.getId(), date);
+                        target.messageOwner.date = date;
+                        updateMessageAnimatedInternal(target, false);
+                        updateVisibleRows();
+                    })
+                    .show();
         }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
-        picker.setTitle("本地修改消息时间");
+        picker.setTitle("本地修改消息日期");
         picker.show();
     }
 

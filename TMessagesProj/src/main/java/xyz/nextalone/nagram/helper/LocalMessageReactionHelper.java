@@ -4,6 +4,7 @@ import android.text.TextUtils;
 
 import org.telegram.messenger.MessageObject;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.Components.AnimatedEmojiDrawable;
 
 import xyz.nextalone.nagram.NaConfig;
 
@@ -62,6 +63,19 @@ public final class LocalMessageReactionHelper {
         }
 
         TLRPC.ReactionCount count = find(message.reactions, localReaction);
+        if (count == null && localReaction instanceof TLRPC.TL_reactionCustomEmoji) {
+            final long documentId = ((TLRPC.TL_reactionCustomEmoji) localReaction).document_id;
+            final TLRPC.Document document = AnimatedEmojiDrawable.findDocument(account, documentId);
+            final String altEmoji = MessageObject.findAnimatedEmojiEmoticon(document, null, account);
+            if (!TextUtils.isEmpty(altEmoji)) {
+                count = find(message.reactions, decode(altEmoji));
+                if (count != null) {
+                    // Keep the server's ordinary reaction count while rendering
+                    // the mapped custom emoji locally in Huanghun.
+                    count.reaction = localReaction;
+                }
+            }
+        }
         if (count == null) {
             count = new TLRPC.TL_reactionCount();
             count.reaction = localReaction;

@@ -1192,6 +1192,10 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
         if (gift == null) return false;
         final long dialogId = gift.owner_id != null ? DialogObject.getPeerDialogId(gift.owner_id) : DialogObject.getPeerDialogId(gift.host_id);
         if (dialogId == 0) return false;
+        final long currentUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+        if (dialogId == currentUserId && LocalProfileGiftHelper.isMountedGift(currentUserId, gift.id)) {
+            return true;
+        }
         if (dialogId > 0) {
             final TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(dialogId);
             if (user != null && user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible) {
@@ -1216,8 +1220,15 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
         if (gift == null) return;
         MessagesController.getGlobalMainSettings().edit().putInt("statusgiftpage", 3).apply();
         final boolean worn = !isWorn(currentAccount, getUniqueGift());
+        final boolean localProfile = getDialogId() == UserConfig.getInstance(currentAccount).getClientUserId();
         if (isWorn(currentAccount, getUniqueGift())) {
-            MessagesController.getInstance(currentAccount).updateEmojiStatus(getDialogId(), new TLRPC.TL_emojiStatusEmpty(), null);
+            if (localProfile) {
+                LocalProfileGiftHelper.remove(getDialogId(), gift.id);
+                LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, getDialogId());
+                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_EMOJI_STATUS);
+            } else {
+                MessagesController.getInstance(currentAccount).updateEmojiStatus(getDialogId(), new TLRPC.TL_emojiStatusEmpty(), null);
+            }
         } else {
             final long did = getDialogId();
             if (did >= 0) {
@@ -1258,7 +1269,14 @@ public class StarGiftSheet extends BottomSheetWithRecyclerListView implements No
             }
             final TLRPC.TL_inputEmojiStatusCollectible status = new TLRPC.TL_inputEmojiStatusCollectible();
             status.collectible_id = gift.id;
-            MessagesController.getInstance(currentAccount).updateEmojiStatus(getDialogId(), status, gift);
+            if (localProfile) {
+                final TLRPC.TL_emojiStatusCollectible localStatus = MessagesController.emojiStatusCollectibleFromGift(gift);
+                LocalProfileGiftHelper.apply(localStatus, gift);
+                LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, getDialogId());
+                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_EMOJI_STATUS);
+            } else {
+                MessagesController.getInstance(currentAccount).updateEmojiStatus(getDialogId(), status, gift);
+            }
         }
         topView.buttons[1].set(worn ? R.drawable.filled_crown_off : R.drawable.filled_crown_on, getString(worn ? R.string.Gift2ActionWearOff : R.string.Gift2ActionWear), true);
         if (onlyWearInfo) {

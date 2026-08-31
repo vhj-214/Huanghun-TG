@@ -55,7 +55,7 @@ object LocalProfileGiftHelper {
     @JvmStatic
     fun getMountedGifts(user: TLRPC.User?): ArrayList<TLRPC.TL_emojiStatusCollectible> {
         if (user == null || !isLocalUser(user.id)) return arrayListOf()
-        return ArrayList(getDataForUser(user.id).map(::toStatus))
+        return ArrayList(getDataForUser(user.id).filter { it.localStyle }.map(::toStatus))
     }
 
     /**
@@ -142,7 +142,7 @@ object LocalProfileGiftHelper {
     @JvmStatic
     fun isMountedGift(userId: Long, collectibleId: Long): Boolean {
         if (!isLocalUser(userId)) return false
-        return getDataForUser(userId).any { it.collectibleId == collectibleId }
+        return getDataForUser(userId).any { it.localStyle && it.collectibleId == collectibleId }
     }
 
     /**
@@ -153,11 +153,12 @@ object LocalProfileGiftHelper {
     @JvmStatic
     fun apply(status: TLRPC.TL_emojiStatusCollectible?, gift: TL_stars.TL_starGiftUnique?) {
         if (status == null) return
-        val mounted = ArrayList(getDataForUser(currentUserId()))
+        val userId = currentUserId()
+        val current = ArrayList(getDataForUser(userId))
         val newData = toData(status, gift)
-        mounted.removeAll { it.collectibleId == newData.collectibleId }
-        mounted.add(newData)
-        applyData(mounted)
+        current.removeAll { it.collectibleId == newData.collectibleId && it.localStyle }
+        current.add(newData)
+        saveData(userId, current)
     }
 
     /**
@@ -175,7 +176,10 @@ object LocalProfileGiftHelper {
             mounted.add(toData(status, gift))
         }
         if (mounted.isNotEmpty()) {
-            applyData(mounted)
+            val userId = currentUserId()
+            val current = ArrayList(getDataForUser(userId).filter { !it.localStyle })
+            current.addAll(mounted)
+            saveData(userId, current)
         }
     }
 
@@ -183,7 +187,7 @@ object LocalProfileGiftHelper {
     fun remove(userId: Long, collectibleId: Long) {
         if (userId == 0L || !isLocalUser(userId)) return
         val current = ArrayList(getDataForUser(userId))
-        if (current.removeAll { it.collectibleId == collectibleId }) {
+        if (current.removeAll { it.localStyle && it.collectibleId == collectibleId }) {
             saveData(userId, current)
         }
     }

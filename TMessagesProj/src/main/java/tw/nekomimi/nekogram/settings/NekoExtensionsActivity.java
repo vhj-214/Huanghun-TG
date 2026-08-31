@@ -68,7 +68,7 @@ import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 /** Settings page for Huanghun account cleanup and non-contact message blocking. */
-public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
+public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements NotificationCenter.NotificationCenterDelegate {
 
     private static final int REQUEST_HUANGHUN_BUILTIN_VIDEOS = 10937;
     private SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow activeEmojiDialog;
@@ -196,6 +196,26 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
         keywordsRow = addRow();
         blockNoticeRow = addRow();
         blockEndRow = addRow();
+    }
+
+    @Override
+    public boolean onFragmentCreate() {
+        final boolean result = super.onFragmentCreate();
+        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.starBalanceUpdated);
+        return result;
+    }
+
+    @Override
+    public void onFragmentDestroy() {
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.starBalanceUpdated);
+        super.onFragmentDestroy();
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == NotificationCenter.starBalanceUpdated) {
+            notifyLocalRows();
+        }
     }
 
     @Override
@@ -703,7 +723,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity {
                 .setMessage("当前账号" + summary + "\n\n是否清除全部这些购买的虚拟礼物？此操作只清除本机记录，不会影响 Telegram 真实礼物或账户数据。")
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .setPositiveButton("清除全部", (dialog, which) -> {
-                    LocalProfileGiftHelper.clear(currentAccount);
+                    final long userId = getUserConfig().getClientUserId();
+                    LocalProfileGiftHelper.clear(userId);
+                    LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, userId);
                     notifyLocalRows();
                     BulletinFactory.of(NekoExtensionsActivity.this).createSimpleBulletin(R.raw.done, "已清空本地虚拟礼物记录。").show();
                 })

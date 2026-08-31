@@ -2,6 +2,7 @@ package tw.nekomimi.nekogram.helpers;
 
 import android.text.TextUtils;
 
+import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.messenger.BaseController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
@@ -88,6 +89,20 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         }
     }
 
+    private String getFallbackEmoji(String configuredReaction) {
+        if (!LocalMessageReactionHelper.isCustomEmoji(configuredReaction)) {
+            return configuredReaction;
+        }
+        try {
+            final long documentId = Long.parseLong(configuredReaction.substring("custom:".length()));
+            final TLRPC.Document document = AnimatedEmojiDrawable.findDocument(currentAccount, documentId);
+            final String altEmoji = MessageObject.findAnimatedEmojiEmoticon(document, null, currentAccount);
+            return TextUtils.isEmpty(altEmoji) ? "👍" : altEmoji;
+        } catch (Exception ignore) {
+            return "👍";
+        }
+    }
+
     private void consider(MessageObject message) {
         if (message == null || message.messageOwner == null || message.getId() <= 0 || message.isOutOwner() && message.messageOwner.post) {
             return;
@@ -116,10 +131,9 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         }
         boolean customEmoji = LocalMessageReactionHelper.isCustomEmoji(emoji);
         if (customEmoji) {
-            // Non-Premium accounts cannot safely submit a custom reaction. Keep it
-            // as a local overlay instead of sending 👍 first and then adding a
-            // second reaction, which can make the reaction row crash.
-            applyLocalReaction(message, emoji, key);
+            // Send the document's alt emoji to Telegram so ordinary clients see a
+            // real reaction, then overlay the custom document locally for Huanghun.
+            sendReaction(message, getFallbackEmoji(emoji), emoji, key);
         } else {
             sendReaction(message, emoji, null, key);
         }
