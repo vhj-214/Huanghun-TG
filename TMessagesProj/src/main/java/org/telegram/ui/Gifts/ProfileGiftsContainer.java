@@ -710,7 +710,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 final LocalProfileGiftData localGift = (LocalProfileGiftData) item.object;
                 final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, localGift);
                 if (officialGift != null) {
-                    final TL_stars.TL_savedStarGift savedGift = buildOfficialSavedGift(localGift);
+                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localGift);
                     if (savedGift == null) return;
                     new StarGiftSheet(getContext(), currentAccount, parent.dialogId, resourcesProvider)
                         .set(savedGift, null)
