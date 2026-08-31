@@ -2879,8 +2879,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else if (id == gift_premium) {
                     onGiftPermiumClicked();
                 } else if (id == local_buy_gift) {
-                    // Open the self-purchase GiftSheet with balance and gift tabs.
-                    showDialog(new GiftSheet(getContext(), currentAccount, getUserConfig().getClientUserId(), null, null));
+                    // Open the official gift picker with balance, gift tabs and purchase flow.
+                    new GiftSheet(getContext(), currentAccount, getUserConfig().getClientUserId(), null, null).show();
                 } else if (id == channel_stories) {
                     Bundle args = new Bundle();
                     args.putInt("type", MediaActivity.TYPE_ARCHIVED_CHANNEL_STORIES);
@@ -12812,6 +12812,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     setUsernameItem = otherItem.addSubItem(set_username, R.drawable.menu_username_change, getString(R.string.ProfileUsernameEdit));
                     linkItem = otherItem.addSubItem(copy_link_profile, R.drawable.msg_link2, getString(R.string.ProfileCopyLink));
                     otherItem.addSubItem(clear_cache, R.drawable.msg_delete, getString(R.string.ClearCache));
+                    // Open Telegram's official gift picker for self-purchase.
+                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, getString(R.string.Gift2StarsSelf));
                     updateItemsUsername();
                 }
                 selfUser = true;
@@ -12913,10 +12915,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 if (!isBot && getContactsController().contactsDict.get(userId) != null) {
                     otherItem.addSubItem(add_shortcut, R.drawable.msg_home, LocaleController.getString(R.string.AddShortcut));
-                }
-                // Huanghun: local self-purchase is separate from the real Telegram gift flow.
-                if (UserObject.isUserSelf(user)) {
-                    otherItem.addSubItem(local_buy_gift, R.drawable.msg_gift_premium, LocaleController.getString(R.string.Gift2StarsSelf));
                 }
                 // Huanghun: these are additional local-only actions; existing menu items remain unchanged.
                 if (!UserObject.isUserSelf(user)) {
