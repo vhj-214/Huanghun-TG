@@ -658,7 +658,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             // in the main "All Gifts" list; otherwise wearing a gift creates a visual duplicate.
             final HashSet<Long> mountedGiftIds = new HashSet<>();
             for (LocalProfileGiftData localGift : localStyleGifts) {
-                if (localGift.isLocalStyle() && localGift.getCollectibleId() != 0L) {
+                if (localGift.getLocalStyle() && localGift.getCollectibleId() != 0L) {
                     mountedGiftIds.add(localGift.getCollectibleId());
                 }
             }
