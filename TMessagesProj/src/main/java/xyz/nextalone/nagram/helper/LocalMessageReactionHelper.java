@@ -22,11 +22,27 @@ public final class LocalMessageReactionHelper {
         return REACTION_PREFIX + account + "_" + dialogId + "_" + messageId;
     }
 
+    private static String fallbackKey(int account, long dialogId, int messageId) {
+        return key(account, dialogId, messageId) + "_fallback";
+    }
+
     public static void set(int account, long dialogId, int messageId, String reaction) {
+        set(account, dialogId, messageId, reaction, null);
+    }
+
+    /** Stores the local reaction and, for custom reactions, the server compatibility emoji. */
+    public static void set(int account, long dialogId, int messageId, String reaction, String fallbackEmoji) {
         if (messageId == 0 || TextUtils.isEmpty(reaction)) {
             return;
         }
-        NaConfig.getPreferences().edit().putString(key(account, dialogId, messageId), reaction).apply();
+        android.content.SharedPreferences.Editor editor = NaConfig.getPreferences().edit()
+                .putString(key(account, dialogId, messageId), reaction);
+        if (isCustomEmoji(reaction) && !TextUtils.isEmpty(fallbackEmoji)) {
+            editor.putString(fallbackKey(account, dialogId, messageId), fallbackEmoji);
+        } else {
+            editor.remove(fallbackKey(account, dialogId, messageId));
+        }
+        editor.apply();
     }
 
     public static String encodeEmoji(String emoji) {
@@ -45,7 +61,16 @@ public final class LocalMessageReactionHelper {
         if (message == null || message.id == 0) {
             return;
         }
-        String stored = NaConfig.getPreferences().getString(key(account, MessageObject.getDialogId(message), message.id), null);
+        final long dialogId;
+        try {
+            dialogId = MessageObject.getDialogId(message);
+        } catch (Exception ignored) {
+            return;
+        }
+        if (dialogId == 0) {
+            return;
+        }
+        String stored = NaConfig.getPreferences().getString(key(account, dialogId, message.id), null);
         if (TextUtils.isEmpty(stored)) {
             return;
         }
@@ -63,17 +88,32 @@ public final class LocalMessageReactionHelper {
         }
 
         TLRPC.ReactionCount count = find(message.reactions, localReaction);
-        if (count == null && localReaction instanceof TLRPC.TL_reactionCustomEmoji) {
+        if (localReaction instanceof TLRPC.TL_reactionCustomEmoji) {
             final long documentId = ((TLRPC.TL_reactionCustomEmoji) localReaction).document_id;
-            final TLRPC.Document document = AnimatedEmojiDrawable.findDocument(account, documentId);
-            final String altEmoji = MessageObject.findAnimatedEmojiEmoticon(document, null, account);
-            if (!TextUtils.isEmpty(altEmoji)) {
-                count = find(message.reactions, decode(altEmoji));
-                if (count != null) {
-                    // Keep the server's ordinary reaction count while rendering
-                    // the mapped custom emoji locally in Huanghun.
-                    count.reaction = localReaction;
+            String fallbackEmoji = NaConfig.getPreferences().getString(
+                    fallbackKey(account, dialogId, message.id), null);
+            if (TextUtils.isEmpty(fallbackEmoji)) {
+                try {
+                    final TLRPC.Document document = AnimatedEmojiDrawable.findDocument(account, documentId);
+                    fallbackEmoji = MessageObject.findAnimatedEmojiEmoticon(document, null, account);
+                } catch (Exception ignored) {
+                    // A missing document must not crash message rendering.
                 }
+            }
+            // Older local records did not persist the compatibility emoji. The sender
+            // used 👍 as its final fallback, so clean that legacy duplicate as well.
+            if (TextUtils.isEmpty(fallbackEmoji)) {
+                fallbackEmoji = "👍";
+            }
+            TLRPC.ReactionCount fallbackCount = find(message.reactions, decode(fallbackEmoji));
+            if (fallbackCount != null && count == null) {
+                // Keep the server count while rendering the selected custom emoji locally.
+                fallbackCount.reaction = localReaction;
+                count = fallbackCount;
+            } else if (fallbackCount != null && fallbackCount != count) {
+                // The local custom overlay already exists; remove only the duplicate
+                // compatibility reaction from this client's rendered list.
+                message.reactions.results.remove(fallbackCount);
             }
         }
         if (count == null) {

@@ -226,14 +226,23 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         request.reaction.add(reaction);
         getConnectionsManager().sendRequest(request, (response, error) -> {
             if (error == null && response instanceof TLRPC.Updates) {
-                getMessagesController().processUpdates((TLRPC.Updates) response, false);
-                if (!TextUtils.isEmpty(localReaction)) {
-                    LocalMessageReactionHelper.set(currentAccount, message.getDialogId(), message.getId(), localReaction);
-                    LocalMessageReactionHelper.apply(message.messageOwner, currentAccount);
-                    getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
-                            message.getDialogId(), message.getId(), message.messageOwner.reactions);
-                }
-                pendingMessages.remove(key);
+                AndroidUtilities.runOnUIThread(() -> {
+                    try {
+                        getMessagesController().processUpdates((TLRPC.Updates) response, false);
+                        if (!TextUtils.isEmpty(localReaction) && message.messageOwner != null) {
+                            // Keep the ordinary server reaction as a compatibility layer,
+                            // but replace it locally with the selected custom reaction.
+                            LocalMessageReactionHelper.set(currentAccount, message.getDialogId(), message.getId(), localReaction, serverEmoji);
+                            LocalMessageReactionHelper.apply(message.messageOwner, currentAccount);
+                            getNotificationCenter().postNotificationName(NotificationCenter.didUpdateReactions,
+                                    message.getDialogId(), message.getId(), message.messageOwner.reactions);
+                        }
+                    } catch (Exception ignored) {
+                        // A malformed/late update must never crash the chat UI.
+                    } finally {
+                        pendingMessages.remove(key);
+                    }
+                });
             } else if (attempt < 2) {
                 AndroidUtilities.runOnUIThread(() -> sendReaction(message, serverEmoji, localReaction, key, attempt + 1), 700);
             } else {
