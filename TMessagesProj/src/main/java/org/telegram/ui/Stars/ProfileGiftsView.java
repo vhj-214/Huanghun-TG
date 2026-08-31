@@ -38,6 +38,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
+
 public class ProfileGiftsView extends View implements NotificationCenter.NotificationCenterDelegate {
 
     private final int currentAccount;
@@ -278,6 +280,20 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
                         gifts.add(gift);
                         giftIds.add(gift.id);
                     }
+                }
+            }
+        }
+
+        // Local wearable collectibles are visual profile decorations. They belong in the
+        // official header layer behind the profile background, not in the gift wall.
+        if (dialogId > 0) {
+            final TLRPC.User profileUser = MessagesController.getInstance(currentAccount).getUser(dialogId);
+            for (TLRPC.TL_emojiStatusCollectible status : LocalProfileGiftHelper.getMountedGifts(profileUser)) {
+                if (!giftIds.contains(status.collectible_id)) {
+                    final Gift gift = new Gift(status);
+                    gift.localMounted = true;
+                    gifts.add(gift);
+                    giftIds.add(gift.id);
                 }
             }
         }

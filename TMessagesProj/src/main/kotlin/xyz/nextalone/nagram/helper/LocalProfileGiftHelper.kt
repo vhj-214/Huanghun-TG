@@ -113,7 +113,7 @@ object LocalProfileGiftHelper {
                 textColor,
                 false,
                 senderName,
-                gift.id,
+                if (isCollectible && gift.gift_id != 0L) gift.gift_id else gift.id,
                 if (isCollectible) gift.num else 0
             )
         )
@@ -124,8 +124,33 @@ object LocalProfileGiftHelper {
     /** Returns the original official gift object while it is available in this session. */
     @JvmStatic
     fun getSessionGift(currentAccount: Int, userId: Long, data: LocalProfileGiftData): TL_stars.StarGift? {
-        return sessionGifts[userId]?.get(data.collectibleId)
-            ?: if (data.catalogGiftId != 0L) StarsController.getInstance(currentAccount).getStarGift(data.catalogGiftId) else null
+        sessionGifts[userId]?.get(data.collectibleId)?.let { return it }
+        var catalogGift = if (data.catalogGiftId != 0L) {
+            StarsController.getInstance(currentAccount).getStarGift(data.catalogGiftId)
+        } else {
+            null
+        }
+        // Older builds persisted the unique instance ID in catalogGiftId. Prefer a full
+        // official instance from the profile gift cache when it is already available.
+        if (catalogGift == null) {
+            val savedGift = StarsController.getInstance(currentAccount).findUserStarGift(data.collectibleId)
+            if (savedGift?.gift != null) return savedGift.gift
+        }
+        if (catalogGift == null) return null
+        // A persisted collectible stores its base catalog ID, not the unique instance ID.
+        // Rebuild the unique object after process restart so GiftCell can render the same
+        // official document, backdrop and collectible number that were available in-session.
+        if (data.collectibleId == 0L || data.giftNum == 0) return catalogGift
+        return TL_stars.TL_starGiftUnique().apply {
+            id = data.collectibleId
+            gift_id = data.catalogGiftId
+            title = data.title.ifBlank { catalogGift.title }
+            slug = data.slug.ifBlank { catalogGift.slug }
+            num = data.giftNum
+            sticker = catalogGift.sticker
+            attributes = ArrayList(catalogGift.attributes)
+            background = catalogGift.background
+        }
     }
 
     /** Broadcasts a local gift mutation through Telegram's established gift-refresh channel. */
@@ -208,6 +233,7 @@ object LocalProfileGiftHelper {
     @JvmStatic
     fun clear(userId: Long = currentUserId()) {
         if (userId == 0L || !isLocalUser(userId)) return
+        sessionGifts.remove(userId)
         dataMap[userId] = arrayListOf()
         loadedUsers.add(userId)
         NaConfig.getPreferences().edit { remove(KEY_PREFIX + userId) }
@@ -250,7 +276,7 @@ object LocalProfileGiftHelper {
             status.text_color,
             true,
             "",
-            gift?.id ?: 0L,
+            gift?.gift_id ?: gift?.id ?: 0L,
             gift?.num ?: 0
         )
     }

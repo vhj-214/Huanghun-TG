@@ -652,37 +652,53 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             final TLRPC.User profileUser = parent.dialogId > 0
                     ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
                     : null;
-            final ArrayList<LocalProfileGiftData> localStyleGifts = LocalProfileGiftHelper.getMountedGiftData(profileUser);
-            // A mounted collectible is rendered in the official-style wall above the list.
-            // The server gift list still contains the owned gift, so do not render it again
-            // in the main "All Gifts" list; otherwise wearing a gift creates a visual duplicate.
+            final ArrayList<LocalProfileGiftData> localGiftData = LocalProfileGiftHelper.getMountedGiftData(profileUser);
+            final ArrayList<LocalProfileGiftData> localStyleGifts = new ArrayList<>();
+            final ArrayList<LocalProfileGiftData> localOwnedGifts = new ArrayList<>();
+            // Mounted collectibles belong to ProfileGiftsView, the official profile header layer.
+            // Purchased local cards belong to the gift wall and must not be treated as mounted.
             final HashSet<Long> mountedGiftIds = new HashSet<>();
-            for (LocalProfileGiftData localGift : localStyleGifts) {
-                if (localGift.getLocalStyle() && localGift.getCollectibleId() != 0L) {
-                    mountedGiftIds.add(localGift.getCollectibleId());
-                }
-            }
-            if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading && localStyleGifts.isEmpty())
-                return;
-            final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
-            if (!localStyleGifts.isEmpty()) {
-                for (int i = 0; i < localStyleGifts.size(); i++) {
-                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localStyleGifts.get(i));
-                    if (savedGift != null) {
-                        // Use Telegram's own GiftCell so ordinary gifts keep white cards while
-                        // collectible gifts use their official backdrop/pattern palette.
-                        items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, false));
+            final HashSet<Long> localOwnedGiftIds = new HashSet<>();
+            for (LocalProfileGiftData localGift : localGiftData) {
+                if (localGift.getLocalStyle()) {
+                    localStyleGifts.add(localGift);
+                    if (localGift.getCollectibleId() != 0L) {
+                        mountedGiftIds.add(localGift.getCollectibleId());
+                    }
+                } else {
+                    localOwnedGifts.add(localGift);
+                    if (localGift.getCollectibleId() != 0L) {
+                        localOwnedGiftIds.add(localGift.getCollectibleId());
                     }
                 }
             }
+            final boolean showLocalOwned = parent.list == list && !isCollection;
+            if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && (!showLocalOwned || localOwnedGifts.isEmpty()))
+                return;
+            final int spanCount = showLocalOwned && !localOwnedGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
             if (list != null) {
                 int spanCountLeft = 3;
+                // Keep locally purchased gifts in the wall even when the server list has not
+                // returned them yet. On restart, getSessionGift() reconstructs collectibles
+                // from their persisted base catalog ID.
+                if (showLocalOwned) for (LocalProfileGiftData localGift : localOwnedGifts) {
+                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localGift);
+                    if (savedGift != null) {
+                        items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, isCollection));
+                        spanCountLeft--;
+                        if (spanCountLeft == 0) {
+                            spanCountLeft = 3;
+                        }
+                    }
+                }
                 for (TL_stars.SavedStarGift userGift : list.gifts) {
-                    // Keep the mounted copy in the wall only. Collections retain their
-                    // independent contents, matching Telegram's tab behavior.
+                    // Mounted collectibles are rendered only in the official profile header.
+                    // A locally restored purchase already has a wall card, so do not duplicate
+                    // it when the server cache also contains the same unique instance.
                     if (parent.list == list
                             && userGift.gift instanceof TL_stars.TL_starGiftUnique
-                            && mountedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id)) {
+                            && (mountedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id)
+                                || localOwnedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id))) {
                         continue;
                     }
                     items.add(
