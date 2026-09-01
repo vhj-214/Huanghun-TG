@@ -11973,7 +11973,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             final MessagesController.PeerColor wasPeerColor = peerColor;
             final ArrayList<TLRPC.TL_emojiStatusCollectible> localMountedGifts = LocalProfileGiftHelper.getMountedGifts(user);
-            final TLRPC.EmojiStatus localProfileStatus = localMountedGifts.isEmpty() ? null : localMountedGifts.get(0);
+            final TLRPC.TL_emojiStatusCollectible localProfileStatus = localMountedGifts.isEmpty() ? null : localMountedGifts.get(0);
             final TLRPC.EmojiStatus effectiveProfileStatus = localProfileStatus != null ? localProfileStatus : user.emoji_status;
             peerColor = MessagesController.PeerColor.fromCollectible(effectiveProfileStatus);
             if (peerColor == null) {
