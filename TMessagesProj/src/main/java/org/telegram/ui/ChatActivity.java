@@ -35443,6 +35443,8 @@ public class ChatActivity extends BaseFragment implements
                     LocalMessageOverrideHelper.setText(currentAccount, target.getDialogId(), target.getId(), text);
                     target.messageOwner.message = text;
                     target.applyNewText(text);
+                    target.forceUpdate = true;
+                    target.resetLayout();
                     updateMessageAnimatedInternal(target, false);
                     updateVisibleRows();
                 }).create());

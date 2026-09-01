@@ -12202,8 +12202,21 @@ public class MessageObject {
                 }
                 CharSequence charSequence = AndroidUtilities.replaceMultipleCharSequence("\n", text, " ");
                 if (inQuote && messageOwner != null && messageOwner.reply_to != null && messageOwner.reply_to.quote_text != null) {
-                    SpannableStringBuilder quoteText = new SpannableStringBuilder(messageOwner.reply_to.quote_text);
-                    addEntitiesToText(quoteText, messageOwner.reply_to.quote_entities, isOutOwner(), false, false, false);
+                    // quote_text is a server-side snapshot. A local edit can
+                    // leave that snapshot stale, so read the persisted override
+                    // for the resolved reply before falling back to quote_text.
+                    String localQuoteText = replyMessageObject == null ? null : LocalMessageOverrideHelper.getText(
+                            currentAccount,
+                            replyMessageObject.getDialogId(),
+                            replyMessageObject.getId()
+                    );
+                    boolean useResolvedText = !TextUtils.isEmpty(localQuoteText);
+                    CharSequence resolvedQuoteText = useResolvedText ? localQuoteText : messageOwner.reply_to.quote_text;
+                    ArrayList<TLRPC.MessageEntity> resolvedQuoteEntities = useResolvedText
+                            ? replyMessageObject.messageOwner.entities
+                            : messageOwner.reply_to.quote_entities;
+                    SpannableStringBuilder quoteText = new SpannableStringBuilder(resolvedQuoteText);
+                    addEntitiesToText(quoteText, resolvedQuoteEntities, isOutOwner(), false, false, false);
                     SpannableString quoteIcon = new SpannableString("q ");
                     ColoredImageSpan quoteIconSpan = new ColoredImageSpan(R.drawable.mini_quote);
                     quoteIconSpan.setOverrideColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
