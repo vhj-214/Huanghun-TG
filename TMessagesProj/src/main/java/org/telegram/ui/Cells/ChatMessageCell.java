@@ -395,7 +395,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             if (messageObject.customAvatarDrawable == null && currentUser != null) {
                 final String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(currentUser.id, currentAccount);
                 if (!TextUtils.isEmpty(localAvatarPath)) {
-                    avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "50_50", avatarDrawable, currentUser);
+                    avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "50_50", avatarDrawable, null, null, 0);
                 }
             }
         } else {
