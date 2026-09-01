@@ -678,9 +678,11 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             if (list != null) {
                 int spanCountLeft = 3;
                 for (TL_stars.SavedStarGift userGift : list.gifts) {
-                    // Keep the mounted copy in the wall only. Collections retain their
-                    // independent contents, matching Telegram's tab behavior.
-                    if (parent.list == list
+                    // Keep the mounted copy in the profile wall only. Do not rely on
+                    // parent.list == list here: paging/refreshing can replace the list
+                    // instance while this page is still the "All Gifts" page. Collections
+                    // retain their independent contents, matching Telegram's tab behavior.
+                    if (!isCollection
                             && userGift.gift instanceof TL_stars.TL_starGiftUnique
                             && mountedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id)) {
                         continue;
