@@ -629,6 +629,16 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 restoredGift.slug = data.getSlug();
                 restoredGift.num = data.getGiftNum();
                 restoredGift.sticker = AnimatedEmojiDrawable.findDocument(currentAccount, data.getDocumentId());
+                if (restoredGift.sticker == null && data.getCatalogGiftId() != 0L) {
+                    // The animated-document cache can be cold after a full
+                    // process restart. Reuse the base catalog document only
+                    // as an image fallback; keep the reconstructed object
+                    // unique so its card and detail sheet remain collectible.
+                    final TL_stars.StarGift catalogGift = StarsController.getInstance(currentAccount).getStarGift(data.getCatalogGiftId());
+                    if (catalogGift != null) {
+                        restoredGift.sticker = catalogGift.getDocument();
+                    }
+                }
                 // The previous persistence format kept only compact visual
                 // metadata. Recreate the official attributes so GiftCell and
                 // StarGiftSheet do not downgrade a collectible to a white

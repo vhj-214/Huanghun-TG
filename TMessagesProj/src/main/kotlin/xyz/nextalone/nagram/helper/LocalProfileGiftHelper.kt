@@ -127,8 +127,17 @@ object LocalProfileGiftHelper {
     /** Returns the original official gift object while it is available in this session. */
     @JvmStatic
     fun getSessionGift(currentAccount: Int, userId: Long, data: LocalProfileGiftData): TL_stars.StarGift? {
-        return sessionGifts[userId]?.get(data.collectibleId)
-            ?: if (data.catalogGiftId != 0L) StarsController.getInstance(currentAccount).getStarGift(data.catalogGiftId) else null
+        sessionGifts[userId]?.get(data.collectibleId)?.let { return it }
+        // A collectible's catalog id points to the ordinary base gift. Never
+        // return that object as the restored gift: doing so changes the saved
+        // collectible into a white ordinary card and prevents the unique
+        // reconstruction path from restoring its backdrop and details.
+        if (isCollectibleData(data)) return null
+        return if (data.catalogGiftId != 0L) {
+            StarsController.getInstance(currentAccount).getStarGift(data.catalogGiftId)
+        } else {
+            null
+        }
     }
 
     /** Broadcasts a local gift mutation through Telegram's established gift-refresh channel. */
@@ -327,5 +336,11 @@ object LocalProfileGiftHelper {
             if (config.isClientActivated && config.clientUserId == userId) return true
         }
         return false
+    }
+
+    private fun isCollectibleData(data: LocalProfileGiftData): Boolean {
+        // giftNum identifies current persisted collectibles. The other checks
+        // keep older preference records compatible with earlier app versions.
+        return data.giftNum > 0 || data.localStyle || data.collectibleId == data.catalogGiftId
     }
 }
