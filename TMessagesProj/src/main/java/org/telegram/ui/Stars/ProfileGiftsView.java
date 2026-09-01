@@ -33,6 +33,7 @@ import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.ButtonBounce;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.ProfileActivity;
+import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -269,6 +270,22 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         gifts.clear();
         giftIds.clear();
         list = serverGiftsEnabled ? StarsController.getInstance(currentAccount).getProfileGiftsList(dialogId) : null;
+
+        // Huanghun local profile gifts are visual-only, so they are not present in
+        // the server profile-gifts list. Add every mounted local collectible before
+        // server-pinned gifts and give each one its own stable slot.
+        if (dialogId > 0) {
+            final TLRPC.User profileUser = MessagesController.getInstance(currentAccount).getUser(dialogId);
+            final ArrayList<TLRPC.TL_emojiStatusCollectible> localGifts = LocalProfileGiftHelper.getMountedGifts(profileUser);
+            for (TLRPC.TL_emojiStatusCollectible status : localGifts) {
+                final Gift gift = new Gift(status);
+                gift.localMounted = true;
+                if (giftIds.add(gift.id)) {
+                    gifts.add(gift);
+                }
+            }
+        }
+
         if (list != null) {
             for (int i = 0; i < list.gifts.size(); i++) {
                 final TL_stars.SavedStarGift savedGift = list.gifts.get(i);

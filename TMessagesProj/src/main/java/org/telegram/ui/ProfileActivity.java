@@ -11972,7 +11972,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             avatarDrawable.setInfo(currentAccount, user);
 
             final MessagesController.PeerColor wasPeerColor = peerColor;
-            peerColor = MessagesController.PeerColor.fromCollectible(user.emoji_status);
+            final ArrayList<TLRPC.TL_emojiStatusCollectible> localMountedGifts = LocalProfileGiftHelper.getMountedGifts(user);
+            final TLRPC.EmojiStatus localProfileStatus = localMountedGifts.isEmpty() ? null : localMountedGifts.get(0);
+            final TLRPC.EmojiStatus effectiveProfileStatus = localProfileStatus != null ? localProfileStatus : user.emoji_status;
+            peerColor = MessagesController.PeerColor.fromCollectible(effectiveProfileStatus);
             if (peerColor == null) {
                 final int colorId = UserObject.getProfileColorId(user);
                 final MessagesController.PeerColors peerColors = MessagesController.getInstance(currentAccount).profilePeerColors;
@@ -11982,12 +11985,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 updatedPeerColor();
             }
             if (topView != null) {
-                topView.setBackgroundEmojiId(UserObject.getProfileEmojiId(user), user != null && user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible, true);
+                final long backgroundEmojiId = localProfileStatus != null
+                        ? localProfileStatus.document_id
+                        : UserObject.getProfileEmojiId(user);
+                final boolean backgroundIsCollectible = localProfileStatus != null
+                        || user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible;
+                topView.setBackgroundEmojiId(backgroundEmojiId, backgroundIsCollectible, true);
             }
             if (ratingView != null) {
                 ratingView.updateColors(peerColor);
             }
-            setCollectibleGiftStatus(user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible ? (TLRPC.TL_emojiStatusCollectible) user.emoji_status : null);
+            setCollectibleGiftStatus(effectiveProfileStatus instanceof TLRPC.TL_emojiStatusCollectible
+                    ? (TLRPC.TL_emojiStatusCollectible) effectiveProfileStatus : null);
 
 
             final ImageLocation imageLocation = ImageLocation.getForUserOrChat(user, ImageLocation.TYPE_BIG);

@@ -207,8 +207,29 @@ public final class HuanghunActiveZoneHelper extends BaseController implements No
         sendReaction(message, serverEmoji, localReaction, key, 0);
     }
 
+    private TLRPC.InputPeer resolveReactionPeer(MessageObject message) {
+        if (message == null) return null;
+        final long dialogId = message.getDialogId();
+        final MessagesController controller = MessagesController.getInstance(currentAccount);
+        if (dialogId < 0) {
+            // A channel requires its access_hash and a megagroup requires an inputPeerChat.
+            // Resolve from the cached Chat object first; this is more reliable while a
+            // channel history is being opened than constructing from the raw dialog id.
+            final TLRPC.Chat chat = controller.getChat(-dialogId);
+            if (chat != null) {
+                return MessagesController.getInputPeer(chat);
+            }
+        } else if (dialogId > 0) {
+            final TLRPC.User user = controller.getUser(dialogId);
+            if (user != null) {
+                return MessagesController.getInputPeer(user);
+            }
+        }
+        return controller.getInputPeer(dialogId);
+    }
+
     private void sendReaction(MessageObject message, String serverEmoji, String localReaction, String key, int attempt) {
-        TLRPC.InputPeer peer = MessagesController.getInstance(currentAccount).getInputPeer(message.getDialogId());
+        TLRPC.InputPeer peer = resolveReactionPeer(message);
         if (peer == null) {
             if (attempt < 2) {
                 AndroidUtilities.runOnUIThread(() -> sendReaction(message, serverEmoji, localReaction, key, attempt + 1), 500);
