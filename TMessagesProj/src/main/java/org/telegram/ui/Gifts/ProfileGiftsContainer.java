@@ -647,14 +647,17 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         }
 
         public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-            final TLRPC.User profileUser = parent.dialogId > 0
+            final boolean showLocalProfileGifts = !isCollection && parent.list == list;
+            final TLRPC.User profileUser = showLocalProfileGifts && parent.dialogId > 0
                     ? (MessagesController.getInstance(currentAccount).getUser(parent.dialogId) != null
                         ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
                         : (parent.dialogId == UserConfig.getInstance(currentAccount).getClientUserId()
                             ? UserConfig.getInstance(currentAccount).getCurrentUser()
                             : null))
                     : null;
-            final ArrayList<LocalProfileGiftData> localGifts = LocalProfileGiftHelper.getMountedGiftData(profileUser);
+            final ArrayList<LocalProfileGiftData> localGifts = showLocalProfileGifts
+                    ? LocalProfileGiftHelper.getMountedGiftData(profileUser)
+                    : new ArrayList<>();
             final ArrayList<LocalProfileGiftData> mountedGifts = new ArrayList<>();
             final HashSet<Long> renderedGiftIds = new HashSet<>();
             for (LocalProfileGiftData localGift : localGifts) {
@@ -1710,23 +1713,23 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
     }
 
     public boolean canSwitchNotify() {
-        if (dialogId >= 0) return false;
+        if (dialogId >= 0 || list == null) return false;
         return list.chat_notifications_enabled != null;
     }
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.starUserGiftsLoaded) {
-            if ((Long) args[0] != dialogId) return;
+            if (args.length == 0 || !(args[0] instanceof Long) || (Long) args[0] != dialogId) return;
 
             button.setVisibility(canSwitchNotify() ? View.GONE : View.VISIBLE);
             checkboxLayout.setVisibility(canSwitchNotify() ? View.VISIBLE : View.GONE);
             buttonContainerHeightDp = 60; // canSwitchNotify() ? 50 : 10 + 48 + 10;
-            if (list.chat_notifications_enabled != null) {
+            if (list != null && list.chat_notifications_enabled != null) {
                 checkbox.setChecked(list.chat_notifications_enabled, true);
             }
         } else if (id == NotificationCenter.starUserGiftCollectionsLoaded) {
-            if ((Long) args[0] != dialogId) return;
+            if (args.length == 0 || !(args[0] instanceof Long) || (Long) args[0] != dialogId) return;
             fillTabs(true);
             updateTabsShown(true);
         } else if (id == NotificationCenter.starGiftsLoaded) {
