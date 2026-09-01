@@ -624,10 +624,26 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 // the purchased gift from the profile completely.
                 final TL_stars.TL_starGiftUnique restoredGift = new TL_stars.TL_starGiftUnique();
                 restoredGift.id = data.getCollectibleId();
+                restoredGift.gift_id = data.getCatalogGiftId();
                 restoredGift.title = data.getTitle();
                 restoredGift.slug = data.getSlug();
                 restoredGift.num = data.getGiftNum();
                 restoredGift.sticker = AnimatedEmojiDrawable.findDocument(currentAccount, data.getDocumentId());
+                // The previous persistence format kept only compact visual
+                // metadata. Recreate the official attributes so GiftCell and
+                // StarGiftSheet do not downgrade a collectible to a white
+                // ordinary-gift card after the process is restarted.
+                final TL_stars.starGiftAttributeBackdrop backdrop = new TL_stars.starGiftAttributeBackdrop();
+                backdrop.center_color = data.getCenterColor();
+                backdrop.edge_color = data.getEdgeColor();
+                backdrop.pattern_color = data.getPatternColor();
+                backdrop.text_color = data.getTextColor();
+                restoredGift.attributes.add(backdrop);
+                if (data.getPatternDocumentId() != 0L) {
+                    final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
+                    pattern.document = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
+                    restoredGift.attributes.add(pattern);
+                }
                 officialGift = restoredGift;
             }
             if (officialGift == null) return null;
