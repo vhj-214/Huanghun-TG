@@ -134,7 +134,9 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.starUserGiftsLoaded);
 
         for (Gift gift : gifts) {
-            gift.emojiDrawable.addView(this);
+            if (gift.emojiDrawable != null) {
+                gift.emojiDrawable.addView(this);
+            }
         }
 
         update();
@@ -147,14 +149,16 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.starUserGiftsLoaded);
 
         for (Gift gift : gifts) {
-            gift.emojiDrawable.removeView(this);
+            if (gift.emojiDrawable != null) {
+                gift.emojiDrawable.removeView(this);
+            }
         }
     }
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.starUserGiftsLoaded) {
-            if ((long) args[0] == dialogId) {
+            if (args.length > 0 && args[0] instanceof Long && (long) args[0] == dialogId) {
                 update();
             }
         }
@@ -180,7 +184,9 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             document = gift.getDocument();
             documentId = document == null ? 0 : document.id;
             final TL_stars.starGiftAttributeBackdrop backdrop = findAttribute(gift.attributes, TL_stars.starGiftAttributeBackdrop.class);
-            color = backdrop.center_color | 0xFF000000;
+            final int baseColor = backdrop != null ? backdrop.center_color
+                    : gift.background != null ? gift.background.center_color : 0;
+            color = baseColor | 0xFF000000;
             slug = gift.slug;
             initParticles();
         }
@@ -289,7 +295,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         if (list != null) {
             for (int i = 0; i < list.gifts.size(); i++) {
                 final TL_stars.SavedStarGift savedGift = list.gifts.get(i);
-                if (!savedGift.unsaved && savedGift.pinned_to_top && savedGift.gift instanceof TL_stars.TL_starGiftUnique) {
+                if (savedGift != null && savedGift.gift != null && !savedGift.unsaved && savedGift.pinned_to_top && savedGift.gift instanceof TL_stars.TL_starGiftUnique) {
                     final Gift gift = new Gift((TL_stars.TL_starGiftUnique) savedGift.gift);
                     if (!giftIds.contains(gift.id)) {
                         gifts.add(gift);
@@ -334,7 +340,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
                 }
                 g.animatedFloat = new AnimatedFloat(this, 0, 320, null);
                 g.animatedFloat.force(0.0f);
-                if (isAttachedToWindow()) {
+                if (isAttachedToWindow() && g.emojiDrawable != null) {
                     g.emojiDrawable.addView(this);
                 }
             }
@@ -358,7 +364,9 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
                 }
             }
             if (newGift == null) {
-                g.emojiDrawable.removeView(this);
+                if (g.emojiDrawable != null) {
+                    g.emojiDrawable.removeView(this);
+                }
                 g.emojiDrawable = null;
                 g.gradient = null;
             } else {
