@@ -647,42 +647,70 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         }
 
         public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-            if (list == null)
-                return;
             final TLRPC.User profileUser = parent.dialogId > 0
-                    ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
+                    ? (MessagesController.getInstance(currentAccount).getUser(parent.dialogId) != null
+                        ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
+                        : (parent.dialogId == UserConfig.getInstance(currentAccount).getClientUserId()
+                            ? UserConfig.getInstance(currentAccount).getCurrentUser()
+                            : null))
                     : null;
-            final ArrayList<LocalProfileGiftData> localStyleGifts = LocalProfileGiftHelper.getMountedGiftData(profileUser);
-            // A mounted collectible is rendered in the official-style wall above the list.
-            // The server gift list still contains the owned gift, so do not render it again
-            // in the main "All Gifts" list; otherwise wearing a gift creates a visual duplicate.
-            final HashSet<Long> mountedGiftIds = new HashSet<>();
-            for (LocalProfileGiftData localGift : localStyleGifts) {
-                if (localGift.getLocalStyle() && localGift.getCollectibleId() != 0L) {
-                    mountedGiftIds.add(localGift.getCollectibleId());
+            final ArrayList<LocalProfileGiftData> localGifts = LocalProfileGiftHelper.getMountedGiftData(profileUser);
+            final ArrayList<LocalProfileGiftData> mountedGifts = new ArrayList<>();
+            final HashSet<Long> renderedGiftIds = new HashSet<>();
+            for (LocalProfileGiftData localGift : localGifts) {
+                if (localGift.getLocalStyle()) {
+                    mountedGifts.add(localGift);
                 }
             }
-            if (list.hasFilters() && list.gifts.size() <= 0 && list.endReached && !list.loading && localStyleGifts.isEmpty())
+            final boolean hasServerList = list != null;
+            if (hasServerList && list.hasFilters() && list.gifts.isEmpty() && list.endReached && !list.loading && localGifts.isEmpty()) {
                 return;
-            final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
-            if (!localStyleGifts.isEmpty()) {
-                for (int i = 0; i < localStyleGifts.size(); i++) {
-                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localStyleGifts.get(i));
-                    if (savedGift != null) {
-                        // Use Telegram's own GiftCell so ordinary gifts keep white cards while
-                        // collectible gifts use their official backdrop/pattern palette.
-                        items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, false));
-                    }
+            }
+            final int serverGiftCount = hasServerList ? list.totalCount : 0;
+            final int spanCount = !mountedGifts.isEmpty() ? 3 : Math.max(1, serverGiftCount == 0 ? 3 : Math.min(3, serverGiftCount));
+
+            // Mounted gifts are shown in the official-style profile wall.
+            for (LocalProfileGiftData localGift : mountedGifts) {
+                final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localGift);
+                if (savedGift != null) {
+                    items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, false));
+                }
+                if (localGift.getCollectibleId() != 0L) {
+                    renderedGiftIds.add(localGift.getCollectibleId());
                 }
             }
-            if (list != null) {
-                int spanCountLeft = 3;
+
+            // Keep every locally recorded purchase in the gift area after a process restart.
+            // If a purchased collectible is also mounted, prefer the mounted record and add it
+            // only once to the bottom list. The wall remains a separate visual presentation.
+            final HashSet<Long> localListGiftIds = new HashSet<>();
+            int spanCountLeft = 3;
+            for (LocalProfileGiftData localGift : mountedGifts) {
+                final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localGift);
+                if (savedGift != null && localListGiftIds.add(localGift.getCollectibleId())) {
+                    items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, isCollection));
+                    spanCountLeft--;
+                    if (spanCountLeft == 0) spanCountLeft = 3;
+                }
+            }
+            for (LocalProfileGiftData localGift : localGifts) {
+                if (!localListGiftIds.add(localGift.getCollectibleId())) {
+                    continue;
+                }
+                if (localGift.getCollectibleId() != 0L) {
+                    renderedGiftIds.add(localGift.getCollectibleId());
+                }
+                final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localGift);
+                if (savedGift != null) {
+                    items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, isCollection));
+                    spanCountLeft--;
+                    if (spanCountLeft == 0) spanCountLeft = 3;
+                }
+            }
+            if (hasServerList) {
                 for (TL_stars.SavedStarGift userGift : list.gifts) {
-                    // Keep the mounted copy in the wall only. Collections retain their
-                    // independent contents, matching Telegram's tab behavior.
-                    if (parent.list == list
-                            && userGift.gift instanceof TL_stars.TL_starGiftUnique
-                            && mountedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id)) {
+                    if (userGift.gift instanceof TL_stars.TL_starGiftUnique
+                            && renderedGiftIds.contains(((TL_stars.TL_starGiftUnique) userGift.gift).id)) {
                         continue;
                     }
                     items.add(
@@ -690,9 +718,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                             .setReordering(reordering && (list == parent.list ? userGift.pinned_to_top : true))
                     );
                     spanCountLeft--;
-                    if (spanCountLeft == 0) {
-                        spanCountLeft = 3;
-                    }
+                    if (spanCountLeft == 0) spanCountLeft = 3;
                 }
                 if (list.loading || !list.endReached) {
                     for (int i = 0; i < (spanCountLeft <= 0 ? 3 : spanCountLeft); ++i) {
@@ -1703,6 +1729,11 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             if ((Long) args[0] != dialogId) return;
             fillTabs(true);
             updateTabsShown(true);
+        } else if (id == NotificationCenter.starGiftsLoaded) {
+            final Page currentPage = getCurrentPage();
+            if (currentPage != null) {
+                currentPage.update(true);
+            }
         } else if (id == NotificationCenter.updateInterfaces) {
             button.setVisibility(canSwitchNotify() ? View.GONE : View.VISIBLE);
             checkboxLayout.setVisibility(canSwitchNotify() ? View.VISIBLE : View.GONE);
@@ -1723,6 +1754,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.starUserGiftsLoaded);
+        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.starGiftsLoaded);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.starUserGiftCollectionsLoaded);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.updateInterfaces);
         final Page currentPage = getCurrentPage();
@@ -1750,6 +1782,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         }
         super.onDetachedFromWindow();
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.starUserGiftsLoaded);
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.starGiftsLoaded);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.starUserGiftCollectionsLoaded);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.updateInterfaces);
         if (list != null) {
