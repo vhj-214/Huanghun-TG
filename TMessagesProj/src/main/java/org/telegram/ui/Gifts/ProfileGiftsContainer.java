@@ -616,7 +616,20 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         }
 
         private TL_stars.SavedStarGift buildOfficialSavedGift(LocalProfileGiftData data) {
-            final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, data);
+            TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, data);
+            if (officialGift == null && data.getDocumentId() != 0L) {
+                // The session map is intentionally in-memory. Recreate the
+                // display object after process death from the persisted gift
+                // metadata and the animated-document cache instead of dropping
+                // the purchased gift from the profile completely.
+                final TL_stars.TL_starGiftUnique restoredGift = new TL_stars.TL_starGiftUnique();
+                restoredGift.id = data.getCollectibleId();
+                restoredGift.title = data.getTitle();
+                restoredGift.slug = data.getSlug();
+                restoredGift.num = data.getGiftNum();
+                restoredGift.sticker = AnimatedEmojiDrawable.findDocument(currentAccount, data.getDocumentId());
+                officialGift = restoredGift;
+            }
             if (officialGift == null) return null;
             // A gift bought locally may come from the resale catalog and still carry
             // the catalog item's resale price. It is now owned by this profile, so

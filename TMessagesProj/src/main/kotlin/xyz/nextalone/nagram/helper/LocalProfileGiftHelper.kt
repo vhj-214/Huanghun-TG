@@ -88,7 +88,7 @@ object LocalProfileGiftHelper {
         if (cardId == 0L) return
 
         if (isCollectible) {
-            current.removeAll { it.collectibleId == cardId && !it.localStyle }
+            current.removeAll { it.collectibleId == cardId }
         }
         val backdrop = gift.attributes
             .filterIsInstance<TL_stars.starGiftAttributeBackdrop>()
@@ -156,7 +156,10 @@ object LocalProfileGiftHelper {
         val userId = currentUserId()
         val current = ArrayList(getDataForUser(userId))
         val newData = toData(status, gift)
-        current.removeAll { it.collectibleId == newData.collectibleId && it.localStyle }
+        // Wearing an owned collectible changes the same gift card into the
+        // mounted card. Remove both representations so the gift is never
+        // cloned in the gifts section and the persisted state has one owner.
+        current.removeAll { it.collectibleId == newData.collectibleId }
         current.add(newData)
         saveData(userId, current)
     }
@@ -177,7 +180,8 @@ object LocalProfileGiftHelper {
         }
         if (mounted.isNotEmpty()) {
             val userId = currentUserId()
-            val current = ArrayList(getDataForUser(userId).filter { !it.localStyle })
+            val mountedIds = mounted.mapTo(hashSetOf()) { it.collectibleId }
+            val current = ArrayList(getDataForUser(userId).filter { it.collectibleId !in mountedIds })
             current.addAll(mounted)
             saveData(userId, current)
         }
