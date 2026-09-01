@@ -650,6 +650,10 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             }
             final TL_stars.TL_savedStarGift savedGift = new TL_stars.TL_savedStarGift();
             savedGift.gift = officialGift;
+            // Keep the persisted local card id on the temporary UI object so
+            // long-press deletion can remove ordinary and collectible cards.
+            savedGift.saved_id = data.getCollectibleId();
+            savedGift.flags |= 1 << 11;
             savedGift.date = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
             savedGift.gift_num = data.getGiftNum();
             savedGift.flags |= 2;
@@ -818,6 +822,26 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 final TL_stars.SavedStarGift savedStarGift = (TL_stars.SavedStarGift) item.object;
                 final ItemOptions o = ItemOptions.makeOptions(parent.fragment, view, true);
                 parent.currentMenu = o;
+                final TLRPC.User profileUser = parent.dialogId > 0
+                        ? MessagesController.getInstance(currentAccount).getUser(parent.dialogId)
+                        : null;
+                LocalProfileGiftData localGift = null;
+                if (profileUser != null) {
+                    for (LocalProfileGiftData candidate : LocalProfileGiftHelper.getMountedGiftData(profileUser)) {
+                        if (candidate.getCollectibleId() == savedStarGift.saved_id) {
+                            localGift = candidate;
+                            break;
+                        }
+                    }
+                }
+                if (localGift != null) {
+                    final long localCardId = localGift.getCollectibleId();
+                    o.add(R.drawable.msg_delete, getString(R.string.Delete), true, () -> {
+                        LocalProfileGiftHelper.removeLocalGift(parent.dialogId, localCardId);
+                        LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, parent.dialogId);
+                        o.dismiss();
+                    });
+                }
                 if (parent.collections.isMine() && (isCollection || parent.collections.getCollections().size() > 0 || true)) {
                     final ItemOptions so = o.makeSwipeback();
                     so.add(R.drawable.ic_ab_back, getString(R.string.Back), () -> {

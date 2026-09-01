@@ -196,6 +196,16 @@ object LocalProfileGiftHelper {
         }
     }
 
+    /** Removes either an ordinary or a mounted local gift card. */
+    @JvmStatic
+    fun removeLocalGift(userId: Long, cardId: Long) {
+        if (userId == 0L || cardId == 0L || !isLocalUser(userId)) return
+        val current = ArrayList(getDataForUser(userId))
+        if (current.removeAll { it.collectibleId == cardId }) {
+            saveData(userId, current)
+        }
+    }
+
     /** Returns a compact local-only summary for the current account's purchased virtual gifts. */
     @JvmStatic
     fun getCurrentMountedGiftSummary(): String {
