@@ -1,6 +1,8 @@
 package xyz.nextalone.nagram.helper
 
 import androidx.core.content.edit
+import org.telegram.messenger.MessagesController
+import org.telegram.messenger.NotificationCenter
 import org.telegram.messenger.UserConfig
 import xyz.nextalone.nagram.NaConfig
 
@@ -38,6 +40,10 @@ object LocalProfileOverrideHelper {
             if (uri.isNullOrBlank()) remove(AVATAR_PREFIX + account + "_" + userId)
             else putString(AVATAR_PREFIX + account + "_" + userId, uri)
         }
+        NotificationCenter.getInstance(account).postNotificationName(
+            NotificationCenter.updateInterfaces,
+            MessagesController.UPDATE_MASK_AVATAR
+        )
     }
 
     @JvmStatic
@@ -48,5 +54,9 @@ object LocalProfileOverrideHelper {
         if (!path.isNullOrBlank()) {
             runCatching { java.io.File(path).delete() }
         }
+        NotificationCenter.getInstance(account).postNotificationName(
+            NotificationCenter.updateInterfaces,
+            MessagesController.UPDATE_MASK_AVATAR
+        )
     }
 }

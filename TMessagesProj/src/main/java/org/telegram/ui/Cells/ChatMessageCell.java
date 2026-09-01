@@ -268,6 +268,7 @@ import tw.nekomimi.nekogram.helpers.TranscribeHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.helper.BookmarksHelper;
+import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
 
 import static tw.nekomimi.nekogram.helpers.MessageHelper.showForwardDate;
 
@@ -388,6 +389,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentPhoto = null;
                 avatarDrawable.setInfo(messageObject.getFromChatId(), null, null);
                 avatarImage.setImage(null, null, avatarDrawable, null, null, 0);
+            }
+            // ProfileActivity already applies local avatars to the profile header;
+            // apply the same override to sender avatars in group chat cells.
+            if (messageObject.customAvatarDrawable == null && currentUser != null) {
+                final String localAvatarPath = LocalProfileOverrideHelper.getAvatarUri(currentUser.id, currentAccount);
+                if (!TextUtils.isEmpty(localAvatarPath)) {
+                    avatarImage.setImage(ImageLocation.getForPath(localAvatarPath), "50_50", avatarDrawable, currentUser);
+                }
             }
         } else {
             currentPhoto = null;
@@ -13437,6 +13446,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                                  boolean topNear,
                                  boolean firstInChat,
                                  boolean lastInChatList) {
+        // Local edits can mutate the existing MessageObject instead of replacing
+        // it. Invalidate its cached StaticLayout so both the bubble height and
+        // reply preview are rebuilt from the edited text.
+        if (messageObject.forceUpdate) {
+            messageObject.resetLayout();
+        }
         ayuDeleted = messageObject.isAyuDeleted();
         if (attachedToWindow && !frozen) {
             setMessageContent(messageObject, groupedMessages, bottomNear, topNear, firstInChat, lastInChatList);
