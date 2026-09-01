@@ -147,9 +147,11 @@ import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.bots.SetupEmojiStatusSheet;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -210,6 +212,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     private TextView titleView;
     private TextView subtitleView;
     private TextView versionView;
+    private ValueAnimator rainbowVersionAnimator;
+    private LinearGradient rainbowVersionGradient;
+    private Matrix rainbowVersionMatrix;
     public boolean hasMainTabs;
 
     private View navigationBar;
@@ -588,6 +593,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         versionView.setGravity(Gravity.CENTER);
         versionView.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ALL));
         versionView.setOnClickListener(v -> showVersionMenu());
+        startRainbowVersionAnimation();
         versionView.setOnLongClickListener(v -> {
             versionViewPressCount++;
             if (versionViewPressCount < 2 && !BuildVars.DEBUG_PRIVATE_VERSION) {
@@ -617,6 +623,13 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     @Override
     public void onFragmentDestroy() {
+        if (rainbowVersionAnimator != null) {
+            rainbowVersionAnimator.cancel();
+            rainbowVersionAnimator = null;
+        }
+        if (versionView != null) {
+            versionView.getPaint().setShader(null);
+        }
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.release();
             settingsDynamicVideoWallpaperPlayer = null;
@@ -1146,7 +1159,30 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     public String getVersionName() {
-        return AndroidUtil.getVersionText();
+        return "欢迎使用黄昏内部定制版  " + new SimpleDateFormat("yyyy年MM月dd日 HH时mm分ss秒", Locale.getDefault()).format(new Date());
+    }
+
+    private void startRainbowVersionAnimation() {
+        if (versionView == null) return;
+        rainbowVersionMatrix = new Matrix();
+        rainbowVersionGradient = new LinearGradient(
+            0, 0, dp(420), 0,
+            new int[] { 0xFFFF3B30, 0xFFFF9500, 0xFFFFCC00, 0xFF34C759, 0xFF0A84FF, 0xFFAF52DE, 0xFFFF3B30 },
+            null,
+            Shader.TileMode.MIRROR
+        );
+        versionView.getPaint().setShader(rainbowVersionGradient);
+        rainbowVersionAnimator = ValueAnimator.ofFloat(0f, dp(420));
+        rainbowVersionAnimator.setDuration(3600L);
+        rainbowVersionAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        rainbowVersionAnimator.addUpdateListener(animation -> {
+            if (versionView == null || rainbowVersionMatrix == null || rainbowVersionGradient == null) return;
+            final Object value = animation.getAnimatedValue();
+            rainbowVersionMatrix.setTranslate(value instanceof Float ? (Float) value : 0f, 0f);
+            rainbowVersionGradient.setLocalMatrix(rainbowVersionMatrix);
+            versionView.invalidate();
+        });
+        rainbowVersionAnimator.start();
     }
 
     @Override

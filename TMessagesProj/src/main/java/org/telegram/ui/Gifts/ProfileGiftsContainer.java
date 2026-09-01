@@ -644,15 +644,28 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 // StarGiftSheet do not downgrade a collectible to a white
                 // ordinary-gift card after the process is restarted.
                 final TL_stars.starGiftAttributeBackdrop backdrop = new TL_stars.starGiftAttributeBackdrop();
+                backdrop.name = data.getTitle();
                 backdrop.center_color = data.getCenterColor();
                 backdrop.edge_color = data.getEdgeColor();
                 backdrop.pattern_color = data.getPatternColor();
                 backdrop.text_color = data.getTextColor();
+                backdrop.rarity = new TL_stars.TL_starGiftAttributeRarity();
                 restoredGift.attributes.add(backdrop);
+                if (restoredGift.sticker != null) {
+                    final TL_stars.starGiftAttributeModel model = new TL_stars.starGiftAttributeModel();
+                    model.name = data.getTitle();
+                    model.document = restoredGift.sticker;
+                    model.rarity = new TL_stars.TL_starGiftAttributeRarity();
+                    restoredGift.attributes.add(model);
+                }
                 if (data.getPatternDocumentId() != 0L) {
                     final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
                     pattern.document = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
-                    restoredGift.attributes.add(pattern);
+                    if (pattern.document != null) {
+                        pattern.name = data.getTitle();
+                        pattern.rarity = new TL_stars.TL_starGiftAttributeRarity();
+                        restoredGift.attributes.add(pattern);
+                    }
                 }
                 officialGift = restoredGift;
             }
