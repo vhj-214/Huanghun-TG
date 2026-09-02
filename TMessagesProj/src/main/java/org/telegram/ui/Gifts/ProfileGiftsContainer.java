@@ -637,6 +637,15 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     final TL_stars.StarGift catalogGift = StarsController.getInstance(currentAccount).getStarGift(data.getCatalogGiftId());
                     if (catalogGift != null) {
                         restoredGift.sticker = catalogGift.getDocument();
+                        restoredGift.stars = catalogGift.stars;
+                        restoredGift.limited = catalogGift.limited;
+                        restoredGift.sold_out = catalogGift.sold_out;
+                        restoredGift.availability_issued = catalogGift.availability_issued;
+                        restoredGift.availability_total = catalogGift.availability_total;
+                        restoredGift.background = catalogGift.background;
+                        restoredGift.value_amount = catalogGift.value_amount;
+                        restoredGift.value_currency = catalogGift.value_currency;
+                        restoredGift.value_usd_amount = catalogGift.value_usd_amount;
                     }
                 }
                 // The previous persistence format kept only compact visual
