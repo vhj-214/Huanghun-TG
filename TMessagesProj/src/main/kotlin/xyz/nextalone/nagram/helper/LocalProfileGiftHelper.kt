@@ -1,12 +1,14 @@
 package xyz.nextalone.nagram.helper
 
 import androidx.core.content.edit
+import android.util.Base64
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import org.telegram.messenger.DialogObject
 import org.telegram.messenger.MessagesController
 import org.telegram.messenger.NotificationCenter
 import org.telegram.messenger.UserConfig
+import org.telegram.tgnet.SerializedData
 import org.telegram.ui.Stars.StarsController
 import org.telegram.tgnet.TLRPC
 import org.telegram.tgnet.tl.TL_stars
@@ -35,13 +37,14 @@ data class LocalProfileGiftData(
     var backdropName: String = "",
     var valueAmount: Long = 0L,
     var valueCurrency: String = "",
-            var valueUsdAmount: Long = 0L,
-            var availabilityIssued: Int = 0,
-            var availabilityTotal: Int = 0,
-            var originalSenderId: Long = 0L,
-            var originalRecipientId: Long = 0L,
-            var originalDate: Int = 0,
-            var originalMessage: String = ""
+    var valueUsdAmount: Long = 0L,
+    var availabilityIssued: Int = 0,
+    var availabilityTotal: Int = 0,
+    var originalSenderId: Long = 0L,
+    var originalRecipientId: Long = 0L,
+    var originalDate: Int = 0,
+    var originalMessage: String = "",
+    var patternDocumentData: String = ""
 )
 
 /**
@@ -154,7 +157,8 @@ object LocalProfileGiftHelper {
                 original?.sender_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
                 original?.recipient_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
                 original?.date ?: 0,
-                original?.message?.text ?: ""
+                original?.message?.text ?: "",
+                serializeDocument(pattern?.document)
             )
         )
         sessionGifts.getOrPut(userId) { mutableMapOf() }[cardId] = gift
@@ -173,6 +177,17 @@ object LocalProfileGiftHelper {
         return if (data.catalogGiftId != 0L) {
             StarsController.getInstance(currentAccount).getStarGift(data.catalogGiftId)
         } else {
+            null
+        }
+    }
+
+    @JvmStatic
+    fun getPersistedPatternDocument(data: LocalProfileGiftData): TLRPC.Document? {
+        if (data.patternDocumentData.isEmpty()) return null
+        return try {
+            val stream = SerializedData(Base64.decode(data.patternDocumentData, Base64.DEFAULT))
+            TLRPC.Document.TLdeserialize(stream, stream.readInt32(false), false)
+        } catch (_: Exception) {
             null
         }
     }
@@ -332,8 +347,20 @@ object LocalProfileGiftHelper {
             gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.sender_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
             gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.recipient_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
             gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.date ?: 0,
-            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.message?.text ?: ""
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.message?.text ?: "",
+            serializeDocument(gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributePattern>()?.firstOrNull()?.document)
         )
+    }
+
+    private fun serializeDocument(document: TLRPC.Document?): String {
+        if (document == null) return ""
+        return try {
+            val stream = SerializedData()
+            document.serializeToStream(stream)
+            Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun toStatus(data: LocalProfileGiftData): TLRPC.TL_emojiStatusCollectible {

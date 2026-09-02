@@ -679,6 +679,9 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 if (data.getPatternDocumentId() != 0L) {
                     final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
                     pattern.document = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
+                    if (pattern.document == null) {
+                        pattern.document = LocalProfileGiftHelper.getPersistedPatternDocument(data);
+                    }
                     if (pattern.document != null) {
                         pattern.name = !TextUtils.isEmpty(data.getPatternName()) ? data.getPatternName() : data.getTitle();
                         pattern.rarity = new TL_stars.TL_starGiftAttributeRarity();
@@ -747,7 +750,10 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     uniqueGift.attributes.add(model);
                 }
                 if (!hasPattern && data.getPatternDocumentId() != 0L) {
-                    final TLRPC.Document patternDocument = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
+                    TLRPC.Document patternDocument = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
+                    if (patternDocument == null) {
+                        patternDocument = LocalProfileGiftHelper.getPersistedPatternDocument(data);
+                    }
                     if (patternDocument != null) {
                         final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
                         pattern.name = !TextUtils.isEmpty(data.getPatternName()) ? data.getPatternName() : data.getTitle();
