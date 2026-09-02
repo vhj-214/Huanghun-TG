@@ -3,6 +3,7 @@ package xyz.nextalone.nagram.helper
 import androidx.core.content.edit
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import org.telegram.messenger.DialogObject
 import org.telegram.messenger.MessagesController
 import org.telegram.messenger.NotificationCenter
 import org.telegram.messenger.UserConfig
@@ -34,9 +35,13 @@ data class LocalProfileGiftData(
     var backdropName: String = "",
     var valueAmount: Long = 0L,
     var valueCurrency: String = "",
-    var valueUsdAmount: Long = 0L,
-    var availabilityIssued: Int = 0,
-    var availabilityTotal: Int = 0
+            var valueUsdAmount: Long = 0L,
+            var availabilityIssued: Int = 0,
+            var availabilityTotal: Int = 0,
+            var originalSenderId: Long = 0L,
+            var originalRecipientId: Long = 0L,
+            var originalDate: Int = 0,
+            var originalMessage: String = ""
 )
 
 /**
@@ -110,6 +115,9 @@ object LocalProfileGiftHelper {
         val pattern = gift.attributes
             .filterIsInstance<TL_stars.starGiftAttributePattern>()
             .firstOrNull()
+        val original = gift.attributes
+            .filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()
+            .firstOrNull()
         val patternDocumentId = gift.attributes
             .filterIsInstance<TL_stars.starGiftAttributePattern>()
             .firstOrNull()?.document?.id ?: 0L
@@ -142,7 +150,11 @@ object LocalProfileGiftHelper {
                 gift.value_currency ?: "",
                 gift.value_usd_amount,
                 gift.availability_issued,
-                gift.availability_total
+                gift.availability_total,
+                original?.sender_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
+                original?.recipient_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
+                original?.date ?: 0,
+                original?.message?.text ?: ""
             )
         )
         sessionGifts.getOrPut(userId) { mutableMapOf() }[cardId] = gift
@@ -193,6 +205,12 @@ object LocalProfileGiftHelper {
         val userId = currentUserId()
         val current = ArrayList(getDataForUser(userId))
         val newData = toData(status, gift)
+        current.firstOrNull { it.collectibleId == newData.collectibleId }?.let { previous ->
+            if (newData.originalSenderId == 0L) newData.originalSenderId = previous.originalSenderId
+            if (newData.originalRecipientId == 0L) newData.originalRecipientId = previous.originalRecipientId
+            if (newData.originalDate == 0) newData.originalDate = previous.originalDate
+            if (newData.originalMessage.isEmpty()) newData.originalMessage = previous.originalMessage
+        }
         // Wearing an owned collectible changes the same gift card into the
         // mounted card. Remove both representations so the gift is never
         // cloned in the gifts section and the persisted state has one owner.
@@ -310,7 +328,11 @@ object LocalProfileGiftHelper {
             gift?.value_currency ?: "",
             gift?.value_usd_amount ?: 0L,
             gift?.availability_issued ?: 0,
-            gift?.availability_total ?: 0
+            gift?.availability_total ?: 0,
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.sender_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.recipient_id?.let { DialogObject.getPeerDialogId(it) } ?: 0L,
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.date ?: 0,
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeOriginalDetails>()?.firstOrNull()?.message?.text ?: ""
         )
     }
 

@@ -492,6 +492,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 emptyView1Button.setOnClickListener(v -> {
                     if (list != null) {
                         list.resetFilters();
+                        NekoConfig.getPreferences().edit().remove("profile_gift_filters_" + list.currentAccount + "_" + list.dialogId).apply();
                     }
                 });
                 emptyView1Button.setPadding(dp(10), dp(4), dp(10), dp(4));
@@ -684,6 +685,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                         restoredGift.attributes.add(pattern);
                     }
                 }
+                addPersistedOriginalDetails(restoredGift, data);
                 officialGift = restoredGift;
             }
             if (officialGift == null) return null;
@@ -754,6 +756,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                         uniqueGift.attributes.add(pattern);
                     }
                 }
+                addPersistedOriginalDetails(uniqueGift, data);
             }
             // A gift bought locally may come from the resale catalog and still carry
             // the catalog item's resale price. It is now owned by this profile, so
@@ -785,6 +788,31 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             from.user_id = UserConfig.getInstance(currentAccount).getClientUserId();
             savedGift.from_id = from;
             return savedGift;
+        }
+
+        private void addPersistedOriginalDetails(TL_stars.TL_starGiftUnique gift, LocalProfileGiftData data) {
+            if (data.getOriginalDate() == 0 || data.getOriginalRecipientId() == 0) return;
+            for (TL_stars.StarGiftAttribute attribute : gift.attributes) {
+                if (attribute instanceof TL_stars.starGiftAttributeOriginalDetails) return;
+            }
+            final TL_stars.starGiftAttributeOriginalDetails details = new TL_stars.starGiftAttributeOriginalDetails();
+            if (data.getOriginalSenderId() != 0L) {
+                final TLRPC.TL_peerUser sender = new TLRPC.TL_peerUser();
+                sender.user_id = data.getOriginalSenderId();
+                details.sender_id = sender;
+                details.flags |= 1;
+            }
+            final TLRPC.TL_peerUser recipient = new TLRPC.TL_peerUser();
+            recipient.user_id = data.getOriginalRecipientId();
+            details.recipient_id = recipient;
+            details.date = data.getOriginalDate();
+            if (!TextUtils.isEmpty(data.getOriginalMessage())) {
+                details.message = new TLRPC.TL_textWithEntities();
+                details.message.text = data.getOriginalMessage();
+                details.message.entities = new ArrayList<>();
+                details.flags |= 2;
+            }
+            gift.attributes.add(details);
         }
 
         public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -1266,7 +1294,12 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
         if (fragment instanceof ProfileActivity && ((ProfileActivity) fragment).openGiftsUpgradable) {
             this.list.setFilters(StarsController.GiftsList.INCLUDE_TYPE_UPGRADABLE_FLAG);
         } else {
-            this.list.resetFilters();
+            final String filterKey = "profile_gift_filters_" + currentAccount + "_" + dialogId;
+            if (NekoConfig.getPreferences().contains(filterKey)) {
+                this.list.setFilters(NekoConfig.getPreferences().getInt(filterKey, -1));
+            } else {
+                this.list.resetFilters();
+            }
         }
         this.list.load();
         this.resourcesProvider = resourcesProvider;
@@ -2563,7 +2596,12 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
 
             this.dialogId = dialogId;
             this.collectionId = collectionId;
-            this.list = new StarsController.GiftsList(currentAccount, dialogId);
+            this.list = new StarsController.GiftsList(currentAccount, dialogId, false);
+            final String filterKey = "profile_gift_filters_" + currentAccount + "_" + dialogId;
+            if (NekoConfig.getPreferences().contains(filterKey)) {
+                this.list.setFilters(NekoConfig.getPreferences().getInt(filterKey, -1));
+            }
+            this.list.load();
 
             final ActionBarMenu menu = actionBar.createMenu();
             final ActionBarMenuItem other = menu.addItem(1, R.drawable.ic_ab_other);
@@ -2828,10 +2866,12 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
     public static void setGiftFilterOptionsClickListeners(View view, StarsController.GiftsList list, Runnable update, int flag) {
         view.setOnClickListener(v -> {
             list.toggleTypeIncludeFlag(flag);
+            NekoConfig.getPreferences().edit().putInt("profile_gift_filters_" + list.currentAccount + "_" + list.dialogId, list.getIncludeFlags()).apply();
             update.run();
         });
         view.setOnLongClickListener(v -> {
             list.forceTypeIncludeFlag(flag, true);
+            NekoConfig.getPreferences().edit().putInt("profile_gift_filters_" + list.currentAccount + "_" + list.dialogId, list.getIncludeFlags()).apply();
             update.run();
             return true;
         });

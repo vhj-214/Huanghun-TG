@@ -3581,6 +3581,10 @@ public class StarsController {
             invalidate(true);
         }
 
+        public int getIncludeFlags() {
+            return includeFlags;
+        }
+
         public boolean hasFilters() {
             return !(sort_by_date && includeFlags == (INCLUDE_TYPE_MASK | INCLUDE_VISIBILITY_MASK));
         }
