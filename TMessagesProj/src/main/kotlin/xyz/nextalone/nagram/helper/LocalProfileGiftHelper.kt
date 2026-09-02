@@ -25,7 +25,18 @@ data class LocalProfileGiftData(
     var localStyle: Boolean = true,
     var senderName: String = "",
     var catalogGiftId: Long = 0L,
-    var giftNum: Int = 0
+    var giftNum: Int = 0,
+    // These fields were added after the original compact format. Defaults
+    // keep old JSON records readable while allowing the official detail
+    // sheet to restore its symbol/model/value rows after process death.
+    var modelName: String = "",
+    var patternName: String = "",
+    var backdropName: String = "",
+    var valueAmount: Long = 0L,
+    var valueCurrency: String = "",
+    var valueUsdAmount: Long = 0L,
+    var availabilityIssued: Int = 0,
+    var availabilityTotal: Int = 0
 )
 
 /**
@@ -93,6 +104,12 @@ object LocalProfileGiftHelper {
         val backdrop = gift.attributes
             .filterIsInstance<TL_stars.starGiftAttributeBackdrop>()
             .firstOrNull()
+        val model = gift.attributes
+            .filterIsInstance<TL_stars.starGiftAttributeModel>()
+            .firstOrNull()
+        val pattern = gift.attributes
+            .filterIsInstance<TL_stars.starGiftAttributePattern>()
+            .firstOrNull()
         val patternDocumentId = gift.attributes
             .filterIsInstance<TL_stars.starGiftAttributePattern>()
             .firstOrNull()?.document?.id ?: 0L
@@ -117,7 +134,15 @@ object LocalProfileGiftHelper {
                 false,
                 senderName,
                 if (isCollectible) (gift as TL_stars.TL_starGiftUnique).gift_id else gift.id,
-                if (isCollectible) gift.num else 0
+                if (isCollectible) gift.num else 0,
+                model?.name ?: "",
+                pattern?.name ?: "",
+                backdrop?.name ?: "",
+                gift.value_amount,
+                gift.value_currency ?: "",
+                gift.value_usd_amount,
+                gift.availability_issued,
+                gift.availability_total
             )
         )
         sessionGifts.getOrPut(userId) { mutableMapOf() }[cardId] = gift
@@ -277,7 +302,15 @@ object LocalProfileGiftHelper {
             true,
             "",
             gift?.gift_id ?: gift?.id ?: 0L,
-            gift?.num ?: 0
+            gift?.num ?: 0,
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeModel>()?.firstOrNull()?.name ?: "",
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributePattern>()?.firstOrNull()?.name ?: "",
+            gift?.attributes?.filterIsInstance<TL_stars.starGiftAttributeBackdrop>()?.firstOrNull()?.name ?: "",
+            gift?.value_amount ?: 0L,
+            gift?.value_currency ?: "",
+            gift?.value_usd_amount ?: 0L,
+            gift?.availability_issued ?: 0,
+            gift?.availability_total ?: 0
         )
     }
 

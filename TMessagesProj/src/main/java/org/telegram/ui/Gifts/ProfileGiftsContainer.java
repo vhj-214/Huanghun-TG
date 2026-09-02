@@ -629,6 +629,14 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 restoredGift.slug = data.getSlug();
                 restoredGift.num = data.getGiftNum();
                 restoredGift.sticker = AnimatedEmojiDrawable.findDocument(currentAccount, data.getDocumentId());
+                restoredGift.value_amount = data.getValueAmount();
+                restoredGift.value_currency = data.getValueCurrency();
+                restoredGift.value_usd_amount = data.getValueUsdAmount();
+                restoredGift.availability_issued = data.getAvailabilityIssued();
+                restoredGift.availability_total = data.getAvailabilityTotal();
+                if (restoredGift.value_amount != 0L && !TextUtils.isEmpty(restoredGift.value_currency)) {
+                    restoredGift.flags |= 256;
+                }
                 if (restoredGift.sticker == null && data.getCatalogGiftId() != 0L) {
                     // The animated-document cache can be cold after a full
                     // process restart. Reuse the base catalog document only
@@ -653,7 +661,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 // StarGiftSheet do not downgrade a collectible to a white
                 // ordinary-gift card after the process is restarted.
                 final TL_stars.starGiftAttributeBackdrop backdrop = new TL_stars.starGiftAttributeBackdrop();
-                backdrop.name = data.getTitle();
+                backdrop.name = !TextUtils.isEmpty(data.getBackdropName()) ? data.getBackdropName() : data.getTitle();
                 backdrop.center_color = data.getCenterColor();
                 backdrop.edge_color = data.getEdgeColor();
                 backdrop.pattern_color = data.getPatternColor();
@@ -662,7 +670,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 restoredGift.attributes.add(backdrop);
                 if (restoredGift.sticker != null) {
                     final TL_stars.starGiftAttributeModel model = new TL_stars.starGiftAttributeModel();
-                    model.name = data.getTitle();
+                    model.name = !TextUtils.isEmpty(data.getModelName()) ? data.getModelName() : data.getTitle();
                     model.document = restoredGift.sticker;
                     model.rarity = new TL_stars.TL_starGiftAttributeRarity();
                     restoredGift.attributes.add(model);
@@ -671,7 +679,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
                     pattern.document = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
                     if (pattern.document != null) {
-                        pattern.name = data.getTitle();
+                        pattern.name = !TextUtils.isEmpty(data.getPatternName()) ? data.getPatternName() : data.getTitle();
                         pattern.rarity = new TL_stars.TL_starGiftAttributeRarity();
                         restoredGift.attributes.add(pattern);
                     }
@@ -696,6 +704,14 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     if (uniqueGift.value_currency == null) uniqueGift.value_currency = catalogGift.value_currency;
                     if (uniqueGift.value_usd_amount == 0L) uniqueGift.value_usd_amount = catalogGift.value_usd_amount;
                 }
+                if (uniqueGift.value_amount == 0L) uniqueGift.value_amount = data.getValueAmount();
+                if (TextUtils.isEmpty(uniqueGift.value_currency)) uniqueGift.value_currency = data.getValueCurrency();
+                if (uniqueGift.value_usd_amount == 0L) uniqueGift.value_usd_amount = data.getValueUsdAmount();
+                if (uniqueGift.availability_issued == 0) uniqueGift.availability_issued = data.getAvailabilityIssued();
+                if (uniqueGift.availability_total == 0) uniqueGift.availability_total = data.getAvailabilityTotal();
+                if (uniqueGift.value_amount != 0L && !TextUtils.isEmpty(uniqueGift.value_currency)) {
+                    uniqueGift.flags |= 256;
+                }
                 boolean hasBackdrop = false;
                 boolean hasModel = false;
                 boolean hasPattern = false;
@@ -713,7 +729,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 }
                 if (!hasBackdrop) {
                     final TL_stars.starGiftAttributeBackdrop backdrop = new TL_stars.starGiftAttributeBackdrop();
-                    backdrop.name = data.getTitle();
+                    backdrop.name = !TextUtils.isEmpty(data.getBackdropName()) ? data.getBackdropName() : data.getTitle();
                     backdrop.center_color = data.getCenterColor();
                     backdrop.edge_color = data.getEdgeColor();
                     backdrop.pattern_color = data.getPatternColor();
@@ -723,7 +739,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 }
                 if (!hasModel && uniqueGift.getDocument() != null) {
                     final TL_stars.starGiftAttributeModel model = new TL_stars.starGiftAttributeModel();
-                    model.name = data.getTitle();
+                    model.name = !TextUtils.isEmpty(data.getModelName()) ? data.getModelName() : data.getTitle();
                     model.document = uniqueGift.getDocument();
                     model.rarity = new TL_stars.TL_starGiftAttributeRarity();
                     uniqueGift.attributes.add(model);
@@ -732,7 +748,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     final TLRPC.Document patternDocument = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
                     if (patternDocument != null) {
                         final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
-                        pattern.name = data.getTitle();
+                        pattern.name = !TextUtils.isEmpty(data.getPatternName()) ? data.getPatternName() : data.getTitle();
                         pattern.document = patternDocument;
                         pattern.rarity = new TL_stars.TL_starGiftAttributeRarity();
                         uniqueGift.attributes.add(pattern);
