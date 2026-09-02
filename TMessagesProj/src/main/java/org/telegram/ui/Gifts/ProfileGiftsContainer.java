@@ -679,6 +679,66 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 officialGift = restoredGift;
             }
             if (officialGift == null) return null;
+            if (officialGift instanceof TL_stars.TL_starGiftUnique) {
+                final TL_stars.TL_starGiftUnique uniqueGift = (TL_stars.TL_starGiftUnique) officialGift;
+                // A session gift can also be a partial object (for example when it
+                // came from a local purchase callback). Fill missing presentation
+                // data from the ordinary catalog without changing its unique type.
+                final TL_stars.StarGift catalogGift = data.getCatalogGiftId() != 0L
+                        ? StarsController.getInstance(currentAccount).getStarGift(data.getCatalogGiftId()) : null;
+                if (catalogGift != null) {
+                    if (uniqueGift.sticker == null) uniqueGift.sticker = catalogGift.getDocument();
+                    if (uniqueGift.stars == 0L) uniqueGift.stars = catalogGift.stars;
+                    if (uniqueGift.availability_total == 0) uniqueGift.availability_total = catalogGift.availability_total;
+                    if (uniqueGift.availability_issued == 0) uniqueGift.availability_issued = catalogGift.availability_issued;
+                    if (uniqueGift.background == null) uniqueGift.background = catalogGift.background;
+                    if (uniqueGift.value_amount == 0L) uniqueGift.value_amount = catalogGift.value_amount;
+                    if (uniqueGift.value_currency == null) uniqueGift.value_currency = catalogGift.value_currency;
+                    if (uniqueGift.value_usd_amount == 0L) uniqueGift.value_usd_amount = catalogGift.value_usd_amount;
+                }
+                boolean hasBackdrop = false;
+                boolean hasModel = false;
+                boolean hasPattern = false;
+                for (int i = uniqueGift.attributes.size() - 1; i >= 0; i--) {
+                    final TL_stars.StarGiftAttribute attribute = uniqueGift.attributes.get(i);
+                    if (attribute instanceof TL_stars.starGiftAttributeModel && ((TL_stars.starGiftAttributeModel) attribute).document == null
+                            || attribute instanceof TL_stars.starGiftAttributePattern && ((TL_stars.starGiftAttributePattern) attribute).document == null) {
+                        uniqueGift.attributes.remove(i);
+                    }
+                }
+                for (TL_stars.StarGiftAttribute attribute : uniqueGift.attributes) {
+                    hasBackdrop |= attribute instanceof TL_stars.starGiftAttributeBackdrop;
+                    hasModel |= attribute instanceof TL_stars.starGiftAttributeModel;
+                    hasPattern |= attribute instanceof TL_stars.starGiftAttributePattern;
+                }
+                if (!hasBackdrop) {
+                    final TL_stars.starGiftAttributeBackdrop backdrop = new TL_stars.starGiftAttributeBackdrop();
+                    backdrop.name = data.getTitle();
+                    backdrop.center_color = data.getCenterColor();
+                    backdrop.edge_color = data.getEdgeColor();
+                    backdrop.pattern_color = data.getPatternColor();
+                    backdrop.text_color = data.getTextColor();
+                    backdrop.rarity = new TL_stars.TL_starGiftAttributeRarity();
+                    uniqueGift.attributes.add(backdrop);
+                }
+                if (!hasModel && uniqueGift.getDocument() != null) {
+                    final TL_stars.starGiftAttributeModel model = new TL_stars.starGiftAttributeModel();
+                    model.name = data.getTitle();
+                    model.document = uniqueGift.getDocument();
+                    model.rarity = new TL_stars.TL_starGiftAttributeRarity();
+                    uniqueGift.attributes.add(model);
+                }
+                if (!hasPattern && data.getPatternDocumentId() != 0L) {
+                    final TLRPC.Document patternDocument = AnimatedEmojiDrawable.findDocument(currentAccount, data.getPatternDocumentId());
+                    if (patternDocument != null) {
+                        final TL_stars.starGiftAttributePattern pattern = new TL_stars.starGiftAttributePattern();
+                        pattern.name = data.getTitle();
+                        pattern.document = patternDocument;
+                        pattern.rarity = new TL_stars.TL_starGiftAttributeRarity();
+                        uniqueGift.attributes.add(pattern);
+                    }
+                }
+            }
             // A gift bought locally may come from the resale catalog and still carry
             // the catalog item's resale price. It is now owned by this profile, so
             // do not let GiftCell render it as "On sale"; show its unique number.
