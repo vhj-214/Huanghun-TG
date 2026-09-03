@@ -228,16 +228,13 @@ public class ConnectionsManager extends BaseController {
         try {
             systemLangCode = LocaleController.getSystemLocaleStringIso639().toLowerCase();
             langCode = LocaleController.getLocaleStringIso639().toLowerCase();
-            // 设备名始终读取用户真实手机型号；不要用应用品牌覆盖设备名称。
             deviceModel = Build.MANUFACTURER + Build.MODEL;
-            // 所有授权入口复用本连接初始化：手机号、扫码、session、tdata 与通行密钥
-            // 均向设备列表上报统一的黄昏定制TG应用标识。
-            appVersion = "黄昏定制TG";
-            /*if (BuildVars.DEBUG_PRIVATE_VERSION) {
+            appVersion = BuildVars.BUILD_VERSION_STRING;
+            if (BuildVars.DEBUG_PRIVATE_VERSION) {
                 appVersion += " pbeta";
             } else if (BuildVars.DEBUG_VERSION) {
                 appVersion += " beta";
-            }*/
+            }
             systemVersion = "SDK " + Build.VERSION.SDK_INT;
         } catch (Exception e) {
             systemLangCode = "en";
@@ -252,8 +249,6 @@ public class ConnectionsManager extends BaseController {
         if (deviceModel.trim().length() == 0) {
             deviceModel = "Android unknown";
         }
-        // 即使读取本机信息时发生异常，也保持统一的应用标识；设备名仍保留原有安全回退值。
-        appVersion = "黄昏定制TG";
         if (systemVersion.trim().length() == 0) {
             systemVersion = "SDK Unknown";
         }

@@ -247,11 +247,9 @@ public class SessionCell extends FrameLayout {
             spannableStringBuilder.append(timeText);
             detailExTextView.setText(spannableStringBuilder);
 
-            // Telegram returns the API application's app_name (for example,
-            // "persontgscript1") together with app_version. The custom client
-            // identity is carried by app_version, so do not expose the API
-            // application's English name in the user's device list.
-            detailTextView.setText(session.app_version);
+            // Show the application name registered at Telegram (for example,
+            // HuangHunDZ) instead of the locally supplied app version.
+            detailTextView.setText(session.app_name);
         } else if (object instanceof TLRPC.TL_webAuthorization) {
             TLRPC.TL_webAuthorization session = (TLRPC.TL_webAuthorization) object;
             TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(session.bot_id);

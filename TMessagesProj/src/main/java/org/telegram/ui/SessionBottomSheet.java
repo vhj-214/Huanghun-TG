@@ -109,7 +109,7 @@ public class SessionBottomSheet extends BottomSheet {
         setAnimation(session, imageView);
 
         ItemView applicationItemView = new ItemView(context, false);
-        applicationItemView.valueText.setText(session.app_version);
+        applicationItemView.valueText.setText(session.app_name);
         Drawable drawable = ContextCompat.getDrawable(context, R.drawable.menu_devices).mutate();
         drawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN));
         applicationItemView.iconView.setImageDrawable(drawable);
