@@ -14207,7 +14207,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     || viewType == VIEW_TYPE_PREMIUM_TEXT_CELL
                     || viewType == VIEW_TYPE_STARS_TEXT_CELL
                     || viewType == VIEW_TYPE_BOT_APP
-                    || viewType == VIEW_TYPE_SHADOW_TEXT
                     || viewType == VIEW_TYPE_SUGGESTION
                     || viewType == VIEW_TYPE_COLORFUL_TEXT;
         }
