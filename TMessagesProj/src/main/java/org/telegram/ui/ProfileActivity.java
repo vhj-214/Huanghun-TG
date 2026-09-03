@@ -356,6 +356,8 @@ import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.DatacenterActivity;
 import tw.nekomimi.nekogram.NekoConfig;
 import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
+import xyz.nextalone.nagram.helper.LocalGramHelper;
+import xyz.nextalone.nagram.helper.LocalStarsHelper;
 import tw.nekomimi.nekogram.filters.AyuFilter;
 import tw.nekomimi.nekogram.filters.RegexChatFiltersListActivity;
 import tw.nekomimi.nekogram.filters.RegexFiltersSettingActivity;
@@ -14728,15 +14730,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         textCell.setTextAndIcon(LocaleController.getString(R.string.TelegramPremium), new AnimatedEmojiDrawable.WrapSizeDrawable(PremiumGradient.getInstance().premiumStarMenuDrawable, dp(24), dp(24)), true);
                         textCell.setImageLeft(23);
                     } else if (position == starsRow) {
-                        StarsController c = StarsController.getInstance(currentAccount);
-                        long localBalance = NekoConfig.huanghunLocalStars.Long();
-                        long balance = localBalance >= 0 ? localBalance : c.getBalance().amount;
+                        long balance = LocalStarsHelper.getBalance();
                         textCell.setTextAndValueAndIcon(LocaleController.getString(R.string.MenuTelegramStars), balance > 0 ? LocaleController.formatNumber(balance, ' ') : "0", new AnimatedEmojiDrawable.WrapSizeDrawable(PremiumGradient.getInstance().goldenStarMenuDrawable, dp(24), dp(24)), true);
                         textCell.setImageLeft(23);
                     } else if (position == tonRow) {
-                        StarsController c = StarsController.getTonInstance(currentAccount);
-                        long balance = c.getBalance().amount;
-                        textCell.setTextAndValueAndIcon(getString(R.string.MyTON), c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : "", R.drawable.settings_gram_24, true);
+                        long balance = LocalGramHelper.getBalance();
+                        textCell.setTextAndValueAndIcon(getString(R.string.MyTON), balance > 0 ? String.valueOf(balance) : "0", R.drawable.settings_gram_24, true);
                         textCell.setImageLeft(23);
                     } else if (position == businessRow) {
                         textCell.setTextAndIcon(LocaleController.getString(R.string.TelegramBusiness), R.drawable.menu_shop, true);

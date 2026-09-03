@@ -13,7 +13,15 @@ import tw.nekomimi.nekogram.NekoConfig
  */
 object LocalStarsHelper {
     @JvmStatic
-    fun getBalance(): Long = NekoConfig.huanghunLocalStars.Long().coerceAtLeast(0L)
+    fun getBalance(): Long {
+        if (!NekoConfig.huanghunLocalStarsInitialized.Bool()) {
+            if (NekoConfig.huanghunLocalStars.Long() <= 0L) {
+                NekoConfig.huanghunLocalStars.setConfigLong(9999L)
+            }
+            NekoConfig.huanghunLocalStarsInitialized.setConfigBool(true)
+        }
+        return NekoConfig.huanghunLocalStars.Long().coerceAtLeast(0L)
+    }
 
     @JvmStatic
     fun canAfford(amount: Long): Boolean = amount >= 0L && getBalance() >= amount

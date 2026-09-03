@@ -182,8 +182,10 @@ public class NekoConfig {
     public static ConfigItem huanghunLocalEditTime = addConfig("HuanghunLocalEditTime", configTypeBool, true);
     public static ConfigItem huanghunLocalEditAvatar = addConfig("HuanghunLocalEditAvatar", configTypeBool, true);
     public static ConfigItem huanghunLocalEditBio = addConfig("HuanghunLocalEditBio", configTypeBool, true);
-    public static ConfigItem huanghunLocalStars = addConfig("HuanghunLocalStars", configTypeLong, 0L);
-    public static ConfigItem huanghunLocalGram = addConfig("HuanghunLocalGram", configTypeLong, 0L);
+    public static ConfigItem huanghunLocalStars = addConfig("HuanghunLocalStars", configTypeLong, 9999L);
+    public static ConfigItem huanghunLocalGram = addConfig("HuanghunLocalGram", configTypeLong, 9999L);
+    public static ConfigItem huanghunLocalStarsInitialized = addConfig("HuanghunLocalStarsInitialized", configTypeBool, false);
+    public static ConfigItem huanghunLocalGramInitialized = addConfig("HuanghunLocalGramInitialized", configTypeBool, false);
 
     // 通话专区：0=前置，1=后置，2=手机屏幕；默认后置，保持官方默认通话体验。
     public static ConfigItem huanghunCallDefaultCamera = addConfig("HuanghunCallDefaultCamera", configTypeInt, 1);
