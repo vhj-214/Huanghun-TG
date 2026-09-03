@@ -60,6 +60,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BirthdayController;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.DialogObject;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.MessageObject;
@@ -616,6 +617,15 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             return reordering;
         }
 
+        private TL_stars.SavedStarGift safeBuildOfficialSavedGift(LocalProfileGiftData data) {
+            try {
+                return buildOfficialSavedGift(data);
+            } catch (Throwable e) {
+                FileLog.e("Unable to restore local profile gift " + data.getCollectibleId(), e);
+                return null;
+            }
+        }
+
         private TL_stars.SavedStarGift buildOfficialSavedGift(LocalProfileGiftData data) {
             TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, data);
             if (officialGift == null && data.getDocumentId() != 0L) {
@@ -842,11 +852,15 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
             final int spanCount = !localStyleGifts.isEmpty() ? 3 : Math.max(1, list.totalCount == 0 ? 3 : Math.min(3, list.totalCount));
             if (!localStyleGifts.isEmpty()) {
                 for (int i = 0; i < localStyleGifts.size(); i++) {
-                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localStyleGifts.get(i));
+                    final TL_stars.SavedStarGift savedGift = safeBuildOfficialSavedGift(localStyleGifts.get(i));
                     if (savedGift != null) {
                         // Use Telegram's own GiftCell so ordinary gifts keep white cards while
                         // collectible gifts use their official backdrop/pattern palette.
-                        items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, false));
+                        try {
+                            items.add(GiftSheet.GiftCell.Factory.asStarGift(0, savedGift, true, false, false));
+                        } catch (Throwable e) {
+                            FileLog.e("Unable to create local profile gift cell " + localStyleGifts.get(i).getCollectibleId(), e);
+                        }
                     }
                 }
             }
@@ -911,7 +925,7 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                 final LocalProfileGiftData localGift = (LocalProfileGiftData) item.object;
                 final TL_stars.StarGift officialGift = LocalProfileGiftHelper.getSessionGift(currentAccount, parent.dialogId, localGift);
                 if (officialGift != null) {
-                    final TL_stars.SavedStarGift savedGift = buildOfficialSavedGift(localGift);
+                    final TL_stars.SavedStarGift savedGift = safeBuildOfficialSavedGift(localGift);
                     if (savedGift == null) return;
                     new StarGiftSheet(getContext(), currentAccount, parent.dialogId, resourcesProvider)
                         .set(savedGift, null)
