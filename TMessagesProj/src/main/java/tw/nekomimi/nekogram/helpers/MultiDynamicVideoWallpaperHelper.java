@@ -94,7 +94,21 @@ public final class MultiDynamicVideoWallpaperHelper {
         for (String url : urls) { File file = null; try { file = download(c, url, index++); int orientation = readOrientation(file.getAbsolutePath()); if (orientation <= 0) { landscape++; file.delete(); continue; } addPath(c, account, file.getAbsolutePath()); imported++; } catch (Throwable e) { if (file != null) file.delete(); FileLog.e(e); errors.add("视频无法播放：" + url); } }
         if (imported > 0) setEnabled(c, account, true); return new FetchResult(imported, landscape, errors);
     }
-    private static String readText(String address) throws Exception { HttpURLConnection h = (HttpURLConnection) new URL(address).openConnection(); h.setConnectTimeout(15000); h.setReadTimeout(30000); h.setRequestProperty("User-Agent", "Mozilla/5.0"); try (InputStream in = h.getInputStream()) { java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(); byte[] b = new byte[8192]; int n; while ((n = in.read(b)) != -1) out.write(b, 0, n); return out.toString("UTF-8"); } finally { h.disconnect(); } }
+    private static String readText(String address) throws Exception {
+        HttpURLConnection h = (HttpURLConnection) new URL(address).openConnection();
+        h.setConnectTimeout(15000); h.setReadTimeout(30000); h.setInstanceFollowRedirects(true); h.setRequestProperty("User-Agent", "Mozilla/5.0");
+        String contentType = h.getContentType();
+        if (contentType != null && contentType.toLowerCase().startsWith("video/")) {
+            String finalUrl = h.getURL().toString(); h.disconnect(); return finalUrl;
+        }
+        try (InputStream in = h.getInputStream()) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(); byte[] b = new byte[8192]; int n;
+            while ((n = in.read(b)) != -1) out.write(b, 0, n);
+            String body = out.toString("UTF-8");
+            if (body.trim().length() == 0) throw new Exception("接口没有返回视频地址");
+            return body;
+        } finally { h.disconnect(); }
+    }
     private static void collectUrls(String body, Set<String> urls) { String trimmed = body.trim(); try { Object object = new org.json.JSONTokener(trimmed).nextValue(); collectJson(object, urls); } catch (Throwable ignore) { for (String p : trimmed.split("[\\s\"']+")) if (isVideoUrl(p)) urls.add(p); } if (isVideoUrl(trimmed)) urls.add(trimmed); }
     private static void collectJson(Object value, Set<String> urls) { if (value instanceof String) { String s=(String)value; if (isVideoUrl(s)) urls.add(s); } else if (value instanceof JSONObject) { JSONObject o=(JSONObject)value; JSONArray names=o.names(); if(names!=null) for(int i=0;i<names.length();i++) collectJson(o.opt(names.optString(i)), urls); } else if (value instanceof JSONArray) { JSONArray a=(JSONArray)value; for(int i=0;i<a.length();i++) collectJson(a.opt(i), urls); } }
     private static boolean isVideoUrl(String s) { String x=s.toLowerCase(); return (x.startsWith("http://") || x.startsWith("https://")) && (x.contains(".mp4") || x.contains(".m3u8") || x.contains("video") || x.contains("play")); }

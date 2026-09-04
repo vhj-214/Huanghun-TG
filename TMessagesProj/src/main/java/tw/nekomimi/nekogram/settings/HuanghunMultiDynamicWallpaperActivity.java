@@ -29,20 +29,26 @@ import tw.nekomimi.nekogram.helpers.MultiDynamicVideoWallpaperHelper;
 
 public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
     private static final int REQUEST_PICK = 7701;
+    private final boolean deleteOnly;
     private LinearLayout list;
     private TextView summary;
     private final Set<String> selected = new HashSet<>();
 
+    public HuanghunMultiDynamicWallpaperActivity() { this(false); }
+    public HuanghunMultiDynamicWallpaperActivity(boolean deleteOnly) { this.deleteOnly = deleteOnly; }
+
     @Override public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("多轮循环动态壁纸");
+        actionBar.setTitle(deleteOnly ? "查看/删除当前动态视频" : "多轮循环动态壁纸");
         actionBar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() { @Override public void onItemClick(int id) { if (id == -1) finishFragment(); } });
         LinearLayout root = new LinearLayout(context); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12)); root.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
         summary = new TextView(context); summary.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText)); summary.setTextSize(15); root.addView(summary, lp( -1, -2, 0, 0, 0, 10));
-        Button enable = button(context, "开启多轮循环动态壁纸"); enable.setOnClickListener(v -> { MultiDynamicVideoWallpaperHelper.setEnabled(context, currentAccount, true); DynamicVideoWallpaperHelper.clearVideo(context, currentAccount, 0L); refresh(); }); root.addView(enable, lp(-1, 46, 0, 0, 0, 8));
-        Button pick = button(context, "从手机选择竖屏视频"); pick.setOnClickListener(v -> pickVideos()); root.addView(pick, lp(-1, 46, 0, 0, 0, 8));
-        Button api = button(context, "通过接口解析视频"); api.setOnClickListener(v -> showApiDialog(context)); root.addView(api, lp(-1, 46, 0, 0, 0, 8));
-        Button mode = button(context, "切换播放模式：" + modeText(context)); mode.setOnClickListener(v -> { MultiDynamicVideoWallpaperHelper.setMode(context, currentAccount, MultiDynamicVideoWallpaperHelper.getMode(context, currentAccount) == MultiDynamicVideoWallpaperHelper.MODE_ORDER ? MultiDynamicVideoWallpaperHelper.MODE_RANDOM : MultiDynamicVideoWallpaperHelper.MODE_ORDER); ((Button)v).setText("切换播放模式：" + modeText(context)); }); root.addView(mode, lp(-1, 46, 0, 0, 0, 8));
+        if (!deleteOnly) {
+            Button enable = button(context, "开启多轮循环动态壁纸"); enable.setOnClickListener(v -> { MultiDynamicVideoWallpaperHelper.setEnabled(context, currentAccount, true); DynamicVideoWallpaperHelper.clearVideo(context, currentAccount, 0L); refresh(); }); root.addView(enable, lp(-1, 46, 0, 0, 0, 8));
+            Button pick = button(context, "从手机选择竖屏视频"); pick.setOnClickListener(v -> pickVideos()); root.addView(pick, lp(-1, 46, 0, 0, 0, 8));
+            Button api = button(context, "通过接口解析视频"); api.setOnClickListener(v -> showApiDialog(context)); root.addView(api, lp(-1, 46, 0, 0, 0, 8));
+            Button mode = button(context, "切换播放模式：" + modeText(context)); mode.setOnClickListener(v -> { MultiDynamicVideoWallpaperHelper.setMode(context, currentAccount, MultiDynamicVideoWallpaperHelper.getMode(context, currentAccount) == MultiDynamicVideoWallpaperHelper.MODE_ORDER ? MultiDynamicVideoWallpaperHelper.MODE_RANDOM : MultiDynamicVideoWallpaperHelper.MODE_ORDER); ((Button)v).setText("切换播放模式：" + modeText(context)); }); root.addView(mode, lp(-1, 46, 0, 0, 0, 8));
+        }
         Button delete = button(context, "删除已勾选视频"); delete.setOnClickListener(v -> deleteSelected(context)); root.addView(delete, lp(-1, 46, 0, 0, 0, 8));
         list = new LinearLayout(context); list.setOrientation(LinearLayout.VERTICAL); root.addView(list, lp(-1, -1, 0, 8, 0, 0)); fragmentView = root; refresh(); return root;
     }
