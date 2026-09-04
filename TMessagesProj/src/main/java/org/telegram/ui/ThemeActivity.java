@@ -158,7 +158,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private int multiDynamicVideoWallpaperRow;
     private int multiDynamicModeRow;
     private int multiDynamicManageRow;
-    private int multiDynamicApiRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -603,7 +602,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         multiDynamicVideoWallpaperRow = -1;
         multiDynamicModeRow = -1;
         multiDynamicManageRow = -1;
-        multiDynamicApiRow = -1;
         changeUserColor = -1;
         settingsRow = -1;
         directShareRow = -1;
@@ -689,7 +687,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             multiDynamicVideoWallpaperRow = rowCount++;
             multiDynamicModeRow = rowCount++;
             multiDynamicManageRow = rowCount++;
-            multiDynamicApiRow = rowCount++;
             changeUserColor = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
@@ -863,12 +860,72 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private static final int REQUEST_DYNAMIC_VIDEO_WALLPAPER = 9924;
+    private static final int REQUEST_MULTI_DYNAMIC_VIDEO_WALLPAPER = 9925;
 
-    private void chooseDynamicVideoWallpaper() {
-        if (MultiDynamicVideoWallpaperHelper.isApiEnabled(ApplicationLoader.applicationContext, currentAccount)) {
-            showDynamicVideoWallpaperDialog("接口模式已启用", "当前正在使用接口解析视频壁纸，单个动态壁纸暂时不能设置。请先在“通过接口解析视频”中关闭接口模式。");
+    private void chooseMultiDynamicVideoWallpaper() {
+        if (getParentActivity() == null) {
             return;
         }
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_MULTI_DYNAMIC_VIDEO_WALLPAPER);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            showDynamicVideoWallpaperDialog("启动失败", "无法打开视频选择器，请稍后重试。");
+        }
+    }
+
+    private void importMultiDynamicVideos(Intent data) {
+        if (data == null || getParentActivity() == null) {
+            return;
+        }
+        ArrayList<Uri> sources = new ArrayList<>();
+        if (data.getClipData() != null) {
+            for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                sources.add(data.getClipData().getItemAt(i).getUri());
+            }
+        } else if (data.getData() != null) {
+            sources.add(data.getData());
+        }
+        if (sources.isEmpty()) {
+            return;
+        }
+        AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setMessage("正在导入并验证所选视频，请稍候。");
+        progress.setCancelable(false);
+        showDialog(progress);
+        final Context applicationContext = ApplicationLoader.applicationContext;
+        Utilities.globalQueue.postRunnable(() -> {
+            MultiDynamicVideoWallpaperHelper.FetchResult result = MultiDynamicVideoWallpaperHelper.importLocalVideos(applicationContext, currentAccount, sources);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (progress.isShowing()) {
+                    progress.dismiss();
+                }
+                if (result.imported > 0) {
+                    MultiDynamicVideoWallpaperHelper.setEnabled(applicationContext, currentAccount, true);
+                    DynamicVideoWallpaperHelper.clearVideo(applicationContext, currentAccount, 0L);
+                }
+                String message = "已导入 " + result.imported + " 个竖屏视频。";
+                if (result.skippedLandscape > 0) {
+                    message += "\n已跳过 " + result.skippedLandscape + " 个横屏视频。";
+                }
+                if (!result.errors.isEmpty()) {
+                    message += "\n有 " + result.errors.size() + " 个视频无法播放或导入。";
+                }
+                showDynamicVideoWallpaperDialog(result.imported > 0 ? "启动成功" : "未导入视频", message);
+                if (listAdapter != null) {
+                    listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
+                    listAdapter.notifyItemChanged(multiDynamicManageRow);
+                }
+            });
+        });
+    }
+
+    private void chooseDynamicVideoWallpaper() {
         if (getParentActivity() == null) {
             return;
         }
@@ -960,62 +1017,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         showDynamicVideoWallpaperDialog("删除成功", "当前动态视频壁纸已删除，聊天将立即恢复静态壁纸或默认背景。");
     }
 
-    private void showMultiVideoApiDialog() {
-        if (getParentActivity() == null) return;
-        final Context context = getParentActivity();
-        final boolean apiEnabled = MultiDynamicVideoWallpaperHelper.isApiEnabled(ApplicationLoader.applicationContext, currentAccount);
-        final android.widget.EditText input = new android.widget.EditText(context);
-        input.setSingleLine(false);
-        input.setMinLines(5);
-        input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
-        input.setHint("每行一个接口路径，可直接删除或添加");
-        input.setText(MultiDynamicVideoWallpaperHelper.getApiText(ApplicationLoader.applicationContext));
-        String message = apiEnabled
-                ? "接口视频模式当前已启用。保存并关闭后，才可以重新设置单个动态壁纸或多轮循环动态壁纸。"
-                : "接口返回的视频会保存到本机视频库；横屏视频自动跳过，只保留竖屏视频。支持多个接口，每行一个。";
-        new AlertDialog.Builder(context)
-                .setTitle("通过接口解析视频")
-                .setMessage(message)
-                .setView(input)
-                .setNegativeButton(getString(R.string.Cancel), null)
-                .setNeutralButton("保存接口", (dialog, which) -> MultiDynamicVideoWallpaperHelper.setApiText(ApplicationLoader.applicationContext, input.getText().toString()))
-                .setPositiveButton(apiEnabled ? "保存并关闭接口模式" : "获取视频", (dialog, which) -> {
-                    String apiText = input.getText().toString();
-                    MultiDynamicVideoWallpaperHelper.setApiText(ApplicationLoader.applicationContext, apiText);
-                    if (apiEnabled) {
-                        MultiDynamicVideoWallpaperHelper.setApiEnabled(ApplicationLoader.applicationContext, currentAccount, false);
-                        if (listAdapter != null) {
-                            listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
-                            listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
-                            listAdapter.notifyItemChanged(multiDynamicApiRow);
-                        }
-                        return;
-                    }
-                    AlertDialog progress = new AlertDialog(context, AlertDialog.ALERT_TYPE_SPINNER);
-                    progress.setMessage("正在解析接口并筛选竖屏视频，请稍候…");
-                    progress.setCancelable(false);
-                    showDialog(progress);
-                    Utilities.globalQueue.postRunnable(() -> {
-                        MultiDynamicVideoWallpaperHelper.FetchResult result = MultiDynamicVideoWallpaperHelper.fetchFromApis(ApplicationLoader.applicationContext, currentAccount, apiText);
-                        AndroidUtilities.runOnUIThread(() -> {
-                            if (progress.isShowing()) progress.dismiss();
-                            if (result.imported > 0) DynamicVideoWallpaperHelper.clearVideo(ApplicationLoader.applicationContext, currentAccount, 0L);
-                            String resultMessage = "已获取 " + result.imported + " 个竖屏视频。";
-                            if (result.skippedLandscape > 0) resultMessage += "\n已自动跳过 " + result.skippedLandscape + " 个横屏视频。";
-                            if (!result.errors.isEmpty()) resultMessage += "\n有 " + result.errors.size() + " 个地址获取失败或不是可播放视频。";
-                            showDynamicVideoWallpaperDialog("接口处理完成", resultMessage);
-                            if (listAdapter != null) {
-                                listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
-                                listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
-                                listAdapter.notifyItemChanged(multiDynamicManageRow);
-                                listAdapter.notifyItemChanged(multiDynamicApiRow);
-                            }
-                        });
-                    });
-                })
-                .show();
-    }
-
     private void showDynamicVideoWallpaperDialog(String title, String message) {
         if (getParentActivity() == null) {
             return;
@@ -1031,6 +1032,10 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_DYNAMIC_VIDEO_WALLPAPER && resultCode == Activity.RESULT_OK) {
             saveDynamicVideoWallpaper(data == null ? null : data.getData());
+            return;
+        }
+        if (requestCode == REQUEST_MULTI_DYNAMIC_VIDEO_WALLPAPER && resultCode == Activity.RESULT_OK) {
+            importMultiDynamicVideos(data);
             return;
         }
         super.onActivityResultFragment(requestCode, resultCode, data);
@@ -1329,26 +1334,13 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             } else if (position == deleteDynamicVideoWallpaperRow) {
                 confirmClearDynamicVideoWallpaper();
             } else if (position == multiDynamicVideoWallpaperRow) {
-                if (MultiDynamicVideoWallpaperHelper.isApiEnabled(ApplicationLoader.applicationContext, currentAccount)) {
-                    showDynamicVideoWallpaperDialog("接口模式已启用", "当前正在使用接口解析视频壁纸，多轮循环动态壁纸暂时不能启动。请先关闭接口模式。");
-                    return;
-                }
-                boolean enabled = MultiDynamicVideoWallpaperHelper.isEnabled(ApplicationLoader.applicationContext, currentAccount);
-                if (!enabled && MultiDynamicVideoWallpaperHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount) == 0) {
-                    showDynamicVideoWallpaperDialog("无法启动", "当前没有可播放的视频。请先点击“通过接口解析视频”获取竖屏视频，或进入“查看/删除当前动态视频”页面检查视频库。");
-                } else {
-                    MultiDynamicVideoWallpaperHelper.setEnabled(ApplicationLoader.applicationContext, currentAccount, !enabled);
-                    if (!enabled) DynamicVideoWallpaperHelper.clearVideo(ApplicationLoader.applicationContext, currentAccount, 0L);
-                    if (listAdapter != null) listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
-                }
+                chooseMultiDynamicVideoWallpaper();
             } else if (position == multiDynamicModeRow) {
                 int nextMode = MultiDynamicVideoWallpaperHelper.getMode(ApplicationLoader.applicationContext, currentAccount) == MultiDynamicVideoWallpaperHelper.MODE_ORDER ? MultiDynamicVideoWallpaperHelper.MODE_RANDOM : MultiDynamicVideoWallpaperHelper.MODE_ORDER;
                 MultiDynamicVideoWallpaperHelper.setMode(ApplicationLoader.applicationContext, currentAccount, nextMode);
                 if (listAdapter != null) listAdapter.notifyItemChanged(multiDynamicModeRow);
             } else if (position == multiDynamicManageRow) {
                 presentFragment(new HuanghunMultiDynamicWallpaperActivity(true));
-            } else if (position == multiDynamicApiRow) {
-                showMultiVideoApiDialog();
             } else if (position == changeUserColor) {
                 presentFragment(new PeerColorActivity(0).setOnApplied(this));
             } else if (position == sendByEnterRow) {
@@ -2989,9 +2981,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == dynamicVideoWallpaperRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        boolean apiEnabled = MultiDynamicVideoWallpaperHelper.isApiEnabled(ApplicationLoader.applicationContext, currentAccount);
-                        boolean videoEnabled = !apiEnabled && DynamicVideoWallpaperHelper.getVideoPath(ApplicationLoader.applicationContext, currentAccount, 0L) != null;
-                        cell.setTextAndValueAndIcon("设置动态壁纸", apiEnabled ? "接口模式已启用" : (videoEnabled ? "已启用" : "从相册选择视频"), R.drawable.msg_background, deleteDynamicVideoWallpaperRow >= 0);
+                        boolean videoEnabled = DynamicVideoWallpaperHelper.getVideoPath(ApplicationLoader.applicationContext, currentAccount, 0L) != null;
+                        cell.setTextAndValueAndIcon("设置动态壁纸", videoEnabled ? "已启用" : "从相册选择视频", R.drawable.msg_background, deleteDynamicVideoWallpaperRow >= 0);
                     } else if (position == deleteDynamicVideoWallpaperRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_text_RedBold, Theme.key_text_RedRegular);
@@ -3000,10 +2991,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == multiDynamicVideoWallpaperRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        boolean apiEnabled = MultiDynamicVideoWallpaperHelper.isApiEnabled(ApplicationLoader.applicationContext, currentAccount);
                         boolean enabled = MultiDynamicVideoWallpaperHelper.isEnabled(ApplicationLoader.applicationContext, currentAccount);
                         int count = MultiDynamicVideoWallpaperHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount);
-                        cell.setTextAndValueAndIcon("启动多轮循环动态壁纸", apiEnabled ? "接口模式已启用" : (enabled ? ("已启用 · " + count + " 个") : (count + " 个视频")), R.drawable.msg_background, multiDynamicModeRow >= 0);
+                        cell.setTextAndValueAndIcon("启动多轮循环动态壁纸", enabled ? ("已启用 · " + count + " 个") : (count == 0 ? "点击选择视频" : (count + " 个视频")), R.drawable.msg_background, multiDynamicModeRow >= 0);
                     } else if (position == multiDynamicModeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -3013,12 +3003,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         int count = MultiDynamicVideoWallpaperHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount);
-                        cell.setTextAndValueAndIcon("查看/删除当前动态视频", count == 0 ? "暂无视频" : (count + " 个视频"), R.drawable.msg_delete, multiDynamicApiRow >= 0);
-                    } else if (position == multiDynamicApiRow) {
-                        cell.setSubtitle(null);
-                        cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        boolean apiEnabled = MultiDynamicVideoWallpaperHelper.isApiEnabled(ApplicationLoader.applicationContext, currentAccount);
-                        cell.setTextAndValueAndIcon("通过接口解析视频", apiEnabled ? "已启用 · 点击关闭" : "配置接口并获取视频", R.drawable.msg_download, changeUserColor >= 0);
+                        cell.setTextAndValueAndIcon("查看/删除当前动态视频", count == 0 ? "暂无视频" : (count + " 个视频"), R.drawable.msg_delete, changeUserColor >= 0);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -3122,7 +3107,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_THEME_ACCENT_LIST;
             } else if (position == bubbleRadiusRow) {
                 return TYPE_BUBBLE_RADIUS;
-            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == multiDynamicVideoWallpaperRow || position == multiDynamicModeRow || position == multiDynamicManageRow || position == multiDynamicApiRow || position == editThemeRow || position == createNewThemeRow ||
+            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == multiDynamicVideoWallpaperRow || position == multiDynamicModeRow || position == multiDynamicManageRow || position == editThemeRow || position == createNewThemeRow ||
                         position == huanghunDefaultThemeRow || position == deleteCustomThemesRow || position == liteModeRow || position == stickersRow) {
                 return TYPE_TEXT_PREFERENCE;
             } else if (position == swipeGestureRow) {
