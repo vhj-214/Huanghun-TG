@@ -168,7 +168,7 @@ public final class DynamicVideoWallpaperHelper {
         if (preferences.getBoolean(disabledKey(account, dialogId), false)) {
             return null;
         }
-        if (MultiDynamicVideoWallpaperHelper.isEnabled(context, account)) {
+        if (MultiDynamicVideoWallpaperHelper.isAnyEnabled(context, account)) {
             return null;
         }
         String path = preferences.getString(selectedKey, null);
@@ -222,7 +222,7 @@ public final class DynamicVideoWallpaperHelper {
     /** 多轮循环模式的播放器入口；启用后单视频模式不会被读取。 */
     public static Player attachMulti(ViewGroup parent, View contentAnchor, Context context, int account, long dialogId) {
         ArrayList<String> paths = MultiDynamicVideoWallpaperHelper.getVideoPaths(context, account);
-        if (!MultiDynamicVideoWallpaperHelper.isEnabled(context, account) || paths.isEmpty() || parent == null) return null;
+        if (!MultiDynamicVideoWallpaperHelper.isAnyEnabled(context, account) || paths.isEmpty() || parent == null) return null;
         FrameLayout layer = new FrameLayout(context);
         layer.setClipChildren(true);
         layer.setClipToPadding(true);
@@ -257,7 +257,7 @@ public final class DynamicVideoWallpaperHelper {
      * 这样视频不会只局限在消息列表，顶部导航、翻译栏与底部输入区也能看到同一段背景。
      */
     public static Player attach(ViewGroup parent, View contentAnchor, Context context, int account, long dialogId) {
-        if (MultiDynamicVideoWallpaperHelper.isEnabled(context, account)) {
+        if (MultiDynamicVideoWallpaperHelper.isAnyEnabled(context, account)) {
             return attachMulti(parent, contentAnchor, context, account, dialogId);
         }
         String path = getVideoPath(context, account, dialogId);

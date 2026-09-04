@@ -29,6 +29,7 @@ public final class MultiDynamicVideoWallpaperHelper {
     private static final String KEY_MODE = "mode_";
     private static final String KEY_ENABLED = "enabled_";
     private static final String KEY_APIS = "apis";
+    private static final String KEY_API_ENABLED = "api_enabled_";
     public static final int MODE_ORDER = 0;
     public static final int MODE_RANDOM = 1;
     public static final String DEFAULT_API = "https://api.yujn.cn/api/zzxjj.php";
@@ -65,7 +66,10 @@ public final class MultiDynamicVideoWallpaperHelper {
     }
     public static int getVideoCount(Context c, int account) { return getVideos(c, account).size(); }
     public static boolean isEnabled(Context c, int account) { return prefs(c).getBoolean(key(KEY_ENABLED, account), false) && getVideoCount(c, account) > 0; }
-    public static void setEnabled(Context c, int account, boolean enabled) { prefs(c).edit().putBoolean(key(KEY_ENABLED, account), enabled).commit(); }
+    public static boolean isApiEnabled(Context c, int account) { return prefs(c).getBoolean(key(KEY_API_ENABLED, account), false) && getVideoCount(c, account) > 0; }
+    public static boolean isAnyEnabled(Context c, int account) { return isEnabled(c, account) || isApiEnabled(c, account); }
+    public static void setEnabled(Context c, int account, boolean enabled) { prefs(c).edit().putBoolean(key(KEY_ENABLED, account), enabled).putBoolean(key(KEY_API_ENABLED, account), enabled ? false : prefs(c).getBoolean(key(KEY_API_ENABLED, account), false)).commit(); }
+    public static void setApiEnabled(Context c, int account, boolean enabled) { prefs(c).edit().putBoolean(key(KEY_API_ENABLED, account), enabled).putBoolean(key(KEY_ENABLED, account), enabled ? false : prefs(c).getBoolean(key(KEY_ENABLED, account), false)).commit(); }
     public static int getMode(Context c, int account) { return prefs(c).getInt(key(KEY_MODE, account), MODE_ORDER) == MODE_RANDOM ? MODE_RANDOM : MODE_ORDER; }
     public static void setMode(Context c, int account, int mode) { prefs(c).edit().putInt(key(KEY_MODE, account), mode == MODE_RANDOM ? MODE_RANDOM : MODE_ORDER).apply(); }
     public static String getApiText(Context c) { return prefs(c).getString(KEY_APIS, DEFAULT_API); }
@@ -92,7 +96,7 @@ public final class MultiDynamicVideoWallpaperHelper {
         for (String line : source.split("[\\r\\n,;]+")) { String api = line.trim(); if (api.length() == 0) continue; try { collectUrls(readText(api), urls); } catch (Throwable e) { FileLog.e(e); errors.add(api + "：获取失败"); } }
         int index = getVideoCount(c, account);
         for (String url : urls) { File file = null; try { file = download(c, url, index++); int orientation = readOrientation(file.getAbsolutePath()); if (orientation <= 0) { landscape++; file.delete(); continue; } addPath(c, account, file.getAbsolutePath()); imported++; } catch (Throwable e) { if (file != null) file.delete(); FileLog.e(e); errors.add("视频无法播放：" + url); } }
-        if (imported > 0) setEnabled(c, account, true); return new FetchResult(imported, landscape, errors);
+        if (imported > 0) setApiEnabled(c, account, true); return new FetchResult(imported, landscape, errors);
     }
     private static String readText(String address) throws Exception {
         HttpURLConnection h = (HttpURLConnection) new URL(address).openConnection();
