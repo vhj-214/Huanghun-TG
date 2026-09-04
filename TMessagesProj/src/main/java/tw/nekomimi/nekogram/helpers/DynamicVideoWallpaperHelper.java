@@ -391,6 +391,10 @@ public final class DynamicVideoWallpaperHelper {
                 });
                 mediaPlayer.setOnErrorListener((player, what, extra) -> {
                     FileLog.e("Dynamic video wallpaper playback failed: " + what + "/" + extra);
+                    // 某些机型遇到损坏视频或不支持的编解码器时，MediaPlayer 会进入不可恢复状态。
+                    // 立即在主线程回收图层并恢复原始背景，避免残留 Surface 持续占用解码器，
+                    // 也避免页面在下一次进入时因遗留播放器而闪退。
+                    textureView.post(this::release);
                     return true;
                 });
                 mediaPlayer.prepareAsync();
@@ -533,6 +537,11 @@ public final class DynamicVideoWallpaperHelper {
                 playlistIndex = (playlistIndex + 1) % playlist.size();
             }
             String nextPath = playlist.get(playlistIndex);
+            if (nextPath == null || !new File(nextPath).isFile()) {
+                FileLog.e("Dynamic video wallpaper playlist contains an unavailable file");
+                textureView.post(this::release);
+                return;
+            }
             try {
                 if (mediaPlayer != null) {
                     mediaPlayer.reset();

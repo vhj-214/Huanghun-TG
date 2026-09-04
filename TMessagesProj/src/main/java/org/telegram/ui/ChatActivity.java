@@ -607,6 +607,8 @@ public class ChatActivity extends BaseFragment implements
     private BusinessLinksEmptyView businessLinksEmptyView;
     public ChatActivityFragmentView contentView;
     private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
+    // 为延后挂载的视频背景分配版本号。聊天页销毁或切换后，旧任务不会再触及已脱离的 View。
+    private int dynamicVideoWallpaperGeneration;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener dynamicVideoWallpaperChangeListener = (account, changedDialogId) -> {
         if (isDynamicWallpaperChangeForCurrentChat(account, changedDialogId)) {
             AndroidUtilities.runOnUIThread(this::refreshDynamicVideoWallpaper);
@@ -3721,6 +3723,7 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onFragmentDestroy() {
         DynamicVideoWallpaperHelper.removeChangeListener(dynamicVideoWallpaperChangeListener);
+        dynamicVideoWallpaperGeneration++;
         super.onFragmentDestroy();
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.release();
@@ -21885,6 +21888,7 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void refreshDynamicVideoWallpaper() {
+        final int generation = ++dynamicVideoWallpaperGeneration;
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.release();
             dynamicVideoWallpaperPlayer = null;
@@ -21915,8 +21919,13 @@ public class ChatActivity extends BaseFragment implements
                 }
             }
         } else {
-            contentView.post(() -> {
-                if (contentView != null && dynamicVideoWallpaperPlayer == null) {
+            final ChatActivityFragmentView currentContentView = contentView;
+            currentContentView.post(() -> {
+                // Fragment 已销毁、内容视图已替换，或前一次刷新已过期时，绝不能重建播放器。
+                if (generation == dynamicVideoWallpaperGeneration
+                        && contentView == currentContentView
+                        && currentContentView.getParent() != null
+                        && dynamicVideoWallpaperPlayer == null) {
                     refreshDynamicVideoWallpaper();
                 }
             });

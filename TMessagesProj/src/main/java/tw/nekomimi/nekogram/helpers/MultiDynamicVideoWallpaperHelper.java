@@ -189,11 +189,17 @@ public final class MultiDynamicVideoWallpaperHelper {
                 }
                 out.write(buffer, 0, count);
             }
+            if (total <= 0 || readDuration(file.getAbsolutePath()) <= 0) {
+                throw new Exception("不是可播放视频");
+            }
+            return file;
+        } catch (Throwable e) {
+            // 调用方在 copyLocal 抛异常前无法取得 file 引用；必须在这里自行清理半成品。
+            if (file.exists() && !file.delete()) {
+                FileLog.e("Unable to delete invalid dynamic wallpaper video: " + file.getAbsolutePath());
+            }
+            throw e;
         }
-        if (total <= 0 || readDuration(file.getAbsolutePath()) <= 0) {
-            throw new Exception("不是可播放视频");
-        }
-        return file;
     }
 
     private static int readOrientation(String path) {
