@@ -113,6 +113,8 @@ public final class DynamicVideoWallpaperHelper {
     public static void saveVideo(Context context, int account, long dialogId, String path) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String oldPath = preferences.getString(key(account, dialogId), null);
+        // 两种动态壁纸模式互斥：重新设置单视频时关闭多轮模式。
+        MultiDynamicVideoWallpaperHelper.setEnabled(context, account, false);
         // 使用同步提交确保通知当前聊天页刷新时，新路径已经可被立即读取。
         // 用户重新选择视频时，明确重新启用该会话的动态壁纸。
         preferences.edit()
@@ -166,6 +168,9 @@ public final class DynamicVideoWallpaperHelper {
         if (preferences.getBoolean(disabledKey(account, dialogId), false)) {
             return null;
         }
+        if (MultiDynamicVideoWallpaperHelper.isEnabled(context, account)) {
+            return null;
+        }
         String path = preferences.getString(selectedKey, null);
         // 聊天设置页保存的全局默认视频使用 dialogId = 0。具体聊天没有单独设置时，
         // 一律回退到该默认视频，因此切换 Telegram 主题不会影响本地动态背景。
@@ -214,11 +219,47 @@ public final class DynamicVideoWallpaperHelper {
         return attach(parent, null, context, account, dialogId);
     }
 
+    /** 多轮循环模式的播放器入口；启用后单视频模式不会被读取。 */
+    public static Player attachMulti(ViewGroup parent, View contentAnchor, Context context, int account, long dialogId) {
+        ArrayList<String> paths = MultiDynamicVideoWallpaperHelper.getVideoPaths(context, account);
+        if (!MultiDynamicVideoWallpaperHelper.isEnabled(context, account) || paths.isEmpty() || parent == null) return null;
+        FrameLayout layer = new FrameLayout(context);
+        layer.setClipChildren(true);
+        layer.setClipToPadding(true);
+        layer.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        TextureView textureView = new TextureView(context);
+        textureView.setClickable(false);
+        textureView.setFocusable(false);
+        textureView.setOpaque(false);
+        textureView.setAlpha(0f);
+        layer.addView(textureView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        int insertIndex = 0;
+        if (contentAnchor != null) {
+            int anchorIndex = parent.indexOfChild(contentAnchor);
+            insertIndex = anchorIndex < 0 ? 0 : anchorIndex;
+        } else if (parent instanceof SizeNotifierFrameLayout) {
+            View backgroundView = ((SizeNotifierFrameLayout) parent).backgroundView;
+            int backgroundIndex = backgroundView == null ? -1 : parent.indexOfChild(backgroundView);
+            insertIndex = backgroundIndex < 0 ? 0 : backgroundIndex + 1;
+        }
+        parent.addView(layer, Math.min(insertIndex, parent.getChildCount()), new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        Player player = new Player(textureView, paths, layer, MultiDynamicVideoWallpaperHelper.getMode(context, account));
+        if (contentAnchor instanceof SizeNotifierFrameLayout) {
+            View background = ((SizeNotifierFrameLayout) contentAnchor).backgroundView;
+            if (background != null) { background.setAlpha(0f); player.setSuppressedContentBackground(background); }
+        }
+        player.start();
+        return player;
+    }
+
     /**
      * 将动态壁纸插入指定聊天根容器，并可通过 contentAnchor 保证视频位于聊天片段与顶部栏共同下方。
      * 这样视频不会只局限在消息列表，顶部导航、翻译栏与底部输入区也能看到同一段背景。
      */
     public static Player attach(ViewGroup parent, View contentAnchor, Context context, int account, long dialogId) {
+        if (MultiDynamicVideoWallpaperHelper.isEnabled(context, account)) {
+            return attachMulti(parent, contentAnchor, context, account, dialogId);
+        }
         String path = getVideoPath(context, account, dialogId);
         if (path == null || parent == null) {
             return null;
@@ -273,8 +314,12 @@ public final class DynamicVideoWallpaperHelper {
 
     public static final class Player implements TextureView.SurfaceTextureListener {
         private final TextureView textureView;
-        private final String path;
+        private String path;
+        private final ArrayList<String> playlist;
         private final View layerView;
+        private final boolean playlistMode;
+        private final int playlistModeValue;
+        private int playlistIndex;
         private MediaPlayer mediaPlayer;
         private Surface surface;
         private SurfaceTexture surfaceTexture;
@@ -287,9 +332,17 @@ public final class DynamicVideoWallpaperHelper {
         private int videoHeight;
 
         private Player(TextureView textureView, String path, View layerView) {
-            this.textureView = textureView;
+            this(textureView, null, layerView, MultiDynamicVideoWallpaperHelper.MODE_ORDER);
             this.path = path;
+        }
+
+        private Player(TextureView textureView, ArrayList<String> playlist, View layerView, int mode) {
+            this.textureView = textureView;
+            this.playlist = playlist;
+            this.path = playlist == null || playlist.isEmpty() ? null : playlist.get(0);
             this.layerView = layerView;
+            this.playlistMode = playlist != null && !playlist.isEmpty();
+            this.playlistModeValue = mode;
         }
 
         private void start() {
@@ -315,8 +368,11 @@ public final class DynamicVideoWallpaperHelper {
                 mediaPlayer.setSurface(surface);
                 // 明确要求播放器缩放以完整呈现内容，绝不使用裁切填满模式。
                 mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
-                mediaPlayer.setLooping(true);
+                mediaPlayer.setLooping(!playlistMode);
                 mediaPlayer.setVolume(0f, 0f);
+                if (playlistMode) {
+                    mediaPlayer.setOnCompletionListener(player -> playNextVideo());
+                }
                 mediaPlayer.setOnVideoSizeChangedListener((player, width, height) -> {
                     videoWidth = width;
                     videoHeight = height;
@@ -465,6 +521,29 @@ public final class DynamicVideoWallpaperHelper {
             } catch (Throwable e) {
                 FileLog.e(e);
             }
+        }
+
+        private void playNextVideo() {
+            if (released || !playlistMode || playlist == null || playlist.isEmpty()) return;
+            if (playlistModeValue == MultiDynamicVideoWallpaperHelper.MODE_RANDOM && playlist.size() > 1) {
+                int next;
+                do { next = (int) (Math.random() * playlist.size()); } while (next == playlistIndex);
+                playlistIndex = next;
+            } else {
+                playlistIndex = (playlistIndex + 1) % playlist.size();
+            }
+            String nextPath = playlist.get(playlistIndex);
+            try {
+                if (mediaPlayer != null) {
+                    mediaPlayer.reset();
+                    mediaPlayer.setDataSource(nextPath);
+                    mediaPlayer.setSurface(surface);
+                    mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+                    mediaPlayer.setLooping(false);
+                    mediaPlayer.setOnCompletionListener(player -> playNextVideo());
+                    mediaPlayer.prepareAsync();
+                }
+            } catch (Throwable e) { FileLog.e(e); }
         }
 
         private void releaseMediaPlayer() {
