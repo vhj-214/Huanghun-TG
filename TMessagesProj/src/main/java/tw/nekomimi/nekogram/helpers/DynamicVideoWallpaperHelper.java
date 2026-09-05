@@ -421,6 +421,14 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
 
+        /**
+         * 返回播放器是否需要由宿主页重新挂载。TextureView 在 Fragment 转场中可能先销毁
+         * Surface，而旧实例不会再持有可恢复的 MediaPlayer；此时继续调用 resume() 只会静默失败。
+         */
+        public boolean needsReattach() {
+            return released;
+        }
+
         public void pause() {
             try {
                 if (mediaPlayer != null && mediaPlayer.isPlaying()) {
@@ -613,7 +621,9 @@ public final class DynamicVideoWallpaperHelper {
 
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-            releaseMediaPlayer();
+            // Fragment 转场、页面覆盖或部分 ROM 的 Surface 重建都会走到这里。仅释放
+            // MediaPlayer 会留下透明图层和失效实例；完整释放后由宿主页在 onResume 重挂载。
+            release();
             return true;
         }
 

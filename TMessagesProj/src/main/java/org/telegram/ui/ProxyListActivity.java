@@ -113,9 +113,14 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     private ActionBarMenuItem shareMenuItem;
     private ActionBarMenuItem deleteMenuItem;
 
+    private static final long PROXY_CHECK_TIMEOUT = 15_000L;
+
     private List<SharedConfig.ProxyInfo> selectedItems = new ArrayList<>();
     private List<SharedConfig.ProxyInfo> proxyList = new ArrayList<>();
     private boolean wasCheckedAllList;
+    /** 每次探测都有独立令牌；迟到的 native 回调不能覆盖较新的检测结果。 */
+    private final java.util.IdentityHashMap<SharedConfig.ProxyInfo, Integer> pendingProxyChecks = new java.util.IdentityHashMap<>();
+    private int nextProxyCheckToken;
 
     // na: action bar menu
     private ActionBarMenuItem otherItem;
@@ -358,6 +363,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
     @Override
     public void onFragmentDestroy() {
+        cancelPendingProxyChecks();
         super.onFragmentDestroy();
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxyChangedByRotation);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxySettingsChanged);
@@ -794,23 +800,46 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     private void checkProxyList(boolean force) {
         for (int a = 0, count = proxyList.size(); a < count; a++) {
             final SharedConfig.ProxyInfo proxyInfo = proxyList.get(a);
-            if (proxyInfo.checking || SystemClock.elapsedRealtime() - proxyInfo.availableCheckTime < (proxyInfo.available ? 20 : 5) * 1000 && !force) {
+            boolean hasCompletedInitialCheck = wasCheckedAllList && proxyInfo.availableCheckTime != 0;
+            if (proxyInfo.checking || !force && (hasCompletedInitialCheck || SystemClock.elapsedRealtime() - proxyInfo.availableCheckTime < (proxyInfo.available ? 20 : 5) * 1000)) {
                 continue;
             }
+            final int token = ++nextProxyCheckToken;
+            pendingProxyChecks.put(proxyInfo, token);
             proxyInfo.checking = true;
-            proxyInfo.proxyCheckPingId = ConnectionsManager.getInstance(currentAccount).checkProxy(proxyInfo.address, proxyInfo.port, proxyInfo.username, proxyInfo.password, proxyInfo.secret, time -> AndroidUtilities.runOnUIThread(() -> {
-                proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
-                proxyInfo.checking = false;
-                if (time == -1) {
-                    proxyInfo.available = false;
-                    proxyInfo.ping = 0;
-                } else {
-                    proxyInfo.ping = time;
-                    proxyInfo.available = true;
-                }
-                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
-            }));
+            proxyInfo.proxyCheckPingId = ConnectionsManager.getInstance(currentAccount).checkProxy(proxyInfo.address, proxyInfo.port, proxyInfo.username, proxyInfo.password, proxyInfo.secret,
+                    time -> AndroidUtilities.runOnUIThread(() -> finishProxyCheck(proxyInfo, token, time)));
+            // tgnet 在部分网络故障下可能不会调用 checkProxy 的回调。超时必须释放状态，
+            // 否则列表会永久显示“检测中”，且后续手动复测也会被 checking 标记拦截。
+            AndroidUtilities.runOnUIThread(() -> finishProxyCheck(proxyInfo, token, -1), PROXY_CHECK_TIMEOUT);
         }
+    }
+
+    private void finishProxyCheck(SharedConfig.ProxyInfo proxyInfo, int token, long time) {
+        Integer pendingToken = pendingProxyChecks.get(proxyInfo);
+        if (pendingToken == null || pendingToken != token) {
+            return;
+        }
+        pendingProxyChecks.remove(proxyInfo);
+        proxyInfo.proxyCheckPingId = 0;
+        proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
+        proxyInfo.checking = false;
+        if (time == -1) {
+            proxyInfo.available = false;
+            proxyInfo.ping = 0;
+        } else {
+            proxyInfo.ping = time;
+            proxyInfo.available = true;
+        }
+        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
+    }
+
+    private void cancelPendingProxyChecks() {
+        for (SharedConfig.ProxyInfo proxyInfo : pendingProxyChecks.keySet()) {
+            proxyInfo.checking = false;
+            proxyInfo.proxyCheckPingId = 0;
+        }
+        pendingProxyChecks.clear();
     }
 
     @Override
