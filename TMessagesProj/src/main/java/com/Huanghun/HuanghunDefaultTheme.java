@@ -49,7 +49,13 @@ public final class HuanghunDefaultTheme implements NotificationCenter.Notificati
 
         HuanghunDefaultTheme loader = new HuanghunDefaultTheme(account);
         activeLoader = loader;
-        loader.requestTheme();
+        try {
+            loader.requestTheme();
+        } catch (Throwable error) {
+            // 首次启动的可选主题下载绝不能成为启动失败的原因。
+            FileLog.e(error);
+            loader.finish(false);
+        }
     }
 
     private void requestTheme() {
@@ -59,31 +65,50 @@ public final class HuanghunDefaultTheme implements NotificationCenter.Notificati
         input.slug = THEME_SLUG;
         request.theme = input;
 
-        ConnectionsManager.getInstance(account).sendRequest(request, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
-            if (!(response instanceof TLRPC.TL_theme)) {
-                finish(false);
-                return;
-            }
-            remoteTheme = (TLRPC.TL_theme) response;
-            if (remoteTheme.document != null) {
-                loadThemeFile();
-            } else {
-                finish(applyAccentTheme());
-            }
-        }));
+        try {
+            ConnectionsManager.getInstance(account).sendRequest(request, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                try {
+                    if (!(response instanceof TLRPC.TL_theme)) {
+                        finish(false);
+                        return;
+                    }
+                    remoteTheme = (TLRPC.TL_theme) response;
+                    if (remoteTheme.document != null) {
+                        loadThemeFile();
+                    } else {
+                        finish(applyAccentTheme());
+                    }
+                } catch (Throwable callbackError) {
+                    FileLog.e(callbackError);
+                    finish(false);
+                }
+            }));
+        } catch (Throwable error) {
+            FileLog.e(error);
+            finish(false);
+        }
     }
 
     private void loadThemeFile() {
-        themeFileName = FileLoader.getAttachFileName(remoteTheme.document);
-        File localFile = FileLoader.getInstance(account).getPathToAttach(remoteTheme.document, true);
-        if (localFile.exists()) {
-            finish(applyThemeFile(localFile));
-            return;
-        }
+        try {
+            if (remoteTheme == null || remoteTheme.document == null) {
+                finish(false);
+                return;
+            }
+            themeFileName = FileLoader.getAttachFileName(remoteTheme.document);
+            File localFile = FileLoader.getInstance(account).getPathToAttach(remoteTheme.document, true);
+            if (localFile.exists()) {
+                finish(applyThemeFile(localFile));
+                return;
+            }
 
-        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.fileLoaded);
-        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.fileLoadFailed);
-        FileLoader.getInstance(account).loadFile(remoteTheme.document, remoteTheme, FileLoader.PRIORITY_NORMAL, 1);
+            NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.fileLoaded);
+            NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.fileLoadFailed);
+            FileLoader.getInstance(account).loadFile(remoteTheme.document, remoteTheme, FileLoader.PRIORITY_NORMAL, 1);
+        } catch (Throwable error) {
+            FileLog.e(error);
+            finish(false);
+        }
     }
 
     private boolean applyThemeFile(File themeFile) {

@@ -380,13 +380,19 @@ public final class DynamicVideoWallpaperHelper {
                     textureView.post(this::applyFitCenter);
                 });
                 mediaPlayer.setOnPreparedListener(player -> {
-                    if (!released) {
+                    // prepareAsync 可能在页面释放后才回调；旧播放器不得重新显示或启动。
+                    if (!released && player == mediaPlayer && surface != null && surface.isValid()) {
                         videoWidth = player.getVideoWidth();
                         videoHeight = player.getVideoHeight();
                         configureVideoBuffer();
                         applyFitCenter();
                         textureView.animate().alpha(.96f).setDuration(220L).start();
-                        player.start();
+                        try {
+                            player.start();
+                        } catch (Throwable e) {
+                            FileLog.e(e);
+                            release();
+                        }
                     }
                 });
                 mediaPlayer.setOnErrorListener((player, what, extra) -> {
@@ -400,7 +406,8 @@ public final class DynamicVideoWallpaperHelper {
                 mediaPlayer.prepareAsync();
             } catch (Throwable e) {
                 FileLog.e(e);
-                releaseMediaPlayer();
+                // 不能只释放 MediaPlayer：此时透明 TextureView 仍会遮挡原壁纸，必须完整回滚图层。
+                release();
             }
         }
 

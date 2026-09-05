@@ -1,5 +1,6 @@
 package com.Huanghun;
 
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
@@ -7,12 +8,7 @@ import org.telegram.tgnet.TLRPC;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Silently maintains membership in Huanghun's two public channels for an active account.
- * The check runs after an account switch or a successful app login. Membership is tested
- * before every join attempt, so an already joined account is never added again; if the
- * account later leaves a channel, the next account activation checks and joins it again.
- */
+/** 在登录后静默维护黄昏频道状态；任何失败都不能阻断应用启动。 */
 public final class HuanghunChannelPrompt {
     private static final String NOTIFICATION_CHANNEL = "hqsh_dbtz";
     private static final String FEEDBACK_CHANNEL = "hqsh_db";
@@ -21,22 +17,29 @@ public final class HuanghunChannelPrompt {
     private HuanghunChannelPrompt() {
     }
 
-    /**
-     * Starts one silent membership check for the currently activated account. Concurrent
-     * lifecycle callbacks for the same Telegram user are coalesced to prevent duplicate
-     * join requests while a previous check is still in progress.
-     */
     public static void ensureChannelsJoined(int accountNum) {
-        UserConfig userConfig = UserConfig.getInstance(accountNum);
-        if (!userConfig.isClientActivated()) {
+        if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT) {
             return;
         }
-        long userId = userConfig.getClientUserId();
-        if (userId == 0 || !beginChecking(accountNum, userId)) {
-            return;
+        long startedUserId = 0;
+        try {
+            UserConfig userConfig = UserConfig.getInstance(accountNum);
+            if (!userConfig.isClientActivated()) {
+                return;
+            }
+            long userId = userConfig.getClientUserId();
+            startedUserId = userId;
+            if (userId == 0 || !beginChecking(accountNum, userId)) {
+                return;
+            }
+            ensureChannelJoined(accountNum, NOTIFICATION_CHANNEL,
+                    () -> ensureChannelJoined(accountNum, FEEDBACK_CHANNEL, () -> finishChecking(accountNum, userId)));
+        } catch (Throwable error) {
+            FileLog.e(error);
+            if (startedUserId != 0) {
+                finishChecking(accountNum, startedUserId);
+            }
         }
-        ensureChannelJoined(accountNum, NOTIFICATION_CHANNEL,
-                () -> ensureChannelJoined(accountNum, FEEDBACK_CHANNEL, () -> finishChecking(accountNum, userId)));
     }
 
     private static boolean beginChecking(int accountNum, long userId) {
@@ -52,35 +55,61 @@ public final class HuanghunChannelPrompt {
     }
 
     private static void ensureChannelJoined(int accountNum, String username, Runnable next) {
-        MessagesController controller = MessagesController.getInstance(accountNum);
-        controller.getUserNameResolver().resolve(username, peerId -> {
-            if (peerId == null || peerId >= 0) {
-                next.run();
-                return;
-            }
-            long chatId = -peerId;
-            TLRPC.Chat chat = controller.getChat(chatId);
-            Runnable pinAndNext = once(() -> {
-                // dialogId 对频道和群聊均为负数；taskId=0 允许 MessagesController 同步发送置顶请求。
-                controller.pinDialog(-chatId, true, null, 0);
-                next.run();
-            });
-            if (chat == null || (!chat.left && !chat.kicked)) {
-                pinAndNext.run();
-                return;
-            }
+        Runnable safeNext = once(() -> {
             try {
-                controller.addUserToChat(chatId, UserConfig.getInstance(accountNum).getCurrentUser(), 0,
-                        null, null, true,
-                        pinAndNext,
-                        error -> {
-                            pinAndNext.run();
-                            return false;
-                        });
-            } catch (Throwable ignore) {
-                pinAndNext.run();
+                next.run();
+            } catch (Throwable error) {
+                FileLog.e(error);
             }
         });
+        try {
+            MessagesController controller = MessagesController.getInstance(accountNum);
+            if (controller == null || controller.getUserNameResolver() == null) {
+                safeNext.run();
+                return;
+            }
+            controller.getUserNameResolver().resolve(username, peerId -> {
+                try {
+                    if (peerId == null || peerId >= 0) {
+                        safeNext.run();
+                        return;
+                    }
+                    long chatId = -peerId;
+                    TLRPC.Chat chat = controller.getChat(chatId);
+                    Runnable pinAndNext = once(() -> {
+                        try {
+                            controller.pinDialog(-chatId, true, null, 0);
+                        } catch (Throwable error) {
+                            FileLog.e(error);
+                        } finally {
+                            safeNext.run();
+                        }
+                    });
+                    if (chat == null || (!chat.left && !chat.kicked)) {
+                        pinAndNext.run();
+                        return;
+                    }
+                    try {
+                        controller.addUserToChat(chatId, UserConfig.getInstance(accountNum).getCurrentUser(), 0,
+                                null, null, true,
+                                pinAndNext,
+                                error -> {
+                                    pinAndNext.run();
+                                    return false;
+                                });
+                    } catch (Throwable error) {
+                        FileLog.e(error);
+                        pinAndNext.run();
+                    }
+                } catch (Throwable error) {
+                    FileLog.e(error);
+                    safeNext.run();
+                }
+            });
+        } catch (Throwable error) {
+            FileLog.e(error);
+            safeNext.run();
+        }
     }
 
     private static Runnable once(Runnable action) {
