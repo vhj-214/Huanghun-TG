@@ -8122,6 +8122,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         checkListLoad(viewPage, firstVisibleItem, lastVisibleItem, false);
     }
 
+    // Keep a larger prefetch window for newest-first lists. Loading only after the last
+    // ten rows made the newly requested older dialogs appear after the user had already
+    // reached the end, which required scrolling back to see them.
+    private static final int DIALOGS_PREFETCH_ROWS = 30;
+
     private void checkListLoad(ViewPage viewPage, int firstVisibleItem, int lastVisibleItem, boolean loadAll) {
         if (tabsAnimationInProgress || startedTracking || filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE && filterTabsView.isAnimatingIndicator()) {
             return;
@@ -8144,7 +8149,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             if (viewPage.selectedType >= 0 && viewPage.selectedType < dialogFilters.size()) {
                 MessagesController.DialogFilter filter = dialogFilters.get(viewPage.selectedType);
                 if ((filter.flags & MessagesController.DIALOG_FILTER_FLAG_EXCLUDE_ARCHIVED) == 0) {
-                    if (visibleItemCount > 0 && lastVisibleItem >= getDialogsArray(currentAccount, viewPage.dialogsType, 1, dialogsListFrozen).size() - 10 ||
+                    if (visibleItemCount > 0 && lastVisibleItem >= getDialogsArray(currentAccount, viewPage.dialogsType, 1, dialogsListFrozen).size() - DIALOGS_PREFETCH_ROWS ||
                             visibleItemCount == 0 && !getMessagesController().isDialogsEndReached(1)) {
                         loadArchivedFromCache = !getMessagesController().isDialogsEndReached(1);
                         if (loadArchivedFromCache || !getMessagesController().isServerDialogsEndReached(1)) {
@@ -8154,7 +8159,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
         }
-        if (loadAll || visibleItemCount > 0 && lastVisibleItem >= getDialogsArray(currentAccount, viewPage.dialogsType, folderId, dialogsListFrozen).size() - 10 ||
+        if (loadAll || visibleItemCount > 0 && lastVisibleItem >= getDialogsArray(currentAccount, viewPage.dialogsType, folderId, dialogsListFrozen).size() - DIALOGS_PREFETCH_ROWS ||
                 visibleItemCount == 0 && (viewPage.dialogsType == 7 || viewPage.dialogsType == 8) && !getMessagesController().isDialogsEndReached(folderId)) {
             loadFromCache = !getMessagesController().isDialogsEndReached(folderId);
             if (loadFromCache || !getMessagesController().isServerDialogsEndReached(folderId)) {

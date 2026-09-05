@@ -76,6 +76,17 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
         return PROXY_HEALTH_CHECK_INTERVAL;
     }
 
+    private long getRotationTimeoutDelay() {
+        int index = SharedConfig.proxyRotationTimeout;
+        if (index < 0 || index >= ROTATION_TIMEOUTS.size()) {
+            // Preferences can outlive the available options after an update.
+            index = DEFAULT_TIMEOUT_INDEX;
+            SharedConfig.proxyRotationTimeout = index;
+            SharedConfig.saveConfig();
+        }
+        return ROTATION_TIMEOUTS.get(index) * 1000L;
+    }
+
     private boolean shouldRefreshRotationPings() {
         return SharedConfig.isProxyEnabled() && SharedConfig.proxyRotationEnabled && SharedConfig.proxyList.size() > 1;
     }
@@ -239,7 +250,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
 
             if (state == ConnectionsManager.ConnectionStateConnectingToProxy) {
                 if (!isCurrentlyChecking) {
-                    AndroidUtilities.runOnUIThread(checkProxyAndSwitchRunnable, ROTATION_TIMEOUTS.get(SharedConfig.proxyRotationTimeout) * 1000L);
+                    AndroidUtilities.runOnUIThread(checkProxyAndSwitchRunnable, getRotationTimeoutDelay());
                 }
             } else {
                 AndroidUtilities.cancelRunOnUIThread(checkProxyAndSwitchRunnable);

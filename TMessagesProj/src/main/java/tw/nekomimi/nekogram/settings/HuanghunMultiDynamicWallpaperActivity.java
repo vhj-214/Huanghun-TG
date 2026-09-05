@@ -3,6 +3,7 @@ package tw.nekomimi.nekogram.settings;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.text.TextUtils;
@@ -83,21 +84,21 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         LinearLayout actions = new LinearLayout(context);
         actions.setGravity(Gravity.CENTER_VERTICAL);
         actions.setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
-        actions.setBackground(glassBackground(0x20FFFFFF, 0x55FFFFFF, 14));
+        actions.setBackground(glassBackground(0xFFF7F9FC, 0xFFDCE3EC, 14));
 
         selectAllButton = actionButton(context, "全选");
         selectAllButton.setOnClickListener(v -> toggleSelectAll());
-        actions.addView(selectAllButton, lp(0, 42, 0, 0, 6, 0, 1));
+        actions.addView(selectAllButton, lp(0, 46, 0, 0, 4, 0, 1));
 
         deleteButton = actionButton(context, "删除已选");
         deleteButton.setTextColor(getThemedColor(Theme.key_text_RedRegular));
         deleteButton.setOnClickListener(v -> confirmDeleteSelected(context));
-        actions.addView(deleteButton, lp(0, 42, 0, 0, 6, 0, 1));
+        actions.addView(deleteButton, lp(0, 46, 0, 0, 4, 0, 1));
 
         if (!deleteOnly) {
             TextView addButton = actionButton(context, "添加视频");
             addButton.setOnClickListener(v -> pickVideos());
-            actions.addView(addButton, lp(0, 42, 0, 0, 0, 0, 1));
+            actions.addView(addButton, lp(0, 46, 0, 0, 0, 0, 1));
         }
         root.addView(actions, lp(-1, 54, 0, 0, 0, 8));
 
@@ -143,11 +144,14 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         TextView button = new TextView(context);
         button.setText(text);
         button.setGravity(Gravity.CENTER);
+        button.setIncludeFontPadding(false);
+        button.setMaxLines(1);
         button.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         button.setTypeface(AndroidUtilities.bold());
         button.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
-        button.setBackground(glassBackground(0x24FFFFFF, 0x5CFFFFFF, 12));
+        button.setBackground(glassBackground(0xFFFFFFFF, 0xFFD8E0EA, 12));
         button.setMinHeight(AndroidUtilities.dp(42));
+        button.setPadding(AndroidUtilities.dp(4), 0, AndroidUtilities.dp(4), 0);
         return button;
     }
 
@@ -260,11 +264,13 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(AndroidUtilities.dp(6), AndroidUtilities.dp(6), AndroidUtilities.dp(6), AndroidUtilities.dp(6));
-        card.setBackground(glassBackground(0x22FFFFFF, 0x55FFFFFF, 16));
+        card.setBackground(glassBackground(0xFFFFFFFF, 0xFFE0E6EE, 16));
 
         FrameLayout preview = new FrameLayout(context);
-        preview.setBackground(glassBackground(0x30000000, 0x46FFFFFF, 12));
+        preview.setBackground(glassBackground(Color.BLACK, 0xFFCBD3DE, 12));
+        preview.setClipToOutline(true);
         VideoView videoView = new VideoView(context);
+        videoView.setBackgroundColor(Color.BLACK);
         videoView.setVideoPath(item.path);
         videoView.setKeepScreenOn(false);
         videoView.setOnPreparedListener(mediaPlayer -> {
@@ -284,20 +290,23 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         View.OnClickListener playListener = v -> toggleVideo(videoView, hint);
         videoView.setOnClickListener(playListener);
         preview.setOnClickListener(playListener);
-        int previewHeight = AndroidUtilities.dp(300);
+        int previewHeight = AndroidUtilities.dp(280);
         FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(-1, previewHeight);
         videoParams.gravity = Gravity.CENTER;
         preview.addView(videoView, videoParams);
+        hint.setIncludeFontPadding(false);
+        hint.setTypeface(AndroidUtilities.bold());
+        hint.setBackgroundColor(0x99000000);
         preview.addView(hint, new FrameLayout.LayoutParams(-1, AndroidUtilities.dp(52), Gravity.BOTTOM));
         videoPlayers.add(videoView);
-        card.addView(preview, lp(-1, 300, 0, 0, 0, 8));
+        card.addView(preview, lp(-1, 280, 0, 0, 0, 8));
 
         TextView title = new TextView(context);
         title.setText("视频 " + (index + 1) + "  ·  " + new File(item.path).getName());
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
         title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         card.addView(title, lp(-1, -2, 0, 0, 0, 2));
 
         TextView info = new TextView(context);
@@ -320,14 +329,14 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             }
             updateControls(currentItems().size());
         });
-        controls.addView(check, lp(0, 48, 0, 0, 4, 0, 1));
+        controls.addView(check, lp(0, 46, 0, 0, 4, 0, 1));
 
         TextView delete = actionButton(context, "删除");
         delete.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         delete.setTextColor(getThemedColor(Theme.key_text_RedRegular));
         delete.setOnClickListener(v -> confirmDeleteSingle(context, item.path));
-        controls.addView(delete, lp(0, 48, 4, 0, 0, 0, 1));
-        card.addView(controls, lp(-1, 48, 0, 4, 0, 0));
+        controls.addView(delete, lp(0, 46, 4, 0, 0, 0, 1));
+        card.addView(controls, lp(-1, 46, 0, 4, 0, 0));
         return card;
     }
 
