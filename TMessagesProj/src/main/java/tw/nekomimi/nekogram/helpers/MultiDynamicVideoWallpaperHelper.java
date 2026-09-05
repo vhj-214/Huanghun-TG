@@ -59,34 +59,40 @@ public final class MultiDynamicVideoWallpaperHelper {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    public static ArrayList<VideoItem> getVideos(Context c, int account) {
-        ArrayList<VideoItem> result = new ArrayList<>();
-        ArrayList<String> valid = new ArrayList<>();
+    /**
+     * 播放器挂载路径只做轻量文件检查。不能在主线程每次页面切换时创建
+     * MediaMetadataRetriever；损坏视频的 native 解码器可能造成卡顿甚至进程崩溃。
+     */
+    public static ArrayList<String> getVideoPaths(Context c, int account) {
         ArrayList<String> paths = readPaths(c, account);
+        ArrayList<String> valid = new ArrayList<>(paths.size());
         for (String path : paths) {
-            File f = new File(path);
-            long duration = readDuration(path);
-            if (f.isFile() && f.length() > 0 && duration > 0) {
+            File file = new File(path);
+            if (file.isFile() && file.length() > 0) {
                 valid.add(path);
-                result.add(new VideoItem(path, duration, f.length()));
             }
         }
         if (valid.size() != paths.size()) {
             writePaths(c, account, valid);
         }
-        return result;
+        return valid;
     }
 
-    public static ArrayList<String> getVideoPaths(Context c, int account) {
-        ArrayList<String> result = new ArrayList<>();
-        for (VideoItem item : getVideos(c, account)) {
-            result.add(item.path);
+    /** 仅在多轮视频设置页需要显示视频信息时读取媒体元数据。 */
+    public static ArrayList<VideoItem> getVideos(Context c, int account) {
+        ArrayList<VideoItem> result = new ArrayList<>();
+        for (String path : getVideoPaths(c, account)) {
+            File file = new File(path);
+            long duration = readDuration(path);
+            if (duration > 0) {
+                result.add(new VideoItem(path, duration, file.length()));
+            }
         }
         return result;
     }
 
     public static int getVideoCount(Context c, int account) {
-        return getVideos(c, account).size();
+        return getVideoPaths(c, account).size();
     }
 
     public static boolean isEnabled(Context c, int account) {
