@@ -232,19 +232,13 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             emptyView.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(40), AndroidUtilities.dp(24), AndroidUtilities.dp(40));
             gallery.addView(emptyView, lp(-1, -2, 0, 12, 0, 0));
         } else {
-            for (int i = 0; i < items.size(); i += 2) {
+            for (int i = 0; i < items.size(); i++) {
                 LinearLayout row = new LinearLayout(getParentActivity());
-                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setOrientation(LinearLayout.VERTICAL);
                 row.setGravity(Gravity.TOP);
                 gallery.addView(row, lp(-1, -2, 0, 0, 0, 8));
 
-                row.addView(createVideoCard(getParentActivity(), items.get(i), i), lp(0, -2, 0, 0, 4, 0, 1));
-                if (i + 1 < items.size()) {
-                    row.addView(createVideoCard(getParentActivity(), items.get(i + 1), i + 1), lp(0, -2, 4, 0, 0, 0, 1));
-                } else {
-                    TextView spacer = new TextView(getParentActivity());
-                    row.addView(spacer, lp(0, -2, 4, 0, 0, 0, 1));
-                }
+                row.addView(createVideoCard(getParentActivity(), items.get(i), i), lp(-1, -2, 0, 0, 0, 0));
             }
         }
         updateControls(items.size());
@@ -290,10 +284,13 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         View.OnClickListener playListener = v -> toggleVideo(videoView, hint);
         videoView.setOnClickListener(playListener);
         preview.setOnClickListener(playListener);
-        preview.addView(videoView, new FrameLayout.LayoutParams(-1, AndroidUtilities.dp(210)));
-        preview.addView(hint, new FrameLayout.LayoutParams(-1, AndroidUtilities.dp(44), Gravity.BOTTOM));
+        int previewHeight = AndroidUtilities.dp(300);
+        FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(-1, previewHeight);
+        videoParams.gravity = Gravity.CENTER;
+        preview.addView(videoView, videoParams);
+        preview.addView(hint, new FrameLayout.LayoutParams(-1, AndroidUtilities.dp(52), Gravity.BOTTOM));
         videoPlayers.add(videoView);
-        card.addView(preview, lp(-1, 210, 0, 0, 0, 6));
+        card.addView(preview, lp(-1, 300, 0, 0, 0, 8));
 
         TextView title = new TextView(context);
         title.setText("视频 " + (index + 1) + "  ·  " + new File(item.path).getName());
@@ -323,14 +320,14 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             }
             updateControls(currentItems().size());
         });
-        controls.addView(check, lp(0, 38, 0, 0, 4, 0, 1));
+        controls.addView(check, lp(0, 48, 0, 0, 4, 0, 1));
 
         TextView delete = actionButton(context, "删除");
         delete.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         delete.setTextColor(getThemedColor(Theme.key_text_RedRegular));
         delete.setOnClickListener(v -> confirmDeleteSingle(context, item.path));
-        controls.addView(delete, lp(0, 38, 4, 0, 0, 0, 1));
-        card.addView(controls, lp(-1, 38, 0, 2, 0, 0));
+        controls.addView(delete, lp(0, 48, 4, 0, 0, 0, 1));
+        card.addView(controls, lp(-1, 48, 0, 4, 0, 0));
         return card;
     }
 

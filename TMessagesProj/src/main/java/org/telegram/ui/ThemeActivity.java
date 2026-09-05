@@ -917,10 +917,12 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     message += "\n有 " + result.errors.size() + " 个视频无法播放或导入。";
                 }
                 showDynamicVideoWallpaperDialog(result.imported > 0 ? "启动成功" : "未导入视频", message);
-                if (listAdapter != null) {
-                    listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
-                    listAdapter.notifyItemChanged(multiDynamicManageRow);
-                }
+                    if (listAdapter != null) {
+                        listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
+                        listAdapter.notifyItemChanged(multiDynamicManageRow);
+                        listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+                        listAdapter.notifyItemChanged(deleteDynamicVideoWallpaperRow);
+                    }
             });
         });
     }
@@ -1334,7 +1336,24 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             } else if (position == deleteDynamicVideoWallpaperRow) {
                 confirmClearDynamicVideoWallpaper();
             } else if (position == multiDynamicVideoWallpaperRow) {
-                chooseMultiDynamicVideoWallpaper();
+                Context applicationContext = ApplicationLoader.applicationContext;
+                int videoCount = MultiDynamicVideoWallpaperHelper.getVideoCount(applicationContext, currentAccount);
+                if (videoCount == 0) {
+                    chooseMultiDynamicVideoWallpaper();
+                } else if (MultiDynamicVideoWallpaperHelper.isEnabled(applicationContext, currentAccount)) {
+                    MultiDynamicVideoWallpaperHelper.setEnabled(applicationContext, currentAccount, false);
+                    if (listAdapter != null) {
+                        listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
+                    }
+                } else {
+                    MultiDynamicVideoWallpaperHelper.setEnabled(applicationContext, currentAccount, true);
+                    DynamicVideoWallpaperHelper.clearVideo(applicationContext, currentAccount, 0L);
+                    if (listAdapter != null) {
+                        listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+                        listAdapter.notifyItemChanged(deleteDynamicVideoWallpaperRow);
+                        listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
+                    }
+                }
             } else if (position == multiDynamicModeRow) {
                 int nextMode = MultiDynamicVideoWallpaperHelper.getMode(ApplicationLoader.applicationContext, currentAccount) == MultiDynamicVideoWallpaperHelper.MODE_ORDER ? MultiDynamicVideoWallpaperHelper.MODE_RANDOM : MultiDynamicVideoWallpaperHelper.MODE_ORDER;
                 MultiDynamicVideoWallpaperHelper.setMode(ApplicationLoader.applicationContext, currentAccount, nextMode);
@@ -2993,7 +3012,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         boolean enabled = MultiDynamicVideoWallpaperHelper.isEnabled(ApplicationLoader.applicationContext, currentAccount);
                         int count = MultiDynamicVideoWallpaperHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount);
-                        cell.setTextAndValueAndIcon("启动多轮循环动态壁纸", enabled ? ("已启用 · " + count + " 个") : (count == 0 ? "点击选择视频" : (count + " 个视频")), R.drawable.msg_background, multiDynamicModeRow >= 0);
+                        cell.setTextAndValueAndIcon(enabled ? "关闭多轮循环动态壁纸" : "启动多轮循环动态壁纸", enabled ? ("已启用 · " + count + " 个") : (count == 0 ? "点击选择视频" : (count + " 个视频")), R.drawable.msg_background, multiDynamicModeRow >= 0);
                     } else if (position == multiDynamicModeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
