@@ -18,7 +18,9 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
             5, 10, 15, 30, 60
     );
 
-    private static final long ACTIVE_PROXY_HEALTH_CHECK_INTERVAL = 60_000L;
+    /** Automatic proxy health/list probing is deliberately limited to once per minute. */
+    private static final long PROXY_HEALTH_CHECK_INTERVAL = 60_000L;
+    private static final long ACTIVE_PROXY_HEALTH_CHECK_INTERVAL = PROXY_HEALTH_CHECK_INTERVAL;
 
     private boolean isCurrentlyChecking;
     private boolean isActiveProxyChecking;
@@ -69,8 +71,9 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
     }
 
     private long getRotationPingRefreshInterval() {
-        int index = Math.max(0, Math.min(SharedConfig.proxyRotationTimeout, ROTATION_TIMEOUTS.size() - 1));
-        return ROTATION_TIMEOUTS.get(index) * 1000L;
+        // ROTATION_TIMEOUTS controls connection-failure switching, not health polling.
+        // Do not let its 5-second default cause continuous proxy probes in the background.
+        return PROXY_HEALTH_CHECK_INTERVAL;
     }
 
     private boolean shouldRefreshRotationPings() {
