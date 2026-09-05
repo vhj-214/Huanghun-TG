@@ -3,22 +3,26 @@ package tw.nekomimi.nekogram.settings;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaPlayer;
 import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.SurfaceTexture;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.Surface;
+import android.view.TextureView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.MediaController;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.VideoView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -43,10 +47,8 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
     private TextView deleteButton;
     private TextView emptyView;
     private final Set<String> selected = new HashSet<>();
-    private final ArrayList<VideoView> videoPlayers = new ArrayList<>();
-    private VideoView playingVideo;
-    private TextView playingHint;
-    private MediaController mediaController;
+    private final ArrayList<PreviewPlayer> previewPlayers = new ArrayList<>();
+    private PreviewPlayer playingPreview;
 
     public HuanghunMultiDynamicWallpaperActivity() {
         this(false);
@@ -82,7 +84,9 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         root.addView(summary, lp(-1, -2, 0, 0, 0, 8));
 
         LinearLayout actions = new LinearLayout(context);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.setWeightSum(deleteOnly ? 2f : 3f);
         actions.setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
         actions.setBackground(glassBackground(0xFFF7F9FC, 0xFFDCE3EC, 14));
 
@@ -100,7 +104,7 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             addButton.setOnClickListener(v -> pickVideos());
             actions.addView(addButton, lp(0, 46, 0, 0, 0, 0, 1));
         }
-        root.addView(actions, lp(-1, 54, 0, 0, 0, 8));
+        root.addView(actions, lp(-1, -2, 0, 0, 0, 8));
 
         ScrollView scrollView = new ScrollView(context);
         scrollView.setFillViewport(true);
@@ -129,7 +133,8 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
     }
 
     private LinearLayout.LayoutParams lp(int width, int height, int left, int top, int right, int bottom) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
+        int resolvedHeight = height > 0 ? AndroidUtilities.dp(height) : height;
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, resolvedHeight);
         params.setMargins(AndroidUtilities.dp(left), AndroidUtilities.dp(top), AndroidUtilities.dp(right), AndroidUtilities.dp(bottom));
         return params;
     }
@@ -269,36 +274,28 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         FrameLayout preview = new FrameLayout(context);
         preview.setBackground(glassBackground(Color.BLACK, 0xFFCBD3DE, 12));
         preview.setClipToOutline(true);
-        VideoView videoView = new VideoView(context);
-        videoView.setBackgroundColor(Color.BLACK);
-        videoView.setVideoPath(item.path);
-        videoView.setKeepScreenOn(false);
-        videoView.setOnPreparedListener(mediaPlayer -> {
-            try {
-                mediaPlayer.setLooping(true);
-                videoView.seekTo(1);
-            } catch (Throwable ignore) {
-            }
-        });
+        TextureView textureView = new TextureView(context);
+        textureView.setOpaque(false);
+        textureView.setBackgroundColor(Color.BLACK);
         TextView hint = new TextView(context);
         hint.setText("点击播放");
         hint.setGravity(Gravity.CENTER);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         hint.setTextColor(0xffffffff);
-        hint.setBackgroundColor(0x55000000);
         hint.setClickable(false);
-        View.OnClickListener playListener = v -> toggleVideo(videoView, hint);
-        videoView.setOnClickListener(playListener);
+        hint.setIncludeFontPadding(false);
+        hint.setTypeface(AndroidUtilities.bold());
+        hint.setBackgroundColor(0x99000000);
+        View.OnClickListener playListener = v -> toggleVideo(textureView, hint);
+        textureView.setOnClickListener(playListener);
         preview.setOnClickListener(playListener);
         int previewHeight = AndroidUtilities.dp(280);
         FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(-1, previewHeight);
         videoParams.gravity = Gravity.CENTER;
-        preview.addView(videoView, videoParams);
-        hint.setIncludeFontPadding(false);
-        hint.setTypeface(AndroidUtilities.bold());
-        hint.setBackgroundColor(0x99000000);
+        preview.addView(textureView, videoParams);
         preview.addView(hint, new FrameLayout.LayoutParams(-1, AndroidUtilities.dp(52), Gravity.BOTTOM));
-        videoPlayers.add(videoView);
+        PreviewPlayer player = new PreviewPlayer(textureView, hint, item.path);
+        previewPlayers.add(player);
         card.addView(preview, lp(-1, 280, 0, 0, 0, 8));
 
         TextView title = new TextView(context);
@@ -316,7 +313,9 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         card.addView(info, lp(-1, -2, 0, 0, 0, 3));
 
         LinearLayout controls = new LinearLayout(context);
+        controls.setOrientation(LinearLayout.HORIZONTAL);
         controls.setGravity(Gravity.CENTER_VERTICAL);
+        controls.setWeightSum(2f);
         TextView check = actionButton(context, selected.contains(item.path) ? "已选择" : "选择");
         check.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         check.setOnClickListener(v -> {
@@ -336,68 +335,44 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         delete.setTextColor(getThemedColor(Theme.key_text_RedRegular));
         delete.setOnClickListener(v -> confirmDeleteSingle(context, item.path));
         controls.addView(delete, lp(0, 46, 4, 0, 0, 0, 1));
-        card.addView(controls, lp(-1, 46, 0, 4, 0, 0));
+        card.addView(controls, lp(-1, 48, 0, 4, 0, 0));
         return card;
     }
 
-    private void toggleVideo(VideoView videoView, TextView hint) {
-        if (playingVideo == videoView) {
-            try {
-                videoView.pause();
-            } catch (Throwable ignore) {
+    private void toggleVideo(TextureView textureView, TextView hint) {
+        PreviewPlayer target = null;
+        for (PreviewPlayer player : previewPlayers) {
+            if (player.textureView == textureView) {
+                target = player;
+                break;
             }
-            hint.setText("继续播放");
-            playingVideo = null;
-            playingHint = null;
+        }
+        if (target == null) {
+            hint.setText("无法播放");
             return;
         }
-        if (playingVideo != null) {
-            try {
-                playingVideo.pause();
-            } catch (Throwable ignore) {
-            }
-            if (playingHint != null) {
-                playingHint.setText("继续播放");
-            }
+        if (playingPreview == target) {
+            target.pause();
+            playingPreview = null;
+            return;
         }
-        playingVideo = videoView;
-        playingHint = hint;
-        if (mediaController == null && getParentActivity() != null) {
-            mediaController = new MediaController(getParentActivity());
+        if (playingPreview != null) {
+            playingPreview.pause();
         }
-        if (mediaController != null) {
-            videoView.setMediaController(mediaController);
-        }
-        try {
-            videoView.start();
-            hint.setText("暂停");
-            if (mediaController != null) {
-                mediaController.show(4000);
-            }
-        } catch (Throwable e) {
-            playingVideo = null;
-            playingHint = null;
-            hint.setText("点击播放");
-            showMessage("播放失败", "该视频无法在当前设备上播放，请删除后重新选择。\n\n" + e.getMessage());
-        }
+        playingPreview = target;
+        target.play();
     }
 
     private void stopAllVideoPlayers() {
-        if (playingVideo != null) {
+        for (PreviewPlayer player : previewPlayers) {
             try {
-                playingVideo.pause();
-            } catch (Throwable ignore) {
+                player.release();
+            } catch (Throwable e) {
+                FileLog.e(e);
             }
         }
-        playingVideo = null;
-        playingHint = null;
-        for (VideoView videoView : videoPlayers) {
-            try {
-                videoView.stopPlayback();
-            } catch (Throwable ignore) {
-            }
-        }
-        videoPlayers.clear();
+        previewPlayers.clear();
+        playingPreview = null;
     }
 
     private void toggleSelectAll() {
@@ -493,5 +468,202 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             return Math.max(1L, bytes / 1024L) + " KB";
         }
         return String.format(Locale.CHINA, "%.1f MB", bytes / (1024f * 1024f));
+    }
+
+    /** 管理页预览播放器：使用项目动态壁纸同款 Surface 管线，避免黑帧和生命周期竞态。 */
+    private final class PreviewPlayer implements TextureView.SurfaceTextureListener {
+        private final TextureView textureView;
+        private final TextView hint;
+        private final String path;
+        private MediaPlayer mediaPlayer;
+        private Surface surface;
+        private SurfaceTexture surfaceTexture;
+        private boolean released;
+        private boolean playWhenPrepared;
+        private int videoWidth;
+        private int videoHeight;
+
+        PreviewPlayer(TextureView textureView, TextView hint, String path) {
+            this.textureView = textureView;
+            this.hint = hint;
+            this.path = path;
+            textureView.setSurfaceTextureListener(this);
+        }
+
+        void play() {
+            if (released) {
+                return;
+            }
+            playWhenPrepared = true;
+            hint.setText("加载中…");
+            if (mediaPlayer == null) {
+                if (textureView.isAvailable()) {
+                    prepare(textureView.getSurfaceTexture());
+                }
+                return;
+            }
+            try {
+                if (!mediaPlayer.isPlaying()) {
+                    mediaPlayer.start();
+                }
+                hint.setText("暂停");
+            } catch (Throwable e) {
+                FileLog.e(e);
+                showPlaybackError();
+            }
+        }
+
+        void pause() {
+            playWhenPrepared = false;
+            try {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    mediaPlayer.pause();
+                }
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+            hint.setText("继续播放");
+        }
+
+        private void prepare(SurfaceTexture texture) {
+            if (released || texture == null || path == null || !new File(path).isFile()) {
+                showPlaybackError();
+                return;
+            }
+            releaseMediaPlayer();
+            try {
+                surfaceTexture = texture;
+                surface = new Surface(texture);
+                MediaPlayer player = new MediaPlayer();
+                mediaPlayer = player;
+                player.setDataSource(path);
+                player.setSurface(surface);
+                player.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+                player.setLooping(true);
+                player.setOnVideoSizeChangedListener((mp, width, height) -> {
+                    videoWidth = width;
+                    videoHeight = height;
+                    configureVideoBuffer();
+                    applyFitCenter();
+                });
+                player.setOnPreparedListener(mp -> {
+                    if (released || mp != mediaPlayer || !textureView.isAvailable()) {
+                        return;
+                    }
+                    videoWidth = mp.getVideoWidth();
+                    videoHeight = mp.getVideoHeight();
+                    configureVideoBuffer();
+                    applyFitCenter();
+                    textureView.setAlpha(1f);
+                    if (playWhenPrepared) {
+                        try {
+                            mp.start();
+                            hint.setText("暂停");
+                        } catch (Throwable e) {
+                            FileLog.e(e);
+                            showPlaybackError();
+                        }
+                    } else {
+                        try {
+                            mp.seekTo(1);
+                        } catch (Throwable e) {
+                            FileLog.e(e);
+                        }
+                        hint.setText("点击播放");
+                    }
+                });
+                player.setOnErrorListener((mp, what, extra) -> {
+                    FileLog.e("Multi wallpaper preview playback failed: " + what + "/" + extra + ": " + path);
+                    showPlaybackError();
+                    return true;
+                });
+                player.prepareAsync();
+            } catch (Throwable e) {
+                FileLog.e(e);
+                showPlaybackError();
+            }
+        }
+
+        private void showPlaybackError() {
+            playWhenPrepared = false;
+            hint.setText("无法播放");
+            textureView.setAlpha(1f);
+            releaseMediaPlayer();
+            if (playingPreview == this) {
+                playingPreview = null;
+            }
+        }
+
+        private void configureVideoBuffer() {
+            if (surfaceTexture == null || videoWidth <= 0 || videoHeight <= 0) {
+                return;
+            }
+            try {
+                surfaceTexture.setDefaultBufferSize(videoWidth, videoHeight);
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        }
+
+        private void applyFitCenter() {
+            if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
+                return;
+            }
+            float scale = Math.min(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
+            float scaledWidth = videoWidth * scale;
+            float scaledHeight = videoHeight * scale;
+            Matrix matrix = new Matrix();
+            matrix.setScale(scale, scale);
+            matrix.postTranslate((textureView.getWidth() - scaledWidth) / 2f, (textureView.getHeight() - scaledHeight) / 2f);
+            textureView.setTransform(matrix);
+        }
+
+        void release() {
+            released = true;
+            playWhenPrepared = false;
+            textureView.setSurfaceTextureListener(null);
+            releaseMediaPlayer();
+        }
+
+        private void releaseMediaPlayer() {
+            if (mediaPlayer != null) {
+                try {
+                    mediaPlayer.reset();
+                    mediaPlayer.release();
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                mediaPlayer = null;
+            }
+            if (surface != null) {
+                try {
+                    surface.release();
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                surface = null;
+            }
+            surfaceTexture = null;
+        }
+
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+            prepare(surface);
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+            applyFitCenter();
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            releaseMediaPlayer();
+            return true;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        }
     }
 }
