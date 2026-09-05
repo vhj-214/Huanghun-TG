@@ -39,12 +39,58 @@ public final class DynamicVideoWallpaperHelper {
     }
 
     private static final java.util.concurrent.CopyOnWriteArrayList<WallpaperChangeListener> CHANGE_LISTENERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final Object PLAYBACK_STATE_LOCK = new Object();
+    private static final java.util.LinkedHashMap<String, PlaybackState> PLAYBACK_STATES = new java.util.LinkedHashMap<String, PlaybackState>(8, .75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<String, PlaybackState> eldest) {
+            return size() > 24;
+        }
+    };
+
+    private static final class PlaybackState {
+        final String path;
+        final int playlistIndex;
+        final int positionMs;
+
+        PlaybackState(String path, int playlistIndex, int positionMs) {
+            this.path = path;
+            this.playlistIndex = playlistIndex;
+            this.positionMs = Math.max(0, positionMs);
+        }
+    }
 
     private DynamicVideoWallpaperHelper() {
     }
 
     private static String key(int account, long dialogId) {
         return account + "_" + dialogId;
+    }
+
+    private static String singlePlaybackKey(int account, String path) {
+        return "single:" + account + ":" + path;
+    }
+
+    private static String playlistPlaybackKey(int account, ArrayList<String> paths, int mode) {
+        StringBuilder builder = new StringBuilder("playlist:").append(account).append(':').append(mode);
+        for (String path : paths) {
+            builder.append('|').append(path);
+        }
+        return builder.toString();
+    }
+
+    private static PlaybackState readPlaybackState(String playbackKey) {
+        synchronized (PLAYBACK_STATE_LOCK) {
+            return PLAYBACK_STATES.get(playbackKey);
+        }
+    }
+
+    private static void writePlaybackState(String playbackKey, String path, int playlistIndex, int positionMs) {
+        if (playbackKey == null || path == null) {
+            return;
+        }
+        synchronized (PLAYBACK_STATE_LOCK) {
+            PLAYBACK_STATES.put(playbackKey, new PlaybackState(path, playlistIndex, positionMs));
+        }
     }
 
     /** 静态壁纸覆盖动态视频时的会话级开关；重新选择视频会自动清除。 */
@@ -151,7 +197,7 @@ public final class DynamicVideoWallpaperHelper {
         }
     }
 
-    private static void notifyWallpaperChanged(int account, long dialogId) {
+    public static void notifyWallpaperChanged(int account, long dialogId) {
         for (WallpaperChangeListener listener : CHANGE_LISTENERS) {
             try {
                 listener.onDynamicWallpaperChanged(account, dialogId);
@@ -243,7 +289,8 @@ public final class DynamicVideoWallpaperHelper {
             insertIndex = backgroundIndex < 0 ? 0 : backgroundIndex + 1;
         }
         parent.addView(layer, Math.min(insertIndex, parent.getChildCount()), new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        Player player = new Player(textureView, paths, layer, MultiDynamicVideoWallpaperHelper.getMode(context, account));
+        int mode = MultiDynamicVideoWallpaperHelper.getMode(context, account);
+        Player player = new Player(textureView, paths, layer, mode, playlistPlaybackKey(account, paths, mode));
         if (contentAnchor instanceof SizeNotifierFrameLayout) {
             View background = ((SizeNotifierFrameLayout) contentAnchor).backgroundView;
             if (background != null) { background.setAlpha(0f); player.setSuppressedContentBackground(background); }
@@ -297,7 +344,7 @@ public final class DynamicVideoWallpaperHelper {
         }
         parent.addView(videoLayer, Math.min(insertIndex, parent.getChildCount()),
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        Player player = new Player(textureView, path, videoLayer);
+        Player player = new Player(textureView, path, videoLayer, singlePlaybackKey(account, path));
         // 视频已提升到导航容器后，聊天内容内的官方静态背景会成为遮挡层；
         // 将它暂时透明化，释放播放器时再恢复，保证视频作为完整页面背景可见。
         if (contentAnchor instanceof SizeNotifierFrameLayout) {
@@ -319,7 +366,9 @@ public final class DynamicVideoWallpaperHelper {
         private final View layerView;
         private final boolean playlistMode;
         private final int playlistModeValue;
+        private final String playbackKey;
         private int playlistIndex;
+        private int resumePositionMs;
         private MediaPlayer mediaPlayer;
         private Surface surface;
         private SurfaceTexture surfaceTexture;
@@ -331,18 +380,36 @@ public final class DynamicVideoWallpaperHelper {
         private int videoWidth;
         private int videoHeight;
 
-        private Player(TextureView textureView, String path, View layerView) {
-            this(textureView, null, layerView, MultiDynamicVideoWallpaperHelper.MODE_ORDER);
+        private Player(TextureView textureView, String path, View layerView, String playbackKey) {
+            this(textureView, null, layerView, MultiDynamicVideoWallpaperHelper.MODE_ORDER, playbackKey);
             this.path = path;
         }
 
-        private Player(TextureView textureView, ArrayList<String> playlist, View layerView, int mode) {
+        private Player(TextureView textureView, ArrayList<String> playlist, View layerView, int mode, String playbackKey) {
             this.textureView = textureView;
             this.playlist = playlist;
             this.path = playlist == null || playlist.isEmpty() ? null : playlist.get(0);
             this.layerView = layerView;
             this.playlistMode = playlist != null && !playlist.isEmpty();
             this.playlistModeValue = mode;
+            this.playbackKey = playbackKey;
+            PlaybackState state = readPlaybackState(playbackKey);
+            if (state != null) {
+                resumePositionMs = state.positionMs;
+                if (this.playlistMode) {
+                    int restoredIndex = state.playlistIndex;
+                    if (state.path != null) {
+                        int pathIndex = playlist.indexOf(state.path);
+                        if (pathIndex >= 0) {
+                            restoredIndex = pathIndex;
+                        }
+                    }
+                    if (restoredIndex >= 0 && restoredIndex < playlist.size()) {
+                        playlistIndex = restoredIndex;
+                        path = playlist.get(playlistIndex);
+                    }
+                }
+            }
         }
 
         private void start() {
@@ -358,6 +425,23 @@ public final class DynamicVideoWallpaperHelper {
                 return;
             }
             releaseMediaPlayer();
+            PlaybackState state = readPlaybackState(playbackKey);
+            if (state != null) {
+                resumePositionMs = state.positionMs;
+                if (playlistMode && playlist != null && !playlist.isEmpty()) {
+                    int restoredIndex = state.playlistIndex;
+                    if (state.path != null) {
+                        int pathIndex = playlist.indexOf(state.path);
+                        if (pathIndex >= 0) {
+                            restoredIndex = pathIndex;
+                        }
+                    }
+                    if (restoredIndex >= 0 && restoredIndex < playlist.size()) {
+                        playlistIndex = restoredIndex;
+                        path = playlist.get(playlistIndex);
+                    }
+                }
+            }
             try {
                 this.surfaceTexture = surfaceTexture;
                 // 清除旧视频遗留的矩阵，避免换视频后继续沿用旧比例。
@@ -388,6 +472,11 @@ public final class DynamicVideoWallpaperHelper {
                         applyFitCenter();
                         textureView.animate().alpha(.96f).setDuration(220L).start();
                         try {
+                            int position = resumePositionMs;
+                            if (position > 0 && player.getDuration() > position + 300) {
+                                player.seekTo(position);
+                            }
+                            resumePositionMs = 0;
                             player.start();
                         } catch (Throwable e) {
                             FileLog.e(e);
@@ -426,6 +515,7 @@ public final class DynamicVideoWallpaperHelper {
                 if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                     mediaPlayer.pause();
                 }
+                savePlaybackPosition();
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -433,7 +523,12 @@ public final class DynamicVideoWallpaperHelper {
 
         public void resume() {
             try {
-                if (!released && mediaPlayer != null && !mediaPlayer.isPlaying()) {
+                if (released) {
+                    return;
+                }
+                if (mediaPlayer == null && textureView.isAvailable()) {
+                    prepare(textureView.getSurfaceTexture());
+                } else if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
                     mediaPlayer.start();
                 }
             } catch (Throwable e) {
@@ -477,6 +572,7 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         public void release() {
+            savePlaybackPosition();
             released = true;
             textureView.animate().cancel();
             textureView.removeOnLayoutChangeListener(videoLayoutListener);
@@ -551,6 +647,9 @@ public final class DynamicVideoWallpaperHelper {
             }
             try {
                 if (mediaPlayer != null) {
+                    path = nextPath;
+                    resumePositionMs = 0;
+                    writePlaybackState(playbackKey, path, playlistIndex, 0);
                     mediaPlayer.reset();
                     mediaPlayer.setDataSource(nextPath);
                     mediaPlayer.setSurface(surface);
@@ -562,7 +661,24 @@ public final class DynamicVideoWallpaperHelper {
             } catch (Throwable e) { FileLog.e(e); }
         }
 
+        private void savePlaybackPosition() {
+            if (mediaPlayer == null || released || path == null) {
+                return;
+            }
+            try {
+                int position = mediaPlayer.getCurrentPosition();
+                int duration = mediaPlayer.getDuration();
+                if (duration > 0 && position >= duration - 250) {
+                    position = 0;
+                }
+                writePlaybackState(playbackKey, path, playlistIndex, position);
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        }
+
         private void releaseMediaPlayer() {
+            savePlaybackPosition();
             if (mediaPlayer != null) {
                 try {
                     mediaPlayer.reset();

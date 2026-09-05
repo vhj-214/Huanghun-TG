@@ -105,6 +105,7 @@ public final class MultiDynamicVideoWallpaperHelper {
 
     public static void setEnabled(Context c, int account, boolean enabled) {
         prefs(c).edit().putBoolean(key(KEY_ENABLED, account), enabled).commit();
+        DynamicVideoWallpaperHelper.notifyWallpaperChanged(account, 0L);
     }
 
     public static int getMode(Context c, int account) {
@@ -113,6 +114,7 @@ public final class MultiDynamicVideoWallpaperHelper {
 
     public static void setMode(Context c, int account, int mode) {
         prefs(c).edit().putInt(key(KEY_MODE, account), mode == MODE_RANDOM ? MODE_RANDOM : MODE_ORDER).apply();
+        DynamicVideoWallpaperHelper.notifyWallpaperChanged(account, 0L);
     }
 
     public static void deleteVideos(Context c, int account, Collection<String> paths) {
@@ -132,6 +134,8 @@ public final class MultiDynamicVideoWallpaperHelper {
         writePaths(c, account, keep);
         if (keep.isEmpty()) {
             setEnabled(c, account, false);
+        } else {
+            DynamicVideoWallpaperHelper.notifyWallpaperChanged(account, 0L);
         }
     }
 

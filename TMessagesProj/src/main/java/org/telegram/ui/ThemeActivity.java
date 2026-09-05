@@ -1340,7 +1340,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 MultiDynamicVideoWallpaperHelper.setMode(ApplicationLoader.applicationContext, currentAccount, nextMode);
                 if (listAdapter != null) listAdapter.notifyItemChanged(multiDynamicModeRow);
             } else if (position == multiDynamicManageRow) {
-                presentFragment(new HuanghunMultiDynamicWallpaperActivity(true));
+                presentFragment(new HuanghunMultiDynamicWallpaperActivity(false));
             } else if (position == changeUserColor) {
                 presentFragment(new PeerColorActivity(0).setOnApplied(this));
             } else if (position == sendByEnterRow) {
@@ -3003,7 +3003,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         int count = MultiDynamicVideoWallpaperHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount);
-                        cell.setTextAndValueAndIcon("查看/删除当前动态视频", count == 0 ? "暂无视频" : (count + " 个视频"), R.drawable.msg_delete, changeUserColor >= 0);
+                        cell.setTextAndValueAndIcon("管理当前动态视频", count == 0 ? "暂无视频" : (count + " 个视频 · 可播放/全选/删除"), R.drawable.msg_delete, changeUserColor >= 0);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
