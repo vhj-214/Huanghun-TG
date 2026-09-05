@@ -7328,7 +7328,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     public void onResume() {
         super.onResume();
         dialogsDynamicVideoWallpaperPaused = false;
-        if (dialogsDynamicVideoWallpaperPlayer != null && !dialogsDynamicVideoWallpaperPlayer.needsReattach()) {
+        if (dialogsDynamicVideoWallpaperPlayer != null) {
             dialogsDynamicVideoWallpaperPlayer.resume();
         } else {
             refreshDialogsDynamicVideoWallpaper();

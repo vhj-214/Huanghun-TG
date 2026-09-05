@@ -268,11 +268,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         if (contentView != null) {
             contentView.onResume();
         }
-        if (settingsDynamicVideoWallpaperPlayer != null && !settingsDynamicVideoWallpaperPlayer.needsReattach()) {
+        if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.resume();
-        } else if (contentView != null) {
-            // 设置页被覆盖或系统回收 Surface 后，旧播放器不能再恢复；重新挂载全局视频。
-            refreshSettingsWallpaper();
         }
         // 从“本地大会员”开关页返回时，立即重新绑定高级版/企业版条目状态。
         if (listView != null) {
@@ -621,11 +618,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         checkUi_menuItems();
 
         ViewCompat.setOnApplyWindowInsetsListener(contentView, this::onApplyWindowInsets);
-        fragmentView = contentView;
-        // 以前只在壁纸变更通知或再次回到页面时刷新，因此首次点开“设置”时
-        // 从未创建动态视频层。创建完成后立即挂载，后续由 onResume 负责重建。
-        refreshSettingsWallpaper();
-        return fragmentView;
+        return fragmentView = contentView;
     }
 
     @Override

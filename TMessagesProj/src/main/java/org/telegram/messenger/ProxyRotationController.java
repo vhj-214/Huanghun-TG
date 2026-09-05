@@ -65,9 +65,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
      * The selected interval is a real Ping refresh cadence, not merely a connection-timeout value.
      */
     public static void onRotationSettingsChanged() {
-        // 轮换配置变更不应启动后台循环 ping。连接失败时的轮换逻辑会按用户
-        // 设定的延迟执行一次检测；常驻探测会与 tgnet 重连竞争，造成反复“连接中”。
-        INSTANCE.stopBackgroundProxyChecks();
+        INSTANCE.scheduleRotationPingRefresh(0L);
     }
 
     private long getRotationPingRefreshInterval() {
@@ -159,14 +157,10 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
     }
 
     private void scheduleActiveProxyHealthCheck(long delay) {
-        // 不在后台反复探测当前代理。tgnet 自己负责连接维护；这里的探测失败后
-        // 曾经会再次调用 setProxySettings，从而触发新的连接状态通知并形成循环。
         AndroidUtilities.cancelRunOnUIThread(activeProxyHealthCheckRunnable);
-    }
-
-    private void stopBackgroundProxyChecks() {
-        AndroidUtilities.cancelRunOnUIThread(activeProxyHealthCheckRunnable);
-        AndroidUtilities.cancelRunOnUIThread(rotationPingRefreshRunnable);
+        if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
+            AndroidUtilities.runOnUIThread(activeProxyHealthCheckRunnable, delay);
+        }
     }
 
     @SuppressWarnings("ComparatorCombinators")
@@ -211,7 +205,8 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
         }
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxyCheckDone);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxySettingsChanged);
-        // 不在应用启动后启动周期性代理 ping；仅在真实的连接失败时执行轮换检测。
+        scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
+        scheduleRotationPingRefresh(0L);
     }
 
     @Override
@@ -224,8 +219,15 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
             switchToAvailable();
         } else if (id == NotificationCenter.proxySettingsChanged) {
             AndroidUtilities.cancelRunOnUIThread(checkProxyAndSwitchRunnable);
-            stopBackgroundProxyChecks();
+            scheduleActiveProxyHealthCheck(ACTIVE_PROXY_HEALTH_CHECK_INTERVAL);
+            scheduleRotationPingRefresh(getRotationPingRefreshInterval());
         } else if (id == NotificationCenter.didUpdateConnectionState && account == UserConfig.selectedAccount) {
+            if (SharedConfig.isProxyEnabled()) {
+                int activeState = ConnectionsManager.getInstance(account).getConnectionState();
+                long delay = activeState == ConnectionsManager.ConnectionStateConnectingToProxy ? 15_000L : ACTIVE_PROXY_HEALTH_CHECK_INTERVAL;
+                scheduleActiveProxyHealthCheck(delay);
+            }
+
             if (!SharedConfig.isProxyEnabled() && !SharedConfig.proxyRotationEnabled || SharedConfig.proxyList.size() <= 1) {
                 return;
             }

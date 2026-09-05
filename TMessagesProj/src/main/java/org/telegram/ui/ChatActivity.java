@@ -31807,11 +31807,9 @@ public class ChatActivity extends BaseFragment implements
         }
         // 配置更新由动态壁纸监听器处理。页面恢复时绝不重复释放并重建播放器，
         // 否则快速浏览聊天会反复创建 MediaPlayer，造成明显掉帧和卡顿。
-        if (dynamicVideoWallpaperPlayer != null && !dynamicVideoWallpaperPlayer.needsReattach()) {
+        if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.resume();
         } else {
-            // 转场期间 TextureView 的 Surface 可能已经被系统销毁；旧实例不可恢复，
-            // 必须重新插入背景层，避免进入聊天后只剩静态壁纸或透明空白。
             refreshDynamicVideoWallpaper();
         }
         if (currentChat != null) {
