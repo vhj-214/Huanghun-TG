@@ -32,6 +32,7 @@
     <string name="ZalgoFilterNotice">昵称和消息中的 \"Z̷͍͌ā̸̜l̸̞̂g̷̝͘o̶̩̓\" 符号将被过滤。</string>
     <string name="AlwaysShowDownloadIcon">始终显示下载图标</string>
     <string name="HideTitle">隐藏标题和头像</string>
+    <string name="SwapChat">置换聊天</string>
     <string name="IgnoreUnreadCount">忽略未读计数</string>
     <string name="SendWithoutMarkdown">发送时禁用 Markdown</string>
     <string name="SendAsEmoji">以 Emoji 发送</string>

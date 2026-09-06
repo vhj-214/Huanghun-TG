@@ -201,6 +201,7 @@
     <string name="EncryptedChatStartedOutgoing">%s joined your secret chat.</string>
     <string name="EncryptedChatStartedIncoming">You joined the secret chat.</string>
     <string name="ClearHistory">Clear history</string>
+    <string name="SwapChat">Swap chat</string>
     <string name="ClearAllHistory">Clear All History</string>
     <string name="ClearRecentHistory">Clear history</string>
     <string name="AlertClearHistory">Clear History</string>

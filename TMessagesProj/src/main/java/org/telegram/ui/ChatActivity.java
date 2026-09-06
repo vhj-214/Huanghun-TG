@@ -1785,6 +1785,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int save_to = 25;
     private final static int auto_delete_timer = 26;
     private final static int change_colors = 27;
+    private final static int swap_chat = 29;
     private final static int set_chat_dynamic_video_wallpaper = 927;
     private static final int REQUEST_CHAT_DYNAMIC_VIDEO_WALLPAPER = 9925;
     private final static int tag_message = 28;
@@ -4307,6 +4308,21 @@ public class ChatActivity extends BaseFragment implements
                         return;
                     }
                     showDialog(AlertsCreator.createTTLAlert(getParentActivity(), currentEncryptedChat, themeDelegate).create());
+                } else if (id == swap_chat) {
+                    if (currentUser == null || UserObject.isUserSelf(currentUser) || currentEncryptedChat != null) {
+                        return;
+                    }
+                    boolean enabled = !MessageObject.isChatSwapEnabled(currentAccount, dialog_id);
+                    MessageObject.setChatSwapEnabled(currentAccount, dialog_id, enabled);
+                    for (MessageObject messageObject : messages) {
+                        if (messageObject != null) {
+                            messageObject.isOutOwnerCached = null;
+                        }
+                    }
+                    if (chatAdapter != null) {
+                        chatAdapter.notifyDataSetChanged();
+                    }
+                    updateVisibleRows();
                 } else if (id == clear_history || id == delete_chat || id == auto_delete_timer) {
                     if (getParentActivity() == null) {
                         return;
@@ -5071,6 +5087,9 @@ public class ChatActivity extends BaseFragment implements
                         headerItem.lazilyAddSubItem(delete_chat, R.drawable.msg_delete, LocaleController.getString(R.string.DeleteChatUser));
                     }
                 }
+            }
+            if (currentUser != null && !UserObject.isUserSelf(currentUser) && currentEncryptedChat == null) {
+                headerItem.lazilyAddSubItem(swap_chat, R.drawable.ic_round_swap_horiz_24, LocaleController.getString(R.string.SwapChat));
             }
             if (ChatObject.isMonoForum(currentChat) && ChatObject.canManageMonoForum(currentAccount, currentChat)) {
                 headerItem.lazilyAddSubItem(remove_fee, R.drawable.menu_paid_off, getString(R.string.DirectRemoveFee));

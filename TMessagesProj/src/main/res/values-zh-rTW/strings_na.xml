@@ -32,6 +32,7 @@
     <string name="ZalgoFilterNotice">暱稱與訊息中的 \"Zalgo\" 符號將被過濾</string>
     <string name="AlwaysShowDownloadIcon">始終顯示下載圖示</string>
     <string name="HideTitle">隱藏標題與頭像</string>
+    <string name="SwapChat">置換聊天</string>
     <string name="IgnoreUnreadCount">隱藏未讀計數</string>
     <string name="SendWithoutMarkdown">傳送訊息時禁用 Markdown</string>
     <string name="SendAsEmoji">以 Emoji 傳送</string>

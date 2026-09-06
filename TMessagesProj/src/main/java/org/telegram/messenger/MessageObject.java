@@ -9592,6 +9592,14 @@ public class MessageObject {
         return messageOwner.out;
     }
 
+    private static final String CHAT_SWAP_PREFIX = "chat_swap_";
+    public static boolean isChatSwapEnabled(int account, long dialogId) {
+        return MessagesController.getNotificationsSettings(account).getBoolean(CHAT_SWAP_PREFIX + dialogId, false);
+    }
+    public static void setChatSwapEnabled(int account, long dialogId, boolean enabled) {
+        MessagesController.getNotificationsSettings(account).edit().putBoolean(CHAT_SWAP_PREFIX + dialogId, enabled).apply();
+    }
+
     public Boolean isOutOwnerCached;
     public boolean isOutOwner() {
         if (previewForward) {
@@ -9601,21 +9609,27 @@ public class MessageObject {
             return isOutOwnerCached;
         }
         long selfUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+        boolean outOwner;
         if (isSaved || getDialogId() == selfUserId) {
             if (messageOwner.fwd_from != null) {
-                return isOutOwnerCached = messageOwner.fwd_from.from_id != null && messageOwner.fwd_from.from_id.user_id == selfUserId || messageOwner.fwd_from.saved_out;
+                outOwner = messageOwner.fwd_from.from_id != null && messageOwner.fwd_from.from_id.user_id == selfUserId || messageOwner.fwd_from.saved_out;
             } else {
-                return isOutOwnerCached = true;
+                outOwner = true;
+            }
+        } else {
+            TLRPC.Chat chat = messageOwner.peer_id != null && messageOwner.peer_id.channel_id != 0 ? getChat(null, null, messageOwner.peer_id.channel_id) : null;
+            if (!messageOwner.out || !(messageOwner.from_id instanceof TLRPC.TL_peerUser) && (!(messageOwner.from_id instanceof TLRPC.TL_peerChannel) || ChatObject.isChannelAndNotMegaGroup(chat)) /*|| ChatObject.isMonoForum(chat)*/ || messageOwner.post) {
+                outOwner = false;
+            } else if (messageOwner.fwd_from == null) {
+                outOwner = true;
+            } else {
+                outOwner = messageOwner.fwd_from.saved_from_peer == null || messageOwner.fwd_from.saved_from_peer.user_id == selfUserId;
             }
         }
-        TLRPC.Chat chat = messageOwner.peer_id != null && messageOwner.peer_id.channel_id != 0 ? getChat(null, null, messageOwner.peer_id.channel_id) : null;
-        if (!messageOwner.out || !(messageOwner.from_id instanceof TLRPC.TL_peerUser) && (!(messageOwner.from_id instanceof TLRPC.TL_peerChannel) || ChatObject.isChannelAndNotMegaGroup(chat)) /*|| ChatObject.isMonoForum(chat)*/ || messageOwner.post) {
-            return isOutOwnerCached = false;
+        if (isChatSwapEnabled(currentAccount, getDialogId()) && getDialogId() > 0 && getDialogId() != selfUserId) {
+            outOwner = !outOwner;
         }
-        if (messageOwner.fwd_from == null) {
-            return isOutOwnerCached = true;
-        }
-        return isOutOwnerCached = messageOwner.fwd_from.saved_from_peer == null || messageOwner.fwd_from.saved_from_peer.user_id == selfUserId;
+        return isOutOwnerCached = outOwner;
     }
 
     public boolean needDrawAvatar() {
