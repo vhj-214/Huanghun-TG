@@ -688,7 +688,13 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
 
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-            prepare(surface);
+            // Do not prepare every video while the management page is being
+            // opened. A page can contain many local videos and preparing a
+            // MediaPlayer for each TextureView at the same time can enter the
+            // native decoder pipeline concurrently and crash the app. The
+            // player is created on demand from play(), after the user taps a
+            // preview.
+            surfaceTexture = surface;
         }
 
         @Override
