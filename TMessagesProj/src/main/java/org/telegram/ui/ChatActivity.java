@@ -4317,12 +4317,27 @@ public class ChatActivity extends BaseFragment implements
                     for (MessageObject messageObject : messages) {
                         if (messageObject != null) {
                             messageObject.isOutOwnerCached = null;
+                            messageObject.forceUpdate = true;
                         }
                     }
                     if (chatAdapter != null) {
-                        chatAdapter.notifyDataSetChanged();
+                        chatAdapter.notifyDataSetChanged(false);
                     }
-                    updateVisibleRows();
+                    if (chatListView != null) {
+                        chatListView.requestLayout();
+                        chatListView.post(() -> {
+                            updateVisibleRows();
+                            chatListView.requestLayout();
+                            chatListView.invalidate();
+                            chatListView.post(() -> {
+                                for (MessageObject messageObject : messages) {
+                                    if (messageObject != null) {
+                                        messageObject.forceUpdate = false;
+                                    }
+                                }
+                            });
+                        });
+                    }
                 } else if (id == clear_history || id == delete_chat || id == auto_delete_timer) {
                     if (getParentActivity() == null) {
                         return;
