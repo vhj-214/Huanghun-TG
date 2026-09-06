@@ -1,7 +1,9 @@
 package tw.nekomimi.nekogram.settings;
 
+import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.provider.MediaStore;
@@ -10,10 +12,15 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.VideoView;
+import android.widget.MediaController;
+import android.widget.Toast;
 
 import java.io.File;
 
@@ -52,6 +59,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
 
     private final boolean deleteMode;
     private final boolean multiDynamicMode;
+    private final boolean selectionEnabled;
     private RecyclerListView listView;
     private VideoAdapter adapter;
     private TextView selectionButton;
@@ -82,6 +90,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
     public HuanghunVideoLibraryActivity(boolean deleteMode, boolean multiDynamicMode) {
         this.deleteMode = deleteMode;
         this.multiDynamicMode = multiDynamicMode;
+        this.selectionEnabled = deleteMode || multiDynamicMode;
     }
 
     @Override
@@ -108,7 +117,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
         fragmentView = root;
 
         int topOffset = 0;
-        if (deleteMode) {
+        if (selectionEnabled) {
             LinearLayout actions = new LinearLayout(context);
             actions.setGravity(Gravity.CENTER_VERTICAL);
             actions.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
@@ -134,7 +143,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
         listView.setClipToPadding(false);
         listView.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(18));
         listView.setOnItemClickListener((view, position) -> {
-            if (deleteMode && position >= 0 && position < items.size()) {
+            if (selectionEnabled && position >= 0 && position < items.size()) {
                 toggleSelected(items.get(position).path);
             }
         });
@@ -221,7 +230,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
         if (emptyView != null) {
             emptyView.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
         }
-        if (!deleteMode || selectionButton == null || deleteButton == null) {
+        if (!selectionEnabled || selectionButton == null || deleteButton == null) {
             return;
         }
         boolean hasItems = !items.isEmpty();
@@ -234,7 +243,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
     }
 
     private void confirmDeleteSelected() {
-        if (multiDynamicMode || selectedPaths.isEmpty() || getParentActivity() == null) {
+        if (selectedPaths.isEmpty() || getParentActivity() == null) {
             return;
         }
         int count = selectedPaths.size();
@@ -243,7 +252,11 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
                 .setMessage("确定删除已选的 " + count + " 个内置视频吗？删除后无法恢复，但不会影响手机相册中的原始文件。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("删除", (dialog, which) -> {
-                    HuanghunVideoLibraryHelper.deleteVideos(getParentActivity(), currentAccount, new ArrayList<>(selectedPaths));
+                    if (multiDynamicMode) {
+                        MultiDynamicVideoWallpaperHelper.deleteVideos(getParentActivity(), currentAccount, new ArrayList<>(selectedPaths));
+                    } else {
+                        HuanghunVideoLibraryHelper.deleteVideos(getParentActivity(), currentAccount, new ArrayList<>(selectedPaths));
+                    }
                     selectedPaths.clear();
                     reloadItems();
                     BulletinFactory.of(HuanghunVideoLibraryActivity.this).createSimpleBulletin(R.raw.done, "已删除 " + count + " 个内置视频。").show();
@@ -279,7 +292,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
 
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
-            return deleteMode;
+            return selectionEnabled;
         }
 
         @Override
@@ -319,10 +332,10 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
             thumbnail.setBackground(createGlassDrawable(0x29000000, 0x46FFFFFF, 12));
             card.addView(thumbnail, LayoutHelper.createFrame(100, 64, Gravity.LEFT | Gravity.CENTER_VERTICAL, 10, 0, 0, 0));
 
-            LinearLayout textContainer = new LinearLayout(context);
+            LinearLayout             textContainer = new LinearLayout(context);
             textContainer.setOrientation(LinearLayout.VERTICAL);
             textContainer.setGravity(Gravity.CENTER_VERTICAL);
-            card.addView(textContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 122, 0, deleteMode ? 48 : 14, 0));
+            card.addView(textContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP, 122, 0, selectionEnabled ? 48 : 14, 0));
 
             title = new TextView(context);
             title.setSingleLine(true);
@@ -342,6 +355,12 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
             checkBox.setDrawUnchecked(false);
             checkBox.setDrawBackgroundAsArc(3);
             card.addView(checkBox, LayoutHelper.createFrame(24, 24, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 14, 0));
+            checkBox.setOnClickListener(v -> {
+                if (selectionEnabled && boundPath != null) {
+                    toggleSelected(boundPath);
+                }
+            });
+            thumbnail.setOnClickListener(v -> showVideoPlayer(boundPath, title.getText().toString()));
         }
 
         private void bind(VideoItem item, boolean selectable, boolean checked, boolean divider) {
@@ -370,6 +389,42 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
                 });
             });
         }
+    }
+
+    private void showVideoPlayer(String path, String title) {
+        if (path == null || path.length() == 0 || getParentActivity() == null || !new File(path).isFile()) {
+            return;
+        }
+        final Dialog dialog = new Dialog(getParentActivity());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout container = new LinearLayout(getParentActivity());
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8));
+        TextView titleView = new TextView(getParentActivity());
+        titleView.setText(title);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        titleView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+        titleView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(4), AndroidUtilities.dp(8), AndroidUtilities.dp(8));
+        container.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        VideoView videoView = new VideoView(getParentActivity());
+        MediaController controller = new MediaController(getParentActivity());
+        videoView.setMediaController(controller);
+        videoView.setVideoURI(Uri.fromFile(new File(path)));
+        videoView.setOnErrorListener((mp, what, extra) -> {
+            Toast.makeText(getParentActivity(), "此视频无法播放", Toast.LENGTH_SHORT).show();
+            return true;
+        });
+        container.addView(videoView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(360)));
+        dialog.setContentView(container);
+        dialog.setOnDismissListener(d -> videoView.stopPlayback());
+        dialog.setOnShowListener(d -> {
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setLayout((int) (getParentActivity().getResources().getDisplayMetrics().widthPixels * 0.94f), WindowManager.LayoutParams.WRAP_CONTENT);
+            }
+            videoView.start();
+        });
+        dialog.show();
     }
 
     private static String formatDuration(long durationMs) {
