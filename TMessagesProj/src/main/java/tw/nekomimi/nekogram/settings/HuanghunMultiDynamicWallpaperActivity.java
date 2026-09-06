@@ -668,7 +668,16 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             // native decoder pipeline concurrently and crash the app. The
             // player is created on demand from play(), after the user taps a
             // preview.
+            if (released) {
+                return;
+            }
             surfaceTexture = surface;
+            // A tap can arrive before TextureView has created its Surface.
+            // Keep that tap pending and start exactly one player as soon as
+            // the Surface becomes available instead of requiring a second tap.
+            if (playWhenPrepared && mediaPlayer == null) {
+                prepare(surface);
+            }
         }
 
         @Override
