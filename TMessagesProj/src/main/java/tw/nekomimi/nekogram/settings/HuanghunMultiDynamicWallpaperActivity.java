@@ -32,7 +32,6 @@ import org.telegram.ui.ActionBar.Theme;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Set;
 
@@ -48,7 +47,6 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
     private TextView deleteButton;
     private TextView emptyView;
     private final Set<String> selected = new HashSet<>();
-    private final HashMap<String, Long> durationCache = new HashMap<>();
     private final ArrayList<PreviewPlayer> previewPlayers = new ArrayList<>();
     private PreviewPlayer playingPreview;
     private int refreshGeneration;
@@ -220,8 +218,11 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         }
         ArrayList<MultiDynamicVideoWallpaperHelper.VideoItem> result = new ArrayList<>();
         for (String path : MultiDynamicVideoWallpaperHelper.getVideoPaths(getParentActivity(), currentAccount)) {
-            Long duration = durationCache.get(path);
-            result.add(new MultiDynamicVideoWallpaperHelper.VideoItem(path, duration == null ? 0L : duration, new File(path).length()));
+            // Do not probe media metadata while opening the manager. Some OEM
+            // MediaMetadataRetriever implementations crash when several local
+            // videos are parsed during a fragment transition. Duration is
+            // optional, so leave it unknown until a video is explicitly played.
+            result.add(new MultiDynamicVideoWallpaperHelper.VideoItem(path, 0L, new File(path).length()));
         }
         return result;
     }
@@ -230,7 +231,7 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         if (gallery == null || getParentActivity() == null) {
             return;
         }
-        final int generation = ++refreshGeneration;
+        ++refreshGeneration;
         stopAllVideoPlayers();
         gallery.removeAllViews();
 
@@ -261,33 +262,6 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             }
         }
         updateControls(items.size());
-        loadMissingDurations(items, generation);
-    }
-
-    /** Never block the settings screen on media parser/native codec work. */
-    private void loadMissingDurations(ArrayList<MultiDynamicVideoWallpaperHelper.VideoItem> items, int generation) {
-        ArrayList<String> pending = new ArrayList<>();
-        for (MultiDynamicVideoWallpaperHelper.VideoItem item : items) {
-            if (!durationCache.containsKey(item.path)) {
-                pending.add(item.path);
-            }
-        }
-        if (pending.isEmpty()) {
-            return;
-        }
-        Utilities.globalQueue.postRunnable(() -> {
-            HashMap<String, Long> loaded = new HashMap<>();
-            for (String path : pending) {
-                loaded.put(path, MultiDynamicVideoWallpaperHelper.getVideoDuration(path));
-            }
-            AndroidUtilities.runOnUIThread(() -> {
-                if (fragmentView == null || generation != refreshGeneration || getParentActivity() == null) {
-                    return;
-                }
-                durationCache.putAll(loaded);
-                refresh();
-            });
-        });
     }
 
     private String modeText(Context context) {
