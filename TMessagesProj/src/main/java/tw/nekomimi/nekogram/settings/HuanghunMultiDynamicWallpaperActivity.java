@@ -32,6 +32,7 @@ import org.telegram.ui.ActionBar.Theme;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Set;
 
@@ -47,8 +48,10 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
     private TextView deleteButton;
     private TextView emptyView;
     private final Set<String> selected = new HashSet<>();
+    private final HashMap<String, Long> durationCache = new HashMap<>();
     private final ArrayList<PreviewPlayer> previewPlayers = new ArrayList<>();
     private PreviewPlayer playingPreview;
+    private int refreshGeneration;
 
     public HuanghunMultiDynamicWallpaperActivity() {
         this(false);
@@ -128,6 +131,7 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
 
     @Override
     public void onFragmentDestroy() {
+        refreshGeneration++;
         stopAllVideoPlayers();
         super.onFragmentDestroy();
     }
@@ -214,13 +218,19 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
         if (getParentActivity() == null) {
             return new ArrayList<>();
         }
-        return MultiDynamicVideoWallpaperHelper.getVideos(getParentActivity(), currentAccount);
+        ArrayList<MultiDynamicVideoWallpaperHelper.VideoItem> result = new ArrayList<>();
+        for (String path : MultiDynamicVideoWallpaperHelper.getVideoPaths(getParentActivity(), currentAccount)) {
+            Long duration = durationCache.get(path);
+            result.add(new MultiDynamicVideoWallpaperHelper.VideoItem(path, duration == null ? 0L : duration, new File(path).length()));
+        }
+        return result;
     }
 
     private void refresh() {
         if (gallery == null || getParentActivity() == null) {
             return;
         }
+        final int generation = ++refreshGeneration;
         stopAllVideoPlayers();
         gallery.removeAllViews();
 
@@ -251,6 +261,33 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
             }
         }
         updateControls(items.size());
+        loadMissingDurations(items, generation);
+    }
+
+    /** Never block the settings screen on media parser/native codec work. */
+    private void loadMissingDurations(ArrayList<MultiDynamicVideoWallpaperHelper.VideoItem> items, int generation) {
+        ArrayList<String> pending = new ArrayList<>();
+        for (MultiDynamicVideoWallpaperHelper.VideoItem item : items) {
+            if (!durationCache.containsKey(item.path)) {
+                pending.add(item.path);
+            }
+        }
+        if (pending.isEmpty()) {
+            return;
+        }
+        Utilities.globalQueue.postRunnable(() -> {
+            HashMap<String, Long> loaded = new HashMap<>();
+            for (String path : pending) {
+                loaded.put(path, MultiDynamicVideoWallpaperHelper.getVideoDuration(path));
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                if (fragmentView == null || generation != refreshGeneration || getParentActivity() == null) {
+                    return;
+                }
+                durationCache.putAll(loaded);
+                refresh();
+            });
+        });
     }
 
     private String modeText(Context context) {
@@ -457,6 +494,9 @@ public class HuanghunMultiDynamicWallpaperActivity extends BaseFragment {
     }
 
     private static String formatDuration(long durationMs) {
+        if (durationMs <= 0) {
+            return "时长未知";
+        }
         long totalSeconds = Math.max(0L, durationMs / 1000L);
         long minutes = totalSeconds / 60L;
         long seconds = totalSeconds % 60L;

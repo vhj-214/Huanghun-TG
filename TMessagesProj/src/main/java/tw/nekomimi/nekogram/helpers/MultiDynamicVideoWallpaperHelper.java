@@ -95,6 +95,18 @@ public final class MultiDynamicVideoWallpaperHelper {
         return getVideoPaths(c, account).size();
     }
 
+    /**
+     * Reads metadata for one already-imported file. Callers must use a worker
+     * thread: MediaMetadataRetriever may enter vendor native codecs and is not
+     * safe to run while the settings screen is being opened.
+     */
+    public static long getVideoDuration(String path) {
+        if (path == null || path.length() == 0) {
+            return 0L;
+        }
+        return readDuration(path);
+    }
+
     public static boolean isEnabled(Context c, int account) {
         return prefs(c).getBoolean(key(KEY_ENABLED, account), false) && getVideoCount(c, account) > 0;
     }
