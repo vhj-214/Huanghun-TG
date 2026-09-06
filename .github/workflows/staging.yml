@@ -87,9 +87,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Staging
-          path: |
-            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
-            TMessagesProj/build/outputs/apk/staging/*-universal.apk
+          # The Android Gradle plugin may place split/universal outputs in
+          # different subdirectories and the project also rewrites filenames.
+          # Upload every staging APK instead of relying on a stale filename.
+          path: TMessagesProj/build/outputs/apk/**/*.apk
+          if-no-files-found: error
   upload:
     name: Upload staging
     if: github.event.inputs.upload != 'y' && !contains(github.event.head_commit.message, '[skip upload]')
