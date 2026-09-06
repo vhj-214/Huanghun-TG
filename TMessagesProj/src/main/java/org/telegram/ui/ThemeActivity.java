@@ -115,7 +115,7 @@ import org.telegram.ui.bots.WebViewRequestProps;
 import org.telegram.ui.web.SearchEngine;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.MultiDynamicVideoWallpaperHelper;
-import tw.nekomimi.nekogram.settings.HuanghunMultiDynamicWallpaperActivity;
+import tw.nekomimi.nekogram.settings.HuanghunVideoLibraryActivity;
 import org.telegram.ui.web.WebBrowserSettings;
 
 import java.io.File;
@@ -157,7 +157,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private int deleteDynamicVideoWallpaperRow;
     private int multiDynamicVideoWallpaperRow;
     private int multiDynamicModeRow;
-    private int multiDynamicManageRow;
+    private int multiDynamicViewRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -601,7 +601,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         deleteDynamicVideoWallpaperRow = -1;
         multiDynamicVideoWallpaperRow = -1;
         multiDynamicModeRow = -1;
-        multiDynamicManageRow = -1;
+        multiDynamicViewRow = -1;
         changeUserColor = -1;
         settingsRow = -1;
         directShareRow = -1;
@@ -686,7 +686,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             deleteDynamicVideoWallpaperRow = rowCount++;
             multiDynamicVideoWallpaperRow = rowCount++;
             multiDynamicModeRow = rowCount++;
-            multiDynamicManageRow = rowCount++;
+            multiDynamicViewRow = rowCount++;
             changeUserColor = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
@@ -919,7 +919,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 showDynamicVideoWallpaperDialog(result.imported > 0 ? "启动成功" : "未导入视频", message);
                     if (listAdapter != null) {
                         listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
-                        listAdapter.notifyItemChanged(multiDynamicManageRow);
+                        listAdapter.notifyItemChanged(multiDynamicViewRow);
                         listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
                         listAdapter.notifyItemChanged(deleteDynamicVideoWallpaperRow);
                     }
@@ -1358,8 +1358,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 int nextMode = MultiDynamicVideoWallpaperHelper.getMode(ApplicationLoader.applicationContext, currentAccount) == MultiDynamicVideoWallpaperHelper.MODE_ORDER ? MultiDynamicVideoWallpaperHelper.MODE_RANDOM : MultiDynamicVideoWallpaperHelper.MODE_ORDER;
                 MultiDynamicVideoWallpaperHelper.setMode(ApplicationLoader.applicationContext, currentAccount, nextMode);
                 if (listAdapter != null) listAdapter.notifyItemChanged(multiDynamicModeRow);
-            } else if (position == multiDynamicManageRow) {
-                presentFragment(new HuanghunMultiDynamicWallpaperActivity(false));
+            } else if (position == multiDynamicViewRow) {
+                presentFragment(new HuanghunVideoLibraryActivity(false, true));
             } else if (position == changeUserColor) {
                 presentFragment(new PeerColorActivity(0).setOnApplied(this));
             } else if (position == sendByEnterRow) {
@@ -3017,12 +3017,12 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         String mode = MultiDynamicVideoWallpaperHelper.getMode(ApplicationLoader.applicationContext, currentAccount) == MultiDynamicVideoWallpaperHelper.MODE_RANDOM ? "随机播放" : "顺序播放";
-                        cell.setTextAndValueAndIcon("当前播放模式", mode, R.drawable.msg_background, multiDynamicManageRow >= 0);
-                    } else if (position == multiDynamicManageRow) {
+                        cell.setTextAndValueAndIcon("当前播放模式", mode, R.drawable.msg_background, multiDynamicViewRow >= 0);
+                    } else if (position == multiDynamicViewRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         int count = MultiDynamicVideoWallpaperHelper.getVideoCount(ApplicationLoader.applicationContext, currentAccount);
-                        cell.setTextAndValueAndIcon("管理当前动态视频", count == 0 ? "暂无视频" : (count + " 个视频 · 可播放/全选/删除"), R.drawable.msg_delete, changeUserColor >= 0);
+                        cell.setTextAndValueAndIcon("查看内置视频", count == 0 ? "暂无视频" : (count + " 个视频 · 可播放"), R.drawable.msg_background, changeUserColor >= 0);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -3126,7 +3126,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_THEME_ACCENT_LIST;
             } else if (position == bubbleRadiusRow) {
                 return TYPE_BUBBLE_RADIUS;
-            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == multiDynamicVideoWallpaperRow || position == multiDynamicModeRow || position == multiDynamicManageRow || position == editThemeRow || position == createNewThemeRow ||
+            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == multiDynamicVideoWallpaperRow || position == multiDynamicModeRow || position == multiDynamicViewRow || position == editThemeRow || position == createNewThemeRow ||
                         position == huanghunDefaultThemeRow || position == deleteCustomThemesRow || position == liteModeRow || position == stickersRow) {
                 return TYPE_TEXT_PREFERENCE;
             } else if (position == swipeGestureRow) {

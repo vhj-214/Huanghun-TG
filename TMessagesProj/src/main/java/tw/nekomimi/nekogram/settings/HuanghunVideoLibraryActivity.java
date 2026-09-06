@@ -15,6 +15,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.File;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -39,6 +41,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
+import tw.nekomimi.nekogram.helpers.MultiDynamicVideoWallpaperHelper;
 
 /**
  * 内置视频库浏览与删除页。
@@ -48,16 +51,37 @@ import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 public class HuanghunVideoLibraryActivity extends BaseFragment {
 
     private final boolean deleteMode;
+    private final boolean multiDynamicMode;
     private RecyclerListView listView;
     private VideoAdapter adapter;
     private TextView selectionButton;
     private TextView deleteButton;
     private TextView emptyView;
-    private final ArrayList<HuanghunVideoLibraryHelper.VideoItem> items = new ArrayList<>();
+    private static final class VideoItem {
+        final String path;
+        final String fileName;
+        final long durationMs;
+        final long size;
+        VideoItem(String path, String fileName, long durationMs, long size) {
+            this.path = path;
+            this.fileName = fileName;
+            this.durationMs = durationMs;
+            this.size = size;
+        }
+    }
+    private final ArrayList<VideoItem> items = new ArrayList<>();
     private final Set<String> selectedPaths = new HashSet<>();
 
     public HuanghunVideoLibraryActivity(boolean deleteMode) {
+        this(deleteMode, false);
+    }
+
+    /**
+     * @param multiDynamicMode true 时仅浏览多循环动态壁纸库；删除模式仍只允许原视频专区入口使用。
+     */
+    public HuanghunVideoLibraryActivity(boolean deleteMode, boolean multiDynamicMode) {
         this.deleteMode = deleteMode;
+        this.multiDynamicMode = multiDynamicMode;
     }
 
     @Override
@@ -121,7 +145,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
         emptyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         emptyView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
         emptyView.setPadding(AndroidUtilities.dp(32), AndroidUtilities.dp(24), AndroidUtilities.dp(32), AndroidUtilities.dp(24));
-        emptyView.setText(deleteMode ? "暂无可删除的内置视频\n请先在“选取内置视频”中导入视频。" : "暂无内置视频\n请返回视频专区选取一个或多个视频。 ");
+        emptyView.setText(deleteMode ? "暂无可删除的内置视频\n请先在“选取内置视频”中导入视频。" : (multiDynamicMode ? "暂无多循环动态壁纸视频\n请先在动态视频设置中选择视频。" : "暂无内置视频\n请返回视频专区选取一个或多个视频。 "));
         root.addView(emptyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER, 24, topOffset, 24, 0));
 
         reloadItems();
@@ -139,9 +163,21 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
             return;
         }
         items.clear();
-        items.addAll(HuanghunVideoLibraryHelper.getVideoItems(getParentActivity(), currentAccount));
+        if (multiDynamicMode) {
+            for (String path : MultiDynamicVideoWallpaperHelper.getVideoPaths(getParentActivity(), currentAccount)) {
+                File file = new File(path);
+                long duration = MultiDynamicVideoWallpaperHelper.getVideoDuration(path);
+                if (duration > 0L && file.isFile() && file.length() > 0L) {
+                    items.add(new VideoItem(path, file.getName(), duration, file.length()));
+                }
+            }
+        } else {
+            for (HuanghunVideoLibraryHelper.VideoItem item : HuanghunVideoLibraryHelper.getVideoItems(getParentActivity(), currentAccount)) {
+                items.add(new VideoItem(item.path, item.fileName, item.durationMs, item.size));
+            }
+        }
         Set<String> validPaths = new HashSet<>();
-        for (HuanghunVideoLibraryHelper.VideoItem item : items) {
+        for (VideoItem item : items) {
             validPaths.add(item.path);
         }
         selectedPaths.retainAll(validPaths);
@@ -171,7 +207,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
             selectedPaths.clear();
         } else {
             selectedPaths.clear();
-            for (HuanghunVideoLibraryHelper.VideoItem item : items) {
+            for (VideoItem item : items) {
                 selectedPaths.add(item.path);
             }
         }
@@ -198,7 +234,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
     }
 
     private void confirmDeleteSelected() {
-        if (selectedPaths.isEmpty() || getParentActivity() == null) {
+        if (multiDynamicMode || selectedPaths.isEmpty() || getParentActivity() == null) {
             return;
         }
         int count = selectedPaths.size();
@@ -258,7 +294,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-            HuanghunVideoLibraryHelper.VideoItem item = items.get(position);
+            VideoItem item = items.get(position);
             ((VideoCell) holder.itemView).bind(item, deleteMode, selectedPaths.contains(item.path), position != items.size() - 1);
         }
     }
@@ -308,7 +344,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
             card.addView(checkBox, LayoutHelper.createFrame(24, 24, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 14, 0));
         }
 
-        private void bind(HuanghunVideoLibraryHelper.VideoItem item, boolean selectable, boolean checked, boolean divider) {
+        private void bind(VideoItem item, boolean selectable, boolean checked, boolean divider) {
             boundPath = item.path;
             thumbnail.setImageDrawable(null);
             title.setText(item.fileName);
