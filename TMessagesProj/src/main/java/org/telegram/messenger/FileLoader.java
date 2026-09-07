@@ -1591,21 +1591,23 @@ public class FileLoader extends BaseController {
         if (document == null) {
             return null;
         }
-        if (document.file_name_fixed != null) {
-            return document.file_name_fixed;
-        }
         String fileName = null;
-        if (document != null) {
-            if (document.file_name != null) {
-                fileName = document.file_name;
-            } else {
-                for (int a = 0; a < document.attributes.size(); a++) {
-                    TLRPC.DocumentAttribute documentAttribute = document.attributes.get(a);
-                    if (documentAttribute instanceof TLRPC.TL_documentAttributeFilename) {
-                        fileName = documentAttribute.file_name;
-                    }
+        // Prefer the filename carried by Telegram. file_name_fixed may be
+        // populated from a local/cache representation and must not replace a
+        // user's original name with an internal cache name.
+        if (!TextUtils.isEmpty(document.file_name)) {
+            fileName = document.file_name;
+        } else if (document.attributes != null) {
+            for (int a = 0; a < document.attributes.size(); a++) {
+                TLRPC.DocumentAttribute documentAttribute = document.attributes.get(a);
+                if (documentAttribute instanceof TLRPC.TL_documentAttributeFilename && !TextUtils.isEmpty(documentAttribute.file_name)) {
+                    fileName = documentAttribute.file_name;
+                    break;
                 }
             }
+        }
+        if (TextUtils.isEmpty(fileName) && !TextUtils.isEmpty(document.file_name_fixed)) {
+            fileName = document.file_name_fixed;
         }
         fileName = fixFileName(fileName);
         return fileName != null ? fileName : "";

@@ -8,6 +8,8 @@ import android.graphics.SurfaceTexture;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -375,6 +377,9 @@ public final class DynamicVideoWallpaperHelper {
         private View suppressedContentBackground;
         private final ArrayList<SuppressedBackground> suppressedBackgrounds = new ArrayList<>();
         private final ArrayList<SuppressedAlpha> suppressedAlphas = new ArrayList<>();
+        private final Handler playbackHandler = new Handler(Looper.getMainLooper());
+        private Runnable retryRunnable;
+        private int playbackErrorCount;
         private boolean released;
         private final View.OnLayoutChangeListener videoLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> applyFitCenter();
         private int videoWidth;
@@ -422,6 +427,14 @@ public final class DynamicVideoWallpaperHelper {
 
         private void prepare(SurfaceTexture surfaceTexture) {
             if (released || surfaceTexture == null) {
+                return;
+            }
+            if (path == null || !new File(path).isFile()) {
+                if (playlistMode) {
+                    playNextVideo();
+                } else {
+                    FileLog.e("Dynamic video wallpaper file is unavailable: " + path);
+                }
                 return;
             }
             releaseMediaPlayer();
@@ -477,6 +490,7 @@ public final class DynamicVideoWallpaperHelper {
                                 player.seekTo(position);
                             }
                             resumePositionMs = 0;
+                            playbackErrorCount = 0;
                             player.start();
                         } catch (Throwable e) {
                             FileLog.e(e);
@@ -486,10 +500,9 @@ public final class DynamicVideoWallpaperHelper {
                 });
                 mediaPlayer.setOnErrorListener((player, what, extra) -> {
                     FileLog.e("Dynamic video wallpaper playback failed: " + what + "/" + extra);
-                    // 某些机型遇到损坏视频或不支持的编解码器时，MediaPlayer 会进入不可恢复状态。
-                    // 立即在主线程回收图层并恢复原始背景，避免残留 Surface 持续占用解码器，
-                    // 也避免页面在下一次进入时因遗留播放器而闪退。
-                    textureView.post(this::release);
+                    if (!released && player == mediaPlayer) {
+                        schedulePlaybackRecovery();
+                    }
                     return true;
                 });
                 mediaPlayer.prepareAsync();
@@ -512,6 +525,7 @@ public final class DynamicVideoWallpaperHelper {
 
         public void pause() {
             try {
+                cancelPlaybackRecovery();
                 if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                     mediaPlayer.pause();
                 }
@@ -526,6 +540,7 @@ public final class DynamicVideoWallpaperHelper {
                 if (released) {
                     return;
                 }
+                cancelPlaybackRecovery();
                 if (mediaPlayer == null && textureView.isAvailable()) {
                     prepare(textureView.getSurfaceTexture());
                 } else if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
@@ -574,6 +589,7 @@ public final class DynamicVideoWallpaperHelper {
         public void release() {
             savePlaybackPosition();
             released = true;
+            cancelPlaybackRecovery();
             textureView.animate().cancel();
             textureView.removeOnLayoutChangeListener(videoLayoutListener);
             textureView.setSurfaceTextureListener(null);
@@ -632,23 +648,30 @@ public final class DynamicVideoWallpaperHelper {
 
         private void playNextVideo() {
             if (released || !playlistMode || playlist == null || playlist.isEmpty()) return;
-            if (playlistModeValue == MultiDynamicVideoWallpaperHelper.MODE_RANDOM && playlist.size() > 1) {
-                int next;
-                do { next = (int) (Math.random() * playlist.size()); } while (next == playlistIndex);
-                playlistIndex = next;
-            } else {
-                playlistIndex = (playlistIndex + 1) % playlist.size();
+            int nextIndex = playlistIndex;
+            String nextPath = null;
+            for (int attempt = 0; attempt < playlist.size(); attempt++) {
+                if (playlistModeValue == MultiDynamicVideoWallpaperHelper.MODE_RANDOM && playlist.size() > 1) {
+                    do { nextIndex = (int) (Math.random() * playlist.size()); } while (nextIndex == playlistIndex);
+                } else {
+                    nextIndex = (nextIndex + 1) % playlist.size();
+                }
+                String candidate = playlist.get(nextIndex);
+                if (candidate != null && new File(candidate).isFile()) {
+                    nextPath = candidate;
+                    break;
+                }
             }
-            String nextPath = playlist.get(playlistIndex);
-            if (nextPath == null || !new File(nextPath).isFile()) {
-                FileLog.e("Dynamic video wallpaper playlist contains an unavailable file");
-                textureView.post(this::release);
+            if (nextPath == null) {
+                FileLog.e("Dynamic video wallpaper playlist contains no available files");
                 return;
             }
+            playlistIndex = nextIndex;
             try {
                 if (mediaPlayer != null) {
                     path = nextPath;
                     resumePositionMs = 0;
+                    playbackErrorCount = 0;
                     writePlaybackState(playbackKey, path, playlistIndex, 0);
                     mediaPlayer.reset();
                     mediaPlayer.setDataSource(nextPath);
@@ -659,6 +682,47 @@ public final class DynamicVideoWallpaperHelper {
                     mediaPlayer.prepareAsync();
                 }
             } catch (Throwable e) { FileLog.e(e); }
+        }
+
+        /**
+         * MediaPlayer errors are often transient during startup or a surface
+         * hand-off. Do not release the whole wallpaper layer on the first
+         * error: that made a multi-video wallpaper disappear permanently.
+         */
+        private void schedulePlaybackRecovery() {
+            cancelPlaybackRecovery();
+            long delay = Math.min(3000L, 500L * (playbackErrorCount + 1L));
+            playbackErrorCount++;
+            retryRunnable = () -> {
+                retryRunnable = null;
+                if (released || surfaceTexture == null || !textureView.isAvailable()) {
+                    return;
+                }
+                if (mediaPlayer != null) {
+                    try {
+                        mediaPlayer.reset();
+                        mediaPlayer.release();
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                    mediaPlayer = null;
+                }
+                if (playbackErrorCount > 3 && playlistMode) {
+                    playbackErrorCount = 0;
+                    playNextVideo();
+                } else {
+                    resumePositionMs = 0;
+                    prepare(surfaceTexture);
+                }
+            };
+            playbackHandler.postDelayed(retryRunnable, delay);
+        }
+
+        private void cancelPlaybackRecovery() {
+            if (retryRunnable != null) {
+                playbackHandler.removeCallbacks(retryRunnable);
+                retryRunnable = null;
+            }
         }
 
         private void savePlaybackPosition() {
@@ -729,6 +793,7 @@ public final class DynamicVideoWallpaperHelper {
 
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            cancelPlaybackRecovery();
             releaseMediaPlayer();
             return true;
         }
