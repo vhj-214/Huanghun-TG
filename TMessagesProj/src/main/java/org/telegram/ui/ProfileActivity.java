@@ -14452,8 +14452,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else if (position == numberRow) {
                         TLRPC.User user = UserConfig.getInstance(currentAccount).getCurrentUser();
                         String value;
-                        if (user != null && user.phone != null && user.phone.length() != 0 && !NekoConfig.hidePhone.Bool()) {
-                            value = PhoneFormat.getInstance().format("+" + user.phone);
+                        String phone = getDisplayedPhone(user);
+                        if (user != null && !TextUtils.isEmpty(phone) && !NekoConfig.hidePhone.Bool()) {
+                            value = PhoneFormat.getInstance().format("+" + phone);
                         } else {
                             value = LocaleController.getString(R.string.NumberUnknown);
                         }
@@ -14464,7 +14465,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         String text = "";
                         CharSequence value = LocaleController.getString(R.string.Username);
                         String username = null;
-                        if (user != null && user.usernames.size() > 0) {
+                        String displayedUsername = getDisplayedUsername(user);
+                        if (!TextUtils.isEmpty(displayedUsername)) {
+                            username = displayedUsername;
+                            text = "@" + username;
+                        } else if (user != null && user.usernames.size() > 0) {
                             for (int i = 0; i < user.usernames.size(); ++i) {
                                 TLRPC.TL_username u = user.usernames.get(i);
                                 if (u != null && u.active && !TextUtils.isEmpty(u.username)) {
@@ -17232,6 +17237,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private String getDisplayedPhone(TLRPC.User user) {
+        if (user == null) return null;
         String local = getLocalProfileValue("phone");
         return TextUtils.isEmpty(local) ? user.phone : local;
     }
