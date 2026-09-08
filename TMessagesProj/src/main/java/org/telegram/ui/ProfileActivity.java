@@ -7853,8 +7853,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     return false;
                 }
                 username = username1;
-                usernameObj = DialogObject.findUsername(username, user);
-                if (usernameObj == null) usernameObj = getLocalCollectibleUsername(username);
+                TLRPC.TL_username foundUsername = DialogObject.findUsername(username, user);
+                usernameObj = foundUsername != null ? foundUsername : getLocalCollectibleUsername(username);
             } else if (chatId != 0) {
                 final TLRPC.Chat chat = getMessagesController().getChat(chatId);
                 if (chat == null || topicId == 0 && !ChatObject.isPublic(chat)) {
