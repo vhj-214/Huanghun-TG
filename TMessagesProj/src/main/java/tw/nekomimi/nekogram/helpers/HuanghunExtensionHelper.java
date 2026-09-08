@@ -6,6 +6,7 @@ import org.telegram.SQLite.SQLiteCursor;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ContactsController;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
@@ -122,38 +123,59 @@ public final class HuanghunExtensionHelper {
     public static void runCleanup(int account, CleanupAction action, CleanupCallback callback) {
         AndroidUtilities.runOnUIThread(() -> {
             int scheduledActions = 0;
-            switch (action) {
-                case BOT_INTERACTIONS:
-                    scheduledActions = clearBotInteractions(account);
-                    break;
-                case GROUPS:
-                    scheduledActions = leaveGroups(account);
-                    break;
-                case CONTACTS:
-                    scheduledActions = clearContacts(account);
-                    break;
-                case CHATS:
-                    scheduledActions = clearChats(account);
-                    break;
-                case PROFILE:
-                    scheduledActions = resetProfile(account);
-                    break;
-                case DELETED_ACCOUNTS:
-                    scheduledActions = clearDeletedAccounts(account);
-                    break;
-                case ALL:
-                    scheduledActions += clearBotInteractions(account);
-                    scheduledActions += leaveGroups(account);
-                    scheduledActions += clearContacts(account);
-                    scheduledActions += clearChats(account);
-                    scheduledActions += resetProfile(account);
-                    scheduledActions += clearDeletedAccounts(account);
-                    break;
+            try {
+                if (action != null) switch (action) {
+                    case BOT_INTERACTIONS:
+                        scheduledActions = clearBotInteractions(account);
+                        break;
+                    case GROUPS:
+                        scheduledActions = leaveGroups(account);
+                        break;
+                    case CONTACTS:
+                        scheduledActions = clearContacts(account);
+                        break;
+                    case CHATS:
+                        scheduledActions = clearChats(account);
+                        break;
+                    case PROFILE:
+                        scheduledActions = resetProfile(account);
+                        break;
+                    case DELETED_ACCOUNTS:
+                        scheduledActions = clearDeletedAccounts(account);
+                        break;
+                    case ALL:
+                        scheduledActions += runCleanupStep(account, CleanupAction.BOT_INTERACTIONS);
+                        scheduledActions += runCleanupStep(account, CleanupAction.GROUPS);
+                        scheduledActions += runCleanupStep(account, CleanupAction.CONTACTS);
+                        scheduledActions += runCleanupStep(account, CleanupAction.CHATS);
+                        scheduledActions += runCleanupStep(account, CleanupAction.PROFILE);
+                        scheduledActions += runCleanupStep(account, CleanupAction.DELETED_ACCOUNTS);
+                        break;
+                }
+            } catch (Throwable error) {
+                FileLog.e(error);
             }
             if (callback != null) {
                 callback.onComplete(scheduledActions);
             }
         });
+    }
+
+    private static int runCleanupStep(int account, CleanupAction action) {
+        try {
+            switch (action) {
+                case BOT_INTERACTIONS: return clearBotInteractions(account);
+                case GROUPS: return leaveGroups(account);
+                case CONTACTS: return clearContacts(account);
+                case CHATS: return clearChats(account);
+                case PROFILE: return resetProfile(account);
+                case DELETED_ACCOUNTS: return clearDeletedAccounts(account);
+                default: return 0;
+            }
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return 0;
+        }
     }
 
     private static int clearBotInteractions(int account) {
@@ -164,13 +186,17 @@ public final class HuanghunExtensionHelper {
             dialogs.add(controller.dialogs_dict.valueAt(i));
         }
         for (TLRPC.Dialog dialog : dialogs) {
-            if (dialog == null || dialog.id <= 0) {
-                continue;
-            }
-            TLRPC.User user = controller.getUser(dialog.id);
-            if (user != null && user.bot) {
-                controller.deleteDialog(dialog.id, 0, true);
-                scheduled++;
+            try {
+                if (dialog == null || dialog.id <= 0) {
+                    continue;
+                }
+                TLRPC.User user = controller.getUser(dialog.id);
+                if (user != null && user.bot) {
+                    controller.deleteDialog(dialog.id, 0, true);
+                    scheduled++;
+                }
+            } catch (Throwable error) {
+                FileLog.e(error);
             }
         }
         return scheduled;
@@ -184,25 +210,29 @@ public final class HuanghunExtensionHelper {
             dialogs.add(controller.dialogs_dict.valueAt(i));
         }
         for (TLRPC.Dialog dialog : dialogs) {
-            if (dialog == null || dialog.id >= 0) {
-                continue;
-            }
-            long chatId = -dialog.id;
-            TLRPC.Chat chat = controller.getChat(chatId);
-            if (chat == null) {
+            try {
+                if (dialog == null || dialog.id >= 0) {
+                    continue;
+                }
+                long chatId = -dialog.id;
+                TLRPC.Chat chat = controller.getChat(chatId);
+                if (chat == null) {
+                    controller.deleteDialog(dialog.id, 0, true);
+                    scheduled++;
+                    continue;
+                }
+                if (ChatObject.isChannel(chat)) {
+                    TLRPC.TL_channels_leaveChannel req = new TLRPC.TL_channels_leaveChannel();
+                    req.channel = MessagesController.getInputChannel(chat);
+                    ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> {});
+                } else {
+                    controller.deleteParticipantFromChat(chatId, controller.getInputPeer(UserConfig.getInstance(account).getClientUserId()));
+                }
                 controller.deleteDialog(dialog.id, 0, true);
                 scheduled++;
-                continue;
+            } catch (Throwable error) {
+                FileLog.e(error);
             }
-            if (ChatObject.isChannel(chat)) {
-                TLRPC.TL_channels_leaveChannel req = new TLRPC.TL_channels_leaveChannel();
-                req.channel = MessagesController.getInputChannel(chat);
-                ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> {});
-            } else {
-                controller.deleteParticipantFromChat(chatId, controller.getInputPeer(UserConfig.getInstance(account).getClientUserId()));
-            }
-            controller.deleteDialog(dialog.id, 0, true);
-            scheduled++;
         }
         return scheduled;
     }
@@ -309,23 +339,33 @@ public final class HuanghunExtensionHelper {
         storage.getStorageQueue().postRunnable(() -> {
             int scheduled = 0;
             for (TLRPC.Dialog dialog : dialogs) {
-                if (dialog == null || dialog.id == 0) {
-                    continue;
+                try {
+                    if (dialog == null || dialog.id == 0) {
+                        continue;
+                    }
+                    boolean isGroupOrChannel = dialog.id < 0;
+                    boolean isPrivateOrBot = dialog.id > 0;
+                    if ((scope == 1 && !isGroupOrChannel) || (scope == 2 && !isPrivateOrBot)) {
+                        continue;
+                    }
+                    ArrayList<Integer> messageIds = storage.getCachedMessagesInRange(dialog.id, minDate, maxDate);
+                    if (messageIds == null || messageIds.isEmpty()) {
+                        continue;
+                    }
+                    scheduled += messageIds.size();
+                    final ArrayList<Integer> ids = messageIds;
+                    final long dialogId = dialog.id;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        try {
+                            MessagesController.getInstance(account)
+                                    .deleteMessages(ids, null, null, dialogId, 0, true, 0);
+                        } catch (Throwable error) {
+                            FileLog.e(error);
+                        }
+                    });
+                } catch (Throwable error) {
+                    FileLog.e(error);
                 }
-                boolean isGroupOrChannel = dialog.id < 0;
-                boolean isPrivateOrBot = dialog.id > 0;
-                if ((scope == 1 && !isGroupOrChannel) || (scope == 2 && !isPrivateOrBot)) {
-                    continue;
-                }
-                ArrayList<Integer> messageIds = storage.getCachedMessagesInRange(dialog.id, minDate, maxDate);
-                if (messageIds.isEmpty()) {
-                    continue;
-                }
-                scheduled += messageIds.size();
-                final ArrayList<Integer> ids = messageIds;
-                final long dialogId = dialog.id;
-                AndroidUtilities.runOnUIThread(() -> MessagesController.getInstance(account)
-                        .deleteMessages(ids, null, null, dialogId, 0, true, 0));
             }
             final int result = scheduled;
             AndroidUtilities.runOnUIThread(() -> {

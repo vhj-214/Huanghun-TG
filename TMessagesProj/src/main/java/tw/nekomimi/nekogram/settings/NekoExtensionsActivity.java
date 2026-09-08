@@ -1423,12 +1423,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         progress.setCanCancel(false);
         progress.show();
         HuanghunExtensionHelper.runCleanup(currentAccount, action, scheduled -> AndroidUtilities.runOnUIThread(() -> {
-            if (progress.isShowing()) {
-                progress.dismiss();
+            try {
+                if (progress.isShowing()) {
+                    progress.dismiss();
+                }
+                if (getParentActivity() != null) {
+                    BulletinFactory.of(NekoExtensionsActivity.this)
+                            .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
+                            .show();
+                }
+            } catch (Throwable error) {
+                FileLog.e(error);
             }
-            BulletinFactory.of(NekoExtensionsActivity.this)
-                    .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
-                    .show();
         }));
     }
 
@@ -1605,12 +1611,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         progress.setCanCancel(false);
         progress.show();
         HuanghunExtensionHelper.clearMessagesByTime(currentAccount, mode, startTime, endTime, scope, scheduled -> AndroidUtilities.runOnUIThread(() -> {
-            if (progress.isShowing()) {
-                progress.dismiss();
+            try {
+                if (progress.isShowing()) {
+                    progress.dismiss();
+                }
+                if (getParentActivity() != null) {
+                    BulletinFactory.of(NekoExtensionsActivity.this)
+                            .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
+                            .show();
+                }
+            } catch (Throwable error) {
+                FileLog.e(error);
             }
-            BulletinFactory.of(NekoExtensionsActivity.this)
-                    .createSimpleBulletin(R.raw.done, LocaleController.formatString(R.string.HuanghunCleanupScheduled, scheduled))
-                    .show();
         }));
     }
 }
