@@ -271,6 +271,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.resume();
         }
+        setInfo();
         // 从“本地大会员”开关页返回时，立即重新绑定高级版/企业版条目状态。
         if (listView != null) {
             listView.adapter.update(false);
@@ -716,15 +717,25 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         titleView.setText(UserObject.getUserName(user));
         final StringBuilder sb = new StringBuilder();
         if (!NekoConfig.hidePhone.Bool() && user != null) {
-            sb.append(PhoneFormat.getInstance().format("+" + user.phone));
+            String phone = getLocalProfileValue(user, "phone");
+            if (TextUtils.isEmpty(phone)) phone = user.phone;
+            if (!TextUtils.isEmpty(phone)) {
+                sb.append(PhoneFormat.getInstance().format("+" + phone));
+            }
         }
-        final String username = UserObject.getPublicUsername(user);
+        final String localUsername = getLocalProfileValue(user, "username");
+        final String username = TextUtils.isEmpty(localUsername) ? UserObject.getPublicUsername(user) : localUsername;
         if (username != null) {
             sb.append(NekoConfig.hidePhone.Bool() ? "@" : " • @").append(username);
         }
         subtitleView.setText(sb);
 
         versionView.setText(getVersionName());
+    }
+
+    private String getLocalProfileValue(TLRPC.User user, String field) {
+        if (user == null) return null;
+        return MessagesController.getGlobalMainSettings().getString("local_profile_" + field + "_" + currentAccount + "_" + user.id, null);
     }
 
 

@@ -17337,7 +17337,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             textToCopy = getDisplayedUsername(user);
             if (textToCopy != null) textToCopy = "@" + textToCopy;
             copyButton = getString(R.string.ProfileCopyUsername);
-        } else if (position == phoneRow) {
+        } else if (position == phoneRow || position == numberRow) {
             textToCopy = getDisplayedPhone(user);
         } else if (position == birthdayRow) {
             textToCopy = UserInfoActivity.birthdayString(userInfo.birthday);
@@ -17438,7 +17438,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             itemOptions.add(R.drawable.msg_edit, getString(R.string.ProfileEditBio), () -> {
                 presentFragment(new UserInfoActivity());
             });
-        } else if (position == phoneRow) {
+        } else if (position == phoneRow || position == numberRow) {
             itemOptions.add(R.drawable.menu_storage_path, getString(R.string.ProfilePhoneEdit), () -> {
                 presentFragment(new ActionIntroActivity(ActionIntroActivity.ACTION_TYPE_CHANGE_PHONE_NUMBER));
             });
