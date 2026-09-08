@@ -17243,8 +17243,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private boolean isLocalCollectibleUsername(String username) {
-        return username != null && username.equals(getLocalProfileValue("username"))
-                && MessagesController.getGlobalMainSettings().getBoolean(localProfileKey("username_collectible"), false);
+        if (username == null || !username.equals(getLocalProfileValue("username"))) {
+            return false;
+        }
+        TLRPC.User user = getUserConfig().getCurrentUser();
+        TLRPC.TL_username officialUsername = user == null ? null : DialogObject.findUsername(username, user);
+        return officialUsername != null && !officialUsername.editable;
     }
 
     private TLRPC.TL_username getLocalCollectibleUsername(String username) {
@@ -17272,11 +17276,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(AndroidUtilities.dp(24), 0, AndroidUtilities.dp(24), 0);
         container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        final CheckBoxCell collectible = new CheckBoxCell(getParentActivity(), 1, resourceProvider);
-        collectible.setText("按官方购买用户名样式展示", "仅修改本机视觉效果，不代表已完成购买", true, false);
-        collectible.setChecked(!phone && isLocalCollectibleUsername(current), false);
-        collectible.setVisibility(phone ? View.GONE : View.VISIBLE);
-        container.addView(collectible, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         AlertDialog dialog = new AlertDialog.Builder(getParentActivity(), resourceProvider)
                 .setTitle(phone ? "本地显示号码" : "本地显示用户名")
                 .setMessage("仅修改本机显示，不会向 Telegram 服务器提交，也不会改变账号资料。")
@@ -17303,11 +17302,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     return;
                 }
             }
-            SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit().putString(localProfileKey(field), value);
-            if (!phone) {
-                editor.putBoolean(localProfileKey("username_collectible"), collectible.isChecked());
-            }
-            editor.apply();
+            MessagesController.getGlobalMainSettings().edit().putString(localProfileKey(field), value).remove(localProfileKey("username_collectible")).apply();
             updateRowsIds();
             if (listAdapter != null) listAdapter.notifyDataSetChanged();
             dialog.dismiss();
