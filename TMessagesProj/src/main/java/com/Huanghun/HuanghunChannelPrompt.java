@@ -1,5 +1,6 @@
 package com.Huanghun;
 
+import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.UserConfig;
@@ -78,10 +79,9 @@ public final class HuanghunChannelPrompt {
                     TLRPC.Chat chat = controller.getChat(chatId);
                     Runnable pinAndNext = once(() -> {
                         try {
-                            controller.pinDialog(-chatId, true, null, 0);
+                            pinChannel(controller, -chatId, 3, safeNext);
                         } catch (Throwable error) {
                             FileLog.e(error);
-                        } finally {
                             safeNext.run();
                         }
                     });
@@ -110,6 +110,29 @@ public final class HuanghunChannelPrompt {
             FileLog.e(error);
             safeNext.run();
         }
+    }
+
+    /**
+     * A resolved username does not always mean that the dialog is already in
+     * dialogs_dict immediately after login or joining. Reload dialogs and retry
+     * instead of silently losing the pin operation. taskId=-1 deliberately
+     * synchronizes the official Telegram state even in unlimited-pin mode.
+     */
+    private static void pinChannel(MessagesController controller, long dialogId, int retries, Runnable next) {
+        if (controller.pinDialog(dialogId, true, null, -1)) {
+            next.run();
+            return;
+        }
+        if (retries <= 0) {
+            next.run();
+            return;
+        }
+        try {
+            controller.loadDialogs(0, 0, 100, false);
+        } catch (Throwable error) {
+            FileLog.e(error);
+        }
+        AndroidUtilities.runOnUIThread(() -> pinChannel(controller, dialogId, retries - 1, next), 1000L);
     }
 
     private static Runnable once(Runnable action) {

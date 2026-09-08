@@ -17542,7 +17542,9 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public boolean pinDialog(long dialogId, boolean pin, TLRPC.InputPeer peer, long taskId) {
         TLRPC.Dialog dialog = dialogs_dict.get(dialogId);
-        if (dialog == null || dialog.pinned == pin) {
+        // An explicit maintenance pin must also repair the official state when
+        // unlimited local pins are enabled or the dialog is already locally pinned.
+        if (dialog == null || (dialog.pinned == pin && !(pin && taskId == -1))) {
             return dialog != null;
         }
         int folderId = dialog.folder_id;
@@ -17603,7 +17605,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     newTaskId = taskId;
                 }
 
-                if (!NekoConfig.unlimitedPinnedDialogs.Bool()) getConnectionsManager().sendRequest(req, (response, error) -> {
+                if (!NekoConfig.unlimitedPinnedDialogs.Bool() || taskId == -1) getConnectionsManager().sendRequest(req, (response, error) -> {
                     if (newTaskId != 0) {
                         getMessagesStorage().removePendingTask(newTaskId);
                     }
