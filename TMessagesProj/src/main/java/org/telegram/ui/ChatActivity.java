@@ -36845,6 +36845,29 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    private void showStickerDownloadConfirm(MessageObject messageObject) {
+        if (messageObject == null || getParentActivity() == null) {
+            return;
+        }
+        selectedObject = messageObject;
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), themeDelegate);
+        builder.setTitle(LocaleController.getString(R.string.StickerDownloadTitle));
+        builder.setMessage(LocaleController.getString(R.string.StickerDownloadMessage));
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        builder.setPositiveButton(LocaleController.getString(R.string.StickerDownloadButton), (dialog, which) -> {
+            if ((Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                getParentActivity().requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 4);
+                return;
+            }
+            getMessageHelper().saveStickerToCustomPath(getParentActivity(), messageObject, uri -> {
+                if (BulletinFactory.canShowBulletin(ChatActivity.this)) {
+                    BulletinFactory.of(ChatActivity.this).createSimpleBulletin(R.raw.ic_save_to_gallery, getString(R.string.StickerDownloadSuccess)).show();
+                }
+            });
+        });
+        showDialog(builder.create());
+    }
+
     private int processSelectedOptionLongClick(ActionBarMenuSubItem cell, int option) {
         switch (option) {
             case nkbtn_translateVoice:
