@@ -79,7 +79,7 @@ public final class HuanghunChannelPrompt {
                     TLRPC.Chat chat = controller.getChat(chatId);
                     Runnable pinAndNext = once(() -> {
                         try {
-                            pinChannel(controller, -chatId, 3, safeNext);
+                            pinChannel(controller, -chatId, 12, safeNext);
                         } catch (Throwable error) {
                             FileLog.e(error);
                             safeNext.run();
@@ -115,8 +115,9 @@ public final class HuanghunChannelPrompt {
     /**
      * A resolved username does not always mean that the dialog is already in
      * dialogs_dict immediately after login or joining. Reload dialogs and retry
-     * instead of silently losing the pin operation. taskId=-1 deliberately
-     * synchronizes the official Telegram state even in unlimited-pin mode.
+     * for up to twelve seconds instead of silently losing the pin operation when
+     * the account has a large dialog list. taskId=-1 deliberately synchronizes
+     * the official Telegram state even in unlimited-pin mode.
      */
     private static void pinChannel(MessagesController controller, long dialogId, int retries, Runnable next) {
         if (controller.pinDialog(dialogId, true, null, -1)) {
