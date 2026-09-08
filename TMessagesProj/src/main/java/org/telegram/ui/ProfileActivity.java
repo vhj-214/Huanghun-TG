@@ -7848,12 +7848,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             final TLRPC.TL_username usernameObj;
             if (userId != 0) {
                 final TLRPC.User user = getMessagesController().getUser(userId);
-                String username1 = UserObject.getPublicUsername(user);
+                String username1 = getDisplayedUsername(user);
                 if (user == null || username1 == null) {
                     return false;
                 }
                 username = username1;
                 usernameObj = DialogObject.findUsername(username, user);
+                if (usernameObj == null) usernameObj = getLocalCollectibleUsername(username);
             } else if (chatId != 0) {
                 final TLRPC.Chat chat = getMessagesController().getChat(chatId);
                 if (chat == null || topicId == 0 && !ChatObject.isPublic(chat)) {
@@ -7882,7 +7883,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     }
                 };
                 // showDialog(shareAlert);
-                if (usernameObj != null && !usernameObj.editable) {
+                if (usernameObj != null && !usernameObj.editable && !isLocalCollectibleUsername(usernameObj.username)) {
                     TL_fragment.TL_getCollectibleInfo req = new TL_fragment.TL_getCollectibleInfo();
                     TL_fragment.TL_inputCollectibleUsername input = new TL_fragment.TL_inputCollectibleUsername();
                     input.username = usernameObj.username;
@@ -7923,7 +7924,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 // if (editRow(view, position)) return true;
                 link = "https://" + getMessagesController().linkPrefix + "/" + username;
 
-                if (usernameObj != null && !usernameObj.editable) {
+                if (usernameObj != null && !usernameObj.editable && !isLocalCollectibleUsername(usernameObj.username)) {
                     TL_fragment.TL_getCollectibleInfo req = new TL_fragment.TL_getCollectibleInfo();
                     TL_fragment.TL_inputCollectibleUsername input = new TL_fragment.TL_inputCollectibleUsername();
                     input.username = usernameObj.username;
@@ -7975,6 +7976,21 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 AlertUtil.copyAndAlert(link, this);
                 return Unit.INSTANCE;
             });
+
+            if (myProfile && userId != 0) {
+                builder.addItem("本地修改用户名", R.drawable.msg_edit, __ -> {
+                    showLocalProfileEditor(false);
+                    return Unit.INSTANCE;
+                });
+                if (getLocalProfileValue("username") != null) {
+                    builder.addItem("恢复原始用户名", R.drawable.msg_retry, __ -> {
+                        MessagesController.getGlobalMainSettings().edit().remove(localProfileKey("username")).apply();
+                        updateRowsIds();
+                        listAdapter.notifyDataSetChanged();
+                        return Unit.INSTANCE;
+                    });
+                }
+            }
 
             builder.addItem(getString(R.string.ShareSendTo), R.drawable.msg_share, __ -> {
                 ShareAlert shareAlert = new ShareAlert(getParentActivity(), null, link, false, link, false) {
@@ -14315,14 +14331,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         if (!shouldHide && user != null && !TextUtils.isEmpty(vcardPhone)) {
                             text = PhoneFormat.getInstance().format("+" + vcardPhone);
                             phoneNumber = vcardPhone;
-                        } else if (!shouldHide && user != null && !TextUtils.isEmpty(user.phone)) {
-                            text = PhoneFormat.getInstance().format("+" + user.phone);
-                            phoneNumber = user.phone;
+                        } else if (!shouldHide && user != null && !TextUtils.isEmpty(getDisplayedPhone(user))) {
+                            phoneNumber = getDisplayedPhone(user);
+                            text = PhoneFormat.getInstance().format("+" + phoneNumber);
                         } else {
                             text = LocaleController.getString(R.string.PhoneHidden);
                             phoneNumber = null;
                         }
-                        isFragmentPhoneNumber = phoneNumber != null && phoneNumber.matches("888\\d{8}");
+                        isFragmentPhoneNumber = user != null && user.phone != null && user.phone.matches("888\\d{8}");
                         detailCell.setTextAndValue(text, LocaleController.getString(isFragmentPhoneNumber ? R.string.AnonymousNumber : R.string.PhoneMobile), false);
                     } else if (position == noteRow) {
                         final TLRPC.UserFull userInfo = getMessagesController().getUserFull(userId);
@@ -14355,9 +14371,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 usernames.addAll(user.usernames);
                             }
                             TLRPC.TL_username usernameObj = null;
-                            if (user != null && !TextUtils.isEmpty(user.username)) {
-                                usernameObj = DialogObject.findUsername(user.username, usernames);
-                                username = user.username;
+                            if (user != null && !TextUtils.isEmpty(getDisplayedUsername(user))) {
+                                username = getDisplayedUsername(user);
+                                usernameObj = DialogObject.findUsername(username, usernames);
+                                if (usernameObj == null) usernameObj = getLocalCollectibleUsername(username);
                             }
                             usernames = user == null ? new ArrayList<>() : new ArrayList<>(user.usernames);
                             if (TextUtils.isEmpty(username) && usernames != null) {
@@ -15086,6 +15103,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             span = new ClickableSpan() {
                 @Override
                 public void onClick(@NonNull View view) {
+                    if (isLocalCollectibleUsername(usernameObj.username)) {
+                        BulletinFactory.of(ProfileActivity.this).createSimpleBulletin(
+                                R.raw.contact_check, "本地购买用户名样式（未提交官方购买）"
+                        ).show();
+                        return;
+                    }
                     if (!usernameObj.editable) {
                         if (loadingSpan == this) return;
                         setLoadingSpan(this);
@@ -17200,6 +17223,98 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         return true;
     }
 
+    private String localProfileKey(String field) {
+        return "local_profile_" + field + "_" + currentAccount + "_" + userId;
+    }
+
+    private String getLocalProfileValue(String field) {
+        return MessagesController.getGlobalMainSettings().getString(localProfileKey(field), null);
+    }
+
+    private String getDisplayedPhone(TLRPC.User user) {
+        String local = getLocalProfileValue("phone");
+        return TextUtils.isEmpty(local) ? user.phone : local;
+    }
+
+    private String getDisplayedUsername(TLRPC.User user) {
+        if (user == null) return null;
+        String local = getLocalProfileValue("username");
+        return TextUtils.isEmpty(local) ? UserObject.getPublicUsername(user) : local;
+    }
+
+    private boolean isLocalCollectibleUsername(String username) {
+        return username != null && username.equals(getLocalProfileValue("username"))
+                && MessagesController.getGlobalMainSettings().getBoolean(localProfileKey("username_collectible"), false);
+    }
+
+    private TLRPC.TL_username getLocalCollectibleUsername(String username) {
+        if (!isLocalCollectibleUsername(username)) return null;
+        TLRPC.TL_username result = new TLRPC.TL_username();
+        result.username = username;
+        result.active = true;
+        result.editable = false;
+        return result;
+    }
+
+    private void showLocalProfileEditor(boolean phone) {
+        if (!myProfile || getParentActivity() == null) return;
+        TLRPC.User user = getUserConfig().getCurrentUser();
+        if (user == null) return;
+        String field = phone ? "phone" : "username";
+        String current = getLocalProfileValue(field);
+        EditText input = new EditText(getParentActivity());
+        input.setSingleLine(true);
+        input.setText(current != null ? current : (phone ? getDisplayedPhone(user) : getDisplayedUsername(user)));
+        input.setSelection(input.length());
+        input.setHint(phone ? "+8613800138000" : "username");
+        input.setInputType(phone ? android.text.InputType.TYPE_CLASS_PHONE : android.text.InputType.TYPE_CLASS_TEXT);
+        LinearLayout container = new LinearLayout(getParentActivity());
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(AndroidUtilities.dp(24), 0, AndroidUtilities.dp(24), 0);
+        container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        final CheckBoxCell collectible = new CheckBoxCell(getParentActivity(), 1, resourceProvider);
+        collectible.setText("按官方购买用户名样式展示", "仅修改本机视觉效果，不代表已完成购买", true, false);
+        collectible.setChecked(!phone && isLocalCollectibleUsername(current), false);
+        collectible.setVisibility(phone ? View.GONE : View.VISIBLE);
+        container.addView(collectible, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        AlertDialog dialog = new AlertDialog.Builder(getParentActivity(), resourceProvider)
+                .setTitle(phone ? "本地显示号码" : "本地显示用户名")
+                .setMessage("仅修改本机显示，不会向 Telegram 服务器提交，也不会改变账号资料。")
+                .setView(container)
+                .setPositiveButton(getString(R.string.Save), null)
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setNeutralButton("恢复原始资料", (d, which) -> {
+                    MessagesController.getGlobalMainSettings().edit().remove(localProfileKey(field)).remove(localProfileKey("username_collectible")).apply();
+                    updateRowsIds();
+                    if (listAdapter != null) listAdapter.notifyDataSetChanged();
+                }).create();
+        dialog.setOnShowListener(d -> dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String value = input.getText().toString().trim();
+            if (phone) {
+                value = value.replaceAll("[^0-9]", "");
+                if (value.length() < 3) {
+                    input.setError("请输入有效号码");
+                    return;
+                }
+            } else {
+                value = value.replaceFirst("^@", "");
+                if (!value.matches("[A-Za-z0-9_]{5,32}")) {
+                    input.setError("用户名需为 5-32 位字母、数字或下划线");
+                    return;
+                }
+            }
+            SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit().putString(localProfileKey(field), value);
+            if (!phone) {
+                editor.putBoolean(localProfileKey("username_collectible"), collectible.isChecked());
+            }
+            editor.apply();
+            updateRowsIds();
+            if (listAdapter != null) listAdapter.notifyDataSetChanged();
+            dialog.dismiss();
+        }));
+        showDialog(dialog);
+    }
+
     private boolean editRow(View view, int position) {
         if (!myProfile) return false;
 
@@ -17224,11 +17339,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             textToCopy = userFull.business_location.address;
             copyButton = getString(R.string.ProfileLocationCopy);
         } else if (position == usernameRow) {
-            textToCopy = UserObject.getPublicUsername(user);
+            textToCopy = getDisplayedUsername(user);
             if (textToCopy != null) textToCopy = "@" + textToCopy;
             copyButton = getString(R.string.ProfileCopyUsername);
         } else if (position == phoneRow) {
-            textToCopy = user.phone;
+            textToCopy = getDisplayedPhone(user);
         } else if (position == birthdayRow) {
             textToCopy = UserInfoActivity.birthdayString(userInfo.birthday);
         }
@@ -17316,6 +17431,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             itemOptions.add(R.drawable.msg_edit, getString(R.string.ProfileUsernameEdit), () -> {
                 presentFragment(new ChangeUsernameActivity());
             });
+            itemOptions.add(R.drawable.msg_edit, "本地修改用户名", () -> showLocalProfileEditor(false));
+            if (getLocalProfileValue("username") != null) {
+                itemOptions.add(R.drawable.msg_retry, "恢复原始用户名", () -> {
+                    MessagesController.getGlobalMainSettings().edit().remove(localProfileKey("username")).remove(localProfileKey("username_collectible")).apply();
+                    updateRowsIds();
+                    listAdapter.notifyDataSetChanged();
+                });
+            }
         } else if (position == channelInfoRow || position == userInfoRow || position == bioRow) {
             itemOptions.add(R.drawable.msg_edit, getString(R.string.ProfileEditBio), () -> {
                 presentFragment(new UserInfoActivity());
@@ -17324,6 +17447,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             itemOptions.add(R.drawable.menu_storage_path, getString(R.string.ProfilePhoneEdit), () -> {
                 presentFragment(new ActionIntroActivity(ActionIntroActivity.ACTION_TYPE_CHANGE_PHONE_NUMBER));
             });
+            itemOptions.add(R.drawable.msg_edit, "本地修改号码", () -> showLocalProfileEditor(true));
+            if (getLocalProfileValue("phone") != null) {
+                itemOptions.add(R.drawable.msg_retry, "恢复原始号码", () -> {
+                    MessagesController.getGlobalMainSettings().edit().remove(localProfileKey("phone")).apply();
+                    updateRowsIds();
+                    listAdapter.notifyDataSetChanged();
+                });
+            }
         } else if (position == birthdayRow) {
             itemOptions.add(R.drawable.msg_edit, getString(R.string.ProfileBirthdayChange), () -> {
                 showDialog(AlertsCreator.createBirthdayPickerDialog(getContext(), getString(R.string.EditProfileBirthdayTitle), getString(R.string.EditProfileBirthdayButton), userFull.birthday, birthday -> {
