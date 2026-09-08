@@ -380,6 +380,31 @@ public class MessageHelper extends BaseController {
         }
     }
 
+    /** Save the original sticker file into Downloads/{黄昏自定义目录}. */
+    public void saveStickerToCustomPath(Context context, MessageObject messageObject, Utilities.Callback<Uri> callback) {
+        if (context == null || messageObject == null || messageObject.getDocument() == null) {
+            return;
+        }
+        TLRPC.Document document = messageObject.getDocument();
+        String path = getPathToMessage(messageObject, currentAccount);
+        if (TextUtils.isEmpty(path)) {
+            path = FileLoader.getInstance(currentAccount).getPathToAttach(document, true).toString();
+        }
+        File source = TextUtils.isEmpty(path) ? null : new File(path);
+        if (source == null || !source.exists()) {
+            return;
+        }
+        MediaController.saveFile(
+            messageObject,
+            source.getAbsolutePath(),
+            context,
+            2,
+            FileLoader.getDocumentFileName(document),
+            document.mime_type,
+            callback
+        );
+    }
+
     private static void saveStickerToGallery(Context context, String path, boolean videoSticker, String mimeType, Utilities.Callback<Uri> callback) {
         if (context == null || TextUtils.isEmpty(path)) {
             return;

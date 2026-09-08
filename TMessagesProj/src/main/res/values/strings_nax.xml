@@ -127,6 +127,7 @@
     <string name="SaveToChatSubfolder">Save Attachments by Chat Name</string>
     <string name="MessageColoredBackground">Colorful Message Backgrounds</string>
     <string name="ColoredBackgroundNotice">Background color and emojis for replies, quotes, and link previews.</string>
+    <string name="LongPressStickerDownload">Download stickers on long press</string>
     <string name="ChatMenu">Chat Menu</string>
     <string name="MediaViewerMenu">Media Viewer Menu</string>
     <string name="MenuAndButtons">Menu and Buttons</string>
@@ -356,6 +357,10 @@
     <string name="PasscodeShowMessagePreviewWhenLocked">Show Message Previews</string>
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Shows notification content even when passcode lock is active.</string>
     <string name="StickerSavedHint">Sticker saved to gallery.</string>
+    <string name="StickerDownloadTitle">Download sticker</string>
+    <string name="StickerDownloadMessage">Download this sticker to your Huanghun custom storage folder?</string>
+    <string name="StickerDownloadButton">Download</string>
+    <string name="StickerDownloadSuccess">Sticker downloaded to your custom storage folder.</string>
     <string name="StickerCopied">Sticker copied to clipboard.</string>
     <string name="StrokeOnViews">Glare effects</string>
     <string name="HideBottomNavigationBar">Hide Bottom Navigation Bar</string>

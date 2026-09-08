@@ -974,6 +974,12 @@ object NaConfig {
             ConfigItem.configTypeBool,
             true
         )
+    val longPressStickerDownload =
+        addConfig(
+            "LongPressStickerDownload",
+            ConfigItem.configTypeBool,
+            true
+        )
     val chatMenuItemBoostGroup =
         addConfig(
             "ChatMenuItemBoostGroup",

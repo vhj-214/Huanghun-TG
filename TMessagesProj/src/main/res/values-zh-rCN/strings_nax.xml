@@ -114,6 +114,7 @@
     <string name="SaveToChatSubfolder">按对话名称保存附件</string>
     <string name="MessageColoredBackground">多彩消息背景</string>
     <string name="ColoredBackgroundNotice">回复，引用，链接预览的背景色和 Emoji。</string>
+    <string name="LongPressStickerDownload">长按贴纸下载</string>
     <string name="ChatMenu">聊天菜单</string>
     <string name="MediaViewerMenu">媒体查看器菜单</string>
     <string name="MenuAndButtons">菜单和按钮</string>
@@ -360,6 +361,10 @@ Telegram 已 **在第三方应用中禁用通过短信登录的功能**。在第
     <string name="SortByUnread">按未读排序</string>
     <string name="StickerCopied">贴纸已复制到剪贴板。</string>
     <string name="StickerSavedHint">贴纸已保存到相册。</string>
+    <string name="StickerDownloadTitle">下载贴纸</string>
+    <string name="StickerDownloadMessage">是否将此贴纸下载到黄昏插件的自定义存储文件夹？</string>
+    <string name="StickerDownloadButton">下载</string>
+    <string name="StickerDownloadSuccess">贴纸已下载到自定义存储文件夹。</string>
     <string name="StorageSettings">存储</string>
     <string name="StreamAllVideoNax">所有视频流式播放</string>
     <string name="StreamMkvNax">以视频方式显示 MKV</string>

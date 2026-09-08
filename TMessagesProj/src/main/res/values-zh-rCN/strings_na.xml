@@ -106,6 +106,18 @@
     <string name="VideoPlayerDecoderPreferSW">软解优先</string>
     <string name="VideoPlayerDecoderHardware">仅硬解</string>
     <string name="VideoPlayerDecoderPreferHW">硬解优先</string>
+    <string name="Report2WhatWrongChannel">这个频道有什么问题？</string>
+    <string name="Report2OptionDislike">我不喜欢</string>
+    <string name="Report2OptionChildAbuse">虐待儿童</string>
+    <string name="Report2OptionViolence">暴力内容</string>
+    <string name="Report2OptionIllegalGoods">非法商品和服务</string>
+    <string name="Report2OptionAdultContent">非法成人内容</string>
+    <string name="Report2OptionPersonalData">个人数据</string>
+    <string name="Report2OptionScam">诈骗或欺诈</string>
+    <string name="Report2OptionCopyright">侵犯版权</string>
+    <string name="Report2OptionSpam">垃圾信息</string>
+    <string name="Report2OptionOther">其他</string>
+    <string name="Report2OptionNotIllegal">虽然不违法，但必须下架</string>
     <string name="AppIconGoogle" translatable="false">Google</string>
     <string name="Nagram" translatable="false">Nagram</string>
     <string name="Pangu" translatable="false">Pangu</string>

@@ -43237,8 +43237,39 @@ public class ChatActivity extends BaseFragment implements
             }
         }
 
+        private void showStickerDownloadConfirm(MessageObject messageObject) {
+            if (messageObject == null || getParentActivity() == null) {
+                return;
+            }
+            selectedObject = messageObject;
+            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), themeDelegate);
+            builder.setTitle(LocaleController.getString(R.string.StickerDownloadTitle));
+            builder.setMessage(LocaleController.getString(R.string.StickerDownloadMessage));
+            builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            builder.setPositiveButton(LocaleController.getString(R.string.StickerDownloadButton), (dialog, which) -> {
+                if ((Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    getParentActivity().requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 4);
+                    return;
+                }
+                getMessageHelper().saveStickerToCustomPath(getParentActivity(), messageObject, uri -> {
+                    if (BulletinFactory.canShowBulletin(ChatActivity.this)) {
+                        BulletinFactory.of(ChatActivity.this).createSimpleBulletin(R.raw.ic_save_to_gallery, getString(R.string.StickerDownloadSuccess)).show();
+                    }
+                });
+            });
+            showDialog(builder.create());
+        }
+
         @Override
         public void didLongPress(ChatMessageCell cell, float x, float y) {
+            MessageObject messageObject = cell.getMessageObject();
+            if (NaConfig.INSTANCE.getLongPressStickerDownload().Bool()
+                    && messageObject != null
+                    && !messageObject.isAnimatedEmoji()
+                    && (messageObject.isSticker() || messageObject.isAnimatedSticker())) {
+                showStickerDownloadConfirm(messageObject);
+                return;
+            }
             createMenu(cell, false, false, x, y, false);
             startMultiselect(chatListView.getChildAdapterPosition(cell));
         }
@@ -47393,18 +47424,7 @@ public class ChatActivity extends BaseFragment implements
                 break;
             }
             case nkbtn_stickerdl: {
-                if ((Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                    getParentActivity().requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 4);
-                    selectedObject = null;
-                    selectedObjectGroup = null;
-                    selectedObjectToEditCaption = null;
-                    return;
-                }
-                getMessageHelper().saveStickerToGallery(getParentActivity(), selectedObject, uri -> {
-                    if (BulletinFactory.canShowBulletin(ChatActivity.this)) {
-                        BulletinFactory.of(ChatActivity.this).createSimpleBulletin(R.raw.ic_save_to_gallery, getString(R.string.StickerSavedHint)).show();
-                    }
-                });
+                showStickerDownloadConfirm(selectedObject);
                 break;
             }
             case nkbtn_translate_llm:
@@ -49609,10 +49629,12 @@ public class ChatActivity extends BaseFragment implements
                         options.add(OPTION_ADD_TO_STICKERS_OR_MASKS);
                         icons.add(R.drawable.msg_sticker);
                     } else {
-                        if (!selectedObject.isAnimatedSticker()) {
-                            items.add(LocaleController.getString(R.string.SaveToGallery));
+                        if (NaConfig.INSTANCE.getLongPressStickerDownload().Bool()) {
+                            items.add(LocaleController.getString(R.string.StickerDownloadButton));
                             options.add(nkbtn_stickerdl);
                             icons.add(R.drawable.msg_gallery);
+                        }
+                        if (!selectedObject.isAnimatedSticker()) {
                             if (!selectedObject.isVideoSticker()) {
                                 allowCopyPhoto = true;
                                 if (!GroupedIconsView.useGroupedIcons()) {
@@ -49662,8 +49684,8 @@ public class ChatActivity extends BaseFragment implements
                         icons.add(R.drawable.msg_callback);
                     }
                 } else if (type == MESSAGE_TYPE_STICKER_PACK_INSTALLED) {
-                    if (!selectedObject.isAnimatedSticker()) {
-                        items.add(LocaleController.getString(R.string.SaveToGallery));
+                    if (NaConfig.INSTANCE.getLongPressStickerDownload().Bool()) {
+                        items.add(LocaleController.getString(R.string.StickerDownloadButton));
                         options.add(nkbtn_stickerdl);
                         icons.add(R.drawable.msg_gallery);
                     }

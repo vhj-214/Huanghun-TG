@@ -56,6 +56,7 @@ import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 
 public class ReportBottomSheet extends BottomSheet {
 
@@ -70,6 +71,40 @@ public class ReportBottomSheet extends BottomSheet {
     private final byte[] sponsoredId;
     private final long dialogId;
     private Listener listener;
+
+    /**
+     * Report options are supplied by Telegram as English text instead of
+     * Android string resources. Keep the original option bytes unchanged and
+     * translate only the text shown to users when a Chinese locale is active.
+     */
+    private static String localizeReportText(String text) {
+        if (text == null) {
+            return null;
+        }
+        Locale locale = LocaleController.getInstance().getCurrentLocale();
+        if (locale == null || !locale.getLanguage().startsWith("zh")) {
+            return text;
+        }
+        switch (text.trim().toLowerCase(Locale.US)) {
+            case "what is wrong with this channel?": return LocaleController.getString(R.string.Report2WhatWrongChannel);
+            case "i don't like it": return LocaleController.getString(R.string.Report2OptionDislike);
+            case "child abuse": return LocaleController.getString(R.string.Report2OptionChildAbuse);
+            case "violence": return LocaleController.getString(R.string.Report2OptionViolence);
+            case "illegal goods and services": return LocaleController.getString(R.string.Report2OptionIllegalGoods);
+            case "illegal adult content": return LocaleController.getString(R.string.Report2OptionAdultContent);
+            case "personal data": return LocaleController.getString(R.string.Report2OptionPersonalData);
+            case "scam or fraud": return LocaleController.getString(R.string.Report2OptionScam);
+            case "copyright": return LocaleController.getString(R.string.Report2OptionCopyright);
+            case "spam": return LocaleController.getString(R.string.Report2OptionSpam);
+            case "other": return LocaleController.getString(R.string.Report2OptionOther);
+            case "it's not illegal, but must be taken down": return LocaleController.getString(R.string.Report2OptionNotIllegal);
+            default: return text;
+        }
+    }
+
+    private static CharSequence localizeReportText(CharSequence text) {
+        return text == null ? null : localizeReportText(text.toString());
+    }
 
     interface Listener {
         default void onReported() {}
@@ -305,7 +340,7 @@ public class ReportBottomSheet extends BottomSheet {
                                 nextPage.setOption((TLRPC.TL_channels_sponsoredMessageReportResultChooseOption) response);
                             }
                             if (optionText != null) {
-                                nextPage.setHeaderText(optionText);
+                                nextPage.setHeaderText(localizeReportText(optionText));
                             }
                         }
                     } else if (response instanceof TLRPC.TL_channels_sponsoredMessageReportResultAdsHidden) {
@@ -554,9 +589,9 @@ public class ReportBottomSheet extends BottomSheet {
                 if (sponsoredOption != null || option != null) {
                     HeaderCell headerCell = new HeaderCell(getContext(), Theme.key_windowBackgroundWhiteBlueHeader, 21, 0, 0, false, resourcesProvider);
                     if (sponsoredOption != null) {
-                        headerCell.setText(sponsoredOption.title);
+                        headerCell.setText(localizeReportText(sponsoredOption.title));
                     } else if (option != null) {
-                        headerCell.setText(option.title);
+                        headerCell.setText(localizeReportText(option.title));
                     }
                     headerCell.setBackgroundColor(getThemedColor(Theme.key_dialogBackground));
                     UItem headerItem = UItem.asCustom(headerCell);
@@ -568,7 +603,7 @@ public class ReportBottomSheet extends BottomSheet {
                 if (sponsoredOption != null) {
                     for (int i = 0; i < sponsoredOption.options.size(); i++) {
                         UItem buttonItem = new UItem(UniversalAdapter.VIEW_TYPE_RIGHT_ICON_TEXT, false);
-                        buttonItem.text = sponsoredOption.options.get(i).text;
+                        buttonItem.text = localizeReportText(sponsoredOption.options.get(i).text);
                         buttonItem.iconResId = R.drawable.msg_arrowright;
                         buttonItem.id = i;
                         items.add(buttonItem);
@@ -577,7 +612,7 @@ public class ReportBottomSheet extends BottomSheet {
                 } else if (option != null) {
                     for (int i = 0; i < option.options.size(); i++) {
                         UItem buttonItem = new UItem(UniversalAdapter.VIEW_TYPE_RIGHT_ICON_TEXT, false);
-                        buttonItem.text = option.options.get(i).text;
+                        buttonItem.text = localizeReportText(option.options.get(i).text);
                         buttonItem.iconResId = R.drawable.msg_arrowright;
                         buttonItem.id = i;
                         items.add(buttonItem);
