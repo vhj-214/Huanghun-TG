@@ -2602,6 +2602,17 @@ public class EmojiView extends FrameLayout implements
 
         pager = new ViewPager(context) {
             @Override
+            protected void dispatchDraw(Canvas canvas) {
+                super.dispatchDraw(canvas);
+                // Some GPU drivers keep a stale display-list frame while the two
+                // translated pages are crossing. Keep the pager invalidated for
+                // the whole gesture/settling interval so both pages are redrawn.
+                if (getScrollState() != SCROLL_STATE_IDLE) {
+                    postInvalidateOnAnimation();
+                }
+            }
+
+            @Override
             public boolean onInterceptTouchEvent(MotionEvent ev) {
                 if (ignorePagerScroll) {
                     return false;
