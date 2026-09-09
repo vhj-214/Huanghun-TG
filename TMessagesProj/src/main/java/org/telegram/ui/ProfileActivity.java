@@ -8073,6 +8073,16 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     FileLog.e(e);
                 }
             });
+            if (myProfile) {
+                o.add(R.drawable.msg_edit, "本地修改号码", () -> showLocalProfileEditor(true));
+                if (getLocalProfileValue("phone") != null) {
+                    o.add(R.drawable.msg_retry, "恢复原始号码", () -> {
+                        MessagesController.getGlobalMainSettings().edit().remove(localProfileKey("phone")).apply();
+                        updateRowsIds();
+                        listAdapter.notifyDataSetChanged();
+                    });
+                }
+            }
             if (isFragmentPhoneNumber) {
                 final SpannableStringBuilder spanned = new SpannableStringBuilder(AndroidUtilities.replaceTags(LocaleController.getString(R.string.AnonymousNumberNotice)));
                 final int startIndex = TextUtils.indexOf(spanned, '*');
