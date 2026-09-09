@@ -204,6 +204,7 @@ public class EmojiView extends FrameLayout implements
     private ArrayList<Tab> allTabs = new ArrayList<>();
     private ArrayList<Tab> currentTabs = new ArrayList<>();
     private boolean ignorePagerScroll;
+    private boolean pagerScrollInProgress;
     private ViewPager pager;
     private FrameLayout bottomTabContainer;
     private FrameLayout bulletinContainer;
@@ -2607,7 +2608,7 @@ public class EmojiView extends FrameLayout implements
                 // Some GPU drivers keep a stale display-list frame while the two
                 // translated pages are crossing. Keep the pager invalidated for
                 // the whole gesture/settling interval so both pages are redrawn.
-                if (getScrollState() != SCROLL_STATE_IDLE) {
+                if (pagerScrollInProgress) {
                     postInvalidateOnAnimation();
                 }
             }
@@ -2790,7 +2791,10 @@ public class EmojiView extends FrameLayout implements
 
                 @Override
                 public void onPageScrollStateChanged(int state) {
-
+                    pagerScrollInProgress = state != ViewPager.SCROLL_STATE_IDLE;
+                    if (!pagerScrollInProgress) {
+                        pager.invalidate();
+                    }
                 }
             });
 
