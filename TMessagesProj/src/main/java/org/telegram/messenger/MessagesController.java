@@ -2709,7 +2709,14 @@ public class MessagesController extends BaseController implements NotificationCe
     private static final String HUANGHUN_LOCAL_FILTER_IDS_KEY = "huanghun_local_filter_ids";
 
     public boolean shouldCreateHuanghunLocalFilter() {
-        return NekoConfig.localPremium.Bool() || NekoConfig.unlimitedDialogFilters.Bool() && dialogFilters.size() >= dialogFiltersLimitPremium;
+        if (NekoConfig.localPremium.Bool()) {
+            return true;
+        }
+        if (dialogFilters.size() >= dialogFiltersLimitPremium) {
+            return true;
+        }
+        return !getUserConfig().isPremium()
+                && dialogFilters.size() - 1 >= dialogFiltersLimitDefault;
     }
 
     public int getNextHuanghunLocalFilterId() {

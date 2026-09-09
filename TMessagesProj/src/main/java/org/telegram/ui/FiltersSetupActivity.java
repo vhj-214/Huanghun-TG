@@ -755,7 +755,9 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
 
     public void createFolder(INavigationLayout navigationLayout) {
         final int count = getMessagesController().getDialogFilters().size();
-        if (!NekoConfig.unlimitedDialogFilters.Bool() && !NekoConfig.localPremium.Bool() && (
+        if (!getMessagesController().shouldCreateHuanghunLocalFilter()
+                && !NekoConfig.unlimitedDialogFilters.Bool()
+                && !NekoConfig.localPremium.Bool() && (
             count - 1 >= getMessagesController().dialogFiltersLimitDefault && !getUserConfig().isPremium() ||
             count >= getMessagesController().dialogFiltersLimitPremium
         )) {
