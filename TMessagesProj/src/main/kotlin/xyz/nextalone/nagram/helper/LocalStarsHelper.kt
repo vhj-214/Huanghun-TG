@@ -16,7 +16,7 @@ object LocalStarsHelper {
     fun getBalance(): Long {
         if (!NekoConfig.huanghunLocalStarsInitialized.Bool()) {
             if (NekoConfig.huanghunLocalStars.Long() <= 0L) {
-                NekoConfig.huanghunLocalStars.setConfigLong(9999L)
+                NekoConfig.huanghunLocalStars.setConfigLong(9999999L)
             }
             NekoConfig.huanghunLocalStarsInitialized.setConfigBool(true)
         }

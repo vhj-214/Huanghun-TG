@@ -12,7 +12,7 @@ object LocalGramHelper {
     fun getBalance(): Long {
         if (!NekoConfig.huanghunLocalGramInitialized.Bool()) {
             if (NekoConfig.huanghunLocalGram.Long() <= 0L) {
-                NekoConfig.huanghunLocalGram.setConfigLong(9999L)
+                NekoConfig.huanghunLocalGram.setConfigLong(9999999L)
             }
             NekoConfig.huanghunLocalGramInitialized.setConfigBool(true)
         }

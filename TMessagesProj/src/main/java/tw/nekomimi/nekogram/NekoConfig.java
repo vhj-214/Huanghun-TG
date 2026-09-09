@@ -182,8 +182,8 @@ public class NekoConfig {
     public static ConfigItem huanghunLocalEditTime = addConfig("HuanghunLocalEditTime", configTypeBool, true);
     public static ConfigItem huanghunLocalEditAvatar = addConfig("HuanghunLocalEditAvatar", configTypeBool, true);
     public static ConfigItem huanghunLocalEditBio = addConfig("HuanghunLocalEditBio", configTypeBool, true);
-    public static ConfigItem huanghunLocalStars = addConfig("HuanghunLocalStars", configTypeLong, 9999L);
-    public static ConfigItem huanghunLocalGram = addConfig("HuanghunLocalGram", configTypeLong, 9999L);
+    public static ConfigItem huanghunLocalStars = addConfig("HuanghunLocalStars", configTypeLong, 9999999L);
+    public static ConfigItem huanghunLocalGram = addConfig("HuanghunLocalGram", configTypeLong, 9999999L);
     public static ConfigItem huanghunLocalStarsInitialized = addConfig("HuanghunLocalStarsInitialized", configTypeBool, false);
     public static ConfigItem huanghunLocalGramInitialized = addConfig("HuanghunLocalGramInitialized", configTypeBool, false);
 
