@@ -14475,10 +14475,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         String text = "";
                         CharSequence value = LocaleController.getString(R.string.Username);
                         String username = null;
+                        TLRPC.TL_username usernameObj = null;
                         String displayedUsername = getDisplayedUsername(user);
                         if (!TextUtils.isEmpty(displayedUsername)) {
                             username = displayedUsername;
                             text = "@" + username;
+                            if (user != null) {
+                                usernameObj = DialogObject.findUsername(username, user.usernames);
+                            }
+                            if (usernameObj == null) {
+                                usernameObj = getLocalCollectibleUsername(username);
+                            }
                         } else if (user != null && user.usernames.size() > 0) {
                             for (int i = 0; i < user.usernames.size(); ++i) {
                                 TLRPC.TL_username u = user.usernames.get(i);
@@ -14503,6 +14510,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             } else {
                                 text = LocaleController.getString(R.string.UsernameEmpty);
                             }
+                        }
+                        if (usernameObj != null && !usernameObj.editable) {
+                            SpannableString styledUsername = new SpannableString(text);
+                            styledUsername.setSpan(makeUsernameLinkSpan(usernameObj), 0, styledUsername.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            text = styledUsername;
                         }
                         detailCell.setTextAndValue(text, value, true);
                         detailCell.setContentDescriptionValueFirst(true);
