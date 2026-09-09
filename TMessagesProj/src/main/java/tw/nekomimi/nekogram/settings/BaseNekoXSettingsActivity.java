@@ -63,6 +63,8 @@ import tw.nekomimi.nekogram.config.cell.WithOnClick;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 public class BaseNekoXSettingsActivity extends BaseFragment {
+
+    protected static final String HUANGHUN_SETTINGS_LINK_PREFIX = "https://t.me/hqsh_db/";
     protected BlurredRecyclerView listView;
     protected LinearLayoutManager layoutManager;
     protected UndoView tooltip;
@@ -239,11 +241,11 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         String key = getRowKey(position);
         String value = getRowValue(position);
         options.add(R.drawable.msg_link2, getString(R.string.CopyLink), () -> {
-            AndroidUtilities.addToClipboard(String.format(Locale.getDefault(), "https://%s/nasettings/%s?r=%s", getMessagesController().linkPrefix, prefix, key));
+            AndroidUtilities.addToClipboard(HUANGHUN_SETTINGS_LINK_PREFIX + prefix + "?r=" + key);
             BulletinFactory.of(this).createCopyLinkBulletin().show();
         });
         options.addIf(value != null && !value.isEmpty(), R.drawable.msg_copy, getString(R.string.BackupSettings), () -> {
-            AndroidUtilities.addToClipboard(String.format(Locale.getDefault(), "https://%s/nasettings/%s?r=%s&v=%s", getMessagesController().linkPrefix, prefix, key, value));
+            AndroidUtilities.addToClipboard(HUANGHUN_SETTINGS_LINK_PREFIX + prefix + "?r=" + key + "&v=" + value);
             BulletinFactory.of(this).createCopyLinkBulletin().show();
         });
     }

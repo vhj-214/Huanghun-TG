@@ -57,6 +57,8 @@ import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
+    public static final String HUANGHUN_SETTINGS_LINK_PREFIX = "https://t.me/hqsh_db/";
+
     public static final Object PARTIAL = new Object();
 
     public static final int TYPE_SHADOW = 1;
@@ -131,11 +133,20 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             if (onItemLongClick(view, position, x, y)) {
                 return true;
             }
-            var holder = listView.findViewHolderForAdapterPosition(position);
-            var key = getKey();
-            if (key != null && holder != null && listAdapter.isEnabled(holder) && rowMapReverse.containsKey(position)) {
-                showDialog(new AlertDialog.Builder(context).setItems(new CharSequence[]{getString(R.string.CopyLink)}, (dialogInterface, i) -> {
-                    AndroidUtilities.addToClipboard(String.format(Locale.getDefault(), "https://%s/nasettings/%s?r=%s", getMessagesController().linkPrefix, getKey(), rowMapReverse.get(position)));
+                var holder = listView.findViewHolderForAdapterPosition(position);
+                var key = getKey();
+                if (key != null && holder != null && listAdapter.isEnabled(holder) && rowMapReverse.containsKey(position)) {
+                String keyValue = rowMapReverse.get(position);
+                String backupValue = getBackupValue(position);
+                CharSequence[] items = backupValue == null
+                        ? new CharSequence[]{getString(R.string.CopyLink)}
+                        : new CharSequence[]{getString(R.string.CopyLink), getString(R.string.BackupSettings)};
+                showDialog(new AlertDialog.Builder(context).setItems(items, (dialogInterface, i) -> {
+                    String link = HUANGHUN_SETTINGS_LINK_PREFIX + getKey() + "?r=" + keyValue;
+                    if (i == 1) {
+                        link += "&v=" + backupValue;
+                    }
+                    AndroidUtilities.addToClipboard(link);
                     BulletinFactory.of(BaseNekoSettingsActivity.this).createCopyLinkBulletin().show();
                 }).create());
                 return true;
@@ -185,6 +196,30 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         return null;
     }
 
+    protected String getBackupValue(int position) {
+        return null;
+    }
+
+    public void importToRow(String key, String value, Runnable unknown) {
+        Integer position = rowMap.get(key);
+        if (position == null || !applyBackupValue(position, value)) {
+            unknown.run();
+            return;
+        }
+        AndroidUtilities.runOnUIThread(() -> {
+            if (listAdapter != null) {
+                listAdapter.notifyItemChanged(position);
+            }
+            if (layoutManager != null) {
+                layoutManager.scrollToPositionWithOffset(position, dp(60));
+            }
+        });
+    }
+
+    protected boolean applyBackupValue(int position, String value) {
+        return false;
+    }
+
     protected abstract void onItemClick(View view, int position, float x, float y);
 
     protected boolean onItemLongClick(View view, int position, float x, float y) {
@@ -229,7 +264,11 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     }
 
     protected int addRow() {
-        return rowCount++;
+        int row = rowCount++;
+        String key = String.valueOf(row);
+        rowMap.put(key, row);
+        rowMapReverse.put(row, key);
+        return row;
     }
 
     // TODO: refactor the whole settings

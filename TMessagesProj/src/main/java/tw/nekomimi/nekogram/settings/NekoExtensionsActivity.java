@@ -233,6 +233,57 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     }
 
     @Override
+    protected String getKey() {
+        return "extensions";
+    }
+
+    @Override
+    protected String getBackupValue(int position) {
+        if (position == activeEnabledRow) return Boolean.toString(NekoConfig.huanghunActiveZoneEnabled.Bool());
+        if (position == localEditMessageRow) return Boolean.toString(NekoConfig.huanghunLocalEditMessage.Bool());
+        if (position == localEditTimeRow) return Boolean.toString(NekoConfig.huanghunLocalEditTime.Bool());
+        if (position == localEditAvatarRow) return Boolean.toString(NekoConfig.huanghunLocalEditAvatar.Bool());
+        if (position == localEditBioRow) return Boolean.toString(NekoConfig.huanghunLocalEditBio.Bool());
+        if (position == localStarsRow) return Long.toString(LocalStarsHelper.getBalance());
+        if (position == localGramRow) return Long.toString(LocalGramHelper.getBalance());
+        if (position == builtinCameraRow) return Boolean.toString(NekoConfig.huanghunBuiltinCameraEnabled.Bool());
+        if (position == builtinVideoSoundRow) return Boolean.toString(NekoConfig.huanghunBuiltinVideoSound.Bool());
+        if (position == builtinRoundVideoRow) return Boolean.toString(NekoConfig.huanghunBuiltinRoundVideo.Bool());
+        if (position == builtinSquareVideoRow) return Boolean.toString(NekoConfig.huanghunBuiltinSquareVideo.Bool());
+        if (position == videoToGifRow) return Boolean.toString(NekoConfig.huanghunVideoToGif.Bool());
+        if (position == blockNonContactsRow) return Boolean.toString(NekoConfig.huanghunBlockNonContacts.Bool());
+        if (position == blockMutualGroupMessagesRow) return Boolean.toString(NekoConfig.huanghunBlockMutualGroupMessages.Bool());
+        return null;
+    }
+
+    @Override
+    protected boolean applyBackupValue(int position, String value) {
+        try {
+            boolean enabled = Boolean.parseBoolean(value);
+            if (position == activeEnabledRow) NekoConfig.huanghunActiveZoneEnabled.setConfigBool(enabled);
+            else if (position == localEditMessageRow) NekoConfig.huanghunLocalEditMessage.setConfigBool(enabled);
+            else if (position == localEditTimeRow) NekoConfig.huanghunLocalEditTime.setConfigBool(enabled);
+            else if (position == localEditAvatarRow) NekoConfig.huanghunLocalEditAvatar.setConfigBool(enabled);
+            else if (position == localEditBioRow) NekoConfig.huanghunLocalEditBio.setConfigBool(enabled);
+            else if (position == builtinCameraRow) NekoConfig.huanghunBuiltinCameraEnabled.setConfigBool(enabled);
+            else if (position == builtinVideoSoundRow) NekoConfig.huanghunBuiltinVideoSound.setConfigBool(enabled);
+            else if (position == builtinRoundVideoRow) NekoConfig.huanghunBuiltinRoundVideo.setConfigBool(enabled);
+            else if (position == builtinSquareVideoRow) NekoConfig.huanghunBuiltinSquareVideo.setConfigBool(enabled);
+            else if (position == videoToGifRow) NekoConfig.huanghunVideoToGif.setConfigBool(enabled);
+            else if (position == blockNonContactsRow) NekoConfig.huanghunBlockNonContacts.setConfigBool(enabled);
+            else if (position == blockMutualGroupMessagesRow) NekoConfig.huanghunBlockMutualGroupMessages.setConfigBool(enabled);
+            else if (position == localStarsRow) LocalStarsHelper.setBalance(currentAccount, Math.max(0L, Long.parseLong(value)));
+            else if (position == localGramRow) LocalGramHelper.setBalance(currentAccount, Math.max(0L, Long.parseLong(value)));
+            else return false;
+            notifyLocalRows();
+            notifyVideoRows();
+            return true;
+        } catch (Throwable ignore) {
+            return false;
+        }
+    }
+
+    @Override
     protected void onItemClick(View view, int position, float x, float y) {
         if (position == activeEnabledRow) {
             boolean enabled = NekoConfig.huanghunActiveZoneEnabled.toggleConfigBool();

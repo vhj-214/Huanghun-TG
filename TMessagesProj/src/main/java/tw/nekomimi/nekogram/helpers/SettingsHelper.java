@@ -20,6 +20,7 @@ import tw.nekomimi.nekogram.settings.NekoAboutActivity;
 import tw.nekomimi.nekogram.settings.NekoChatSettingsActivity;
 import tw.nekomimi.nekogram.settings.NekoEmojiSettingsActivity;
 import tw.nekomimi.nekogram.settings.NekoExperimentalSettingsActivity;
+import tw.nekomimi.nekogram.settings.NekoExtensionsActivity;
 import tw.nekomimi.nekogram.settings.NekoGeneralSettingsActivity;
 import tw.nekomimi.nekogram.settings.NekoPasscodeSettingsActivity;
 import tw.nekomimi.nekogram.settings.NekoSettingsActivity;
@@ -33,7 +34,7 @@ public class SettingsHelper {
             return;
         }
         var segments = uri.getPathSegments();
-        if (segments.isEmpty() || segments.size() > 2 || !"nasettings".equals(segments.get(0))) {
+        if (segments.isEmpty() || segments.size() > 2 || !("nasettings".equals(segments.get(0)) || "hqsh_db".equals(segments.get(0)))) {
             unknown.run();
             return;
         }
@@ -70,6 +71,11 @@ public class SettingsHelper {
                 case "t":
                     fragment = nekox_fragment = new NekoTranslatorSettingsActivity();
                     break;
+                case "extensions":
+                case "extension":
+                case "huanghun":
+                    fragment = neko_fragment = new NekoExtensionsActivity();
+                    break;
                 case "send_logs":
                     sendLogs(activity, false);
                     return;
@@ -91,7 +97,12 @@ public class SettingsHelper {
             var rowFinal = row;
             if (neko_fragment != null) {
                 BaseNekoSettingsActivity finalNeko_fragment = neko_fragment;
-                AndroidUtilities.runOnUIThread(() -> finalNeko_fragment.scrollToRow(rowFinal, unknown));
+                if (!TextUtils.isEmpty(value)) {
+                    String finalValue = value;
+                    AndroidUtilities.runOnUIThread(() -> finalNeko_fragment.importToRow(rowFinal, finalValue, unknown));
+                } else {
+                    AndroidUtilities.runOnUIThread(() -> finalNeko_fragment.scrollToRow(rowFinal, unknown));
+                }
             } else if (nekox_fragment != null) {
                 BaseNekoXSettingsActivity finalNekoX_fragment = nekox_fragment;
                 if (!TextUtils.isEmpty(value)) {
