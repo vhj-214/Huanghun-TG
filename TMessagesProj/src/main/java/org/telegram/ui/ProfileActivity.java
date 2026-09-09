@@ -14472,7 +14472,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         detailCell.setContentDescriptionValueFirst(false);
                     } else if (position == setUsernameRow) {
                         TLRPC.User user = UserConfig.getInstance(currentAccount).getCurrentUser();
-                        String text = "";
+                        CharSequence text = "";
                         CharSequence value = LocaleController.getString(R.string.Username);
                         String username = null;
                         TLRPC.TL_username usernameObj = null;
