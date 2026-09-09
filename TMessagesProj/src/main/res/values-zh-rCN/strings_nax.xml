@@ -362,7 +362,10 @@ Telegram 已 **在第三方应用中禁用通过短信登录的功能**。在第
     <string name="StickerCopied">贴纸已复制到剪贴板。</string>
     <string name="StickerSavedHint">贴纸已保存到相册。</string>
     <string name="StickerDownloadTitle">下载贴纸</string>
-    <string name="StickerDownloadMessage">是否将此贴纸下载到黄昏插件的自定义存储文件夹？</string>
+    <string name="StickerDownloadMessage">是否下载此贴纸？
+
+保存路径：%1$s
+来源：%2$s</string>
     <string name="StickerDownloadButton">下载</string>
     <string name="StickerDownloadSuccess">贴纸已下载到自定义存储文件夹。</string>
     <string name="StorageSettings">存储</string>

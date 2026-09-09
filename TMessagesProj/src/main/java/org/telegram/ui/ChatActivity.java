@@ -62,6 +62,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.os.Vibrator;
@@ -36850,9 +36851,11 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
         selectedObject = messageObject;
+        String stickerDownloadPath = getStickerDownloadFolderPath(messageObject);
+        String stickerDownloadSource = ChatsHelper.getChatFolderName(messageObject);
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), themeDelegate);
         builder.setTitle(LocaleController.getString(R.string.StickerDownloadTitle));
-        builder.setMessage(LocaleController.getString(R.string.StickerDownloadMessage));
+        builder.setMessage(LocaleController.formatString(R.string.StickerDownloadMessage, stickerDownloadPath, stickerDownloadSource));
         builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
         builder.setPositiveButton(LocaleController.getString(R.string.StickerDownloadButton), (dialog, which) -> {
             if ((Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -36866,6 +36869,15 @@ public class ChatActivity extends BaseFragment implements
             });
         });
         showDialog(builder.create());
+    }
+
+    private String getStickerDownloadFolderPath(MessageObject messageObject) {
+        String folderName = NekoConfig.customSavePath.String();
+        if (messageObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
+            folderName = folderName + File.separator + ChatsHelper.getChatFolderName(messageObject);
+        }
+        File downloadFolder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), folderName);
+        return downloadFolder.getAbsolutePath();
     }
 
     private int processSelectedOptionLongClick(ActionBarMenuSubItem cell, int option) {
@@ -43265,9 +43277,11 @@ public class ChatActivity extends BaseFragment implements
                 return;
             }
             selectedObject = messageObject;
+            String stickerDownloadPath = getStickerDownloadFolderPath(messageObject);
+            String stickerDownloadSource = ChatsHelper.getChatFolderName(messageObject);
             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), themeDelegate);
             builder.setTitle(LocaleController.getString(R.string.StickerDownloadTitle));
-            builder.setMessage(LocaleController.getString(R.string.StickerDownloadMessage));
+            builder.setMessage(LocaleController.formatString(R.string.StickerDownloadMessage, stickerDownloadPath, stickerDownloadSource));
             builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
             builder.setPositiveButton(LocaleController.getString(R.string.StickerDownloadButton), (dialog, which) -> {
                 if ((Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {

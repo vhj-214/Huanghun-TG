@@ -358,7 +358,10 @@
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Shows notification content even when passcode lock is active.</string>
     <string name="StickerSavedHint">Sticker saved to gallery.</string>
     <string name="StickerDownloadTitle">Download sticker</string>
-    <string name="StickerDownloadMessage">Download this sticker to your Huanghun custom storage folder?</string>
+    <string name="StickerDownloadMessage">Download this sticker?
+
+Save path: %1$s
+Source: %2$s</string>
     <string name="StickerDownloadButton">Download</string>
     <string name="StickerDownloadSuccess">Sticker downloaded to your custom storage folder.</string>
     <string name="StickerCopied">Sticker copied to clipboard.</string>
