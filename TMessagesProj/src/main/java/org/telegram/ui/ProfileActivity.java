@@ -14400,9 +14400,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             value = LocaleController.getString(R.string.Username);
                             if (username != null) {
                                 text = "@" + username;
-                                if (usernameObj != null && !usernameObj.editable) {
-                                    text = new SpannableString(text);
-                                    ((SpannableString) text).setSpan(makeUsernameLinkSpan(usernameObj), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                if (usernameObj != null) {
+                                    SpannableString styledUsername = new SpannableString(text);
+                                    if (!usernameObj.editable) {
+                                        styledUsername.setSpan(makeUsernameLinkSpan(getForcedCollectibleUsername(usernameObj)), 0, styledUsername.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    } else {
+                                        styledUsername.setSpan(new ForegroundColorSpan(dontApplyPeerColor(getThemedColor(Theme.key_chat_messageLinkIn), false)), 0, styledUsername.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    }
+                                    text = styledUsername;
                                 }
                             } else {
                                 text = "—";
@@ -14511,9 +14516,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 text = LocaleController.getString(R.string.UsernameEmpty);
                             }
                         }
-                        if (usernameObj != null && !usernameObj.editable) {
+                        if (usernameObj != null) {
                             SpannableString styledUsername = new SpannableString(text);
-                            styledUsername.setSpan(makeUsernameLinkSpan(usernameObj), 0, styledUsername.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            if (!usernameObj.editable) {
+                                styledUsername.setSpan(makeUsernameLinkSpan(getForcedCollectibleUsername(usernameObj)), 0, styledUsername.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            } else {
+                                styledUsername.setSpan(new ForegroundColorSpan(dontApplyPeerColor(getThemedColor(Theme.key_chat_messageLinkIn), false)), 0, styledUsername.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            }
                             text = styledUsername;
                         }
                         detailCell.setTextAndValue(text, value, true);
@@ -17283,6 +17292,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (!isLocalCollectibleUsername(username)) return null;
         TLRPC.TL_username result = new TLRPC.TL_username();
         result.username = username;
+        result.active = true;
+        result.editable = false;
+        return result;
+    }
+
+    private TLRPC.TL_username getForcedCollectibleUsername(TLRPC.TL_username source) {
+        TLRPC.TL_username result = new TLRPC.TL_username();
+        result.username = source.username;
         result.active = true;
         result.editable = false;
         return result;
