@@ -4740,11 +4740,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 presentFragment(new LanguageSelectActivity());
             } else if (position == setUsernameRow) {
                 TLRPC.User user = UserConfig.getInstance(currentAccount).getCurrentUser();
-                if (user == null || TextUtils.isEmpty(user.username)) {
+                String displayedUsername = getDisplayedUsername(user);
+                if (user == null || TextUtils.isEmpty(displayedUsername)) {
                     presentFragment(new ChangeUsernameActivity());
                     return;
                 }
-                String username = UserObject.getPublicUsername(user);
+                String username = displayedUsername;
                 BottomBuilder builder = new BottomBuilder(getParentActivity());
                 builder.addTitle("@" + username);
                 if (userId == getUserConfig().clientUserId && isQrNeedVisible()) {
@@ -4760,6 +4761,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     presentFragment(new ChangeUsernameActivity());
                     return Unit.INSTANCE;
                 });
+                builder.addItem("本地修改用户名", R.drawable.msg_edit, __ -> {
+                    showLocalProfileEditor(false);
+                    return Unit.INSTANCE;
+                });
+                if (getLocalProfileValue("username") != null) {
+                    builder.addItem("恢复原始用户名", R.drawable.msg_retry, __ -> {
+                        MessagesController.getGlobalMainSettings().edit().remove(localProfileKey("username")).remove(localProfileKey("username_collectible")).apply();
+                        updateRowsIds();
+                        listAdapter.notifyDataSetChanged();
+                        return Unit.INSTANCE;
+                    });
+                }
                 builder.addItem(getString(R.string.Copy), R.drawable.msg_copy, __ -> {
                     AlertUtil.copyAndAlert("@" + username, this);
                     return Unit.INSTANCE;
@@ -4776,15 +4789,28 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (user == null || TextUtils.isEmpty(user.phone)) {
                     return;
                 }
-                String number = PhoneFormat.getInstance().format("+" + user.phone);
+                String displayedPhone = getDisplayedPhone(user);
+                String number = PhoneFormat.getInstance().format("+" + displayedPhone);
                 BottomBuilder builder = new BottomBuilder(getParentActivity());
                 builder.addTitle(number);
                 builder.addItem(getString(R.string.Edit), R.drawable.msg_edit, __ -> {
                     presentFragment(new ActionIntroActivity(ActionIntroActivity.ACTION_TYPE_CHANGE_PHONE_NUMBER));
                     return Unit.INSTANCE;
                 });
+                builder.addItem("本地修改号码", R.drawable.msg_edit, __ -> {
+                    showLocalProfileEditor(true);
+                    return Unit.INSTANCE;
+                });
+                if (getLocalProfileValue("phone") != null) {
+                    builder.addItem("恢复原始号码", R.drawable.msg_retry, __ -> {
+                        MessagesController.getGlobalMainSettings().edit().remove(localProfileKey("phone")).apply();
+                        updateRowsIds();
+                        listAdapter.notifyDataSetChanged();
+                        return Unit.INSTANCE;
+                    });
+                }
                 builder.addItem(getString(R.string.Call), R.drawable.msg_calls, __ -> {
-                    AlertUtil.call(user.phone);
+                    AlertUtil.call(displayedPhone);
                     return Unit.INSTANCE;
                 });
                 builder.addItem(getString(R.string.Copy), R.drawable.msg_copy, __ -> {
@@ -7854,7 +7880,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 username = username1;
                 TLRPC.TL_username foundUsername = DialogObject.findUsername(username, user);
-                usernameObj = foundUsername != null ? foundUsername : getLocalCollectibleUsername(username);
+                usernameObj = foundUsername != null ? foundUsername : getLocalDisplayedUsername(username);
             } else if (chatId != 0) {
                 final TLRPC.Chat chat = getMessagesController().getChat(chatId);
                 if (chat == null || topicId == 0 && !ChatObject.isPublic(chat)) {
@@ -14384,7 +14410,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             if (user != null && !TextUtils.isEmpty(getDisplayedUsername(user))) {
                                 username = getDisplayedUsername(user);
                                 usernameObj = DialogObject.findUsername(username, usernames);
-                                if (usernameObj == null) usernameObj = getLocalCollectibleUsername(username);
+                                if (usernameObj == null) usernameObj = getLocalDisplayedUsername(username);
                             }
                             usernames = user == null ? new ArrayList<>() : new ArrayList<>(user.usernames);
                             if (TextUtils.isEmpty(username) && usernames != null) {
@@ -14489,7 +14515,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 usernameObj = DialogObject.findUsername(username, user.usernames);
                             }
                             if (usernameObj == null) {
-                                usernameObj = getLocalCollectibleUsername(username);
+                                usernameObj = getLocalDisplayedUsername(username);
                             }
                         } else if (user != null && user.usernames.size() > 0) {
                             for (int i = 0; i < user.usernames.size(); ++i) {
@@ -17294,6 +17320,27 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         result.username = username;
         result.active = true;
         result.editable = false;
+        return result;
+    }
+
+    /**
+     * Builds the metadata needed to render a locally overridden username.
+     * Server usernames already carry this metadata in user.usernames; a
+     * local-only value needs an equivalent object so it uses the same blue
+     * @username presentation without pretending it was purchased remotely.
+     */
+    private TLRPC.TL_username getLocalDisplayedUsername(String username) {
+        if (username == null || !username.equals(getLocalProfileValue("username"))) {
+            return null;
+        }
+        TLRPC.TL_username result = getLocalCollectibleUsername(username);
+        if (result != null) {
+            return result;
+        }
+        result = new TLRPC.TL_username();
+        result.username = username;
+        result.active = true;
+        result.editable = true;
         return result;
     }
 

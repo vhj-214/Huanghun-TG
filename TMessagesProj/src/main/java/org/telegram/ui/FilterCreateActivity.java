@@ -1146,6 +1146,17 @@ public class FilterCreateActivity extends BaseFragment {
         MessagesController messagesController = fragment.getMessagesController();
         if (filter.localOnly || messagesController.isHuanghunLocalOnlyFilter(filter)) {
             filter.localOnly = true;
+            // Local-only folders do not send a network request.  The progress
+            // dialog is still created above for the shared save path, so it
+            // must be dismissed before completing locally; otherwise the UI
+            // remains blocked until the activity is recreated.
+            if (progressDialog != null) {
+                try {
+                    progressDialog.dismiss();
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+            }
             processAddFilter(filter, newFilterFlags, newFilterEmoticon, newFilterName, newFilterNameEntities, newFilterNoanimate, newFilterColor, newAlwaysShow, newNeverShow, creatingNew, atBegin, hasUserChanged, resetUnreadCounter, fragment, onFinish);
             return;
         }
@@ -1222,6 +1233,10 @@ public class FilterCreateActivity extends BaseFragment {
                     }
                 } catch (Exception e) {
                     FileLog.e(e);
+                }
+                if (error != null) {
+                    BulletinFactory.showError(error);
+                    return;
                 }
                 processAddFilter(filter, newFilterFlags, newFilterEmoticon, newFilterName, newFilterNameEntities, newFilterNoanimate, newFilterColor, newAlwaysShow, newNeverShow, creatingNew, atBegin, hasUserChanged, resetUnreadCounter, fragment, onFinish);
             } else if (onFinish != null) {
