@@ -191,6 +191,7 @@
     <string name="OutgoingAutoTranslateFailed">Translation failed. Your original message was kept.</string>
     <string name="OutgoingAutoTranslateUnsupportedTarget">The selected target language is not supported. Please choose a language from the official list.</string>
     <string name="HuanghunAccountSummary">Welcome to Huanghun Custom Edition!!!!\nLogged in accounts: %1$d\nRemaining account slots: %2$d</string>
+    <string name="HuanghunPet">Desktop pets</string>
     <string name="HuanghunContinueAddAccount">Continue Adding</string>
     <string name="ReplyInPrivate">Reply in Private Chat</string>
     <string name="TranscribeProviderGeminiPrompt">Prompt (optional)</string>

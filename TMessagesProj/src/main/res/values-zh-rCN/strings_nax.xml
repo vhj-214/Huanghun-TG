@@ -186,6 +186,7 @@
     <string name="IconReplacements">图标替换</string>
     <string name="IconReplacementSolar">Solar 图标集</string>
     <string name="HuanghunExtensions">扩展功能</string>
+    <string name="HuanghunPet">宠物功能</string>
     <string name="HuanghunCleanupZone">清理专区</string>
     <string name="HuanghunBlockZone">屏蔽专区</string>
     <string name="HuanghunClearBotData">清除账号内所有与机器人的交互数据</string>

@@ -75,6 +75,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private int passcodeRow;
     private int experimentRow;
     private int extensionsRow;
+    private int petRow;
     private int categoriesEndRow;
 
     private int importSettingsRow;
@@ -100,6 +101,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         }
         experimentRow = addRow();
         extensionsRow = addRow();
+        petRow = addRow();
         categoriesEndRow = addRow();
 
         exportSettingsRow = addRow();
@@ -343,6 +345,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             presentFragment(new NekoExperimentalSettingsActivity());
         } else if (position == extensionsRow) {
             presentFragment(new NekoExtensionsActivity());
+        } else if (position == petRow) {
+            presentFragment(new NekoPetActivity());
         } else if (position == translatorRow) {
             presentFragment(new NekoTranslatorSettingsActivity());
         } else if (position == aboutRow) {
@@ -408,6 +412,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                         textCell.setTextAndIcon(getString(R.string.Experimental), R.drawable.msg_fave, true);
                     } else if (position == extensionsRow) {
                         textCell.setTextAndIcon(getString(R.string.HuanghunExtensions), R.drawable.msg_fave, true);
+                    } else if (position == petRow) {
+                        textCell.setTextAndIcon(getString(R.string.HuanghunPet), R.drawable.msg_emoji_cat_solar, true);
                     } else if (position == importSettingsRow) {
                         textCell.setTextAndIcon(getString(R.string.ImportSettings), R.drawable.import_solar, true);
                     } else if (position == exportSettingsRow) {
@@ -429,7 +435,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         public int getItemViewType(int position) {
             if (position == categoriesEndRow || position == nSettingsEndRow) {
                 return TYPE_SHADOW;
-            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == extensionsRow || position == translatorRow ||
+            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == extensionsRow || position == petRow || position == translatorRow ||
                     position == importSettingsRow || position == exportSettingsRow || position == resetSettingsRow || position == appRestartRow ||
                     position == aboutRow) {
                 return TYPE_TEXT;
