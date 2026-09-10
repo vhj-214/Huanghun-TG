@@ -67,8 +67,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
             new Thread(() -> {
                 try {
                     String id = HuanghunPetHelper.importZip(ApplicationLoader.applicationContext, uri);
-                    HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, id);
-                    AndroidUtilities.runOnUIThread(() -> { HuanghunPetOverlay.reloadActive(); reloadPets(); showInfo("导入完成", "桌宠已启用，会在黄昏客户端中自由活动。点击它即可收到回复。"); });
+                    AndroidUtilities.runOnUIThread(() -> { reloadPets(); showInfo("导入完成", "桌宠资源已保存。请在桌宠列表中点击它并选择“启用”。"); });
                 } catch (Exception e) {
                     AndroidUtilities.runOnUIThread(() -> showInfo("导入失败", e.getMessage() == null ? "不是有效的桌宠包" : e.getMessage()));
                 }
@@ -83,17 +82,36 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         if (listAdapter != null) listAdapter.notifyDataSetChanged();
     }
     private void showTutorial() {
-        showInfo("创建宠物教程", "使用豆包生成资源包后，准备一个 ZIP 文件，至少包含 manifest.json 和 preview.png。\n\n清单示例：\n{\n  \"format\": \"huanghun_pet_pack\",\n  \"name\": \"我的小宠物\",\n  \"version\": \"1.0.0\",\n  \"preview\": \"preview.png\"\n}\n\n客户端只读取图片、音频和 JSON 等资源，不会运行 ZIP 内的程序或脚本。生成口令：请生成符合黄昏客户端 huanghun_pet_pack 格式的纯资源桌宠 ZIP，不要包含任何可执行文件、脚本或网络配置。\n\n导入后点击宠物名称，可进行启用、预览和删除。");
+        showInfo("创建宠物教程", "使用豆包生成资源包后，准备一个符合 V1.1 规范的 ZIP 文件，包含 manifest.json、preview.png、images 或 frames、animations/animations.json 和 dialogs/dialogs.json。\n\n客户端支持 28 套动作、fps、loop、interruptible、weight、trigger_time、整点对白、午夜彩蛋和半身角色过滤。客户端只读取图片、音频和 JSON 等资源，不会运行 ZIP 内的程序或脚本。\n\n生成口令：请生成符合黄昏客户端 huanghun_pet_pack V1.1 规范的纯资源桌宠 ZIP，提供完整 manifest.json、animations/animations.json、dialogs/dialogs.json 和透明 PNG 动画帧，不要包含任何可执行文件、脚本或网络配置。\n\n导入后点击宠物名称，可进行启用、停用、预览、设置和删除。");
     }
     private void showPetActions(HuanghunPetHelper.PetInfo pet) {
         String active = HuanghunPetHelper.activeId(ApplicationLoader.applicationContext);
         String state = pet.id.equals(active) ? "（已启用）" : "";
         new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle(pet.name + " " + state)
-                .setItems(new CharSequence[]{"启用", "预览", "删除"}, (dialog, which) -> {
+                .setItems(new CharSequence[]{"启用", "停用", "预览", "设置", "删除"}, (dialog, which) -> {
                     if (which == 0) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, pet.id); HuanghunPetOverlay.reloadActive(); reloadPets(); showInfo("已启用", "已将“" + pet.name + "”设为当前桌宠。\n它会在黄昏客户端中持续活动，点击后会给出回复。"); }
-                    else if (which == 1) showPreview(pet);
+                    else if (which == 1) { if (pet.id.equals(HuanghunPetHelper.activeId(ApplicationLoader.applicationContext))) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, ""); HuanghunPetOverlay.reloadActive(); reloadPets(); } }
+                    else if (which == 2) showPreview(pet);
+                    else if (which == 3) showPetSettings();
                     else new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle("删除桌宠").setMessage("确定删除“" + pet.name + "”吗？此操作不可恢复。").setNegativeButton("取消", null).setPositiveButton("删除", (d, w) -> { HuanghunPetHelper.delete(ApplicationLoader.applicationContext, pet.id); HuanghunPetOverlay.reloadActive(); reloadPets(); }).show();
                 }).setNegativeButton("取消", null).show();
+    }
+    private void showPetSettings() {
+        android.content.SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE);
+        String[] items = {"开启对白气泡", "关闭对白气泡", "开启整点报时", "关闭整点报时", "小尺寸", "标准尺寸", "大尺寸"};
+        new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle("桌宠设置")
+                .setItems(items, (dialog, which) -> {
+                    android.content.SharedPreferences.Editor editor = preferences.edit();
+                    if (which == 0) editor.putBoolean("show_dialog", true);
+                    else if (which == 1) editor.putBoolean("show_dialog", false);
+                    else if (which == 2) editor.putBoolean("hourly_chime", true);
+                    else if (which == 3) editor.putBoolean("hourly_chime", false);
+                    else if (which == 4) editor.putInt("pet_size", 88);
+                    else if (which == 5) editor.putInt("pet_size", 116);
+                    else if (which == 6) editor.putInt("pet_size", 160);
+                    editor.apply();
+                    HuanghunPetOverlay.reloadActive();
+                }).setNegativeButton("关闭", null).show();
     }
     private void showPreview(HuanghunPetHelper.PetInfo pet) {
         ImageView image = new ImageView(getParentActivity());
@@ -108,6 +126,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     private Drawable createIdleAnimation(HuanghunPetHelper.PetInfo pet) {
         File idle = new File(pet.directory, "images/idle");
         if (!idle.isDirectory()) idle = new File(pet.directory, "frames/idle");
+        if (!idle.isDirectory()) idle = new File(pet.directory, "images/idle_breath");
         File[] frames = idle.listFiles((dir, name) -> name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".webp"));
         if (frames == null || frames.length == 0) return null;
         Arrays.sort(frames, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));

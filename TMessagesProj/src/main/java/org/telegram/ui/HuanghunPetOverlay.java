@@ -59,6 +59,18 @@ public final class HuanghunPetOverlay extends View {
     private long bubbleUntil;
     private String bubbleText = "";
     private Bitmap currentBitmap;
+    private boolean partialBody;
+    private boolean showDialogEnabled = true;
+    private boolean hourlyChimeEnabled = true;
+    private boolean autoWalkEnabled = true;
+    private boolean allowSleepEnabled = true;
+    private boolean midnightEnabled = true;
+    private boolean sleeping;
+    private int petSizeDp = DEFAULT_SIZE_DP;
+    private int minSizeDp = 80;
+    private int maxSizeDp = 260;
+    private int lastHourlyHour = -1;
+    private int lastHourlyDay = -1;
     private float petX;
     private float petY;
     private float velocityX;
@@ -115,12 +127,24 @@ public final class HuanghunPetOverlay extends View {
     }
 
     private void reloadFromPreferences() {
-        String active = getContext().getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE)
-                .getString("active_id", "");
+        android.content.SharedPreferences preferences = getContext().getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE);
+        showDialogEnabled = preferences.getBoolean("show_dialog", true);
+        hourlyChimeEnabled = preferences.getBoolean("hourly_chime", true);
+        autoWalkEnabled = preferences.getBoolean("auto_walk", true);
+        allowSleepEnabled = preferences.getBoolean("allow_sleep", true);
+        midnightEnabled = preferences.getBoolean("allow_midnight_easteregg", true);
+        String active = preferences.getString("active_id", "");
         if (active == null) {
             active = "";
         }
         if (active.equals(petId) && pet != null) {
+            petSizeDp = Math.max(minSizeDp, Math.min(maxSizeDp, preferences.getInt("pet_size", petSizeDp)));
+            if (!showDialogEnabled) {
+                bubbleUntil = 0;
+                bubbleText = "";
+            }
+            clampPosition();
+            invalidate();
             if (hostResumed && getVisibility() != VISIBLE) {
                 setVisibility(VISIBLE);
                 scheduleTick();
@@ -160,6 +184,22 @@ public final class HuanghunPetOverlay extends View {
         JSONObject manifest = readJson(new File(pet.directory, "manifest.json"));
         frameWidth = Math.max(1, manifest.optInt("frame_width", 1));
         frameHeight = Math.max(1, manifest.optInt("frame_height", 1));
+        if (frameWidth == 1 && frameHeight == 1) {
+            Bitmap preview = BitmapFactory.decodeFile(pet.preview().getAbsolutePath());
+            if (preview != null) {
+                frameWidth = Math.max(1, preview.getWidth());
+                frameHeight = Math.max(1, preview.getHeight());
+                preview.recycle();
+            }
+        }
+        partialBody = manifest.optBoolean("partial_body", false);
+        showDialogEnabled = showDialogEnabled && manifest.optBoolean("supports_dialog", true);
+        hourlyChimeEnabled = hourlyChimeEnabled && manifest.optBoolean("supports_hourly_chime", true);
+        midnightEnabled = midnightEnabled && manifest.optBoolean("supports_midnight_easteregg", true);
+        minSizeDp = Math.max(48, manifest.optInt("min_size", 80));
+        maxSizeDp = Math.max(minSizeDp, manifest.optInt("max_size", 260));
+        int manifestSize = manifest.optInt("default_size", DEFAULT_SIZE_DP);
+        petSizeDp = getContext().getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE).getInt("pet_size", Math.max(minSizeDp, Math.min(maxSizeDp, Math.min(DEFAULT_SIZE_DP, manifestSize))));
         JSONObject manifestAnimations = manifest.optJSONObject("animations");
         if (manifestAnimations != null) {
             JSONArray names = manifestAnimations.names();
@@ -167,10 +207,21 @@ public final class HuanghunPetOverlay extends View {
                 for (int i = 0; i < names.length(); i++) {
                     String name = names.optString(i, "");
                     AnimationState state = readManifestAnimation(name, manifestAnimations.optJSONObject(name));
-                    if (state != null) states.put(name, state);
+                    if (state != null) registerState(name, state);
                 }
             }
         }
+        JSONArray manifestAnimationNames = manifest.optJSONArray("animations");
+        if (manifestAnimationNames != null) {
+            for (int i = 0; i < manifestAnimationNames.length(); i++) {
+                String name = manifestAnimationNames.optString(i, "");
+                if (name.isEmpty() || states.containsKey(name)) continue;
+                AnimationState state = readDirectoryAnimation(name);
+                if (state != null) registerState(name, state);
+            }
+        }
+        File animationConfig = new File(pet.directory, "animations/animations.json");
+        if (animationConfig.isFile()) loadAnimationConfig(animationConfig);
         File indexFile = new File(pet.directory, "animations/index.json");
         if (indexFile.isFile()) {
             JSONObject index = readJson(indexFile);
@@ -184,7 +235,7 @@ public final class HuanghunPetOverlay extends View {
                         if (!name.isEmpty() && !path.isEmpty()) {
                             AnimationState state = readAnimation(name, new File(pet.directory, path));
                             if (state != null) {
-                                states.put(name, state);
+                                registerState(name, state);
                             }
                         }
                     }
@@ -194,11 +245,47 @@ public final class HuanghunPetOverlay extends View {
         if (!states.containsKey("idle")) {
             AnimationState fallback = readDirectoryAnimation("idle");
             if (fallback != null) {
-                states.put("idle", fallback);
+                registerState("idle", fallback);
             }
         }
         if (!states.containsKey("idle")) {
             throw new IllegalStateException("桌宠缺少 idle 动画");
+        }
+    }
+
+    private void registerState(String name, AnimationState state) {
+        if (partialBody && ("walk".equals(name) || "jump".equals(name) || "spin".equals(name)
+                || "crouch".equals(name) || "squat_rest".equals(name) || "peek".equals(name)
+                || "angry_stomp".equals(name) || "stamp_angry".equals(name))) {
+            return;
+        }
+        states.put(name, state);
+        String alias = null;
+        if ("idle_breath".equals(name)) alias = "idle";
+        else if ("touch_click".equals(name)) alias = "clicked";
+        else if ("drag_move".equals(name)) alias = "dragged";
+        else if ("flatten_bounce".equals(name)) alias = "squish";
+        else if ("midnight_easteregg".equals(name)) alias = "midnight";
+        else if ("squat_rest".equals(name)) alias = "crouch";
+        else if ("sad_emo".equals(name)) alias = "sad";
+        else if ("eat_snack".equals(name)) alias = "snack";
+        else if ("scare_shake".equals(name)) alias = "scare";
+        else if ("wave_goodbye".equals(name)) alias = "bye";
+        else if ("stretch_sun".equals(name)) alias = "stretch";
+        else if ("shy_dodge".equals(name)) alias = "shy";
+        else if ("stamp_angry".equals(name)) alias = "angry_stomp";
+        else if ("scratch_head".equals(name)) alias = "confused";
+        else if ("giggle_cover".equals(name)) alias = "giggle";
+        else if ("clap".equals(name)) alias = "applause";
+        else if ("lose_heart".equals(name)) alias = "downcast";
+        if (alias != null) {
+            AnimationState aliased = new AnimationState(alias, state.loop);
+            aliased.canInterrupt = state.canInterrupt;
+            aliased.trigger = state.trigger;
+            aliased.movementSpeed = state.movementSpeed;
+            aliased.weight = state.weight;
+            aliased.frames.addAll(state.frames);
+            states.put(alias, aliased);
         }
     }
 
@@ -210,6 +297,7 @@ public final class HuanghunPetOverlay extends View {
         AnimationState state = new AnimationState(name, definition.optBoolean("loop", true));
         state.canInterrupt = definition.optBoolean("can_interrupt", true);
         state.trigger = definition.optString("trigger", "");
+        state.weight = Math.max(0, definition.optInt("weight", 1));
         state.movementSpeed = Math.max(0.2f, Math.min(8f, (float) definition.optDouble("movement_speed", 1.7)));
         for (int i = 0; i < frames.length(); i++) {
             String image = frames.optString(i, "");
@@ -222,6 +310,36 @@ public final class HuanghunPetOverlay extends View {
         return state.frames.isEmpty() ? null : state;
     }
 
+    private void loadAnimationConfig(File file) throws Exception {
+        JSONObject config = readJson(file);
+        JSONArray names = config.names();
+        if (names == null) return;
+        for (int i = 0; i < names.length(); i++) {
+            String name = names.optString(i, "");
+            JSONObject definition = config.optJSONObject(name);
+            if (definition == null) continue;
+            File directory = new File(pet.directory, definition.optString("frame_dir", ""));
+            String root = pet.directory.getCanonicalPath() + File.separator;
+            if (!directory.getCanonicalPath().startsWith(root)) continue;
+            File[] files = directory.listFiles((dir, filename) -> {
+                String lower = filename.toLowerCase(Locale.ROOT);
+                return lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+            });
+            if (files == null || files.length == 0) continue;
+            java.util.Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            int frameCount = Math.min(files.length, Math.max(1, definition.optInt("frame_count", files.length)));
+            int fps = Math.max(1, Math.min(30, definition.optInt("fps", 6)));
+            AnimationState state = new AnimationState(name, definition.optBoolean("loop", true));
+            state.canInterrupt = definition.optBoolean("interruptible", true);
+            state.trigger = definition.optString("trigger_time", "");
+            state.weight = Math.max(0, definition.optInt("weight", 1));
+            for (int j = 0; j < frameCount; j++) {
+                state.frames.add(new AnimationFrame(files[j], Math.max(MIN_FRAME_MS, Math.min(MAX_FRAME_MS, 1000 / fps))));
+            }
+            registerState(name, state);
+        }
+    }
+
     private AnimationState readAnimation(String name, File file) throws Exception {
         if (!file.isFile()) {
             return null;
@@ -232,6 +350,9 @@ public final class HuanghunPetOverlay extends View {
             return null;
         }
         AnimationState state = new AnimationState(name, object.optBoolean("loop", true));
+        state.canInterrupt = object.optBoolean("interruptible", object.optBoolean("can_interrupt", true));
+        state.trigger = object.optString("trigger_time", object.optString("trigger", ""));
+        state.weight = Math.max(0, object.optInt("weight", 1));
         for (int i = 0; i < frames.length(); i++) {
             JSONObject frame = frames.optJSONObject(i);
             if (frame == null) {
@@ -371,6 +492,7 @@ public final class HuanghunPetOverlay extends View {
     }
 
     private void speak(String category) {
+        if (!showDialogEnabled) return;
         ArrayList<String> lines = dialogs.get(category);
         if (lines == null || lines.isEmpty()) {
             String alias = null;
@@ -386,13 +508,21 @@ public final class HuanghunPetOverlay extends View {
             else if ("sleep".equals(category) || "sleepy_nod".equals(category)) alias = "sleepy";
             else if ("cheer".equals(category) || "applause".equals(category)) alias = "happy";
             if (alias != null) lines = dialogs.get(alias);
+            if ((lines == null || lines.isEmpty()) && "greet".equals(category)) lines = dialogs.get("idle_breath");
+            if ((lines == null || lines.isEmpty()) && "tap".equals(category)) lines = dialogs.get("touch_click");
         }
         if (lines == null || lines.isEmpty()) {
             lines = dialogs.get("tap");
             if (lines == null || lines.isEmpty()) lines = dialogs.get("clicked");
+            if (lines == null || lines.isEmpty()) lines = dialogs.get("touch_click");
         }
         if (lines != null && !lines.isEmpty()) {
-            bubbleText = lines.get(random.nextInt(lines.size())).replace("{hour}", String.valueOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)));
+            Calendar calendar = Calendar.getInstance();
+            int hour = calendar.get(Calendar.HOUR_OF_DAY);
+            String period = hour < 12 ? "上午" : (hour < 18 ? "下午" : "晚上");
+            bubbleText = lines.get(random.nextInt(lines.size()))
+                    .replace("{hour}", String.valueOf(hour))
+                    .replace("{period}", period);
             bubbleUntil = System.currentTimeMillis() + 3600L;
         }
         invalidate();
@@ -409,27 +539,35 @@ public final class HuanghunPetOverlay extends View {
         Calendar calendar = Calendar.getInstance();
         int hour = calendar.get(Calendar.HOUR_OF_DAY);
         int day = calendar.get(Calendar.DAY_OF_YEAR);
-        if (hour == 0 && lastMidnightDay != day && states.containsKey("midnight")) {
+        if (midnightEnabled && hour == 0 && lastMidnightDay != day && states.containsKey("midnight")) {
             lastMidnightDay = day;
             showState("midnight");
             speak("midnight");
             nextDecision = now + 2600L;
             return;
         }
-        String[] candidates = {"jump", "sway", "spin", "peek", "cheer", "sad", "yawn", "snack", "scare", "bye", "rain_shiver", "stretch", "shy", "angry_stomp", "daze", "confused", "giggle", "sleepy_nod", "applause", "downcast", "crouch", "sleep"};
+        String[] candidates = {"walk", "jump", "sway", "spin", "peek", "cheer", "sad", "yawn", "snack", "scare", "bye", "rain_shiver", "stretch", "shy", "angry_stomp", "daze", "confused", "giggle", "sleepy_nod", "applause", "downcast", "crouch", "sleep"};
         ArrayList<String> available = new ArrayList<>();
         for (String candidate : candidates) {
             AnimationState state = states.get(candidate);
-            if (state != null && state.trigger.isEmpty()) available.add(candidate);
+            if (state != null && state.trigger.isEmpty() && (!"walk".equals(candidate) || autoWalkEnabled)
+                    && (!"sleep".equals(candidate) || allowSleepEnabled)) available.add(candidate);
         }
         if (available.isEmpty()) {
-            showState("walk");
-            direction = random.nextBoolean() ? 1 : -1;
+            showState("idle");
             nextDecision = now + 3200L + random.nextInt(4200);
             return;
         }
-        String action = available.get(random.nextInt(available.size()));
+        int totalWeight = 0;
+        for (String candidate : available) totalWeight += Math.max(1, states.get(candidate).weight);
+        int pick = random.nextInt(Math.max(1, totalWeight));
+        String action = available.get(0);
+        for (String candidate : available) {
+            pick -= Math.max(1, states.get(candidate).weight);
+            if (pick < 0) { action = candidate; break; }
+        }
         showState(action);
+        sleeping = "sleep".equals(action);
         speak(action);
         if ("walk".equals(action)) direction = random.nextBoolean() ? 1 : -1;
         nextDecision = now + 1700L + random.nextInt(3800);
@@ -440,6 +578,7 @@ public final class HuanghunPetOverlay extends View {
             return;
         }
         long now = System.currentTimeMillis();
+        maybeHourlyChime();
         if (currentState != null && now >= frameDue) {
             if (frameIndex + 1 < currentState.frames.size()) {
                 frameIndex++;
@@ -451,6 +590,15 @@ public final class HuanghunPetOverlay extends View {
                 showState("idle");
                 nextDecision = now + 1800L;
             }
+        }
+        if (sleeping) {
+            if (bubbleUntil > 0 && now >= bubbleUntil) {
+                bubbleUntil = 0;
+                bubbleText = "";
+            }
+            invalidate();
+            scheduleTick();
+            return;
         }
         if ("walk".equals(currentState == null ? "" : currentState.name) && !dragging) {
             petX += velocityX * direction;
@@ -477,6 +625,19 @@ public final class HuanghunPetOverlay extends View {
         }
         invalidate();
         scheduleTick();
+    }
+
+    private void maybeHourlyChime() {
+        if (!hourlyChimeEnabled) return;
+        Calendar calendar = Calendar.getInstance();
+        if (calendar.get(Calendar.MINUTE) != 0) return;
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int day = calendar.get(Calendar.DAY_OF_YEAR);
+        if (hour == lastHourlyHour && day == lastHourlyDay) return;
+        if (!dialogs.containsKey("hourly")) return;
+        lastHourlyHour = hour;
+        lastHourlyDay = day;
+        speak("hourly");
     }
 
     @Override
@@ -506,7 +667,7 @@ public final class HuanghunPetOverlay extends View {
     }
 
     private int petHeight() {
-        return dp(DEFAULT_SIZE_DP);
+        return dp(petSizeDp);
     }
 
     private int petWidth() {
@@ -530,8 +691,15 @@ public final class HuanghunPetOverlay extends View {
         float maxWidth = dp(220);
         float textWidth = Math.min(maxWidth, Math.max(dp(72), bubbleTextPaint.measureText(text) + dp(24)));
         float left = Math.max(dp(4), Math.min(getWidth() - textWidth - dp(4), x - dp(52)));
-        float bottom = Math.max(dp(44), y - dp(8));
-        float top = bottom - dp(38);
+        float top;
+        float bottom;
+        if (y < getHeight() / 2f) {
+            top = Math.min(getHeight() - dp(44), y + petHeight() + dp(8));
+            bottom = top + dp(38);
+        } else {
+            bottom = Math.max(dp(44), y - dp(8));
+            top = bottom - dp(38);
+        }
         bubblePaint.setColor(Color.WHITE);
         canvas.drawRoundRect(new RectF(left, top, left + textWidth, bottom), dp(14), dp(14), bubblePaint);
         bubbleTextPaint.setColor(0xff252525);
@@ -546,6 +714,15 @@ public final class HuanghunPetOverlay extends View {
 
     private boolean hitPet(float x, float y) {
         return x >= petX - dp(8) && x <= petX + petWidth() + dp(8) && y >= petY - dp(8) && y <= petY + petHeight() + dp(8);
+    }
+
+    private void playRandomTapAction() {
+        String[] candidates = {"clicked", "jump", "squish", "scare", "cheer", "shy", "giggle"};
+        ArrayList<String> available = new ArrayList<>();
+        for (String candidate : candidates) if (states.containsKey(candidate)) available.add(candidate);
+        String action = available.isEmpty() ? "clicked" : available.get(random.nextInt(available.size()));
+        showState(action);
+        speak(action.equals("clicked") ? "tap" : action);
     }
 
     @Override
@@ -578,15 +755,19 @@ public final class HuanghunPetOverlay extends View {
                 }
                 return true;
             case MotionEvent.ACTION_UP:
-                if (dragging) {
+                if (sleeping && !dragging) {
+                    sleeping = false;
+                    showState("idle");
+                    speak("greeting");
+                    nextDecision = System.currentTimeMillis() + 1800L;
+                } else if (dragging) {
                     getContext().getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE).edit()
                             .putFloat("pet_x", petX).putFloat("pet_y", petY).apply();
                     showState("squash");
                     speak("squash");
                     nextDecision = System.currentTimeMillis() + 1800L;
                 } else {
-                    showState("clicked");
-                    speak("tap");
+                    playRandomTapAction();
                     nextDecision = System.currentTimeMillis() + 1800L;
                     performClick();
                 }
@@ -613,6 +794,7 @@ public final class HuanghunPetOverlay extends View {
         boolean canInterrupt = true;
         String trigger = "";
         float movementSpeed = 1.7f;
+        int weight = 1;
         final ArrayList<AnimationFrame> frames = new ArrayList<>();
 
         AnimationState(String name, boolean loop) {

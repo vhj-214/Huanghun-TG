@@ -98,6 +98,7 @@ public final class HuanghunPetHelper {
             boolean modernFormat = !manifest.optString("character_name", "").trim().isEmpty() && manifest.optJSONObject("animations") != null;
             String format = manifest.optString("format", "");
             if (!modernFormat && !"huanghun_pet_pack".equals(format)) throw new Exception("不是有效的桌宠包");
+            validateRequiredAnimations(packageRoot, manifest);
 
             String name = manifest.optString("name", manifest.optString("character_name", "")).trim();
             if (name.isEmpty() || name.length() > 64) throw new Exception("桌宠名称无效");
@@ -148,6 +149,26 @@ public final class HuanghunPetHelper {
         return directory;
     }
 
+    private static void validateRequiredAnimations(File directory, JSONObject manifest) throws Exception {
+        if (manifest.optBoolean("partial_body", false)) return;
+        String[] required = {"idle", "walk", "jump", "spin", "peek", "crouch", "angry_stomp"};
+        for (String name : required) {
+            boolean present = hasAnimation(manifest, name);
+            if (!present && "idle".equals(name)) present = hasAnimation(manifest, "idle_breath");
+            if (!present && "crouch".equals(name)) present = hasAnimation(manifest, "squat_rest");
+            if (!present && "angry_stomp".equals(name)) present = hasAnimation(manifest, "stamp_angry");
+            if (!present) throw new Exception("全身桌宠缺少必备动画资源: " + name);
+        }
+    }
+
+    private static boolean hasAnimation(JSONObject manifest, String name) {
+        JSONObject object = manifest.optJSONObject("animations");
+        if (object != null && object.has(name)) return true;
+        org.json.JSONArray array = manifest.optJSONArray("animations");
+        if (array != null) for (int i = 0; i < array.length(); i++) if (name.equals(array.optString(i, ""))) return true;
+        return false;
+    }
+
     private static File safeChild(File directory, String relativePath) throws Exception {
         if (relativePath == null || relativePath.trim().isEmpty()) return null;
         File file = new File(directory, relativePath.replace('\\', '/'));
@@ -156,10 +177,12 @@ public final class HuanghunPetHelper {
     }
 
     private static File findFirstFrame(File directory, String animation) {
-        File[] candidates = {
-                new File(directory, "frames/" + animation),
-                new File(directory, "images/" + animation)
-        };
+        String[] names = "idle".equals(animation) ? new String[]{"idle", "idle_breath"} : new String[]{animation};
+        File[] candidates = new File[names.length * 2];
+        for (int i = 0; i < names.length; i++) {
+            candidates[i * 2] = new File(directory, "frames/" + names[i]);
+            candidates[i * 2 + 1] = new File(directory, "images/" + names[i]);
+        }
         for (File candidate : candidates) {
             File[] files = candidate.listFiles((dir, filename) -> {
                 String lower = filename.toLowerCase(Locale.ROOT);
