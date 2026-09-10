@@ -28,7 +28,7 @@ public final class HuanghunPetHelper {
     private static final long MAX_ZIP_BYTES = 32L * 1024L * 1024L;
     private static final long MAX_UNPACKED_BYTES = 64L * 1024L * 1024L;
     private static final int MAX_FILES = 512;
-    private static final String[] ALLOWED = {".png", ".webp", ".jpg", ".jpeg", ".ogg", ".mp3", ".wav", ".json", ".txt", ".md"};
+    private static final String[] ALLOWED = {".png", ".webp", ".jpg", ".jpeg", ".ogg", ".mp3", ".wav", ".json", ".txt", ".md", ".zip"};
     private static final String[] FORBIDDEN = {".exe", ".apk", ".aab", ".dll", ".jar", ".so", ".bat", ".cmd", ".sh", ".ps1", ".js", ".lua", ".py", ".class"};
 
     public static final class PetInfo {
@@ -67,41 +67,23 @@ public final class HuanghunPetHelper {
         mkdirs(context);
         File temp = new File(root(context), "temp_" + UUID.randomUUID());
         temp.mkdirs();
-        long total = 0;
-        int files = 0;
         try (InputStream raw = context.getContentResolver().openInputStream(uri)) {
             if (raw == null) throw new Exception("无法读取所选文件");
-            try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(new LimitedInputStream(raw, MAX_ZIP_BYTES)))) {
-                ZipEntry entry;
-                byte[] buffer = new byte[8192];
-                while ((entry = zip.getNextEntry()) != null) {
-                    String name = entry.getName().replace('\\', '/');
-                    if (entry.isDirectory()) continue;
-                    if (++files > MAX_FILES) throw new Exception("桌宠包文件数量过多");
-                    if (name.isEmpty() || name.startsWith("/") || name.contains("../") || name.contains("..\\")) throw new Exception("压缩包包含不安全路径");
-                    String lower = name.toLowerCase(Locale.ROOT);
-                    for (String bad : FORBIDDEN) if (lower.endsWith(bad)) throw new Exception("压缩包包含不允许的文件");
-                    boolean allowed = false;
-                    for (String ext : ALLOWED) if (lower.endsWith(ext)) { allowed = true; break; }
-                    if (!allowed) throw new Exception("压缩包包含不支持的文件类型");
-                    File out = new File(temp, name);
-                    String base = temp.getCanonicalPath() + File.separator;
-                    if (!out.getCanonicalPath().startsWith(base)) throw new Exception("压缩包包含不安全路径");
-                    File parent = out.getParentFile();
-                    if (parent != null) parent.mkdirs();
-                    try (OutputStream os = new BufferedOutputStream(new FileOutputStream(out))) {
-                        int n;
-                        while ((n = zip.read(buffer)) != -1) {
-                            total += n;
-                            if (total > MAX_UNPACKED_BYTES) throw new Exception("桌宠包解压后过大");
-                            os.write(buffer, 0, n);
-                        }
-                    }
-                }
-            }
+            unpackArchive(new LimitedInputStream(raw, MAX_ZIP_BYTES), temp, true);
         } catch (Exception e) { deleteRecursive(temp); throw e; }
         try {
             File manifestFile = new File(temp, "manifest.json");
+            File[] nestedArchives = temp.listFiles((dir, filename) -> filename.toLowerCase(Locale.ROOT).endsWith(".zip"));
+            if (!manifestFile.isFile() && nestedArchives != null && nestedArchives.length == 1) {
+                File nestedTemp = new File(root(context), "temp_nested_" + UUID.randomUUID());
+                nestedTemp.mkdirs();
+                try (InputStream nested = new FileInputStream(nestedArchives[0])) {
+                    unpackArchive(new LimitedInputStream(nested, MAX_ZIP_BYTES), nestedTemp, false);
+                }
+                deleteRecursive(temp);
+                temp = nestedTemp;
+                manifestFile = new File(temp, "manifest.json");
+            }
             if (!manifestFile.isFile()) throw new Exception("缺少 manifest.json");
             JSONObject manifest = new JSONObject(readText(manifestFile));
             String format = manifest.optString("format", "huanghun_pet_pack");
@@ -123,6 +105,41 @@ public final class HuanghunPetHelper {
             if (!temp.renameTo(target)) throw new Exception("无法保存桌宠资源");
             return id;
         } catch (Exception e) { deleteRecursive(temp); throw e; }
+    }
+
+    private static void unpackArchive(InputStream raw, File destination, boolean allowWrapperZip) throws Exception {
+        long total = 0;
+        int files = 0;
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(raw))) {
+            ZipEntry entry;
+            byte[] buffer = new byte[8192];
+            while ((entry = zip.getNextEntry()) != null) {
+                String name = entry.getName().replace('\\', '/');
+                if (entry.isDirectory()) continue;
+                if (++files > MAX_FILES) throw new Exception("桌宠包文件数量过多");
+                if (name.isEmpty() || name.startsWith("/") || name.contains("../") || name.contains("..\\")) throw new Exception("压缩包包含不安全路径");
+                String lower = name.toLowerCase(Locale.ROOT);
+                for (String bad : FORBIDDEN) if (lower.endsWith(bad)) throw new Exception("压缩包包含不允许的文件");
+                boolean isZip = lower.endsWith(".zip");
+                if (isZip && !allowWrapperZip) throw new Exception("桌宠包不允许嵌套压缩包");
+                boolean allowed = false;
+                for (String ext : ALLOWED) if (lower.endsWith(ext)) { allowed = true; break; }
+                if (!allowed) throw new Exception("压缩包包含不支持的文件类型");
+                File out = new File(destination, name);
+                String base = destination.getCanonicalPath() + File.separator;
+                if (!out.getCanonicalPath().startsWith(base)) throw new Exception("压缩包包含不安全路径");
+                File parent = out.getParentFile();
+                if (parent != null) parent.mkdirs();
+                try (OutputStream os = new BufferedOutputStream(new FileOutputStream(out))) {
+                    int n;
+                    while ((n = zip.read(buffer)) != -1) {
+                        total += n;
+                        if (total > MAX_UNPACKED_BYTES) throw new Exception("桌宠包解压后过大");
+                        os.write(buffer, 0, n);
+                    }
+                }
+            }
+        }
     }
 
     public static PetInfo get(Context c, String id) throws Exception {
