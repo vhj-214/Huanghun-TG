@@ -14,6 +14,7 @@ import java.io.FilterInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.UUID;
@@ -27,7 +28,7 @@ public final class HuanghunPetHelper {
     private static final String PREFS = "huanghun_pets";
     private static final long MAX_ZIP_BYTES = 32L * 1024L * 1024L;
     private static final long MAX_UNPACKED_BYTES = 64L * 1024L * 1024L;
-    private static final int MAX_FILES = 512;
+    private static final int MAX_FILES = 1024;
     private static final String[] ALLOWED = {".png", ".webp", ".jpg", ".jpeg", ".ogg", ".mp3", ".wav", ".json", ".txt", ".md", ".zip"};
     private static final String[] FORBIDDEN = {".exe", ".apk", ".aab", ".dll", ".jar", ".so", ".bat", ".cmd", ".sh", ".ps1", ".js", ".lua", ".py", ".class"};
 
@@ -37,7 +38,7 @@ public final class HuanghunPetHelper {
         PetInfo(File directory, JSONObject manifest) {
             this.directory = directory;
             id = directory.getName();
-            name = manifest.optString("name", id);
+            name = manifest.optString("name", manifest.optString("character_name", id));
             version = manifest.optString("version", "未知版本");
             author = manifest.optString("author", "");
             description = manifest.optString("description", "");
@@ -65,46 +66,119 @@ public final class HuanghunPetHelper {
 
     public static String importZip(Context context, Uri uri) throws Exception {
         mkdirs(context);
-        File temp = new File(root(context), "temp_" + UUID.randomUUID());
-        temp.mkdirs();
+        File unpackRoot = new File(root(context), "temp_" + UUID.randomUUID());
+        unpackRoot.mkdirs();
+        File packageRoot = unpackRoot;
         try (InputStream raw = context.getContentResolver().openInputStream(uri)) {
             if (raw == null) throw new Exception("无法读取所选文件");
-            unpackArchive(new LimitedInputStream(raw, MAX_ZIP_BYTES), temp, true);
-        } catch (Exception e) { deleteRecursive(temp); throw e; }
+            unpackArchive(new LimitedInputStream(raw, MAX_ZIP_BYTES), unpackRoot, true);
+        } catch (Exception e) {
+            deleteRecursive(unpackRoot);
+            throw e;
+        }
         try {
-            File manifestFile = new File(temp, "manifest.json");
-            File[] nestedArchives = temp.listFiles((dir, filename) -> filename.toLowerCase(Locale.ROOT).endsWith(".zip"));
+            // Support the documented outer wrapper: README + one inner pet_pack.zip.
+            File manifestFile = new File(packageRoot, "manifest.json");
+            File[] nestedArchives = packageRoot.listFiles((dir, filename) -> filename.toLowerCase(Locale.ROOT).endsWith(".zip"));
             if (!manifestFile.isFile() && nestedArchives != null && nestedArchives.length == 1) {
-                File nestedTemp = new File(root(context), "temp_nested_" + UUID.randomUUID());
-                nestedTemp.mkdirs();
+                File nestedRoot = new File(root(context), "temp_nested_" + UUID.randomUUID());
+                nestedRoot.mkdirs();
                 try (InputStream nested = new FileInputStream(nestedArchives[0])) {
-                    unpackArchive(new LimitedInputStream(nested, MAX_ZIP_BYTES), nestedTemp, false);
+                    unpackArchive(new LimitedInputStream(nested, MAX_ZIP_BYTES), nestedRoot, false);
                 }
-                deleteRecursive(temp);
-                temp = nestedTemp;
-                manifestFile = new File(temp, "manifest.json");
+                deleteRecursive(unpackRoot);
+                packageRoot = nestedRoot;
             }
+
+            // Support packages whose actual manifest is under one top-level pet_pack directory.
+            packageRoot = normalizePackageRoot(packageRoot);
+            manifestFile = new File(packageRoot, "manifest.json");
             if (!manifestFile.isFile()) throw new Exception("缺少 manifest.json");
             JSONObject manifest = new JSONObject(readText(manifestFile));
-            String format = manifest.optString("format", "huanghun_pet_pack");
-            if (!"huanghun_pet_pack".equals(format)) throw new Exception("不是有效的桌宠包");
-            String name = manifest.optString("name", "").trim();
+            boolean modernFormat = !manifest.optString("character_name", "").trim().isEmpty() && manifest.optJSONObject("animations") != null;
+            String format = manifest.optString("format", "");
+            if (!modernFormat && !"huanghun_pet_pack".equals(format)) throw new Exception("不是有效的桌宠包");
+
+            String name = manifest.optString("name", manifest.optString("character_name", "")).trim();
             if (name.isEmpty() || name.length() > 64) throw new Exception("桌宠名称无效");
-            if (manifest.optString("version", "").trim().isEmpty()) throw new Exception("桌宠版本缺失");
-            String preview = manifest.optString("preview", "preview.png");
-            if (preview.contains("..") || !new File(temp, preview).getCanonicalPath().startsWith(temp.getCanonicalPath() + File.separator) || !new File(temp, preview).isFile()) throw new Exception("缺少有效的预览图");
-            if (BitmapFactory.decodeFile(new File(temp, preview).getAbsolutePath()) == null) throw new Exception("预览图损坏");
-            String id = manifest.optString("id", "").trim();
-            if (!id.matches("[A-Za-z0-9_-]{1,64}")) id = "pet_" + name.replaceAll("[^A-Za-z0-9_-]", "_").replaceAll("_+", "_");
-            if (!id.matches("[A-Za-z0-9_-]{1,64}")) id = "pet_" + UUID.randomUUID().toString().replace("-", "");
-            manifest.put("id", id);
+            String version = manifest.optString("version", "1.0").trim();
+            if (version.isEmpty()) version = "1.0";
             manifest.put("format", "huanghun_pet_pack");
-            try (FileOutputStream out = new FileOutputStream(manifestFile)) { out.write(manifest.toString(2).getBytes("UTF-8")); }
+            manifest.put("name", name);
+            manifest.put("version", version);
+
+            File previewFile = safeChild(packageRoot, manifest.optString("preview", ""));
+            if (previewFile == null || !previewFile.isFile()) {
+                previewFile = findFirstFrame(packageRoot, "idle");
+                if (previewFile == null) throw new Exception("缺少有效的预览图或 idle 动画");
+                copyFile(previewFile, new File(packageRoot, "preview.png"));
+                previewFile = new File(packageRoot, "preview.png");
+                manifest.put("preview", "preview.png");
+            }
+            if (BitmapFactory.decodeFile(previewFile.getAbsolutePath()) == null) throw new Exception("预览图损坏");
+
+            String id = manifest.optString("id", "").trim();
+            if (!id.matches("[A-Za-z0-9_-]{1,64}")) {
+                String sanitized = name.replaceAll("[^A-Za-z0-9_-]", "_").replaceAll("_+", "_");
+                id = sanitized.length() >= 2 ? "pet_" + sanitized : "pet_" + UUID.randomUUID().toString().replace("-", "");
+            }
+            manifest.put("id", id);
+            try (FileOutputStream out = new FileOutputStream(manifestFile)) {
+                out.write(manifest.toString(2).getBytes("UTF-8"));
+            }
             File target = new File(installed(context), id);
             deleteRecursive(target);
-            if (!temp.renameTo(target)) throw new Exception("无法保存桌宠资源");
+            if (!packageRoot.renameTo(target)) throw new Exception("无法保存桌宠资源");
+            if (packageRoot != unpackRoot) deleteRecursive(unpackRoot);
             return id;
-        } catch (Exception e) { deleteRecursive(temp); throw e; }
+        } catch (Exception e) {
+            deleteRecursive(packageRoot);
+            if (packageRoot != unpackRoot) deleteRecursive(unpackRoot);
+            throw e;
+        }
+    }
+
+    private static File normalizePackageRoot(File directory) {
+        File manifest = new File(directory, "manifest.json");
+        if (manifest.isFile()) return directory;
+        File[] children = directory.listFiles(File::isDirectory);
+        if (children != null && children.length == 1 && new File(children[0], "manifest.json").isFile()) {
+            return children[0];
+        }
+        return directory;
+    }
+
+    private static File safeChild(File directory, String relativePath) throws Exception {
+        if (relativePath == null || relativePath.trim().isEmpty()) return null;
+        File file = new File(directory, relativePath.replace('\\', '/'));
+        String base = directory.getCanonicalPath() + File.separator;
+        return file.getCanonicalPath().startsWith(base) ? file : null;
+    }
+
+    private static File findFirstFrame(File directory, String animation) {
+        File[] candidates = {
+                new File(directory, "frames/" + animation),
+                new File(directory, "images/" + animation)
+        };
+        for (File candidate : candidates) {
+            File[] files = candidate.listFiles((dir, filename) -> {
+                String lower = filename.toLowerCase(Locale.ROOT);
+                return lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+            });
+            if (files != null && files.length > 0) {
+                Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                return files[0];
+            }
+        }
+        return null;
+    }
+
+    private static void copyFile(File source, File target) throws Exception {
+        try (InputStream in = new FileInputStream(source); OutputStream out = new FileOutputStream(target)) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        }
     }
 
     private static void unpackArchive(InputStream raw, File destination, boolean allowWrapperZip) throws Exception {
@@ -158,15 +232,7 @@ public final class HuanghunPetHelper {
         private final long limit;
         private long count;
         LimitedInputStream(InputStream input, long limit) { super(input); this.limit = limit; }
-        @Override public int read() throws java.io.IOException {
-            int value = super.read();
-            if (value >= 0 && ++count > limit) throw new java.io.IOException("桌宠包文件过大");
-            return value;
-        }
-        @Override public int read(byte[] buffer, int offset, int length) throws java.io.IOException {
-            int value = super.read(buffer, offset, length);
-            if (value > 0 && (count += value) > limit) throw new java.io.IOException("桌宠包文件过大");
-            return value;
-        }
+        @Override public int read() throws java.io.IOException { int value = super.read(); if (value >= 0 && ++count > limit) throw new java.io.IOException("桌宠包文件过大"); return value; }
+        @Override public int read(byte[] buffer, int offset, int length) throws java.io.IOException { int value = super.read(buffer, offset, length); if (value > 0 && (count += value) > limit) throw new java.io.IOException("桌宠包文件过大"); return value; }
     }
 }

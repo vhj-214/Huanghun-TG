@@ -107,6 +107,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     }
     private Drawable createIdleAnimation(HuanghunPetHelper.PetInfo pet) {
         File idle = new File(pet.directory, "images/idle");
+        if (!idle.isDirectory()) idle = new File(pet.directory, "frames/idle");
         File[] frames = idle.listFiles((dir, name) -> name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".webp"));
         if (frames == null || frames.length == 0) return null;
         Arrays.sort(frames, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
