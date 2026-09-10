@@ -331,6 +331,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     private FrameLayout shadowTablet;
     private SizeNotifierFrameLayout backgroundTablet;
     public FrameLayout frameLayout;
+    private HuanghunPetOverlay huanghunPetOverlay;
     private FireworksOverlay fireworksOverlay;
     private BottomSheetTabsOverlay bottomSheetTabsOverlay;
     public DrawerLayoutContainer drawerLayoutContainer;
@@ -542,6 +543,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         drawerLayoutContainer.setClipToPadding(false);
 
         frameLayout.addView(drawerLayoutContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        huanghunPetOverlay = new HuanghunPetOverlay(this);
+        frameLayout.addView(huanghunPetOverlay, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         themeSwitchSunView = new ImageView(this) {
             @Override
@@ -6776,6 +6780,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     protected void onPause() {
         super.onPause();
         isResumed = false;
+        if (huanghunPetOverlay != null) {
+            huanghunPetOverlay.onHostPause();
+        }
         pipActivityHandler.onPause();
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.stopAllHeavyOperations, 4096);
         ApplicationLoader.mainInterfacePaused = true;
@@ -6944,6 +6951,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             clearFragments();
             instance = null;
         }
+        if (huanghunPetOverlay != null) {
+            huanghunPetOverlay.destroy();
+            huanghunPetOverlay = null;
+        }
         super.onDestroy();
         onFinish();
         if (flagSecureReason != null) {
@@ -7011,6 +7022,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     protected void onResume() {
         super.onResume();
         isResumed = true;
+        if (huanghunPetOverlay != null) {
+            huanghunPetOverlay.onHostResume();
+        }
         pipActivityHandler.onResume();
         if (onResumeStaticCallback != null) {
             onResumeStaticCallback.run();

@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.R;
+import org.telegram.ui.HuanghunPetOverlay;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextSettingsCell;
@@ -66,7 +67,8 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
             new Thread(() -> {
                 try {
                     String id = HuanghunPetHelper.importZip(ApplicationLoader.applicationContext, uri);
-                    AndroidUtilities.runOnUIThread(() -> { reloadPets(); showInfo("导入完成", "桌宠已安全保存。你可以在列表中点击它并选择“启用”或“预览”。"); });
+                    HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, id);
+                    AndroidUtilities.runOnUIThread(() -> { HuanghunPetOverlay.reloadActive(); reloadPets(); showInfo("导入完成", "桌宠已启用，会在黄昏客户端中自由活动。点击它即可收到回复。"); });
                 } catch (Exception e) {
                     AndroidUtilities.runOnUIThread(() -> showInfo("导入失败", e.getMessage() == null ? "不是有效的桌宠包" : e.getMessage()));
                 }
@@ -88,9 +90,9 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         String state = pet.id.equals(active) ? "（已启用）" : "";
         new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle(pet.name + " " + state)
                 .setItems(new CharSequence[]{"启用", "预览", "删除"}, (dialog, which) -> {
-                    if (which == 0) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, pet.id); reloadPets(); showInfo("已启用", "已将“" + pet.name + "”设为当前桌宠。\n桌宠资源会在客户端可见区域使用，不会执行包内代码。"); }
+                    if (which == 0) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, pet.id); HuanghunPetOverlay.reloadActive(); reloadPets(); showInfo("已启用", "已将“" + pet.name + "”设为当前桌宠。\n它会在黄昏客户端中持续活动，点击后会给出回复。"); }
                     else if (which == 1) showPreview(pet);
-                    else new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle("删除桌宠").setMessage("确定删除“" + pet.name + "”吗？此操作不可恢复。").setNegativeButton("取消", null).setPositiveButton("删除", (d, w) -> { HuanghunPetHelper.delete(ApplicationLoader.applicationContext, pet.id); reloadPets(); }).show();
+                    else new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle("删除桌宠").setMessage("确定删除“" + pet.name + "”吗？此操作不可恢复。").setNegativeButton("取消", null).setPositiveButton("删除", (d, w) -> { HuanghunPetHelper.delete(ApplicationLoader.applicationContext, pet.id); HuanghunPetOverlay.reloadActive(); reloadPets(); }).show();
                 }).setNegativeButton("取消", null).show();
     }
     private void showPreview(HuanghunPetHelper.PetInfo pet) {
