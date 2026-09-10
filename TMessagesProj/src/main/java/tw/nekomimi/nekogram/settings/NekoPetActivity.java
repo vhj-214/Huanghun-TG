@@ -1,6 +1,8 @@
 package tw.nekomimi.nekogram.settings;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
+import static org.telegram.messenger.LocaleController.getString;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
