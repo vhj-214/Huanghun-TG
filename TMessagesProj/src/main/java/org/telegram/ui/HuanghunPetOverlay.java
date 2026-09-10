@@ -208,6 +208,8 @@ public final class HuanghunPetOverlay extends View {
         if (frames == null || frames.length() == 0) return null;
         int fps = Math.max(1, Math.min(30, definition.optInt("fps", 6)));
         AnimationState state = new AnimationState(name, definition.optBoolean("loop", true));
+        state.canInterrupt = definition.optBoolean("can_interrupt", true);
+        state.trigger = definition.optString("trigger", "");
         state.movementSpeed = Math.max(0.2f, Math.min(8f, (float) definition.optDouble("movement_speed", 1.7)));
         for (int i = 0; i < frames.length(); i++) {
             String image = frames.optString(i, "");
@@ -327,6 +329,10 @@ public final class HuanghunPetOverlay extends View {
         if (state == null || state.frames.isEmpty()) {
             return;
         }
+        if (currentState != null && currentState != state && !currentState.canInterrupt
+                && (currentState.loop || frameIndex + 1 < currentState.frames.size())) {
+            return;
+        }
         if (currentState != state) {
             recycleCurrentBitmap();
         }
@@ -412,7 +418,10 @@ public final class HuanghunPetOverlay extends View {
         }
         String[] candidates = {"jump", "sway", "spin", "peek", "cheer", "sad", "yawn", "snack", "scare", "bye", "rain_shiver", "stretch", "shy", "angry_stomp", "daze", "confused", "giggle", "sleepy_nod", "applause", "downcast", "crouch", "sleep"};
         ArrayList<String> available = new ArrayList<>();
-        for (String candidate : candidates) if (states.containsKey(candidate)) available.add(candidate);
+        for (String candidate : candidates) {
+            AnimationState state = states.get(candidate);
+            if (state != null && state.trigger.isEmpty()) available.add(candidate);
+        }
         if (available.isEmpty()) {
             showState("walk");
             direction = random.nextBoolean() ? 1 : -1;
@@ -601,6 +610,8 @@ public final class HuanghunPetOverlay extends View {
     private static final class AnimationState {
         final String name;
         final boolean loop;
+        boolean canInterrupt = true;
+        String trigger = "";
         float movementSpeed = 1.7f;
         final ArrayList<AnimationFrame> frames = new ArrayList<>();
 
