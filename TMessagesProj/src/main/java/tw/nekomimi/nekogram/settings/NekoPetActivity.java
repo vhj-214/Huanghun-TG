@@ -4,14 +4,21 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.AnimationDrawable;
 import android.net.Uri;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
@@ -49,6 +56,13 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         pets.addAll(HuanghunPetHelper.list(ApplicationLoader.applicationContext));
         return super.onFragmentCreate();
     }
+    @Override public void onResume() {
+        super.onResume();
+        // The file picker returns asynchronously and the fragment can be resumed
+        // without being recreated. Always re-read installed packages here so the
+        // empty-state row cannot remain after an import.
+        if (listAdapter != null) reloadPets();
+    }
     @Override protected String getActionBarTitle() { return getString(R.string.HuanghunPet); }
     @Override protected void onItemClick(View view, int position, float x, float y) {
         if (position == ROW_TUTORIAL) { showTutorial(); return; }
@@ -67,7 +81,13 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
             new Thread(() -> {
                 try {
                     String id = HuanghunPetHelper.importZip(ApplicationLoader.applicationContext, uri);
-                    AndroidUtilities.runOnUIThread(() -> { reloadPets(); showInfo("导入完成", "桌宠资源已保存。请在桌宠列表中点击它并选择“启用”。"); });
+                    AndroidUtilities.runOnUIThread(() -> {
+                        reloadPets();
+                        String message = containsPet(id)
+                                ? "桌宠资源已保存。请在桌宠列表中点击它并选择“启用”。"
+                                : "资源包已处理，但列表尚未读到该桌宠。请重新打开桌宠页面。";
+                        showInfo(containsPet(id) ? "导入完成" : "列表刷新失败", message);
+                    });
                 } catch (Exception e) {
                     AndroidUtilities.runOnUIThread(() -> showInfo("导入失败", e.getMessage() == null ? "不是有效的桌宠包" : e.getMessage()));
                 }
@@ -79,10 +99,98 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     private void reloadPets() {
         pets.clear(); pets.addAll(HuanghunPetHelper.list(ApplicationLoader.applicationContext));
         updateRows();
-        if (listAdapter != null) listAdapter.notifyDataSetChanged();
+        if (listAdapter != null) {
+            // The item count changes when the empty-state row is replaced by
+            // imported pets. Re-attaching the adapter is intentional here:
+            // notifyDataSetChanged() alone can leave the old empty row cached
+            // while the file-picker fragment is being dismissed.
+            if (listView != null) {
+                listView.setAdapter(null);
+                listView.setAdapter(listAdapter);
+            } else {
+                listAdapter.notifyDataSetChanged();
+            }
+        }
+    }
+    private boolean containsPet(String id) {
+        for (HuanghunPetHelper.PetInfo pet : pets) {
+            if (pet.id.equals(id)) return true;
+        }
+        return false;
     }
     private void showTutorial() {
-        showInfo("创建宠物教程", "使用豆包生成资源包后，准备一个符合 V1.1 规范的 ZIP 文件，包含 manifest.json、preview.png、images 或 frames、animations/animations.json 和 dialogs/dialogs.json。\n\n客户端支持 28 套动作、fps、loop、interruptible、weight、trigger_time、整点对白、午夜彩蛋和半身角色过滤。客户端只读取图片、音频和 JSON 等资源，不会运行 ZIP 内的程序或脚本。\n\n生成口令：请生成符合黄昏客户端 huanghun_pet_pack V1.1 规范的纯资源桌宠 ZIP，提供完整 manifest.json、animations/animations.json、dialogs/dialogs.json 和透明 PNG 动画帧，不要包含任何可执行文件、脚本或网络配置。\n\n导入后点击宠物名称，可进行启用、停用、预览、设置和删除。");
+        if (getParentActivity() == null) return;
+        LinearLayout content = new LinearLayout(getParentActivity());
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(8), dp(18), dp(18));
+
+        addTutorialText(content, "一、复制完整生成口令", true);
+        addTutorialText(content, "点击下面的“复制生成口令”按钮，完整口令会写入手机剪贴板，并提示复制成功。然后打开豆包，将口令粘贴到输入框。", false);
+        Button copyButton = new Button(getParentActivity());
+        copyButton.setText("复制生成口令");
+        copyButton.setAllCaps(false);
+        copyButton.setOnClickListener(v -> copyPrompt(copyButton));
+        content.addView(copyButton, new LinearLayout.LayoutParams(-1, dp(48)));
+
+        addTutorialText(content, "二、在豆包选择工作任务 Turbo", true);
+        addTutorialText(content, "打开豆包后点击左下角的快速按钮，在列表中选择“工作任务 Turbo”。下图中橙色圈出的位置就是正确选项。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step1);
+
+        addTutorialText(content, "三、确认已选择 Turbo 后查看示例图", true);
+        addTutorialText(content, "选择完成后，使用“查看示例图”按钮查看示意图，再返回输入框。选择一张清晰、主体完整的角色图片，并与上面的生成口令一起发送给豆包。半身或头像也可以生成，但客户端会自动禁用行走、跳跃、转圈、蹲下和跺脚等全身动作。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step2);
+
+        addTutorialText(content, "四、等待并下载生成的压缩包", true);
+        addTutorialText(content, "等待豆包生成“黄昏桌面宠物.zip”。如果设备无法直接下载：长按包含压缩包的消息 → 点击分享 → 复制链接 → 用浏览器打开 → 找到压缩包并点击下载。看到“正在下载”即表示任务已经开始，完成后再回到黄昏客户端导入。建议优先使用电脑下载较大的资源包。", false);
+
+        addTutorialText(content, "五、回到黄昏客户端导入并启用", true);
+        addTutorialText(content, "点击教程页面右下角的“关闭”，再点击“导入宠物压缩包（ZIP）”，选择下载好的 ZIP。导入成功后点击宠物名称，可以选择启用、停用、预览、设置或删除。客户端只读取图片、音频、JSON 和说明文档，不会执行压缩包内的程序或脚本。", false);
+
+        ScrollView scrollView = new ScrollView(getParentActivity());
+        scrollView.addView(content, new ScrollView.LayoutParams(-1, -2));
+        AlertDialog dialog = new AlertDialog.Builder(getParentActivity(), resourceProvider)
+                .setTitle("创建宠物教程")
+                .setView(scrollView, 0, 0, 0, 0)
+                .setPositiveButton("关闭", null)
+                .create();
+        showDialog(dialog);
+    }
+
+    private void addTutorialText(LinearLayout parent, String text, boolean heading) {
+        TextView view = new TextView(getParentActivity());
+        view.setText(text);
+        view.setTextSize(heading ? 17 : 15);
+        view.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        view.setTypeface(null, heading ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        view.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        view.setPadding(0, dp(heading ? 14 : 6), 0, dp(heading ? 5 : 10));
+        parent.addView(view, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void addTutorialImage(LinearLayout parent, int resource) {
+        ImageView image = new ImageView(getParentActivity());
+        image.setImageResource(resource);
+        image.setAdjustViewBounds(true);
+        image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        image.setContentDescription("创建宠物教程示意图");
+        parent.addView(image, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void copyPrompt(Button button) {
+        try {
+            java.io.InputStream input = getResources().openRawResource(R.raw.huanghun_pet_prompt);
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            input.close();
+            ClipboardManager clipboard = (ClipboardManager) getParentActivity().getSystemService(Context.CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("黄昏桌宠生成口令", output.toString("UTF-8")));
+            button.setText("已复制，可粘贴到豆包");
+            showInfo("复制成功", "完整生成口令已复制到剪贴板，请打开豆包粘贴使用。");
+        } catch (Exception e) {
+            showInfo("复制失败", "无法读取生成口令，请稍后重试。");
+        }
     }
     private void showPetActions(HuanghunPetHelper.PetInfo pet) {
         String active = HuanghunPetHelper.activeId(ApplicationLoader.applicationContext);
