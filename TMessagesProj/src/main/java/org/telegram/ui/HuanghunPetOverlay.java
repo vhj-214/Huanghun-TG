@@ -97,6 +97,8 @@ public final class HuanghunPetOverlay extends View {
     private long lastCareElapsed;
     private int frameWidth = 1;
     private int frameHeight = 1;
+    private int anchorX;
+    private int anchorY;
     private int direction = 1;
     private boolean positionInitialized;
     private boolean hostResumed = true;
@@ -215,6 +217,8 @@ public final class HuanghunPetOverlay extends View {
         JSONObject manifest = readJson(new File(pet.directory, "manifest.json"));
         frameWidth = Math.max(1, manifest.optInt("frame_width", 1));
         frameHeight = Math.max(1, manifest.optInt("frame_height", 1));
+        anchorX = manifest.optInt("anchor_x", frameWidth / 2);
+        anchorY = manifest.optInt("anchor_y", frameHeight);
         if (frameWidth == 1 && frameHeight == 1) {
             Bitmap preview = BitmapFactory.decodeFile(pet.preview().getAbsolutePath());
             if (preview != null) {
@@ -364,6 +368,7 @@ public final class HuanghunPetOverlay extends View {
             state.canInterrupt = definition.optBoolean("interruptible", true);
             state.trigger = definition.optString("trigger_time", "");
             state.weight = Math.max(0, definition.optInt("weight", 1));
+            state.movementSpeed = Math.max(0.2f, Math.min(8f, (float) definition.optDouble("movement_speed", 1.7)));
             for (int j = 0; j < frameCount; j++) {
                 state.frames.add(new AnimationFrame(files[j], Math.max(MIN_FRAME_MS, Math.min(MAX_FRAME_MS, 1000 / fps))));
             }
@@ -384,6 +389,7 @@ public final class HuanghunPetOverlay extends View {
         state.canInterrupt = object.optBoolean("interruptible", object.optBoolean("can_interrupt", true));
         state.trigger = object.optString("trigger_time", object.optString("trigger", ""));
         state.weight = Math.max(0, object.optInt("weight", 1));
+        state.movementSpeed = Math.max(0.2f, Math.min(8f, (float) object.optDouble("movement_speed", 1.7)));
         for (int i = 0; i < frames.length(); i++) {
             JSONObject frame = frames.optJSONObject(i);
             if (frame == null) {
@@ -633,7 +639,18 @@ public final class HuanghunPetOverlay extends View {
     private void triggerAmbient(long now) {
         Calendar calendar = Calendar.getInstance();
         int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int minute = calendar.get(Calendar.MINUTE);
         int day = calendar.get(Calendar.DAY_OF_YEAR);
+        String clock = String.format(Locale.US, "%02d:%02d", hour, minute);
+        for (Map.Entry<String, AnimationState> entry : states.entrySet()) {
+            AnimationState timed = entry.getValue();
+            if (timed.trigger.equals(clock) && !entry.getKey().equals("midnight")) {
+                showState(entry.getKey());
+                speak(entry.getKey());
+                nextDecision = now + 2600L;
+                return;
+            }
+        }
         if (midnightEnabled && hour == 0 && lastMidnightDay != day && states.containsKey("midnight")) {
             lastMidnightDay = day;
             showState("midnight");
