@@ -534,6 +534,11 @@ public final class HuanghunPetOverlay extends View {
     private void updateRoaming(long now) {
         if (dragging) return;
         if (!autoWalkEnabled) {
+            if (roaming || (currentState != null && "walk".equals(currentState.name))) {
+                roaming = false;
+                hasRoamTarget = false;
+                showState("idle");
+            }
             roaming = false;
             return;
         }
