@@ -39,6 +39,20 @@ public final class HuanghunPetOverlay extends View {
     private static final int DEFAULT_SIZE_DP = 116;
     private static final int MIN_FRAME_MS = 40;
     private static final int MAX_FRAME_MS = 3000;
+    private static final long CARE_FIRST_AFTER_MS = 10 * 60 * 1000L;
+    private static final long CARE_REPEAT_AFTER_MS = 35 * 60 * 1000L;
+    private static final String[] LOCAL_CARE_REPLIES = {
+            "辛苦啦，已经陪你一会儿了。",
+            "忙了这么久，要不要休息一下？",
+            "我一直在这里陪着你。",
+            "别太累了，给自己一点时间。",
+            "你认真工作的样子，我有看到哦。",
+            "喝口水，伸个懒腰吧。",
+            "今天也辛苦你了。",
+            "一直在线陪着我，我会有点开心呢。",
+            "如果累了，可以靠近我一会儿。",
+            "你还在忙呀？我会安静陪着你的。"
+    };
     private static WeakReference<HuanghunPetOverlay> currentOverlay;
 
     private final Random random = new Random();
@@ -79,6 +93,8 @@ public final class HuanghunPetOverlay extends View {
     private float roamTargetY;
     private boolean hasRoamTarget;
     private boolean roaming;
+    private long onlineSinceElapsed;
+    private long lastCareElapsed;
     private int frameWidth = 1;
     private int frameHeight = 1;
     private int direction = 1;
@@ -116,10 +132,13 @@ public final class HuanghunPetOverlay extends View {
     public void onHostPause() {
         hostResumed = false;
         removeCallbacks(tickRunnable);
+        onlineSinceElapsed = 0L;
+        lastCareElapsed = 0L;
     }
 
     public void onHostResume() {
         hostResumed = true;
+        if (onlineSinceElapsed == 0L) onlineSinceElapsed = android.os.SystemClock.elapsedRealtime();
         reloadFromPreferences();
     }
 
@@ -170,6 +189,8 @@ public final class HuanghunPetOverlay extends View {
         }
         try {
             pet = HuanghunPetHelper.get(getContext(), active);
+            onlineSinceElapsed = android.os.SystemClock.elapsedRealtime();
+            lastCareElapsed = 0L;
             loadAnimations();
             loadDialogs();
             positionInitialized = false;
@@ -588,6 +609,17 @@ public final class HuanghunPetOverlay extends View {
         }
     }
 
+    private void maybeShowLocalCare(long nowElapsed) {
+        if (!showDialogEnabled || onlineSinceElapsed == 0L) return;
+        long onlineFor = nowElapsed - onlineSinceElapsed;
+        if (onlineFor < CARE_FIRST_AFTER_MS) return;
+        if (lastCareElapsed != 0L && nowElapsed - lastCareElapsed < CARE_REPEAT_AFTER_MS) return;
+        bubbleText = LOCAL_CARE_REPLIES[random.nextInt(LOCAL_CARE_REPLIES.length)];
+        bubbleUntil = System.currentTimeMillis() + 5200L;
+        lastCareElapsed = nowElapsed;
+        invalidate();
+    }
+
     private void triggerAmbient(long now) {
         Calendar calendar = Calendar.getInstance();
         int hour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -638,6 +670,7 @@ public final class HuanghunPetOverlay extends View {
             return;
         }
         long now = System.currentTimeMillis();
+        maybeShowLocalCare(android.os.SystemClock.elapsedRealtime());
         maybeHourlyChime();
         if (currentState != null && now >= frameDue) {
             if (frameIndex + 1 < currentState.frames.size()) {
