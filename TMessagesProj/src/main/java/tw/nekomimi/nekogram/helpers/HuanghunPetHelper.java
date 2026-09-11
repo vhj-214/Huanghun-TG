@@ -44,6 +44,7 @@ public final class HuanghunPetHelper {
             description = manifest.optString("description", "");
         }
         public File preview() { return new File(directory, "preview.png"); }
+        public long installedAt() { return readInstalledAt(directory); }
     }
 
     private HuanghunPetHelper() {}
@@ -124,6 +125,7 @@ public final class HuanghunPetHelper {
                 id = sanitized.length() >= 2 ? "pet_" + sanitized : "pet_" + UUID.randomUUID().toString().replace("-", "");
             }
             manifest.put("id", id);
+            if (!manifest.has("installed_at")) manifest.put("installed_at", System.currentTimeMillis());
             try (FileOutputStream out = new FileOutputStream(manifestFile)) {
                 out.write(manifest.toString(2).getBytes("UTF-8"));
             }
@@ -246,6 +248,14 @@ public final class HuanghunPetHelper {
     }
     public static void delete(Context c, String id) { if (id != null && id.matches("[A-Za-z0-9_-]{1,64}")) { deleteRecursive(new File(installed(c), id)); if (id.equals(activeId(c))) setActive(c, ""); } }
     private static JSONObject readManifest(File dir) throws Exception { return new JSONObject(readText(new File(dir, "manifest.json"))); }
+    private static long readInstalledAt(File dir) {
+        try {
+            long value = new JSONObject(readText(new File(dir, "manifest.json"))).optLong("installed_at", 0L);
+            return value > 0L ? value : dir.lastModified();
+        } catch (Exception ignored) {
+            return dir.lastModified();
+        }
+    }
     private static String readText(File file) throws Exception {
         try (InputStream in = new FileInputStream(file); ByteArrayOutputStream out = new ByteArrayOutputStream()) { byte[] b = new byte[4096]; int n; while ((n = in.read(b)) != -1) { if (out.size() + n > 1024 * 1024) throw new Exception("配置文件过大"); out.write(b, 0, n); } return out.toString("UTF-8"); }
     }

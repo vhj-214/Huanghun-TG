@@ -142,6 +142,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
 
         addTutorialText(content, "四、等待并下载生成的压缩包", true);
         addTutorialText(content, "等待豆包生成“黄昏桌面宠物.zip”。如果设备无法直接下载：长按包含压缩包的消息 → 点击分享 → 复制链接 → 用浏览器打开 → 找到压缩包并点击下载。看到“正在下载”即表示任务已经开始，完成后再回到黄昏客户端导入。建议优先使用电脑下载较大的资源包。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4);
 
         addTutorialText(content, "五、回到黄昏客户端导入并启用", true);
         addTutorialText(content, "点击教程页面右下角的“关闭”，再点击“导入宠物压缩包（ZIP）”，选择下载好的 ZIP。导入成功后点击宠物名称，可以选择启用、停用、预览、设置或删除。客户端只读取图片、音频、JSON 和说明文档，不会执行压缩包内的程序或脚本。", false);

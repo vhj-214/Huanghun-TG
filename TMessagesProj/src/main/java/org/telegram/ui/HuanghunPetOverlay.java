@@ -11,6 +11,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -41,6 +42,7 @@ public final class HuanghunPetOverlay extends View {
     private static final int MAX_FRAME_MS = 3000;
     private static final long CARE_FIRST_AFTER_MS = 10 * 60 * 1000L;
     private static final long CARE_REPEAT_AFTER_MS = 35 * 60 * 1000L;
+    private static final long LONG_PRESS_MS = 700L;
     private static final String[] LOCAL_CARE_REPLIES = {
             "辛苦啦，已经陪你一会儿了。",
             "忙了这么久，要不要休息一下？",
@@ -108,6 +110,7 @@ public final class HuanghunPetOverlay extends View {
     private float downY;
     private float downPetX;
     private float downPetY;
+    private long downTime;
 
     public HuanghunPetOverlay(Context context) {
         super(context);
@@ -514,7 +517,7 @@ public final class HuanghunPetOverlay extends View {
     }
 
     private void startRoaming(long now) {
-        if (!states.containsKey("walk") || getWidth() <= 0 || getHeight() <= 0) return;
+        if (!autoWalkEnabled || !states.containsKey("walk") || getWidth() <= 0 || getHeight() <= 0) return;
         AnimationState walk = states.get("walk");
         velocityX = dp(Math.max(0.8f, walk.movementSpeed));
         roaming = true;
@@ -530,6 +533,10 @@ public final class HuanghunPetOverlay extends View {
 
     private void updateRoaming(long now) {
         if (dragging) return;
+        if (!autoWalkEnabled) {
+            roaming = false;
+            return;
+        }
         if (!roaming) {
             if (now >= nextDecision) startRoaming(now);
             return;
@@ -825,6 +832,23 @@ public final class HuanghunPetOverlay extends View {
         speak(action.equals("clicked") ? "tap" : action);
     }
 
+    private void showCompanionshipDuration() {
+        long installedAt = pet == null ? 0L : pet.installedAt();
+        long elapsed = installedAt > 0L ? Math.max(0L, System.currentTimeMillis() - installedAt) : 0L;
+        long totalSeconds = elapsed / 1000L;
+        long days = totalSeconds / 86400L;
+        long hours = (totalSeconds % 86400L) / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        long seconds = totalSeconds % 60L;
+        String message = "自从添加“" + pet.name + "”以来，已经陪伴了\n"
+                + days + "天 " + hours + "小时 " + minutes + "分钟 " + seconds + "秒\n"
+                + "愿祝您天天开心！！！";
+        Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
+        bubbleText = days + "天 " + hours + "小时 " + minutes + "分 " + seconds + "秒";
+        bubbleUntil = System.currentTimeMillis() + 4200L;
+        invalidate();
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (pet == null || getVisibility() != VISIBLE) {
@@ -839,6 +863,7 @@ public final class HuanghunPetOverlay extends View {
                 downY = event.getY();
                 downPetX = petX;
                 downPetY = petY;
+                downTime = System.currentTimeMillis();
                 dragging = false;
                 return true;
             case MotionEvent.ACTION_MOVE:
@@ -855,7 +880,11 @@ public final class HuanghunPetOverlay extends View {
                 }
                 return true;
             case MotionEvent.ACTION_UP:
-                if (sleeping && !dragging) {
+                long pressDuration = System.currentTimeMillis() - downTime;
+                if (!dragging && pressDuration >= LONG_PRESS_MS) {
+                    showCompanionshipDuration();
+                    nextDecision = System.currentTimeMillis() + 1800L;
+                } else if (sleeping && !dragging) {
                     sleeping = false;
                     showState("idle");
                     speak("greeting");
