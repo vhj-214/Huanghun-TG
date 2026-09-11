@@ -11,7 +11,6 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -807,21 +806,31 @@ public final class HuanghunPetOverlay extends View {
 
     private void drawBubble(Canvas canvas, String text, float x, float y) {
         float maxWidth = dp(220);
-        float textWidth = Math.min(maxWidth, Math.max(dp(72), bubbleTextPaint.measureText(text) + dp(24)));
+        String[] lines = text.split("\\n", -1);
+        float textWidth = dp(72);
+        for (String line : lines) {
+            textWidth = Math.max(textWidth, bubbleTextPaint.measureText(line) + dp(24));
+        }
+        textWidth = Math.min(maxWidth, textWidth);
         float left = Math.max(dp(4), Math.min(getWidth() - textWidth - dp(4), x - dp(52)));
         // The bubble is anchored to the rendered top edge, never to the feet.
-        float top = Math.max(dp(4), y - dp(46));
-        float bottom = top + dp(38);
+        float lineHeight = dp(20);
+        float bubbleHeight = dp(16) + lineHeight * lines.length;
+        float top = Math.max(dp(4), y - bubbleHeight - dp(8));
+        float bottom = top + bubbleHeight;
         bubblePaint.setColor(Color.WHITE);
         canvas.drawRoundRect(new RectF(left, top, left + textWidth, bottom), dp(14), dp(14), bubblePaint);
         bubbleTextPaint.setColor(0xff252525);
-        String display = text;
-        if (bubbleTextPaint.measureText(display) > textWidth - dp(20)) {
-            int count = Math.max(1, bubbleTextPaint.breakText(display, true, textWidth - dp(20), null));
-            display = display.substring(0, count) + "…";
+        float textY = top + dp(16);
+        for (String line : lines) {
+            String display = line;
+            if (bubbleTextPaint.measureText(display) > textWidth - dp(20)) {
+                int count = Math.max(1, bubbleTextPaint.breakText(display, true, textWidth - dp(20), null));
+                display = display.substring(0, count) + "…";
+            }
+            canvas.drawText(display, left + dp(10), textY, bubbleTextPaint);
+            textY += lineHeight;
         }
-        float textY = top + dp(24);
-        canvas.drawText(display, left + dp(10), textY, bubbleTextPaint);
     }
 
     private boolean hitPet(float x, float y) {
@@ -844,12 +853,7 @@ public final class HuanghunPetOverlay extends View {
         long days = totalSeconds / 86400L;
         long hours = (totalSeconds % 86400L) / 3600L;
         long minutes = (totalSeconds % 3600L) / 60L;
-        long seconds = totalSeconds % 60L;
-        String message = "自从添加“" + pet.name + "”以来，已经陪伴了\n"
-                + days + "天 " + hours + "小时 " + minutes + "分钟 " + seconds + "秒\n"
-                + "愿祝您天天开心！！！";
-        Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
-        bubbleText = days + "天 " + hours + "小时 " + minutes + "分 " + seconds + "秒";
+        bubbleText = "当前已陪您走过\n" + days + "天 " + hours + "小时 " + minutes + "分";
         bubbleUntil = System.currentTimeMillis() + 4200L;
         invalidate();
     }

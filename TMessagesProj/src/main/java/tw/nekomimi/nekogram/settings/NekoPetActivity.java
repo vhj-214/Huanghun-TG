@@ -141,8 +141,12 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step2);
 
         addTutorialText(content, "四、等待并下载生成的压缩包", true);
-        addTutorialText(content, "等待豆包生成“黄昏桌面宠物.zip”。如果设备无法直接下载：长按包含压缩包的消息 → 点击分享 → 复制链接 → 用浏览器打开 → 找到压缩包并点击下载。看到“正在下载”即表示任务已经开始，完成后再回到黄昏客户端导入。建议优先使用电脑下载较大的资源包。", false);
-        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4);
+        addTutorialText(content, "等待豆包完成“黄昏客户端桌宠素材包”的生成。生成过程中会显示下载提示，请根据压缩包大小和网络环境耐心等待，不要频繁重复请求。生成完成后，先点击压缩包卡片或下载按钮，按页面提示点击“立即下载”，等待文件保存完成。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_wait);
+        addTutorialText(content, "如果点击后出现“保存压缩包文件”窗口，请点击“立即下载”。看到下载进度或“正在下载”提示，表示任务已经开始。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_download);
+        addTutorialText(content, "如果当前页面无法直接下载，也可以长按压缩包消息，选择“分享”，再复制链接到浏览器打开，在浏览器中完成下载。下载完成后回到黄昏客户端导入 ZIP 文件。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_share);
 
         addTutorialText(content, "五、回到黄昏客户端导入并启用", true);
         addTutorialText(content, "点击教程页面右下角的“关闭”，再点击“导入宠物压缩包（ZIP）”，选择下载好的 ZIP。导入成功后点击宠物名称，可以选择启用、停用、预览、设置或删除。客户端只读取图片、音频、JSON 和说明文档，不会执行压缩包内的程序或脚本。", false);
@@ -256,7 +260,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
                 if (position == ROW_TUTORIAL) cell.setTextAndIcon("创建宠物教程（含口令生成）", R.drawable.msg_info, true);
                 else if (position == ROW_IMPORT) cell.setTextAndIcon("导入宠物压缩包（ZIP）", R.drawable.import_solar, true);
-                else if (position == ROW_EMPTY) cell.setTextAndIcon("暂无已导入宠物", R.drawable.msg_emoji_cat_solar, false);
+                else if (position == ROW_EMPTY && pets.isEmpty()) cell.setTextAndIcon("暂无已导入宠物", R.drawable.msg_emoji_cat_solar, false);
                 else if (position >= rowCountStart && position - rowCountStart < pets.size()) {
                     HuanghunPetHelper.PetInfo p = pets.get(position - rowCountStart);
                     String value = p.version + (p.id.equals(HuanghunPetHelper.activeId(ApplicationLoader.applicationContext)) ? " · 已启用" : "");
