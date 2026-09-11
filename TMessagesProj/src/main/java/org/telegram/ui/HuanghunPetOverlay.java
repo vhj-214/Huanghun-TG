@@ -171,6 +171,11 @@ public final class HuanghunPetOverlay extends View {
             invalidate();
             if (hostResumed && getVisibility() != VISIBLE) {
                 setVisibility(VISIBLE);
+            }
+            if (hostResumed) {
+                if (nextDecision < System.currentTimeMillis()) {
+                    nextDecision = System.currentTimeMillis() + 1200L;
+                }
                 scheduleTick();
             }
             return;
@@ -507,6 +512,11 @@ public final class HuanghunPetOverlay extends View {
         AnimationState walk = states.get("walk");
         velocityX = dp(Math.max(0.8f, walk.movementSpeed));
         roaming = true;
+        sleeping = false;
+        // Automatic roaming is a host-level behavior and must not be blocked by
+        // a temporary click animation marked can_interrupt=false.
+        AnimationState previous = currentState;
+        if (previous != null) previous.canInterrupt = true;
         showState("walk");
         chooseRoamTarget();
         nextDecision = now + 3500L + random.nextInt(5500);
