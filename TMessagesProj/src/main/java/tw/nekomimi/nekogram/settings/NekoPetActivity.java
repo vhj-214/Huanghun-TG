@@ -150,7 +150,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         scrollView.addView(content, new ScrollView.LayoutParams(-1, -2));
         AlertDialog dialog = new AlertDialog.Builder(getParentActivity(), resourceProvider)
                 .setTitle("创建宠物教程")
-                .setView(scrollView, 0, 0, 0, 0)
+                .setView(scrollView)
                 .setPositiveButton("关闭", null)
                 .create();
         showDialog(dialog);
@@ -178,7 +178,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
 
     private void copyPrompt(Button button) {
         try {
-            java.io.InputStream input = getResources().openRawResource(R.raw.huanghun_pet_prompt);
+            java.io.InputStream input = getParentActivity().getResources().openRawResource(R.raw.huanghun_pet_prompt);
             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[4096];
             int count;
