@@ -614,7 +614,13 @@ public final class HuanghunPetOverlay extends View {
                 nextDecision = now + 1600L + random.nextInt(2600);
             }
         } else if ("idle".equals(currentState == null ? "" : currentState.name) && now >= nextDecision) {
-            triggerAmbient(now);
+            if (autoWalkEnabled && states.containsKey("walk") && random.nextInt(100) < 70) {
+                showState("walk");
+                direction = random.nextBoolean() ? 1 : -1;
+                nextDecision = now + 3200L + random.nextInt(4200);
+            } else {
+                triggerAmbient(now);
+            }
         } else if (currentState != null && currentState.loop && now >= nextDecision && !dragging) {
             showState("idle");
             nextDecision = now + 1800L + random.nextInt(2600);
@@ -691,14 +697,11 @@ public final class HuanghunPetOverlay extends View {
         float maxWidth = dp(220);
         float textWidth = Math.min(maxWidth, Math.max(dp(72), bubbleTextPaint.measureText(text) + dp(24)));
         float left = Math.max(dp(4), Math.min(getWidth() - textWidth - dp(4), x - dp(52)));
-        float top;
-        float bottom;
-        if (y < getHeight() / 2f) {
-            top = Math.min(getHeight() - dp(44), y + petHeight() + dp(8));
+        float bottom = Math.max(dp(44), y - dp(8));
+        float top = bottom - dp(38);
+        if (top < dp(4)) {
+            top = dp(4);
             bottom = top + dp(38);
-        } else {
-            bottom = Math.max(dp(44), y - dp(8));
-            top = bottom - dp(38);
         }
         bubblePaint.setColor(Color.WHITE);
         canvas.drawRoundRect(new RectF(left, top, left + textWidth, bottom), dp(14), dp(14), bubblePaint);
