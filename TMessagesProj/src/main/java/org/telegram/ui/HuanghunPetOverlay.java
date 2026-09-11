@@ -74,6 +74,10 @@ public final class HuanghunPetOverlay extends View {
     private float petX;
     private float petY;
     private float velocityX;
+    private float velocityY;
+    private float roamTargetX;
+    private float roamTargetY;
+    private boolean hasRoamTarget;
     private int frameWidth = 1;
     private int frameHeight = 1;
     private int direction = 1;
@@ -462,7 +466,26 @@ public final class HuanghunPetOverlay extends View {
         frameDue = 0;
         ensureCurrentBitmap();
         velocityX = "walk".equals(state.name) ? dp(state.movementSpeed) : 0;
+        velocityY = 0;
+        if (!"walk".equals(state.name)) hasRoamTarget = false;
         invalidate();
+    }
+
+    private void chooseRoamTarget() {
+        float marginX = dp(6);
+        float marginY = dp(8);
+        float maxX = Math.max(marginX, getWidth() - petWidth() - marginX);
+        float maxY = Math.max(marginY, getHeight() - petHeight() - marginY);
+        roamTargetX = marginX + random.nextFloat() * Math.max(1, maxX - marginX);
+        roamTargetY = marginY + random.nextFloat() * Math.max(1, maxY - marginY);
+        hasRoamTarget = true;
+    }
+
+    private void startRoaming(long now) {
+        if (!states.containsKey("walk") || getWidth() <= 0 || getHeight() <= 0) return;
+        showState("walk");
+        chooseRoamTarget();
+        nextDecision = now + 3500L + random.nextInt(5500);
     }
 
     private void ensureCurrentBitmap() {
@@ -601,23 +624,30 @@ public final class HuanghunPetOverlay extends View {
             return;
         }
         if ("walk".equals(currentState == null ? "" : currentState.name) && !dragging) {
-            petX += velocityX * direction;
-            float minX = dp(6);
-            float maxX = Math.max(minX, getWidth() - petWidth() - dp(6));
-            if (petX <= minX || petX >= maxX) {
-                petX = Math.max(minX, Math.min(maxX, petX));
-                direction *= -1;
-            }
-            if (now >= nextDecision) {
+            if (!hasRoamTarget) chooseRoamTarget();
+            float dx = roamTargetX - petX;
+            float dy = roamTargetY - petY;
+            float distance = (float) Math.hypot(dx, dy);
+            float speed = Math.max(dp(0.8f), velocityX);
+            if (distance <= dp(5) || now >= nextDecision) {
+                petX = roamTargetX;
+                petY = roamTargetY;
+                clampPosition();
                 showState("idle");
                 speak("walk");
-                nextDecision = now + 1600L + random.nextInt(2600);
+                hasRoamTarget = false;
+                nextDecision = now + 900L + random.nextInt(2200);
+            } else {
+                float step = Math.min(distance, speed);
+                velocityY = speed;
+                petX += dx / distance * step;
+                petY += dy / distance * step;
+                direction = dx < 0 ? -1 : 1;
+                clampPosition();
             }
         } else if ("idle".equals(currentState == null ? "" : currentState.name) && now >= nextDecision) {
-            if (autoWalkEnabled && states.containsKey("walk") && random.nextInt(100) < 70) {
-                showState("walk");
-                direction = random.nextBoolean() ? 1 : -1;
-                nextDecision = now + 3200L + random.nextInt(4200);
+            if (autoWalkEnabled && states.containsKey("walk") && random.nextInt(100) < 85) {
+                startRoaming(now);
             } else {
                 triggerAmbient(now);
             }
@@ -697,12 +727,9 @@ public final class HuanghunPetOverlay extends View {
         float maxWidth = dp(220);
         float textWidth = Math.min(maxWidth, Math.max(dp(72), bubbleTextPaint.measureText(text) + dp(24)));
         float left = Math.max(dp(4), Math.min(getWidth() - textWidth - dp(4), x - dp(52)));
-        float bottom = Math.max(dp(44), y - dp(8));
-        float top = bottom - dp(38);
-        if (top < dp(4)) {
-            top = dp(4);
-            bottom = top + dp(38);
-        }
+        // The bubble is anchored to the rendered top edge, never to the feet.
+        float top = Math.max(dp(4), y - dp(46));
+        float bottom = top + dp(38);
         bubblePaint.setColor(Color.WHITE);
         canvas.drawRoundRect(new RectF(left, top, left + textWidth, bottom), dp(14), dp(14), bubblePaint);
         bubbleTextPaint.setColor(0xff252525);
