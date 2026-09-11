@@ -78,6 +78,7 @@ public final class HuanghunPetOverlay extends View {
     private float roamTargetX;
     private float roamTargetY;
     private boolean hasRoamTarget;
+    private boolean roaming;
     private int frameWidth = 1;
     private int frameHeight = 1;
     private int direction = 1;
@@ -467,7 +468,6 @@ public final class HuanghunPetOverlay extends View {
         ensureCurrentBitmap();
         velocityX = "walk".equals(state.name) ? dp(state.movementSpeed) : 0;
         velocityY = 0;
-        if (!"walk".equals(state.name)) hasRoamTarget = false;
         invalidate();
     }
 
@@ -483,9 +483,39 @@ public final class HuanghunPetOverlay extends View {
 
     private void startRoaming(long now) {
         if (!states.containsKey("walk") || getWidth() <= 0 || getHeight() <= 0) return;
+        AnimationState walk = states.get("walk");
+        velocityX = dp(Math.max(0.8f, walk.movementSpeed));
+        roaming = true;
         showState("walk");
         chooseRoamTarget();
         nextDecision = now + 3500L + random.nextInt(5500);
+    }
+
+    private void updateRoaming(long now) {
+        if (dragging) return;
+        if (!roaming) {
+            if (now >= nextDecision) startRoaming(now);
+            return;
+        }
+        if (!hasRoamTarget) chooseRoamTarget();
+        float dx = roamTargetX - petX;
+        float dy = roamTargetY - petY;
+        float distance = (float) Math.hypot(dx, dy);
+        float speed = Math.max(dp(0.8f), velocityX);
+        if (distance <= dp(5) || now >= nextDecision) {
+            petX = roamTargetX;
+            petY = roamTargetY;
+            clampPosition();
+            roaming = false;
+            hasRoamTarget = false;
+            triggerAmbient(now);
+            return;
+        }
+        float step = Math.min(distance, speed);
+        petX += dx / distance * step;
+        petY += dy / distance * step;
+        direction = dx < 0 ? -1 : 1;
+        clampPosition();
     }
 
     private void ensureCurrentBitmap() {
@@ -569,12 +599,19 @@ public final class HuanghunPetOverlay extends View {
             nextDecision = now + 2600L;
             return;
         }
-        String[] candidates = {"walk", "jump", "sway", "spin", "peek", "cheer", "sad", "yawn", "snack", "scare", "bye", "rain_shiver", "stretch", "shy", "angry_stomp", "daze", "confused", "giggle", "sleepy_nod", "applause", "downcast", "crouch", "sleep"};
         ArrayList<String> available = new ArrayList<>();
-        for (String candidate : candidates) {
-            AnimationState state = states.get(candidate);
-            if (state != null && state.trigger.isEmpty() && (!"walk".equals(candidate) || autoWalkEnabled)
-                    && (!"sleep".equals(candidate) || allowSleepEnabled)) available.add(candidate);
+        ArrayList<AnimationState> availableStates = new ArrayList<>();
+        for (Map.Entry<String, AnimationState> entry : states.entrySet()) {
+            String candidate = entry.getKey();
+            AnimationState state = entry.getValue();
+            if (state == null || state.trigger.length() > 0 || "idle".equals(candidate)
+                    || "walk".equals(candidate) || "clicked".equals(candidate)
+                    || "dragged".equals(candidate) || "midnight".equals(candidate)
+                    || (!allowSleepEnabled && "sleep".equals(candidate))) continue;
+            if (!availableStates.contains(state)) {
+                available.add(candidate);
+                availableStates.add(state);
+            }
         }
         if (available.isEmpty()) {
             showState("idle");
@@ -582,12 +619,12 @@ public final class HuanghunPetOverlay extends View {
             return;
         }
         int totalWeight = 0;
-        for (String candidate : available) totalWeight += Math.max(1, states.get(candidate).weight);
+        for (AnimationState state : availableStates) totalWeight += Math.max(1, state.weight);
         int pick = random.nextInt(Math.max(1, totalWeight));
         String action = available.get(0);
-        for (String candidate : available) {
-            pick -= Math.max(1, states.get(candidate).weight);
-            if (pick < 0) { action = candidate; break; }
+        for (int i = 0; i < available.size(); i++) {
+            pick -= Math.max(1, availableStates.get(i).weight);
+            if (pick < 0) { action = available.get(i); break; }
         }
         showState(action);
         sleeping = "sleep".equals(action);
@@ -623,35 +660,8 @@ public final class HuanghunPetOverlay extends View {
             scheduleTick();
             return;
         }
-        if ("walk".equals(currentState == null ? "" : currentState.name) && !dragging) {
-            if (!hasRoamTarget) chooseRoamTarget();
-            float dx = roamTargetX - petX;
-            float dy = roamTargetY - petY;
-            float distance = (float) Math.hypot(dx, dy);
-            float speed = Math.max(dp(0.8f), velocityX);
-            if (distance <= dp(5) || now >= nextDecision) {
-                petX = roamTargetX;
-                petY = roamTargetY;
-                clampPosition();
-                showState("idle");
-                speak("walk");
-                hasRoamTarget = false;
-                nextDecision = now + 900L + random.nextInt(2200);
-            } else {
-                float step = Math.min(distance, speed);
-                velocityY = speed;
-                petX += dx / distance * step;
-                petY += dy / distance * step;
-                direction = dx < 0 ? -1 : 1;
-                clampPosition();
-            }
-        } else if ("idle".equals(currentState == null ? "" : currentState.name) && now >= nextDecision) {
-            if (autoWalkEnabled && states.containsKey("walk") && random.nextInt(100) < 85) {
-                startRoaming(now);
-            } else {
-                triggerAmbient(now);
-            }
-        } else if (currentState != null && currentState.loop && now >= nextDecision && !dragging) {
+        updateRoaming(now);
+        if (!roaming && !dragging && currentState != null && currentState.loop && now >= nextDecision) {
             showState("idle");
             nextDecision = now + 1800L + random.nextInt(2600);
         }
