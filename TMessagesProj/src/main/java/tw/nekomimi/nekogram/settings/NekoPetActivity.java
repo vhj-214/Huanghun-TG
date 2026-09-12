@@ -82,6 +82,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
                 try {
                     String id = HuanghunPetHelper.importZip(ApplicationLoader.applicationContext, uri);
                     AndroidUtilities.runOnUIThread(() -> {
+                        enablePetDialogAndChime();
                         reloadPets();
                         String message = containsPet(id)
                                 ? "桌宠资源已保存。请在桌宠列表中点击它并选择“启用”。"
@@ -117,6 +118,15 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
             if (pet.id.equals(id)) return true;
         }
         return false;
+    }
+
+    private void enablePetDialogAndChime() {
+        ApplicationLoader.applicationContext.getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("show_dialog", true)
+                .putBoolean("hourly_chime", true)
+                .apply();
+        HuanghunPetOverlay.reloadActive();
     }
     private void showTutorial() {
         if (getParentActivity() == null) return;
@@ -201,7 +211,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         String state = pet.id.equals(active) ? "（已启用）" : "";
         new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle(pet.name + " " + state)
                 .setItems(new CharSequence[]{"启用", "停用", "预览", "设置", "删除"}, (dialog, which) -> {
-                    if (which == 0) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, pet.id); HuanghunPetOverlay.reloadActive(); reloadPets(); showInfo("已启用", "已将“" + pet.name + "”设为当前桌宠。\n它会在黄昏客户端中持续活动，点击后会给出回复。"); }
+                    if (which == 0) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, pet.id); enablePetDialogAndChime(); reloadPets(); showInfo("已启用", "已将“" + pet.name + "”设为当前桌宠。\n对白气泡和整点报时已自动开启。"); }
                     else if (which == 1) { if (pet.id.equals(HuanghunPetHelper.activeId(ApplicationLoader.applicationContext))) { HuanghunPetHelper.setActive(ApplicationLoader.applicationContext, ""); HuanghunPetOverlay.reloadActive(); reloadPets(); } }
                     else if (which == 2) showPreview(pet);
                     else if (which == 3) showPetSettings();
@@ -210,7 +220,15 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     }
     private void showPetSettings() {
         android.content.SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE);
-        String[] items = {"开启对白气泡", "关闭对白气泡", "开启整点报时", "关闭整点报时", "小尺寸", "标准尺寸", "大尺寸"};
+        boolean dialogEnabled = preferences.getBoolean("show_dialog", true);
+        boolean chimeEnabled = preferences.getBoolean("hourly_chime", true);
+        String[] items = {
+                "开启对白气泡" + (dialogEnabled ? "（已开启 ✓）" : ""),
+                "关闭对白气泡" + (!dialogEnabled ? "（已关闭 ✕）" : ""),
+                "开启整点报时" + (chimeEnabled ? "（已开启 ✓）" : ""),
+                "关闭整点报时" + (!chimeEnabled ? "（已关闭 ✕）" : ""),
+                "小尺寸", "标准尺寸", "大尺寸"
+        };
         new AlertDialog.Builder(getParentActivity(), resourceProvider).setTitle("桌宠设置")
                 .setItems(items, (dialog, which) -> {
                     android.content.SharedPreferences.Editor editor = preferences.edit();
