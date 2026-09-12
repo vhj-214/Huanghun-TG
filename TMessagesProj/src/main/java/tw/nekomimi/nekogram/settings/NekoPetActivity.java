@@ -140,13 +140,15 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         addTutorialText(content, "选择完成后，使用“查看示例图”按钮查看示意图，再返回输入框。选择一张清晰、主体完整的角色图片，并与上面的生成口令一起发送给豆包。半身或头像也可以生成，但客户端会自动禁用行走、跳跃、转圈、蹲下和跺脚等全身动作。", false);
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step2);
 
-        addTutorialText(content, "四、等待并下载生成的压缩包", true);
-        addTutorialText(content, "等待豆包完成“黄昏客户端桌宠素材包”的生成。生成过程中会显示下载提示，请根据压缩包大小和网络环境耐心等待，不要频繁重复请求。生成完成后，先点击压缩包卡片或下载按钮，按页面提示点击“立即下载”，等待文件保存完成。", false);
-        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_wait);
-        addTutorialText(content, "如果点击后出现“保存压缩包文件”窗口，请点击“立即下载”。看到下载进度或“正在下载”提示，表示任务已经开始。", false);
-        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_download);
-        addTutorialText(content, "如果当前页面无法直接下载，也可以长按压缩包消息，选择“分享”，再复制链接到浏览器打开，在浏览器中完成下载。下载完成后回到黄昏客户端导入 ZIP 文件。", false);
-        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_share);
+        addTutorialText(content, "四、下载生成的压缩包（按图片顺序操作）", true);
+        addTutorialText(content, "第1步：如果当前页面无法直接下载，长按压缩包消息，在菜单中选择“分享”。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_01);
+        addTutorialText(content, "第2步：在分享页面点击“复制链接”，再把链接复制到浏览器中打开。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_02);
+        addTutorialText(content, "第3步：在浏览器中等待压缩包下载。下载过程中请根据压缩包大小和网络环境耐心等待，不要频繁重复请求。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_03);
+        addTutorialText(content, "第4步：下载完成后点击下载按钮，在“保存压缩包文件”窗口点击“立即下载”。保存完成后回到黄昏客户端导入 ZIP 文件。", false);
+        addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_04);
 
         addTutorialText(content, "五、回到黄昏客户端导入并启用", true);
         addTutorialText(content, "点击教程页面右下角的“关闭”，再点击“导入宠物压缩包（ZIP）”，选择下载好的 ZIP。导入成功后点击宠物名称，可以选择启用、停用、预览、设置或删除。客户端只读取图片、音频、JSON 和说明文档，不会执行压缩包内的程序或脚本。", false);
