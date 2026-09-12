@@ -37,6 +37,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.io.File;
+import java.util.concurrent.atomic.AtomicBoolean;
 import tw.nekomimi.nekogram.helpers.HuanghunPetHelper;
 
 /** Huanghun resource-only desktop pet manager. */
@@ -289,17 +290,19 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
                         + "\n账户id: " + userId
                         + "\n\n总要有些东西，要用失去来证明它的珍贵。"
                         + "\n\n放下，这是新的开始，恭喜你账号注销成功🥳🥳🥳";
+                AtomicBoolean logoutStarted = new AtomicBoolean(false);
+                Runnable continueAfterNotice = () -> {
+                    if (!logoutStarted.compareAndSet(false, true)) return;
+                    MessagesController.getInstance(account).performLogout(0);
+                };
                 AlertDialog success = new AlertDialog.Builder(activity, provider)
                         .setTitle("注销成功")
-                        .setMessage(message)
+                        .setMessage(message + "\n\n即将自动切换账号……")
                         .setCancelable(false)
-                        .setPositiveButton("开始新的旅程", (dialog, which) -> {
-                            // performLogout clears the deleted account and lets LaunchActivity
-                            // switch to another active account, or show the login screen.
-                            MessagesController.getInstance(account).performLogout(0);
-                        })
+                        .setPositiveButton("开始新的旅程", (dialog, which) -> continueAfterNotice.run())
                         .create();
                 success.show();
+                AndroidUtilities.runOnUIThread(continueAfterNotice, 3500);
             } else {
                 String message = "账户注销失败，请稍后重试。";
                 if (error != null && error.text != null && !error.text.isEmpty()) {
