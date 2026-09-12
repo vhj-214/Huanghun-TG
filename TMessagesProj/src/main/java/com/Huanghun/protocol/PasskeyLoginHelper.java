@@ -344,5 +344,30 @@ public final class PasskeyLoginHelper {
             passwordPending.set(false);
             finishFailure(completed, callback, reason == null ? "密码错误" : reason);
         }
+
+        public void loadPassword(PasswordCallback passwordCallback) {
+            if (passwordCallback == null || completed.get()) return;
+            TL_account.getPassword request = new TL_account.getPassword();
+            requestToken.set(manager.sendRequest(request, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                if (completed.get()) return;
+                if (error != null || !(response instanceof TL_account.Password)) {
+                    passwordCallback.onFailure(readableError(manager, error, "无法读取两步验证信息"));
+                } else {
+                    passwordCallback.onSuccess((TL_account.Password) response);
+                }
+            }), null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
+                    data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
+        }
+
+        public void complete(TLRPC.TL_auth_authorization authorization) {
+            if (!submitted.compareAndSet(false, true) || completed.get()) return;
+            passwordPending.set(false);
+            finishSuccess(completed, callback, authorization);
+        }
+    }
+
+    public interface PasswordCallback {
+        void onSuccess(TL_account.Password password);
+        void onFailure(String reason);
     }
 }

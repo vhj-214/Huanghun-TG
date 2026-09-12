@@ -1854,10 +1854,37 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private void onAuthSuccess(TLRPC.TL_auth_authorization res) {
+        if (protocolPasswordCallback != null) {
+            ProtocolPasswordCallback callback = protocolPasswordCallback;
+            protocolPasswordCallback = null;
+            callback.onSuccess(res);
+            return;
+        }
         onAuthSuccess(res, false);
     }
 
     private boolean pendingSwitchingAccount;
+    private ProtocolPasswordCallback protocolPasswordCallback;
+
+    public interface ProtocolPasswordCallback {
+        void onSuccess(TLRPC.TL_auth_authorization authorization);
+        void onFailure(String reason);
+    }
+
+    /** Shows the same native Telegram password page used by phone-code login. */
+    public void showProtocolPasswordPage(int accountNum, TL_account.Password password,
+                                         ProtocolPasswordCallback callback) {
+        if (password == null || callback == null || accountNum != currentAccount) {
+            if (callback != null) callback.onFailure("无法打开原生密码页面");
+            return;
+        }
+        protocolPasswordCallback = callback;
+        Bundle bundle = new Bundle();
+        SerializedData data = new SerializedData(password.getObjectSize());
+        password.serializeToStream(data);
+        bundle.putString("password", Utilities.bytesToHex(data.toByteArray()));
+        setPage(VIEW_PASSWORD, true, bundle, false);
+    }
 
     /**
      * Completes a protocol login in the activity's current account slot.
@@ -5841,6 +5868,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         @Override
         public void onCancelPressed() {
             nextPressed = false;
+            if (protocolPasswordCallback != null) {
+                ProtocolPasswordCallback callback = protocolPasswordCallback;
+                protocolPasswordCallback = null;
+                callback.onFailure("已取消密码验证");
+            }
         }
 
         @Override

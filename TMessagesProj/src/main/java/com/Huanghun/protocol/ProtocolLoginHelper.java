@@ -20,6 +20,7 @@ import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.Vector;
+import org.telegram.tgnet.tl.TL_account;
 import org.telegram.ui.LoginActivity;
 
 import java.io.BufferedInputStream;
@@ -240,7 +241,28 @@ public final class ProtocolLoginHelper {
                 @Override
                 public void onPasswordRequired(PasskeyLoginHelper.TwoFactorRequest request) {
                     if (batch.scannedCount == 1) {
-                        AndroidUtilities.runOnUIThread(() -> showTwoFactorPasswordDialog(activity, request));
+                        request.loadPassword(new PasskeyLoginHelper.PasswordCallback() {
+                            @Override
+                            public void onSuccess(TL_account.Password password) {
+                                AndroidUtilities.runOnUIThread(() -> loginActivity.showProtocolPasswordPage(
+                                        accountNum, password, new LoginActivity.ProtocolPasswordCallback() {
+                                            @Override
+                                            public void onSuccess(TLRPC.TL_auth_authorization authorization) {
+                                                request.complete(authorization);
+                                            }
+
+                                            @Override
+                                            public void onFailure(String reason) {
+                                                request.fail(reason);
+                                            }
+                                        }));
+                            }
+
+                            @Override
+                            public void onFailure(String reason) {
+                                request.fail(reason);
+                            }
+                        });
                     } else if (passkey.twoFactorPassword != null && !passkey.twoFactorPassword.isEmpty()) {
                         // Batch imports use the password carried by each credential file; an
                         // outdated value is reported as password error without blocking others.
@@ -264,42 +286,6 @@ public final class ProtocolLoginHelper {
                 }
                 recordPasskeyFailure(loginActivity, activity, candidates, batch, index, "通行密钥文件无法解析");
             });
-        }
-    }
-
-    private static void showTwoFactorPasswordDialog(Activity activity, PasskeyLoginHelper.TwoFactorRequest request) {
-        if (activity == null || activity.isFinishing()) {
-            request.cancel();
-            return;
-        }
-        final android.widget.EditText password = new android.widget.EditText(activity);
-        password.setSingleLine(true);
-        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        password.setHint("请输入 Telegram 两步验证密码");
-        int padding = AndroidUtilities.dp(22);
-        password.setPadding(padding, AndroidUtilities.dp(8), padding, AndroidUtilities.dp(8));
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("需要两步验证密码")
-                .setMessage("Telegram 要求输入当前账号的两步验证密码。密码只用于本次官方授权，不会写入通行密钥文件。")
-                .setView(password)
-                .setNegativeButton("取消", (d, w) -> request.cancel())
-                .setPositiveButton("登录", null)
-                .create();
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String value = password.getText().toString();
-            if (value.trim().isEmpty()) {
-                password.setError("请输入密码");
-                return;
-            }
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-            request.submit(value);
-            dialog.dismiss();
-        }));
-        dialog.setOnCancelListener(d -> request.cancel());
-        dialog.show();
-        password.requestFocus();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
         }
     }
 
