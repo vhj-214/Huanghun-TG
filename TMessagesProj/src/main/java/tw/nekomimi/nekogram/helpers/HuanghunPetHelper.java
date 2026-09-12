@@ -10,7 +10,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FilterInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -26,8 +25,6 @@ public final class HuanghunPetHelper {
     private static final String ROOT = "huanghun_pets";
     private static final String INSTALLED = "installed";
     private static final String PREFS = "huanghun_pets";
-    private static final long MAX_ZIP_BYTES = 32L * 1024L * 1024L;
-    private static final long MAX_UNPACKED_BYTES = 64L * 1024L * 1024L;
     private static final int MAX_FILES = 1024;
     private static final String[] ALLOWED = {".png", ".webp", ".jpg", ".jpeg", ".ogg", ".mp3", ".wav", ".json", ".txt", ".md", ".zip"};
     private static final String[] FORBIDDEN = {".exe", ".apk", ".aab", ".dll", ".jar", ".so", ".bat", ".cmd", ".sh", ".ps1", ".js", ".lua", ".py", ".class"};
@@ -72,7 +69,7 @@ public final class HuanghunPetHelper {
         File packageRoot = unpackRoot;
         try (InputStream raw = context.getContentResolver().openInputStream(uri)) {
             if (raw == null) throw new Exception("无法读取所选文件");
-            unpackArchive(new LimitedInputStream(raw, MAX_ZIP_BYTES), unpackRoot, true);
+            unpackArchive(raw, unpackRoot, true);
         } catch (Exception e) {
             deleteRecursive(unpackRoot);
             throw e;
@@ -85,7 +82,7 @@ public final class HuanghunPetHelper {
                 File nestedRoot = new File(root(context), "temp_nested_" + UUID.randomUUID());
                 nestedRoot.mkdirs();
                 try (InputStream nested = new FileInputStream(nestedArchives[0])) {
-                    unpackArchive(new LimitedInputStream(nested, MAX_ZIP_BYTES), nestedRoot, false);
+                    unpackArchive(nested, nestedRoot, false);
                 }
                 deleteRecursive(unpackRoot);
                 packageRoot = nestedRoot;
@@ -207,7 +204,6 @@ public final class HuanghunPetHelper {
     }
 
     private static void unpackArchive(InputStream raw, File destination, boolean allowWrapperZip) throws Exception {
-        long total = 0;
         int files = 0;
         try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(raw))) {
             ZipEntry entry;
@@ -232,8 +228,6 @@ public final class HuanghunPetHelper {
                 try (OutputStream os = new BufferedOutputStream(new FileOutputStream(out))) {
                     int n;
                     while ((n = zip.read(buffer)) != -1) {
-                        total += n;
-                        if (total > MAX_UNPACKED_BYTES) throw new Exception("桌宠包解压后过大");
                         os.write(buffer, 0, n);
                     }
                 }
@@ -261,11 +255,4 @@ public final class HuanghunPetHelper {
     }
     private static void deleteRecursive(File file) { if (file == null || !file.exists()) return; if (file.isDirectory()) { File[] children = file.listFiles(); if (children != null) for (File child : children) deleteRecursive(child); } file.delete(); }
 
-    private static final class LimitedInputStream extends FilterInputStream {
-        private final long limit;
-        private long count;
-        LimitedInputStream(InputStream input, long limit) { super(input); this.limit = limit; }
-        @Override public int read() throws java.io.IOException { int value = super.read(); if (value >= 0 && ++count > limit) throw new java.io.IOException("桌宠包文件过大"); return value; }
-        @Override public int read(byte[] buffer, int offset, int length) throws java.io.IOException { int value = super.read(buffer, offset, length); if (value > 0 && (count += value) > limit) throw new java.io.IOException("桌宠包文件过大"); return value; }
-    }
 }
