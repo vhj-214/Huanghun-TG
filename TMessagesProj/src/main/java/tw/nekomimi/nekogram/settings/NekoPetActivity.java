@@ -298,9 +298,9 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
                 AlertDialog success = new AlertDialog.Builder(activity, provider)
                         .setTitle("注销成功")
                         .setMessage(message + "\n\n即将自动切换账号……")
-                        .setCancelable(false)
                         .setPositiveButton("开始新的旅程", (dialog, which) -> continueAfterNotice.run())
                         .create();
+                success.setCancelable(false);
                 success.show();
                 AndroidUtilities.runOnUIThread(continueAfterNotice, 3500);
             } else {
