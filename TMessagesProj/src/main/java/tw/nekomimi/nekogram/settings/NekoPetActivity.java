@@ -23,7 +23,12 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.TLRPC;
+import org.telegram.tgnet.tl.TL_account;
 import org.telegram.ui.HuanghunPetOverlay;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
@@ -50,6 +55,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         rowCountStart = pets.isEmpty() ? 3 : 2;
         if (pets.isEmpty()) addRow();
         for (int i = 0; i < pets.size(); i++) addRow();
+        addRow();
     }
     @Override public boolean onFragmentCreate() {
         pets.clear();
@@ -68,6 +74,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         if (position == ROW_TUTORIAL) { showTutorial(); return; }
         if (position == ROW_IMPORT) { openImporter(); return; }
         if (position >= rowCountStart && position < rowCountStart + pets.size()) { showPetActions(pets.get(position - rowCountStart)); }
+        else if (position == rowCountStart + pets.size()) { showGoodbye(); }
     }
     private void openImporter() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -243,6 +250,45 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
                     HuanghunPetOverlay.reloadActive();
                 }).setNegativeButton("关闭", null).show();
     }
+    private void showGoodbye() {
+        new AlertDialog.Builder(getParentActivity(), resourceProvider)
+                .setTitle("离别")
+                .setMessage("这是永久注销账户功能。注销后账号、云端数据、聊天记录和联系人关系可能无法恢复，请确认你已经备份需要保留的内容。")
+                .setNegativeButton("返回", null)
+                .setPositiveButton("一键注销账户", (dialog, which) -> showGoodbyeConfirmation())
+                .show();
+    }
+    private void showGoodbyeConfirmation() {
+        new AlertDialog.Builder(getParentActivity(), resourceProvider)
+                .setTitle("确认永久注销？")
+                .setMessage("这是不可逆操作。确认后将立即调用 Telegram 官方注销接口删除当前账号，操作完成后无法撤销。确定要继续吗？")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确认注销", (dialog, which) -> deleteCurrentAccount())
+                .show();
+    }
+    private void deleteCurrentAccount() {
+        if (getParentActivity() == null) return;
+        final AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setCanCancel(false);
+        progress.show();
+        TL_account.deleteAccount request = new TL_account.deleteAccount();
+        request.reason = "通过注销";
+        ConnectionsManager.getInstance(currentAccount).sendRequest(request, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+            try {
+                progress.dismiss();
+            } catch (Exception ignore) {
+            }
+            if (response instanceof TLRPC.TL_boolTrue) {
+                MessagesController.getInstance(currentAccount).performLogout(0);
+            } else {
+                String message = "账户注销失败，请稍后重试。";
+                if (error != null && error.text != null && !error.text.isEmpty()) {
+                    message += "\n" + error.text;
+                }
+                showInfo("注销失败", message);
+            }
+        }));
+    }
     private void showPreview(HuanghunPetHelper.PetInfo pet) {
         ImageView image = new ImageView(getParentActivity());
         Drawable animation = createIdleAnimation(pet);
@@ -282,7 +328,7 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
                     HuanghunPetHelper.PetInfo p = pets.get(position - rowCountStart);
                     String value = p.version + (p.id.equals(HuanghunPetHelper.activeId(ApplicationLoader.applicationContext)) ? " · 已启用" : "");
                     cell.setTextAndValue(p.name, value, true);
-                }
+                } else if (position == rowCountStart + pets.size()) cell.setTextAndIcon("离别", R.drawable.msg_delete, false);
             }
         }
         @Override public int getItemViewType(int position) { return TYPE_SETTINGS; }
