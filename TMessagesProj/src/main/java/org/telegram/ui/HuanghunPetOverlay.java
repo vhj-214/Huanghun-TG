@@ -466,32 +466,55 @@ public final class HuanghunPetOverlay extends View {
 
     private void loadDialogs() {
         try {
-            File file = new File(pet.directory, "dialogs/dialogs.json");
-            if (!file.isFile()) file = new File(pet.directory, "dialogues.json");
-            if (!file.isFile()) file = new File(pet.directory, "dialogue/dialogues.json");
-            if (!file.isFile()) {
-                return;
-            }
-            JSONObject object = readJson(file);
-            JSONArray names = object.names();
-            if (names != null) {
-                for (int i = 0; i < names.length(); i++) {
-                    String name = names.optString(i, "");
-                    addDialogueArray(name, object.optJSONArray(name));
-                }
-            }
-            JSONObject pools = object.optJSONObject("dialogue_pools");
-            if (pools != null) {
-                JSONArray poolNames = pools.names();
-                if (poolNames != null) for (int i = 0; i < poolNames.length(); i++) {
-                    String name = poolNames.optString(i, "");
-                    JSONObject pool = pools.optJSONObject(name);
-                    if (pool != null) addDialogueArray(name, pool.optJSONArray("lines"));
-                }
+            String[] paths = {
+                    "dialogs/dialogs.json", "dialogues.json", "dialogue/dialogues.json",
+                    "dialog/dialogues.json", "dialogue/dialogue.json", "dialog.json",
+                    "dialogs.json", "assets/dialogue/dialogues.json"
+            };
+            for (String path : paths) {
+                File file = new File(pet.directory, path);
+                if (file.isFile()) loadDialogueObject(readJson(file));
             }
         } catch (Throwable error) {
             FileLog.e(error);
         }
+    }
+
+    private void loadDialogueObject(JSONObject object) {
+        if (object == null) return;
+        JSONArray names = object.names();
+        if (names == null) return;
+        for (int i = 0; i < names.length(); i++) {
+            String name = names.optString(i, "");
+            Object value = object.opt(name);
+            if (value instanceof JSONArray) {
+                addDialogueArray(normalizeDialogueName(name), (JSONArray) value);
+            } else if (value instanceof JSONObject) {
+                JSONObject nested = (JSONObject) value;
+                JSONArray lines = firstArray(nested, "lines", "dialogues", "messages", "texts", "items");
+                if (lines != null) addDialogueArray(normalizeDialogueName(name), lines);
+                loadDialogueObject(nested);
+            }
+        }
+    }
+
+    private JSONArray firstArray(JSONObject object, String... keys) {
+        for (String key : keys) {
+            JSONArray array = object.optJSONArray(key);
+            if (array != null) return array;
+        }
+        return null;
+    }
+
+    private String normalizeDialogueName(String name) {
+        if (name == null) return "";
+        if ("greeting".equals(name) || "hello".equals(name) || "welcome".equals(name)) return "greet";
+        if ("touch".equals(name) || "clicked".equals(name) || "touched".equals(name)) return "tap";
+        if ("move".equals(name) || "walking".equals(name)) return "walk";
+        if ("dragging".equals(name)) return "drag";
+        if ("rest".equals(name)) return "crouch";
+        if ("sleeping".equals(name)) return "sleep";
+        return name;
     }
 
     private void addDialogueArray(String name, JSONArray values) {
