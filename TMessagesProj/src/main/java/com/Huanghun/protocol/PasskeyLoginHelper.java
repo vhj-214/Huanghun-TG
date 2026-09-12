@@ -65,12 +65,13 @@ public final class PasskeyLoginHelper {
         manager.resumeNetworkMaybe();
 
         final AtomicBoolean completed = new AtomicBoolean(false);
+        final AtomicBoolean passwordPending = new AtomicBoolean(false);
         final AtomicInteger requestToken = new AtomicInteger(0);
         final int maxAttempts = useBridgeRetries ? MAX_BRIDGE_ATTEMPTS : 1;
-        startAttempt(manager, data, callback, completed, requestToken, 1, maxAttempts);
+        startAttempt(manager, data, callback, completed, passwordPending, requestToken, 1, maxAttempts);
 
         AndroidUtilities.runOnUIThread(() -> {
-            if (completed.compareAndSet(false, true)) {
+            if (!passwordPending.get() && completed.compareAndSet(false, true)) {
                 int token = requestToken.get();
                 if (token != 0) {
                     manager.cancelRequest(token, true);
@@ -81,7 +82,8 @@ public final class PasskeyLoginHelper {
     }
 
     private static void startAttempt(ConnectionsManager manager, PasskeyParser.PasskeyData data,
-                                     Callback callback, AtomicBoolean completed, AtomicInteger requestToken,
+                                     Callback callback, AtomicBoolean completed, AtomicBoolean passwordPending,
+                                     AtomicInteger requestToken,
                                      int attempt, int maxAttempts) {
         if (completed.get()) {
             return;
@@ -128,12 +130,13 @@ public final class PasskeyLoginHelper {
                         return;
                     }
                     if (finishError != null && containsPasswordNeeded(finishError.text)) {
-                        finishWithTwoFactor(manager, data, completed, callback, requestToken);
+                        passwordPending.set(true);
+                        callback.onPasswordRequired(new TwoFactorRequest(manager, data, completed, passwordPending, callback, requestToken));
                     } else if (finishError != null && containsChallengeExpired(finishError.text) && attempt < maxAttempts) {
                         // The previous assertion used SignCount + 1. Advance the stored base
                         // before requesting a new challenge so this retry uses the next count.
                         data.signCount++;
-                        AndroidUtilities.runOnUIThread(() -> startAttempt(manager, data, callback, completed,
+                        AndroidUtilities.runOnUIThread(() -> startAttempt(manager, data, callback, completed, passwordPending,
                                 requestToken, attempt + 1, maxAttempts), RETRY_DELAY_MS);
                     } else if (finishError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
                         finishFailure(completed, callback, readableError(manager, finishError, "Telegram 未接受该通行密钥"));
@@ -157,9 +160,11 @@ public final class PasskeyLoginHelper {
     }
 
     private static void finishWithTwoFactor(ConnectionsManager manager, PasskeyParser.PasskeyData data,
-                                             AtomicBoolean completed, Callback callback, AtomicInteger requestToken) {
-        if (data.twoFactorPassword == null || data.twoFactorPassword.isEmpty()) {
-            finishFailure(completed, callback, "该账号需要两步验证密码");
+                                             String twoFactorPassword, AtomicBoolean completed,
+                                             AtomicBoolean passwordPending, Callback callback,
+                                             AtomicInteger requestToken) {
+        if (twoFactorPassword == null || twoFactorPassword.isEmpty()) {
+            finishFailure(completed, callback, "密码错误");
             return;
         }
         TL_account.getPassword getPassword = new TL_account.getPassword();
@@ -176,7 +181,7 @@ public final class PasskeyLoginHelper {
                 }
                 TLRPC.TL_passwordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow algo =
                         (TLRPC.TL_passwordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow) password.current_algo;
-                byte[] passwordBytes = AndroidUtilities.getStringBytes(data.twoFactorPassword);
+                byte[] passwordBytes = AndroidUtilities.getStringBytes(twoFactorPassword);
                 byte[] x = SRPHelper.getX(passwordBytes, algo);
                 TLRPC.TL_inputCheckPasswordSRP check = SRPHelper.startCheck(x, password.srp_id, password.srp_B, algo);
                 if (check == null) {
@@ -187,7 +192,7 @@ public final class PasskeyLoginHelper {
                 checkPassword.password = check;
                 requestToken.set(manager.sendRequest(checkPassword, (authorization, checkError) -> {
                     if (checkError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
-                        finishFailure(completed, callback, readableError(manager, checkError, "两步验证失败"));
+                        finishFailure(completed, callback, isPasswordInvalid(checkError) ? "密码错误" : readableError(manager, checkError, "两步验证失败"));
                         return;
                     }
                     TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) authorization;
@@ -202,7 +207,11 @@ public final class PasskeyLoginHelper {
                 finishFailure(completed, callback, "两步验证处理失败");
             }
         }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
-                data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
+                data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true);
+    }
+
+    private static boolean isPasswordInvalid(TLRPC.TL_error error) {
+        return error != null && "PASSWORD_HASH_INVALID".equals(error.text);
     }
 
     private static String createClientData(String challenge, String origin) throws Exception {
@@ -294,5 +303,46 @@ public final class PasskeyLoginHelper {
     public interface Callback {
         void onSuccess(TLRPC.TL_auth_authorization authorization);
         void onFailed(String reason);
+        void onPasswordRequired(TwoFactorRequest request);
+    }
+
+    /** Resumes the official auth.checkPassword flow after the user enters 2FA locally. */
+    public static final class TwoFactorRequest {
+        private final ConnectionsManager manager;
+        private final PasskeyParser.PasskeyData data;
+        private final AtomicBoolean completed;
+        private final AtomicBoolean passwordPending;
+        private final Callback callback;
+        private final AtomicInteger requestToken;
+        private final AtomicBoolean submitted = new AtomicBoolean(false);
+
+        private TwoFactorRequest(ConnectionsManager manager, PasskeyParser.PasskeyData data,
+                                 AtomicBoolean completed, AtomicBoolean passwordPending,
+                                 Callback callback, AtomicInteger requestToken) {
+            this.manager = manager;
+            this.data = data;
+            this.completed = completed;
+            this.passwordPending = passwordPending;
+            this.callback = callback;
+            this.requestToken = requestToken;
+        }
+
+        public void submit(String password) {
+            if (!submitted.compareAndSet(false, true) || completed.get()) return;
+            passwordPending.set(false);
+            finishWithTwoFactor(manager, data, password, completed, passwordPending, callback, requestToken);
+        }
+
+        public void cancel() {
+            if (!submitted.compareAndSet(false, true) || completed.get()) return;
+            passwordPending.set(false);
+            finishFailure(completed, callback, "已取消密码验证");
+        }
+
+        public void fail(String reason) {
+            if (!submitted.compareAndSet(false, true) || completed.get()) return;
+            passwordPending.set(false);
+            finishFailure(completed, callback, reason == null ? "密码错误" : reason);
+        }
     }
 }

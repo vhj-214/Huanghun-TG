@@ -229,12 +229,25 @@ public final class ProtocolLoginHelper {
                     }
                     clearUnusedImportedKey(accountNum);
                     AndroidUtilities.runOnUIThread(() -> {
-                        if (!useBridge && !batch.passkeyFallbackHintShown) {
+                        if (!useBridge && !batch.passkeyFallbackHintShown && !"密码错误".equals(reason)) {
                             batch.passkeyFallbackHintShown = true;
                             showPasskeyFallbackHint(activity, reason);
                         }
-                        recordFailure(loginActivity, activity, candidates, batch, index);
+                        recordPasskeyFailure(loginActivity, activity, candidates, batch, index, reason);
                     });
+                }
+
+                @Override
+                public void onPasswordRequired(PasskeyLoginHelper.TwoFactorRequest request) {
+                    if (batch.scannedCount == 1) {
+                        AndroidUtilities.runOnUIThread(() -> showTwoFactorPasswordDialog(activity, request));
+                    } else if (passkey.twoFactorPassword != null && !passkey.twoFactorPassword.isEmpty()) {
+                        // Batch imports use the password carried by each credential file; an
+                        // outdated value is reported as password error without blocking others.
+                        request.submit(passkey.twoFactorPassword);
+                    } else {
+                        request.fail("密码错误");
+                    }
                 }
             };
             if (useBridge) {
@@ -249,9 +262,54 @@ public final class ProtocolLoginHelper {
                     batch.passkeyFallbackHintShown = true;
                     showPasskeyFallbackHint(activity, "通行密钥文件无法解析");
                 }
-                recordFailure(loginActivity, activity, candidates, batch, index);
+                recordPasskeyFailure(loginActivity, activity, candidates, batch, index, "通行密钥文件无法解析");
             });
         }
+    }
+
+    private static void showTwoFactorPasswordDialog(Activity activity, PasskeyLoginHelper.TwoFactorRequest request) {
+        if (activity == null || activity.isFinishing()) {
+            request.cancel();
+            return;
+        }
+        final android.widget.EditText password = new android.widget.EditText(activity);
+        password.setSingleLine(true);
+        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setHint("请输入 Telegram 两步验证密码");
+        int padding = AndroidUtilities.dp(22);
+        password.setPadding(padding, AndroidUtilities.dp(8), padding, AndroidUtilities.dp(8));
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("需要两步验证密码")
+                .setMessage("Telegram 要求输入当前账号的两步验证密码。密码只用于本次官方授权，不会写入通行密钥文件。")
+                .setView(password)
+                .setNegativeButton("取消", (d, w) -> request.cancel())
+                .setPositiveButton("登录", null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String value = password.getText().toString();
+            if (value.trim().isEmpty()) {
+                password.setError("请输入密码");
+                return;
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            request.submit(value);
+            dialog.dismiss();
+        }));
+        dialog.setOnCancelListener(d -> request.cancel());
+        dialog.show();
+        password.requestFocus();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+    }
+
+    private static void recordPasskeyFailure(LoginActivity loginActivity, Activity activity,
+                                             ArrayList<ImportCandidate> candidates, BatchState batch,
+                                             int index, String reason) {
+        if ("密码错误".equals(reason)) {
+            batch.passwordErrorCount++;
+        }
+        recordFailure(loginActivity, activity, candidates, batch, index);
     }
 
     private static void recordVerifiedAccount(LoginActivity loginActivity, Activity activity,
@@ -804,6 +862,9 @@ public final class ProtocolLoginHelper {
                 detail += "\n原因：" + batch.firstDeferredReason;
             }
         }
+        if (batch.passwordErrorCount > 0) {
+            detail += "\n有 " + batch.passwordErrorCount + " 个账号密码错误；这些账号单独标记为密码错误，其余账号仍继续处理。";
+        }
         TextView detailView = createTextView(activity, detail, 15, Color.rgb(53, 65, 86));
         detailView.setBackground(createRoundedBackground(Color.rgb(241, 245, 252), AndroidUtilities.dp(14)));
         detailView.setPadding(AndroidUtilities.dp(15), AndroidUtilities.dp(13), AndroidUtilities.dp(15), AndroidUtilities.dp(13));
@@ -934,6 +995,7 @@ public final class ProtocolLoginHelper {
         int processedCount;
         int alreadyImportedCount;
         int deferredCount;
+        int passwordErrorCount;
         String firstDeferredReason;
         boolean noFreeSlot;
         boolean passkeyFallbackHintShown;
