@@ -292,4 +292,55 @@ manifest.json 设置 "partial_body": true。
 用户上传的是角色外观，不是最终动作模板。
 只要保留角色外观、服装和辨识度，就可以根据动画类型重新摆姿势。
 真正有趣的桌宠，不是“原图会晃一下”，而是“这个角色真的会做不同的事”。
+七、黄昏客户端强制兼容格式（必须严格遵守）
+
+1. 压缩包根目录必须直接包含 manifest.json，不要再套多层目录。若必须使用外层目录，只允许最外层只有一个目录，manifest.json 位于该目录根部。
+
+2. manifest.json 必须是 UTF-8 JSON 对象，至少包含以下字段：
+{
+  "pack_version": "1.0.0",
+  "pack_name": "桌宠名称",
+  "character_name": "角色名称",
+  "partial_body": false,
+  "default_animation": "idle",
+  "animations": { ... }
+}
+
+3. 全身角色将 partial_body 设置为 false；半身、头像或缺少完整腿部的角色必须设置为 true。不要因为缺少全身动作而伪造全身帧。
+
+4. 动画文件必须使用以下固定目录和命名：
+animations/动作英文名/frame_01.png
+animations/动作英文名/frame_02.png
+animations/动作英文名/frame_03.png
+
+所有帧必须是透明 PNG，编号从 frame_01.png 开始连续递增，不能使用 frame1.png、中文文件名或混用 jpg/webp。每套动画的 manifest 配置必须使用整数 frames，例如：
+"idle": {"frames": 4, "fps": 4, "loop": true, "frame_prefix": "frame_"}
+
+5. 动画英文名只能从以下列表中选择，不得自行改名：
+idle、walk、jump、sway、spin、squat、peek、happy、sad、yawn、eat、scared、bye、rain、stretch、shy、angry、blank、confused、giggle、sleepy、clap、disappointed、touched、dragged、squash、sleep、midnight。
+
+6. idle 是唯一必须提供的动画。其他动画可以因人物不适合而省略，但 manifest 中不得声明不存在的动画帧。partial_body 为 true 时，优先提供 idle、touched、dragged、happy、sad、shy、giggle、yawn、sleep 等上半身动作。
+
+7. 对白文件必须放在：
+dialogue/dialogues.json
+
+对白文件必须使用以下结构，dialogue_pools 中的键必须使用上面规定的动画英文名：
+{
+  "character_name": "角色名称",
+  "dialogue_pools": {
+    "idle": {"lines": ["对白1", "对白2"]},
+    "walk": {"lines": ["对白1", "对白2"]},
+    "touched": {"lines": ["对白1", "对白2"]},
+    "squash": {"lines": ["对白1", "对白2"]}
+  }
+}
+
+每个 lines 必须是字符串数组，每组至少提供 3 条中文对白。不要把对白写在 manifest 中，不要使用 dialogue_pools 以外的顶层结构替代它。可以额外提供 weather_dialogue 和 time_greetings，但不能替代 dialogue_pools。
+
+8. manifest 中不要写 supports_dialog: false；只要提供 dialogue/dialogues.json，就应当生成对白。对白必须使用 UTF-8 编码，文件大小不超过 1 MB。
+
+9. 预览图优先放在根目录 preview.png；如果不提供 preview.png，必须保证 animations/idle/frame_01.png 存在，客户端会自动生成预览图。
+
+10. 输出前必须执行自检：确认 manifest.json 能被标准 JSON 解析；确认 animations/idle/frame_01.png 存在；确认所有 manifest 中声明的动作目录和帧数量真实存在；确认 dialogue/dialogues.json 能被解析且至少有 idle、touched 两组对白；确认 ZIP 内没有 exe、apk、dll、jar、so、bat、cmd、sh、ps1、js、lua、py、class 等可执行或脚本文件。
+
 ====================文档结束====================
