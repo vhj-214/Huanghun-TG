@@ -244,6 +244,9 @@ public final class ProtocolLoginHelper {
                         request.loadPassword(new PasskeyLoginHelper.PasswordCallback() {
                             @Override
                             public void onSuccess(TL_account.Password password) {
+                                // The native password page is shown in the same activity. The
+                                // non-cancelable import dialog must not remain above it.
+                                batch.progress.dismiss();
                                 AndroidUtilities.runOnUIThread(() -> loginActivity.showProtocolPasswordPage(
                                         accountNum, password, new LoginActivity.ProtocolPasswordCallback() {
                                             @Override
