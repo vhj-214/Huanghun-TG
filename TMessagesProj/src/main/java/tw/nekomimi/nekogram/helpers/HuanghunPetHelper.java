@@ -153,14 +153,10 @@ public final class HuanghunPetHelper {
 
     private static void validateRequiredAnimations(File directory, JSONObject manifest) throws Exception {
         if (manifest.optBoolean("partial_body", false)) return;
-        String[] required = {"idle", "walk", "jump", "spin", "peek", "crouch", "angry_stomp"};
-        for (String name : required) {
-            boolean present = hasAnimation(manifest, name);
-            if (!present && "idle".equals(name)) present = hasAnimation(manifest, "idle_breath");
-            if (!present && "crouch".equals(name)) present = hasAnimation(manifest, "squat_rest");
-            if (!present && "angry_stomp".equals(name)) present = hasAnimation(manifest, "stamp_angry");
-            if (!present) throw new Exception("全身桌宠缺少必备动画资源: " + name);
-        }
+        // Only idle is essential for importing and displaying a pet. Other actions
+        // are optional and the runtime simply skips any action that is unavailable.
+        boolean hasIdle = hasAnimation(manifest, "idle") || hasAnimation(manifest, "idle_breath");
+        if (!hasIdle) throw new Exception("桌宠缺少核心 idle 动画");
     }
 
     private static boolean hasAnimation(JSONObject manifest, String name) {
@@ -180,10 +176,11 @@ public final class HuanghunPetHelper {
 
     private static File findFirstFrame(File directory, String animation) {
         String[] names = "idle".equals(animation) ? new String[]{"idle", "idle_breath"} : new String[]{animation};
-        File[] candidates = new File[names.length * 2];
+        File[] candidates = new File[names.length * 3];
         for (int i = 0; i < names.length; i++) {
-            candidates[i * 2] = new File(directory, "frames/" + names[i]);
-            candidates[i * 2 + 1] = new File(directory, "images/" + names[i]);
+            candidates[i * 3] = new File(directory, "frames/" + names[i]);
+            candidates[i * 3 + 1] = new File(directory, "images/" + names[i]);
+            candidates[i * 3 + 2] = new File(directory, "animations/" + names[i]);
         }
         for (File candidate : candidates) {
             File[] files = candidate.listFiles((dir, filename) -> {

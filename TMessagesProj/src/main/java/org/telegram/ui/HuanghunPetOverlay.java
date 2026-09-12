@@ -303,14 +303,14 @@ public final class HuanghunPetOverlay extends View {
         else if ("drag_move".equals(name)) alias = "dragged";
         else if ("flatten_bounce".equals(name)) alias = "squish";
         else if ("midnight_easteregg".equals(name)) alias = "midnight";
-        else if ("squat_rest".equals(name)) alias = "crouch";
+        else if ("squat_rest".equals(name) || "squat".equals(name)) alias = "crouch";
         else if ("sad_emo".equals(name)) alias = "sad";
         else if ("eat_snack".equals(name)) alias = "snack";
         else if ("scare_shake".equals(name)) alias = "scare";
         else if ("wave_goodbye".equals(name)) alias = "bye";
         else if ("stretch_sun".equals(name)) alias = "stretch";
         else if ("shy_dodge".equals(name)) alias = "shy";
-        else if ("stamp_angry".equals(name)) alias = "angry_stomp";
+        else if ("stamp_angry".equals(name) || "angry".equals(name)) alias = "angry_stomp";
         else if ("scratch_head".equals(name)) alias = "confused";
         else if ("giggle_cover".equals(name)) alias = "giggle";
         else if ("clap".equals(name)) alias = "applause";
@@ -329,7 +329,31 @@ public final class HuanghunPetOverlay extends View {
     private AnimationState readManifestAnimation(String name, JSONObject definition) throws Exception {
         if (definition == null) return null;
         JSONArray frames = definition.optJSONArray("frames");
-        if (frames == null || frames.length() == 0) return null;
+        if (frames == null) {
+            int frameCount = definition.optInt("frames", 0);
+            if (frameCount <= 0) return null;
+            String prefix = definition.optString("frame_prefix", "frame_");
+            File directory = new File(pet.directory, "animations/" + name);
+            String root = pet.directory.getCanonicalPath() + File.separator;
+            if (!directory.getCanonicalPath().startsWith(root)) return null;
+            int fps = Math.max(1, Math.min(30, definition.optInt("fps", 6)));
+            AnimationState state = new AnimationState(name, definition.optBoolean("loop", true));
+            state.canInterrupt = definition.optBoolean("can_interrupt", true);
+            state.trigger = definition.optString("trigger", "");
+            state.weight = Math.max(0, definition.optInt("weight", 1));
+            JSONObject movement = definition.optJSONObject("movement");
+            state.movementSpeed = Math.max(0.2f, Math.min(8f, (float) (movement == null
+                    ? definition.optDouble("movement_speed", 1.7)
+                    : movement.optDouble("speed", 1.7))));
+            for (int i = 1; i <= frameCount; i++) {
+                File imageFile = findModernFrame(directory, prefix, i);
+                if (imageFile != null) {
+                    state.frames.add(new AnimationFrame(imageFile, Math.max(MIN_FRAME_MS, Math.min(MAX_FRAME_MS, 1000 / fps))));
+                }
+            }
+            return state.frames.isEmpty() ? null : state;
+        }
+        if (frames.length() == 0) return null;
         int fps = Math.max(1, Math.min(30, definition.optInt("fps", 6)));
         AnimationState state = new AnimationState(name, definition.optBoolean("loop", true));
         state.canInterrupt = definition.optBoolean("can_interrupt", true);
@@ -345,6 +369,16 @@ public final class HuanghunPetOverlay extends View {
             state.frames.add(new AnimationFrame(imageFile, Math.max(MIN_FRAME_MS, Math.min(MAX_FRAME_MS, 1000 / fps))));
         }
         return state.frames.isEmpty() ? null : state;
+    }
+
+    private File findModernFrame(File directory, String prefix, int index) {
+        String number = String.format(Locale.US, "%02d", index);
+        String[] extensions = {".png", ".webp", ".jpg", ".jpeg"};
+        for (String extension : extensions) {
+            File file = new File(directory, prefix + number + extension);
+            if (file.isFile()) return file;
+        }
+        return null;
     }
 
     private void loadAnimationConfig(File file) throws Exception {
