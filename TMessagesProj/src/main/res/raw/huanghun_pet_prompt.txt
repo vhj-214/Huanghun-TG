@@ -344,3 +344,4 @@ dialogue/dialogues.json
 10. 输出前必须执行自检：确认 manifest.json 能被标准 JSON 解析；确认 animations/idle/frame_01.png 存在；确认所有 manifest 中声明的动作目录和帧数量真实存在；确认 dialogue/dialogues.json 能被解析且至少有 idle、touched 两组对白；确认 ZIP 内没有 exe、apk、dll、jar、so、bat、cmd、sh、ps1、js、lua、py、class 等可执行或脚本文件。
 
 ====================文档结束====================
+当所有工作进度完成之后你需要告诉用户：你生成的压缩包有多大？需要等待几分钟，不要批量频繁尝试。
