@@ -466,36 +466,42 @@ public final class HuanghunPetOverlay extends View {
 
     private void loadDialogs() {
         try {
-        File file = new File(pet.directory, "dialogs/dialogs.json");
+            File file = new File(pet.directory, "dialogs/dialogs.json");
             if (!file.isFile()) file = new File(pet.directory, "dialogues.json");
+            if (!file.isFile()) file = new File(pet.directory, "dialogue/dialogues.json");
             if (!file.isFile()) {
                 return;
             }
             JSONObject object = readJson(file);
             JSONArray names = object.names();
-            if (names == null) {
-                return;
+            if (names != null) {
+                for (int i = 0; i < names.length(); i++) {
+                    String name = names.optString(i, "");
+                    addDialogueArray(name, object.optJSONArray(name));
+                }
             }
-            for (int i = 0; i < names.length(); i++) {
-                String name = names.optString(i, "");
-                JSONArray values = object.optJSONArray(name);
-                if (values == null) {
-                    continue;
-                }
-                ArrayList<String> lines = new ArrayList<>();
-                for (int j = 0; j < values.length(); j++) {
-                    String value = values.optString(j, "").trim();
-                    if (!value.isEmpty()) {
-                        lines.add(value);
-                    }
-                }
-                if (!lines.isEmpty()) {
-                    dialogs.put(name, lines);
+            JSONObject pools = object.optJSONObject("dialogue_pools");
+            if (pools != null) {
+                JSONArray poolNames = pools.names();
+                if (poolNames != null) for (int i = 0; i < poolNames.length(); i++) {
+                    String name = poolNames.optString(i, "");
+                    JSONObject pool = pools.optJSONObject(name);
+                    if (pool != null) addDialogueArray(name, pool.optJSONArray("lines"));
                 }
             }
         } catch (Throwable error) {
             FileLog.e(error);
         }
+    }
+
+    private void addDialogueArray(String name, JSONArray values) {
+        if (name == null || name.isEmpty() || values == null) return;
+        ArrayList<String> lines = new ArrayList<>();
+        for (int i = 0; i < values.length(); i++) {
+            String value = values.optString(i, "").trim();
+            if (!value.isEmpty()) lines.add(value);
+        }
+        if (!lines.isEmpty()) dialogs.put(name, lines);
     }
 
     private JSONObject readJson(File file) throws Exception {
@@ -642,6 +648,8 @@ public final class HuanghunPetOverlay extends View {
             else if ("stretch".equals(category)) alias = "strech";
             else if ("sleep".equals(category) || "sleepy_nod".equals(category)) alias = "sleepy";
             else if ("cheer".equals(category) || "applause".equals(category)) alias = "happy";
+            else if ("squish".equals(category)) alias = "squash";
+            else if ("crouch".equals(category)) alias = "squat";
             if (alias != null) lines = dialogs.get(alias);
             if ((lines == null || lines.isEmpty()) && "greet".equals(category)) lines = dialogs.get("idle_breath");
             if ((lines == null || lines.isEmpty()) && "tap".equals(category)) lines = dialogs.get("touch_click");
