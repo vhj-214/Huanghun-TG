@@ -141,13 +141,10 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step2);
 
         addTutorialText(content, "四、下载生成的压缩包（按图片顺序操作）", true);
-        addTutorialText(content, "第1步：如果当前页面无法直接下载，长按压缩包消息，在菜单中选择“分享”。", false);
+        addTutorialText(content, "第1步：如果当前页面无法直接下载，长按压缩包消息，在菜单中选择“分享”。\n\n第2步：在分享页面点击“复制链接”，再把链接复制到浏览器中打开。\n\n第3步：在浏览器中等待压缩包下载。下载过程中请根据压缩包大小和网络环境耐心等待，不要频繁重复请求。\n\n第4步：下载完成后点击下载按钮，在“保存压缩包文件”窗口点击“立即下载”。保存完成后回到黄昏客户端导入 ZIP 文件。", false);
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_01);
-        addTutorialText(content, "第2步：在分享页面点击“复制链接”，再把链接复制到浏览器中打开。", false);
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_02);
-        addTutorialText(content, "第3步：在浏览器中等待压缩包下载。下载过程中请根据压缩包大小和网络环境耐心等待，不要频繁重复请求。", false);
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_03);
-        addTutorialText(content, "第4步：下载完成后点击下载按钮，在“保存压缩包文件”窗口点击“立即下载”。保存完成后回到黄昏客户端导入 ZIP 文件。", false);
         addTutorialImage(content, R.drawable.huanghun_pet_tutorial_step4_04);
 
         addTutorialText(content, "五、回到黄昏客户端导入并启用", true);
