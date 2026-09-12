@@ -267,6 +267,12 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     }
     private static void deleteCurrentAccount(Activity activity, int account, Theme.ResourcesProvider provider) {
         if (activity == null) return;
+        TLRPC.User deletedUser = UserConfig.getInstance(account).getCurrentUser();
+        final String phone = deletedUser != null && deletedUser.phone != null && !deletedUser.phone.isEmpty()
+                ? deletedUser.phone : UserConfig.getInstance(account).getClientPhone();
+        final String username = deletedUser != null && deletedUser.username != null && !deletedUser.username.isEmpty()
+                ? "@" + deletedUser.username : "未设置";
+        final long userId = deletedUser != null ? deletedUser.id : UserConfig.getInstance(account).getClientUserId();
         final AlertDialog progress = new AlertDialog(activity, AlertDialog.ALERT_TYPE_SPINNER);
         progress.setCanCancel(false);
         progress.show();
@@ -278,7 +284,22 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
             } catch (Exception ignore) {
             }
             if (response instanceof TLRPC.TL_boolTrue) {
-                MessagesController.getInstance(account).performLogout(0);
+                String message = "账户号码: " + (phone == null || phone.isEmpty() ? "未设置" : "+" + phone)
+                        + "\n账户用户名: " + username
+                        + "\n账户id: " + userId
+                        + "\n\n总要有些东西，要用失去来证明它的珍贵。"
+                        + "\n\n放下，这是新的开始，恭喜你账号注销成功🥳🥳🥳";
+                AlertDialog success = new AlertDialog.Builder(activity, provider)
+                        .setTitle("注销成功")
+                        .setMessage(message)
+                        .setCancelable(false)
+                        .setPositiveButton("开始新的旅程", (dialog, which) -> {
+                            // performLogout clears the deleted account and lets LaunchActivity
+                            // switch to another active account, or show the login screen.
+                            MessagesController.getInstance(account).performLogout(0);
+                        })
+                        .create();
+                success.show();
             } else {
                 String message = "账户注销失败，请稍后重试。";
                 if (error != null && error.text != null && !error.text.isEmpty()) {
