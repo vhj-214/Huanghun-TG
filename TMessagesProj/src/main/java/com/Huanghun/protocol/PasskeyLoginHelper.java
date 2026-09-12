@@ -207,7 +207,7 @@ public final class PasskeyLoginHelper {
                 finishFailure(completed, callback, "两步验证处理失败");
             }
         }, null, null, ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized,
-                data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true);
+                data.datacenterId, ConnectionsManager.ConnectionTypeGeneric, true));
     }
 
     private static boolean isPasswordInvalid(TLRPC.TL_error error) {
