@@ -294,4 +294,48 @@ manifest.json 设置 "partial_body": true。
 用户上传的是角色外观，不是最终动作模板。
 只要保留角色外观、服装和辨识度，就可以根据动画类型重新摆姿势。
 真正有趣的桌宠，不是“原图会晃一下”，而是“这个角色真的会做不同的事”。
+
+七、黄昏客户端实际导入格式（必须严格遵守）
+
+1. ZIP 可以直接包含 manifest.json，也可以只有一层外层目录；manifest.json 必须位于最终资源根目录，不要再嵌套多层目录。
+
+2. manifest.json 必须是 UTF-8 JSON 对象，至少包含以下字段：
+{
+  "format": "huanghun_pet_pack",
+  "name": "桌宠名称",
+  "character_name": "角色名称",
+  "version": "1.0.0",
+  "partial_body": false,
+  "animations": {
+    "idle": {
+      "frames": ["f00.png", "f01.png", "f02.png"],
+      "fps": 6,
+      "loop": true
+    }
+  }
+}
+
+3. character_name、name、version、format 必须放在 manifest.json 顶层；不要只放在 character 对象中。format 必须精确写为 "huanghun_pet_pack"。
+
+4. 每套动画的帧目录必须为 frames/动作英文名/。frames 数组中的每一项只能写该目录内的文件名，例如 "f00.png"；不要写成 "frames/idle/f00.png"，客户端会自动拼接目录。所有引用的帧必须真实存在。
+
+5. 动画名称必须优先使用客户端支持的标准名称：idle、walk、jump、sway、spin、squat、peek、happy、sad、yawn、eat、scared、bye、rain、stretch、shy、angry、blank、confused、giggle、sleepy、clap、disappointed、touched、dragged、squash、sleep、midnight。若需要使用其他名称，必须确保客户端仍能从 manifest 中读取并且不要在调度配置中引用不存在的动画。
+
+6. idle 是唯一必须提供的动画。manifest 中声明的每个动作都必须有至少一帧真实存在的 PNG；partial_body 为 true 时不要生成或声明依赖完整腿部的动作。
+
+7. 预览图可放在资源根目录 preview.png；如果没有 preview.png，必须保证 frames/idle/f00.png 存在，客户端会自动使用它生成预览图。
+
+8. 对白文件放在 dialogue/dialogues.json，结构必须为：
+{
+  "character_name": "角色名称",
+  "dialogue_pools": {
+    "idle": {"lines": ["对白1", "对白2", "对白3"]},
+    "touched": {"lines": ["对白1", "对白2", "对白3"]}
+  }
+}
+每个 lines 必须是字符串数组，每组至少 3 条中文对白。
+
+9. 输出 ZIP 前必须自检：manifest.json 能被标准 JSON 解析；format、name、character_name、animations 存在；frames/idle/f00.png 存在；所有动画帧引用真实存在；dialogue/dialogues.json（如果提供）能被解析；ZIP 内不包含 exe、apk、dll、jar、so、bat、cmd、sh、ps1、js、lua、py、class 等可执行文件或脚本。
+
+10. 仅输出黄昏桌面宠物 ZIP 资源包，不生成 EXE、APK、DLL、JS、Python、Shell 等程序。
 ====================文档结束====================

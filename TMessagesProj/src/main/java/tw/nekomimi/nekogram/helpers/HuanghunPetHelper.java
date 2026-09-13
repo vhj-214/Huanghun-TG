@@ -3,6 +3,7 @@ package tw.nekomimi.nekogram.helpers;
 import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -96,6 +97,7 @@ public final class HuanghunPetHelper {
             manifestFile = new File(packageRoot, "manifest.json");
             if (!manifestFile.isFile()) throw new Exception("缺少 manifest.json");
             JSONObject manifest = new JSONObject(readText(manifestFile));
+            normalizeGeneratedManifest(manifest);
             boolean modernFormat = !manifest.optString("character_name", "").trim().isEmpty() && manifest.optJSONObject("animations") != null;
             String format = manifest.optString("format", "");
             if (!modernFormat && !"huanghun_pet_pack".equals(format)) throw new Exception("不是有效的桌宠包");
@@ -149,6 +151,46 @@ public final class HuanghunPetHelper {
             return children[0];
         }
         return directory;
+    }
+
+    /** Accept the manifest schema produced by the original Huanghun pet prompt. */
+    private static void normalizeGeneratedManifest(JSONObject manifest) {
+        JSONObject character = manifest.optJSONObject("character");
+        if (character != null) {
+            if (!manifest.has("character_name")) {
+                String characterName = character.optString("name", "").trim();
+                if (!characterName.isEmpty()) manifest.put("character_name", characterName);
+            }
+            if (!manifest.has("partial_body") && character.has("partial_body")) {
+                manifest.put("partial_body", character.optBoolean("partial_body", false));
+            }
+        }
+        if (!manifest.has("name")) {
+            String packageName = manifest.optString("package", "").trim();
+            if (!packageName.isEmpty()) manifest.put("name", packageName);
+        }
+        if (!manifest.has("format") && manifest.optJSONObject("animations") != null) {
+            manifest.put("format", "huanghun_pet_pack");
+        }
+        JSONObject animations = manifest.optJSONObject("animations");
+        if (animations != null) {
+            JSONArray names = animations.names();
+            if (names != null) {
+                for (int i = 0; i < names.length(); i++) {
+                    String animationName = names.optString(i, "");
+                    JSONObject animation = animations.optJSONObject(animationName);
+                    JSONArray frames = animation == null ? null : animation.optJSONArray("frames");
+                    if (frames == null) continue;
+                    for (int j = 0; j < frames.length(); j++) {
+                        String frame = frames.optString(j, "").replace('\\', '/');
+                        String prefix = "frames/" + animationName + "/";
+                        if (frame.startsWith(prefix)) {
+                            frames.put(j, frame.substring(prefix.length()));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static void validateRequiredAnimations(File directory, JSONObject manifest) throws Exception {
