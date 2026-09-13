@@ -124,13 +124,12 @@ public final class HuanghunChannelPrompt {
                 controller.addDialogToFolder(dialogId, 0, 0, 0);
                 dialog = controller.dialogs_dict.get(dialogId);
             }
-            // Preserve an existing pin. Otherwise pin locally immediately and
-            // force the official server request. If Telegram rejects it (for
-            // example, because the server pin limit is reached), the local pin
-            // remains as the fallback. taskId=-1 also forces the request when
-            // unlimited local pins are enabled.
+            // An already pinned dialog needs no further request. Only an
+            // unpinned dialog enters the server-first/local-fallback path.
+            // taskId=-1 forces the official request even when unlimited local
+            // pins are enabled; a server rejection still leaves the local pin.
             if (dialog != null && dialog.folder_id == 0) {
-                if (controller.pinDialog(dialogId, true, null, -1)) {
+                if (dialog.pinned || controller.pinDialog(dialogId, true, null, -1)) {
                     next.run();
                     return;
                 }
