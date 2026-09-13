@@ -12803,11 +12803,24 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
             }
             getConnectionsManager().sendRequest(req, (response, error) -> {
-                if (error == null) {
+                if (error == null && response instanceof TLRPC.messages_Dialogs) {
                     TLRPC.messages_Dialogs dialogsRes = (TLRPC.messages_Dialogs) response;
                     processLoadedDialogs(dialogsRes, null, null, folderId, 0, count, 0, false, false, false);
                     if (onEmptyCallback != null && dialogsRes.dialogs.isEmpty()) {
                         AndroidUtilities.runOnUIThread(onEmptyCallback);
+                    }
+                } else {
+                    // Do not leave this folder permanently marked as loading.
+                    // A transient RPC/network failure otherwise makes the
+                    // already loaded dialogs visible while every subsequent
+                    // pagination request is silently rejected by the guard at
+                    // the beginning of loadDialogs().
+                    AndroidUtilities.runOnUIThread(() -> {
+                        loadingDialogs.put(folderId, false);
+                        getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
+                    }, 1000L);
+                    if (BuildVars.LOGS_ENABLED && error != null) {
+                        FileLog.d("loadDialogs failed for folder " + folderId + ": " + error.text);
                     }
                 }
             });
