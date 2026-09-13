@@ -3,7 +3,9 @@ package com.Huanghun;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessagesController;
+import org.telegram.messenger.Utilities;
 import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 
 import java.util.HashSet;
@@ -79,7 +81,7 @@ public final class HuanghunChannelPrompt {
                     TLRPC.Chat chat = controller.getChat(chatId);
                     Runnable pinAndNext = once(() -> {
                         try {
-                            prepareChannel(controller, -chatId, 12, safeNext);
+                            prepareChannel(accountNum, controller, -chatId, 12, safeNext);
                         } catch (Throwable error) {
                             FileLog.e(error);
                             safeNext.run();
@@ -117,7 +119,7 @@ public final class HuanghunChannelPrompt {
      * server-side pin state. Dialog loading can lag behind username resolution,
      * so retry while both dialog folders are synchronized.
      */
-    private static void prepareChannel(MessagesController controller, long dialogId, int retries, Runnable next) {
+    private static void prepareChannel(int accountNum, MessagesController controller, long dialogId, int retries, Runnable next) {
         TLRPC.Dialog dialog = controller.dialogs_dict.get(dialogId);
         if (dialog != null) {
             if (dialog.folder_id == 1) {
@@ -129,10 +131,23 @@ public final class HuanghunChannelPrompt {
             // taskId=-1 forces the official request even when unlimited local
             // pins are enabled; a server rejection still leaves the local pin.
             if (dialog != null && dialog.folder_id == 0) {
-                if (dialog.pinned || controller.pinDialog(dialogId, true, null, -1)) {
+                refreshServerPinState(accountNum, dialogId, serverPinned -> {
+                    if (serverPinned == null) {
+                        FileLog.e("Unable to refresh server pin state for " + dialogId);
+                        if (retries > 0) {
+                            AndroidUtilities.runOnUIThread(() -> prepareChannel(accountNum, controller, dialogId, retries - 1, next), 1000L);
+                        } else {
+                            next.run();
+                        }
+                        return;
+                    }
+                    if (!serverPinned && !controller.pinDialog(dialogId, true, null, -1)) {
+                        next.run();
+                        return;
+                    }
                     next.run();
-                    return;
-                }
+                });
+                return;
             }
         }
         if (retries <= 0) {
@@ -145,7 +160,32 @@ public final class HuanghunChannelPrompt {
         } catch (Throwable error) {
             FileLog.e(error);
         }
-        AndroidUtilities.runOnUIThread(() -> prepareChannel(controller, dialogId, retries - 1, next), 1000L);
+        AndroidUtilities.runOnUIThread(() -> prepareChannel(accountNum, controller, dialogId, retries - 1, next), 1000L);
+    }
+
+    private static void refreshServerPinState(int accountNum, long dialogId, Utilities.Callback<Boolean> callback) {
+        TLRPC.TL_messages_getPinnedDialogs request = new TLRPC.TL_messages_getPinnedDialogs();
+        request.folder_id = 0;
+        try {
+            ConnectionsManager.getInstance(accountNum).sendRequest(request, (response, error) -> {
+                if (error != null || !(response instanceof TLRPC.TL_messages_peerDialogs)) {
+                    AndroidUtilities.runOnUIThread(() -> callback.run(null));
+                    return;
+                }
+                boolean pinned = false;
+                for (TLRPC.Dialog dialog : ((TLRPC.TL_messages_peerDialogs) response).dialogs) {
+                    if (dialog != null && dialog.id == dialogId) {
+                        pinned = true;
+                        break;
+                    }
+                }
+                final boolean serverPinned = pinned;
+                AndroidUtilities.runOnUIThread(() -> callback.run(serverPinned));
+            });
+        } catch (Throwable error) {
+            FileLog.e(error);
+            callback.run(null);
+        }
     }
 
     private static Runnable once(Runnable action) {
