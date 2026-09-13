@@ -6600,7 +6600,9 @@ public class EmojiView extends FrameLayout implements
             }
 
             if (this.emoji) {
-                imageView.setColorFilter(MessageObject.isTextColorEmoji(document) ? Theme.getAnimatedEmojiColorFilter(resourcesProvider) : null);
+                // Picker emoji are full-color artwork. Applying the text-color filter
+                // here can turn the entire emoji set black under custom themes.
+                imageView.setColorFilter(null);
             }
 
             TLObject object = FileLoader.getClosestPhotoSizeWithSize(set.set.thumbs, 90);

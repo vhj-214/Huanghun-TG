@@ -5968,6 +5968,41 @@ public class ChatActivityEnterView extends FrameLayout implements
     private boolean outgoingAutoTranslationInProgress;
     private String outgoingAutoTranslationOriginalText;
 
+    private static String protectEmojiForOutgoingTranslation(String text, ArrayList<String> protectedEmojis) {
+        if (TextUtils.isEmpty(text)) {
+            return text;
+        }
+        ArrayList<Emoji.EmojiSpanRange> ranges = Emoji.parseEmojis(text);
+        if (ranges.isEmpty()) {
+            return text;
+        }
+        StringBuilder result = new StringBuilder(text.length());
+        int lastEnd = 0;
+        for (int i = 0; i < ranges.size(); i++) {
+            Emoji.EmojiSpanRange range = ranges.get(i);
+            if (range.start < lastEnd || range.end <= range.start || range.end > text.length()) {
+                continue;
+            }
+            result.append(text, lastEnd, range.start);
+            protectedEmojis.add(range.code.toString());
+            result.append(" HH_EMOJI_").append(protectedEmojis.size() - 1).append(" ");
+            lastEnd = range.end;
+        }
+        result.append(text, lastEnd, text.length());
+        return result.toString();
+    }
+
+    private static String restoreProtectedEmojis(String text, ArrayList<String> protectedEmojis) {
+        if (TextUtils.isEmpty(text) || protectedEmojis == null || protectedEmojis.isEmpty()) {
+            return text;
+        }
+        String result = text;
+        for (int i = 0; i < protectedEmojis.size(); i++) {
+            result = result.replace("HH_EMOJI_" + i, protectedEmojis.get(i));
+        }
+        return result;
+    }
+
     private class ChatActivityEditTextCaption extends EditTextCaption {
         public ChatActivityEditTextCaption(Context context, Theme.ResourcesProvider resourcesProvider) {
             super(context, resourcesProvider);
@@ -8433,8 +8468,11 @@ public class ChatActivityEnterView extends FrameLayout implements
                 // 纯阿拉伯数字在任意目标语言中都不需要翻译；直接走既有发送流程，避免接口原样返回时阻断发送。
                 if (!internalParams.skipOutgoingAutoTranslate
                         && !TextUtils.isDigitsOnly(message)
+                        && !Emoji.fullyConsistsOfEmojis(message)
                         && NaConfig.INSTANCE.getOutgoingAutoTranslate().Bool()) {
                     final String originalMessage = message.toString();
+                    final ArrayList<String> protectedEmojis = new ArrayList<>();
+                    final String translationInput = protectEmojiForOutgoingTranslation(originalMessage, protectedEmojis);
                     if (outgoingAutoTranslationInProgress) {
                         return;
                     }
@@ -8446,7 +8484,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                     Locale sourceLocale = TextUtils.isEmpty(sourceLanguageCode) ? new Locale("") : TranslatorKt.getCode2Locale(sourceLanguageCode);
                     Locale targetLocale = TextUtils.isEmpty(targetLanguageCode) ? LocaleController.getInstance().getCurrentLocale() : TranslatorKt.getCode2Locale(targetLanguageCode);
                     int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
-                    Translator.translateFromWithFallback(sourceLocale, targetLocale, originalMessage, provider, new Translator.Companion.TranslateCallBack() {
+                    Translator.translateFromWithFallback(sourceLocale, targetLocale, translationInput, provider, new Translator.Companion.TranslateCallBack() {
                         @Override
                         public void onSuccess(String translation) {
                             outgoingAutoTranslationInProgress = false;
@@ -8455,7 +8493,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                             }
                             // Some providers return an empty result for links, symbols, letters, or other
                             // content they cannot translate. Such messages must still be sent unchanged.
-                            String translatedMessage = TextUtils.isEmpty(translation) ? originalMessage : translation;
+                            String translatedMessage = TextUtils.isEmpty(translation) ? originalMessage : restoreProtectedEmojis(translation, protectedEmojis);
                             String messageToSend = NaConfig.INSTANCE.getOutgoingAutoTranslateIncludeOriginal().Bool() && !TextUtils.equals(originalMessage, translatedMessage)
                                     ? originalMessage + "\n\n" + translatedMessage
                                     : translatedMessage;
