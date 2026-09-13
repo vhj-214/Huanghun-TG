@@ -774,15 +774,15 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         /**
-         * 按设备当前可见区域等比显示视频。每次顶部导航、底部输入区或设备窗口尺寸变化后都会重新计算；
-         * 保留视频完整画面，必要时在两侧或上下留下背景边缘，避免不同屏幕比例下把用户视频放大裁切。
+         * 将视频作为页面背景填满可见区域。每次顶部导航、底部输入区或设备窗口尺寸变化后都会重新计算；
+         * 比例多出的部分由容器裁切，避免出现深色边缘、黑条或第二层视频背景。
          */
         private void applyFitCenter() {
             if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
                 return;
             }
-            // 使用较小比例完整容纳视频；Math.max 会在不同宽高比设备上放大并裁掉视频内容。
-            float scale = Math.min(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
+            // 使用较大比例覆盖整个可见区；父容器负责裁掉超出的边缘，绝不留下空白承接区。
+            float scale = Math.max(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
             float scaledWidth = videoWidth * scale;
             float scaledHeight = videoHeight * scale;
             Matrix matrix = new Matrix();
