@@ -154,7 +154,7 @@ public final class HuanghunPetHelper {
     }
 
     /** Accept the manifest schema produced by the original Huanghun pet prompt. */
-    private static void normalizeGeneratedManifest(JSONObject manifest) {
+    private static void normalizeGeneratedManifest(JSONObject manifest) throws Exception {
         JSONObject character = manifest.optJSONObject("character");
         if (character != null) {
             if (!manifest.has("character_name")) {
