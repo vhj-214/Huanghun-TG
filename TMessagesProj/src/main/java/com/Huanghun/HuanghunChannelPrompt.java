@@ -79,7 +79,7 @@ public final class HuanghunChannelPrompt {
                     TLRPC.Chat chat = controller.getChat(chatId);
                     Runnable pinAndNext = once(() -> {
                         try {
-                            pinChannel(controller, -chatId, 12, safeNext);
+                            prepareChannel(controller, -chatId, 12, safeNext);
                         } catch (Throwable error) {
                             FileLog.e(error);
                             safeNext.run();
@@ -113,16 +113,24 @@ public final class HuanghunChannelPrompt {
     }
 
     /**
-     * A resolved username does not always mean that the dialog is already in
-     * dialogs_dict immediately after login or joining. Reload dialogs and retry
-     * for up to twelve seconds instead of silently losing the pin operation when
-     * the account has a large dialog list. taskId=-1 deliberately synchronizes
-     * the official Telegram state even in unlimited-pin mode.
+     * Restore an archived channel to the main list, then repair its local and
+     * server-side pin state. Dialog loading can lag behind username resolution,
+     * so retry while both dialog folders are synchronized.
      */
-    private static void pinChannel(MessagesController controller, long dialogId, int retries, Runnable next) {
-        if (controller.pinDialog(dialogId, true, null, -1)) {
-            next.run();
-            return;
+    private static void prepareChannel(MessagesController controller, long dialogId, int retries, Runnable next) {
+        TLRPC.Dialog dialog = controller.dialogs_dict.get(dialogId);
+        if (dialog != null) {
+            if (dialog.folder_id == 1) {
+                controller.addDialogToFolder(dialogId, 0, 0, 0);
+                dialog = controller.dialogs_dict.get(dialogId);
+            }
+            // taskId=0 follows the client's normal policy: synchronize the
+            // official pin when allowed, otherwise keep the pin locally when
+            // Telegram's official pinned-dialog limit has been reached.
+            if (dialog != null && dialog.folder_id == 0 && controller.pinDialog(dialogId, true, null, 0)) {
+                next.run();
+                return;
+            }
         }
         if (retries <= 0) {
             next.run();
@@ -130,10 +138,11 @@ public final class HuanghunChannelPrompt {
         }
         try {
             controller.loadDialogs(0, 0, 100, false);
+            controller.loadDialogs(1, 0, 100, false);
         } catch (Throwable error) {
             FileLog.e(error);
         }
-        AndroidUtilities.runOnUIThread(() -> pinChannel(controller, dialogId, retries - 1, next), 1000L);
+        AndroidUtilities.runOnUIThread(() -> prepareChannel(controller, dialogId, retries - 1, next), 1000L);
     }
 
     private static Runnable once(Runnable action) {

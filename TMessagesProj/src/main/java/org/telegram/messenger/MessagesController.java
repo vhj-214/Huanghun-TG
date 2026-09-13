@@ -17609,7 +17609,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                     newTaskId = getMessagesStorage().createPendingTask(data);
                 } else {
-                    newTaskId = taskId;
+                    newTaskId = taskId == -1 ? 0 : taskId;
                 }
 
                 if (!NekoConfig.unlimitedPinnedDialogs.Bool() || taskId == -1) getConnectionsManager().sendRequest(req, (response, error) -> {
