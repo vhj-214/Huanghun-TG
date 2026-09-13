@@ -166,6 +166,7 @@ import me.vkryl.core.BitwiseUtils;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
+import xyz.nextalone.nagram.NaConfig;
 public class ChatActionCell extends BaseCell implements DownloadController.FileDownloadProgressListener, NotificationCenter.NotificationCenterDelegate, IMessageCell {
     private final static boolean USE_PREMIUM_GIFT_LOCAL_STICKER = false;
     private final static boolean USE_PREMIUM_GIFT_MONTHS_AS_EMOJI_NUMBERS = false;
@@ -4256,9 +4257,12 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
             return;
         }
 
-        // An empty source locale asks the provider to auto-detect English, Italian,
-        // or any other language used by the bot.
-        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, 0, new Translator.Companion.TranslateCallBack() {
+        // Reuse Huanghun's outgoing auto-translation provider instead of the
+        // independent NekoConfig translation provider used by message translation.
+        // This keeps bot buttons on the same configured translation interface as
+        // the user's outgoing auto-translate feature.
+        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, provider, new Translator.Companion.TranslateCallBack() {
             @Override
             public void onSuccess(String translation) {
                 synchronized (botButtonTranslations) {
@@ -4278,6 +4282,7 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
                 synchronized (botButtonTranslations) {
                     botButtonTranslationsInFlight.remove(original);
                 }
+                FileLog.e("Bot button translation failed, provider=" + provider + ", text=" + original + ", error=" + message);
             }
         });
     }

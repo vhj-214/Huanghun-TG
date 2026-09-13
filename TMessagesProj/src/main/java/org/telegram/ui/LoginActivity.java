@@ -1959,6 +1959,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         MessagesController.getInstance(accountNum).loadWebBrowserConfig();
         MessagesController.getInstance(accountNum).checkPeerColors(false);
         MediaDataController.getInstance(accountNum).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
+        AndroidUtilities.runOnUIThread(() -> com.Huanghun.HuanghunChannelPrompt.ensureChannelsJoined(accountNum), 500L);
         return true;
     }
 
@@ -2004,6 +2005,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             MessagesController.getInstance(currentAccount).putDialogsEndReachedAfterRegistration();
         }
         MediaDataController.getInstance(currentAccount).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
+        AndroidUtilities.runOnUIThread(() -> com.Huanghun.HuanghunChannelPrompt.ensureChannelsJoined(currentAccount), 500L);
 
         needFinishActivity(afterSignup, res.setup_password_required, res.otherwise_relogin_days);
     }

@@ -71,20 +71,10 @@ public class BlurredBackgroundProviderImpl {
     }
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
-        // The folder strip sits directly over the wallpaper. Keep only a subtle
-        // glass wash here so the dynamic wallpaper remains visible instead of
-        // producing an opaque white band behind the tabs.
-        return new BlurredBackgroundProviderBuilder(resourcesProvider)
-            .setBackgroundColor((r, isDark) -> {
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.12f : 0.08f;
-                return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
-            })
-            .setStrokeColorTop(0x22FFFFFF, 0x18FFFFFF)
-            .setStrokeColorBottom(0x16000000, 0x16FFFFFF)
-            .setShadowColor(0x10000000, 0x06FFFFFF)
-            .setShadowLayer(dpf2(2.667f), 0, dpf2(0.85f))
-            .setStrokeWidth(dpf2(0.4f), dpf2(0.4f))
-            .build();
+        // The folder strip belongs to the chat surface, so it must use the
+        // same full liquid-glass treatment as the chat top panel rather than
+        // the separate bottom-navigation glass palette.
+        return topPanel(resourcesProvider);
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
