@@ -67,12 +67,36 @@ public final class HuanghunPetHelper {
     }
 
     public static String importZip(Context context, Uri uri) throws Exception {
+        try (InputStream raw = context.getContentResolver().openInputStream(uri)) {
+            if (raw == null) throw new Exception("无法读取所选文件");
+            return importStream(context, raw);
+        }
+    }
+
+    /** Install the packaged pet only on a fresh client with no selected pet. */
+    public static void ensureBundledDefault(Context context) {
+        android.content.SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (preferences.getBoolean("bundled_default_installed", false)) return;
+        if (!activeId(context).isEmpty()) {
+            // An existing user selection means this is not a fresh install.
+            preferences.edit().putBoolean("bundled_default_installed", true).apply();
+            return;
+        }
+        try (InputStream raw = context.getAssets().open("huanghun_default_pet.zip")) {
+            String id = importStream(context, raw);
+            setActive(context, id);
+            preferences.edit().putBoolean("bundled_default_installed", true).apply();
+        } catch (Throwable error) {
+            org.telegram.messenger.FileLog.e(error);
+        }
+    }
+
+    private static String importStream(Context context, InputStream raw) throws Exception {
         mkdirs(context);
         File unpackRoot = new File(root(context), "temp_" + UUID.randomUUID());
         unpackRoot.mkdirs();
         File packageRoot = unpackRoot;
-        try (InputStream raw = context.getContentResolver().openInputStream(uri)) {
-            if (raw == null) throw new Exception("无法读取所选文件");
+        try {
             unpackArchive(new LimitedInputStream(raw, MAX_ARCHIVE_BYTES), unpackRoot, true);
         } catch (Exception e) {
             deleteRecursive(unpackRoot);

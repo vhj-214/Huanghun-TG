@@ -544,6 +544,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
         frameLayout.addView(drawerLayoutContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
+        tw.nekomimi.nekogram.helpers.HuanghunPetHelper.ensureBundledDefault(this);
         huanghunPetOverlay = new HuanghunPetOverlay(this);
         frameLayout.addView(huanghunPetOverlay, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
