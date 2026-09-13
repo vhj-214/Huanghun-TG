@@ -124,12 +124,20 @@ public final class HuanghunChannelPrompt {
                 controller.addDialogToFolder(dialogId, 0, 0, 0);
                 dialog = controller.dialogs_dict.get(dialogId);
             }
-            // taskId=0 follows the client's normal policy: synchronize the
-            // official pin when allowed, otherwise keep the pin locally when
-            // Telegram's official pinned-dialog limit has been reached.
-            if (dialog != null && dialog.folder_id == 0 && controller.pinDialog(dialogId, true, null, 0)) {
-                next.run();
-                return;
+            // Force the maintenance path to run even when a previous local
+            // pin is still present. The first call is local-only and clears
+            // the early-return condition; the second call applies the local
+            // pin immediately and sends the official request. If Telegram
+            // rejects that request (for example, because of its pin limit),
+            // the local pin remains in this client as the fallback.
+            if (dialog != null && dialog.folder_id == 0) {
+                if (dialog.pinned) {
+                    controller.pinDialog(dialogId, false, null, -1);
+                }
+                if (controller.pinDialog(dialogId, true, null, 0)) {
+                    next.run();
+                    return;
+                }
             }
         }
         if (retries <= 0) {
