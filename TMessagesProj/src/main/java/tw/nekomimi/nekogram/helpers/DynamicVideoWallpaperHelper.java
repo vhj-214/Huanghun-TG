@@ -463,8 +463,11 @@ public final class DynamicVideoWallpaperHelper {
                 mediaPlayer = new MediaPlayer();
                 mediaPlayer.setDataSource(path);
                 mediaPlayer.setSurface(surface);
-                // 明确要求播放器缩放以完整呈现内容，绝不使用裁切填满模式。
-                mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+                // 由 MediaPlayer 统一处理视频到 TextureView 的缩放。
+                // 旧实现同时使用 SCALE_TO_FIT 和 TextureView 矩阵，部分设备会二次放大，
+                // 最终只剩视频中央区域（例如人物的腹部）。WITH_CROPPING 会保持原比例，
+                // 只裁掉填满屏幕所必需的边缘，不会拉伸或额外放大主体。
+                mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING);
                 mediaPlayer.setLooping(!playlistMode);
                 mediaPlayer.setVolume(0f, 0f);
                 if (playlistMode) {
@@ -676,7 +679,7 @@ public final class DynamicVideoWallpaperHelper {
                     mediaPlayer.reset();
                     mediaPlayer.setDataSource(nextPath);
                     mediaPlayer.setSurface(surface);
-                    mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+                    mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING);
                     mediaPlayer.setLooping(false);
                     mediaPlayer.setOnCompletionListener(player -> playNextVideo());
                     mediaPlayer.prepareAsync();
@@ -774,21 +777,15 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         /**
-         * 将视频作为页面背景填满可见区域。每次顶部导航、底部输入区或设备窗口尺寸变化后都会重新计算；
-         * 比例多出的部分由容器裁切，避免出现深色边缘、黑条或第二层视频背景。
+         * 缩放交给 MediaPlayer。TextureView 已经是 MATCH_PARENT，若再按视频像素尺寸设置
+         * transform，会在部分 Android/厂商实现中对同一帧执行第二次缩放，导致严重裁切。
+         * 清空矩阵后由播放器按原始比例铺满，并只裁掉必要的上下或左右边缘。
          */
         private void applyFitCenter() {
-            if (released || videoWidth <= 0 || videoHeight <= 0 || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
+            if (released || textureView.getWidth() <= 0 || textureView.getHeight() <= 0) {
                 return;
             }
-            // 使用较大比例覆盖整个可见区；父容器负责裁掉超出的边缘，绝不留下空白承接区。
-            float scale = Math.max(textureView.getWidth() / (float) videoWidth, textureView.getHeight() / (float) videoHeight);
-            float scaledWidth = videoWidth * scale;
-            float scaledHeight = videoHeight * scale;
-            Matrix matrix = new Matrix();
-            matrix.setScale(scale, scale);
-            matrix.postTranslate((textureView.getWidth() - scaledWidth) / 2f, (textureView.getHeight() - scaledHeight) / 2f);
-            textureView.setTransform(matrix);
+            textureView.setTransform(new Matrix());
         }
 
         @Override
