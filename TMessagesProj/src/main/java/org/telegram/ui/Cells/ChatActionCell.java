@@ -152,6 +152,7 @@ import org.telegram.ui.community.CommunityUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -163,12 +164,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import me.vkryl.core.BitwiseUtils;
 
 import tw.nekomimi.nekogram.NekoConfig;
-
+import tw.nekomimi.nekogram.translate.Translator;
+import tw.nekomimi.nekogram.translate.TranslatorKt;
 public class ChatActionCell extends BaseCell implements DownloadController.FileDownloadProgressListener, NotificationCenter.NotificationCenterDelegate, IMessageCell {
     private final static boolean USE_PREMIUM_GIFT_LOCAL_STICKER = false;
     private final static boolean USE_PREMIUM_GIFT_MONTHS_AS_EMOJI_NUMBERS = false;
 
     private static Map<Integer, String> monthsToEmoticon = new HashMap<>();
+    private static final Map<String, String> botButtonTranslations = new HashMap<>();
+    private static final HashSet<String> botButtonTranslationsInFlight = new HashSet<>();
 
     static {
         monthsToEmoticon.put(1, 1 + "\u20E3");
@@ -951,7 +955,9 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
                             botButton.positionFlags = BitwiseUtils.setFlag(botButton.positionFlags, MessageObject.POSITION_FLAG_RIGHT, column == 1);
 
                             TextPaint botButtonPaint = (TextPaint) getThemedPaint(Theme.key_paint_chatBotButton);
-                            botButton.title = new Text(inlineButton.getText(), botButtonPaint);
+                            String botButtonText = inlineButton.getText();
+                            botButton.title = new Text(botButtonText, botButtonPaint);
+                            translateBotButtonText(botButton, botButtonText, botButtonPaint);
                             botButtons.add(botButton);
                         }
                     }
@@ -4218,5 +4224,70 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
             return;
         }
         currentMessageObject.markReactionsAsRead();
+    }
+
+    /** Keep the bot payload untouched while showing a Chinese translation beside foreign labels. */
+    private void translateBotButtonText(BotButton botButton, String original, TextPaint paint) {
+        if (TextUtils.isEmpty(original) || containsChinese(original)) {
+            return;
+        }
+        boolean hasLetter = false;
+        for (int i = 0; i < original.length(); i++) {
+            if (Character.isLetter(original.charAt(i))) {
+                hasLetter = true;
+                break;
+            }
+        }
+        if (!hasLetter) {
+            return;
+        }
+
+        final String cached;
+        synchronized (botButtonTranslations) {
+            cached = botButtonTranslations.get(original);
+            if (cached == null && !botButtonTranslationsInFlight.contains(original)) {
+                botButtonTranslationsInFlight.add(original);
+            } else if (cached == null) {
+                return;
+            }
+        }
+        if (cached != null) {
+            botButton.title = new Text(original + " — " + cached, paint);
+            return;
+        }
+
+        // An empty source locale asks the provider to auto-detect English, Italian,
+        // or any other language used by the bot.
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, 0, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(String translation) {
+                synchronized (botButtonTranslations) {
+                    botButtonTranslationsInFlight.remove(original);
+                    if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                        botButtonTranslations.put(original, translation);
+                    }
+                }
+                if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                    botButton.title = new Text(original + " — " + translation, paint);
+                    invalidateOutbounds();
+                }
+            }
+
+            @Override
+            public void onFailed(boolean unsupported, String message) {
+                synchronized (botButtonTranslations) {
+                    botButtonTranslationsInFlight.remove(original);
+                }
+            }
+        });
+    }
+
+    private static boolean containsChinese(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.UnicodeScript.of(text.charAt(i)) == Character.UnicodeScript.HAN) {
+                return true;
+            }
+        }
+        return false;
     }
 }

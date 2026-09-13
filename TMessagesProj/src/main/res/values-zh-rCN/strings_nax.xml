@@ -1,5 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <string name="Settings">设置</string>
+    <string name="ChatSettings">聊天设置</string>
+    <string name="SettingsChat">聊天设置</string>
+    <string name="SettingsChatInfo">壁纸、夜间模式、动画</string>
     <string name="XChannel">Nagram X 频道</string>
     <string name="EnableSaveDeletedMessages">保存已删除消息</string>
     <string name="DeletedMessage">已删除</string>

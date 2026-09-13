@@ -45,10 +45,15 @@ import org.telegram.ui.Components.inset.InAppKeyboardInsetView;
 import org.telegram.ui.Components.spoilers.SpoilersTextView;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
 
 import me.vkryl.android.animator.ListAnimator;
 import me.vkryl.android.animator.ReplaceAnimator;
 import me.vkryl.core.lambda.Destroyable;
+import tw.nekomimi.nekogram.translate.Translator;
+import tw.nekomimi.nekogram.translate.TranslatorKt;
 
 @SuppressLint("ViewConstructor")
 public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetView, ReplaceAnimator.Callback {
@@ -63,6 +68,8 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
     private boolean isFullSize;
     private int buttonHeight;
     private final ArrayList<Button> buttonViews = new ArrayList<>();
+    private static final HashMap<String, String> buttonTranslations = new HashMap<>();
+    private static final HashSet<String> translationsInFlight = new HashSet<>();
     private final ScrollView scrollView;
 
     public interface BotKeyboardViewDelegate {
@@ -212,6 +219,7 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
             addView(icon, LayoutHelper.createFrame(12, 12, Gravity.RIGHT | Gravity.TOP, 0, 8, 8, 0));
 
             textView.setText(ssb);
+            translateButtonText(textView, button.text);
         }
 
         public void setPositionFlags(boolean isLeft, boolean isTop, boolean isRight, boolean isBottom) {
@@ -258,6 +266,69 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
             ));
         }
 
+    }
+
+    private void translateButtonText(SpoilersTextView textView, String original) {
+        if (original == null || original.isEmpty() || containsChinese(original)) {
+            return;
+        }
+        boolean hasLetter = false;
+        for (int i = 0; i < original.length(); i++) {
+            if (Character.isLetter(original.charAt(i))) {
+                hasLetter = true;
+                break;
+            }
+        }
+        if (!hasLetter) {
+            return;
+        }
+        final String cached;
+        synchronized (buttonTranslations) {
+            cached = buttonTranslations.get(original);
+            if (cached == null && !translationsInFlight.contains(original)) {
+                translationsInFlight.add(original);
+            } else if (cached == null) {
+                return;
+            }
+        }
+        if (cached != null) {
+            setTranslatedButtonText(textView, original, cached);
+            return;
+        }
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, 0, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(String translation) {
+                synchronized (buttonTranslations) {
+                    translationsInFlight.remove(original);
+                    if (translation != null && !translation.isEmpty() && !original.equals(translation)) {
+                        buttonTranslations.put(original, translation);
+                    }
+                }
+                if (translation != null && !translation.isEmpty() && !original.equals(translation)) {
+                    setTranslatedButtonText(textView, original, translation);
+                }
+            }
+
+            @Override
+            public void onFailed(boolean unsupported, String message) {
+                synchronized (buttonTranslations) {
+                    translationsInFlight.remove(original);
+                }
+            }
+        });
+    }
+
+    private void setTranslatedButtonText(SpoilersTextView textView, String original, String translation) {
+        textView.setText(Emoji.replaceEmoji(original + " — " + translation, textView.getPaint().getFontMetricsInt(), false));
+    }
+
+    private static boolean containsChinese(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.UnicodeScript.of(text.charAt(i)) == Character.UnicodeScript.HAN) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int getKeyboardHeight() {
