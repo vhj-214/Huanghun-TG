@@ -102,6 +102,7 @@ public final class HuanghunPetHelper {
             String format = manifest.optString("format", "");
             if (!modernFormat && !"huanghun_pet_pack".equals(format)) throw new Exception("不是有效的桌宠包");
             validateRequiredAnimations(packageRoot, manifest);
+            validateDialogueProtocol(packageRoot, manifest);
 
             String name = manifest.optString("name", manifest.optString("character_name", "")).trim();
             if (name.isEmpty() || name.length() > 64) throw new Exception("桌宠名称无效");
@@ -199,6 +200,49 @@ public final class HuanghunPetHelper {
         // are optional and the runtime simply skips any action that is unavailable.
         boolean hasIdle = hasAnimation(manifest, "idle") || hasAnimation(manifest, "idle_breath");
         if (!hasIdle) throw new Exception("桌宠缺少核心 idle 动画");
+    }
+
+    /** Validate manifest-driven dialogue references before installing a package. */
+    private static void validateDialogueProtocol(File directory, JSONObject manifest) throws Exception {
+        JSONObject dialogueFiles = manifest.optJSONObject("dialogue_files");
+        if (dialogueFiles != null) {
+            JSONArray names = dialogueFiles.names();
+            if (names != null) for (int i = 0; i < names.length(); i++) {
+                String key = names.optString(i, "").trim();
+                String path = dialogueFiles.optString(key, "").trim();
+                if (key.isEmpty() || path.isEmpty()) throw new Exception("对白配置包含空的文件引用");
+                if (!path.toLowerCase(Locale.ROOT).endsWith(".txt")) throw new Exception("对白文件必须使用 .txt 格式");
+                File file = safeChild(directory, path);
+                if (file == null || !file.isFile()) throw new Exception("对白文件不存在: " + path);
+            }
+        }
+        JSONObject schedule = manifest.optJSONObject("schedule");
+        if (schedule == null) return;
+        validateEventDialogueRefs(schedule.optJSONArray("time_events"), dialogueFiles);
+        validateEventDialogueRefs(schedule.optJSONArray("weather_events"), dialogueFiles);
+        JSONObject interactions = schedule.optJSONObject("interaction_events");
+        if (interactions != null) {
+            JSONArray names = interactions.names();
+            if (names != null) for (int i = 0; i < names.length(); i++) {
+                JSONObject event = interactions.optJSONObject(names.optString(i, ""));
+                if (event != null) validateEventDialogueRef(event, dialogueFiles);
+            }
+        }
+    }
+
+    private static void validateEventDialogueRefs(JSONArray events, JSONObject dialogueFiles) throws Exception {
+        if (events == null) return;
+        for (int i = 0; i < events.length(); i++) {
+            JSONObject event = events.optJSONObject(i);
+            if (event != null) validateEventDialogueRef(event, dialogueFiles);
+        }
+    }
+
+    private static void validateEventDialogueRef(JSONObject event, JSONObject dialogueFiles) throws Exception {
+        String dialogue = event.optString("dialogue", "").trim();
+        if (!dialogue.isEmpty() && (dialogueFiles == null || !dialogueFiles.has(dialogue))) {
+            throw new Exception("事件引用了未定义的对白: " + dialogue);
+        }
     }
 
     private static boolean hasAnimation(JSONObject manifest, String name) {

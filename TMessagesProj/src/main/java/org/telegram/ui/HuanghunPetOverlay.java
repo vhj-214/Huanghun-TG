@@ -20,6 +20,8 @@ import tw.nekomimi.nekogram.helpers.HuanghunPetHelper;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -63,6 +65,9 @@ public final class HuanghunPetOverlay extends View {
     private final RectF petRect = new RectF();
     private final HashMap<String, AnimationState> states = new HashMap<>();
     private final HashMap<String, ArrayList<String>> dialogs = new HashMap<>();
+    private final ArrayList<JSONObject> timeEvents = new ArrayList<>();
+    private final ArrayList<JSONObject> weatherEvents = new ArrayList<>();
+    private JSONObject interactionEvents;
     private final Runnable tickRunnable = this::tick;
 
     private HuanghunPetHelper.PetInfo pet;
@@ -86,6 +91,8 @@ public final class HuanghunPetOverlay extends View {
     private int maxSizeDp = 260;
     private int lastHourlyHour = -1;
     private int lastHourlyDay = -1;
+    private int lastTimeEventDay = -1;
+    private int lastTimeEventIndex = -1;
     private float petX;
     private float petY;
     private float velocityX;
@@ -188,6 +195,11 @@ public final class HuanghunPetOverlay extends View {
         recycleCurrentBitmap();
         states.clear();
         dialogs.clear();
+        timeEvents.clear();
+        weatherEvents.clear();
+        interactionEvents = null;
+        lastTimeEventDay = -1;
+        lastTimeEventIndex = -1;
         currentState = null;
         pet = null;
         petId = active;
@@ -217,6 +229,7 @@ public final class HuanghunPetOverlay extends View {
 
     private void loadAnimations() throws Exception {
         JSONObject manifest = readJson(new File(pet.directory, "manifest.json"));
+        loadManifestEvents(manifest);
         frameWidth = Math.max(1, manifest.optInt("frame_width", 1));
         frameHeight = Math.max(1, manifest.optInt("frame_height", 1));
         anchorX = manifest.optInt("anchor_x", frameWidth / 2);
@@ -475,9 +488,81 @@ public final class HuanghunPetOverlay extends View {
                 File file = new File(pet.directory, path);
                 if (file.isFile()) loadDialogueObject(readJson(file));
             }
+            JSONObject manifest = readJson(new File(pet.directory, "manifest.json"));
+            JSONObject dialogueFiles = manifest.optJSONObject("dialogue_files");
+            if (dialogueFiles != null) {
+                JSONArray names = dialogueFiles.names();
+                if (names != null) {
+                    for (int i = 0; i < names.length(); i++) {
+                        String name = names.optString(i, "");
+                        String path = dialogueFiles.optString(name, "");
+                        if (name.isEmpty() || path.isEmpty()) continue;
+                        File file = safePackageFile(path);
+                        if (file == null || !file.isFile()) continue;
+                        loadDialogueText(name, file);
+                    }
+                }
+            }
         } catch (Throwable error) {
             FileLog.e(error);
         }
+    }
+
+    private void loadManifestEvents(JSONObject manifest) {
+        JSONObject schedule = manifest.optJSONObject("schedule");
+        if (schedule == null) schedule = manifest;
+        JSONArray time = schedule.optJSONArray("time_events");
+        if (time != null) {
+            for (int i = 0; i < time.length(); i++) {
+                JSONObject event = time.optJSONObject(i);
+                if (event != null) timeEvents.add(event);
+            }
+        }
+        JSONArray weather = schedule.optJSONArray("weather_events");
+        if (weather != null) {
+            for (int i = 0; i < weather.length(); i++) {
+                JSONObject event = weather.optJSONObject(i);
+                if (event != null) weatherEvents.add(event);
+            }
+        }
+        interactionEvents = schedule.optJSONObject("interaction_events");
+    }
+
+    private File safePackageFile(String relativePath) throws Exception {
+        File file = new File(pet.directory, relativePath.replace('\\', '/'));
+        String root = pet.directory.getCanonicalPath() + File.separator;
+        return file.getCanonicalPath().startsWith(root) ? file : null;
+    }
+
+    private void loadDialogueText(String name, File file) throws Exception {
+        ArrayList<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#") || line.startsWith("//")) continue;
+                if ("emotion".equals(name)) {
+                    int separator = line.indexOf('|');
+                    if (separator <= 0 || separator >= line.length() - 1) continue;
+                    String action = normalizeDialogueName(line.substring(0, separator).trim());
+                    String text = line.substring(separator + 1).trim();
+                    if (!action.isEmpty() && !text.isEmpty()) addDialogueLine(action, text);
+                } else {
+                    lines.add(line);
+                }
+            }
+        }
+        if (!lines.isEmpty()) dialogs.put(normalizeDialogueName(name), lines);
+    }
+
+    private void addDialogueLine(String name, String line) {
+        if (name == null || name.isEmpty() || line == null || line.isEmpty()) return;
+        ArrayList<String> lines = dialogs.get(name);
+        if (lines == null) {
+            lines = new ArrayList<>();
+            dialogs.put(name, lines);
+        }
+        lines.add(line);
     }
 
     private void loadDialogueObject(JSONObject object) {
@@ -509,7 +594,7 @@ public final class HuanghunPetOverlay extends View {
     private String normalizeDialogueName(String name) {
         if (name == null) return "";
         if ("greeting".equals(name) || "hello".equals(name) || "welcome".equals(name)) return "greet";
-        if ("touch".equals(name) || "clicked".equals(name) || "touched".equals(name)) return "tap";
+        if ("touch".equals(name) || "click".equals(name) || "clicked".equals(name) || "touched".equals(name)) return "tap";
         if ("move".equals(name) || "walking".equals(name)) return "walk";
         if ("dragging".equals(name)) return "drag";
         if ("rest".equals(name)) return "crouch";
@@ -657,6 +742,7 @@ public final class HuanghunPetOverlay extends View {
 
     private void speak(String category) {
         if (!showDialogEnabled) return;
+        category = normalizeDialogueName(category);
         ArrayList<String> lines = dialogs.get(category);
         if (lines == null || lines.isEmpty()) {
             String alias = null;
@@ -678,9 +764,12 @@ public final class HuanghunPetOverlay extends View {
             if ((lines == null || lines.isEmpty()) && "tap".equals(category)) lines = dialogs.get("touch_click");
         }
         if (lines == null || lines.isEmpty()) {
-            lines = dialogs.get("tap");
-            if (lines == null || lines.isEmpty()) lines = dialogs.get("clicked");
-            if (lines == null || lines.isEmpty()) lines = dialogs.get("touch_click");
+            // Do not reuse click dialogue for unrelated actions. A pet package
+            // may define animations without dialogue for some of them; showing
+            // a random tap line in that case makes the pet appear to speak
+            // without an actual dialogue trigger.
+            invalidate();
+            return;
         }
         if (lines != null && !lines.isEmpty()) {
             Calendar calendar = Calendar.getInstance();
@@ -718,6 +807,26 @@ public final class HuanghunPetOverlay extends View {
         int minute = calendar.get(Calendar.MINUTE);
         int day = calendar.get(Calendar.DAY_OF_YEAR);
         String clock = String.format(Locale.US, "%02d:%02d", hour, minute);
+        for (int i = 0; i < timeEvents.size(); i++) {
+            JSONObject event = timeEvents.get(i);
+            String at = event.optString("at", "");
+            JSONArray between = event.optJSONArray("between");
+            boolean matches = !at.isEmpty() && at.equals(clock);
+            if (!matches && between != null && between.length() >= 2) {
+                matches = isTimeBetween(clock, between.optString(0, ""), between.optString(1, ""));
+            }
+            if (!matches) continue;
+            if (lastTimeEventDay == day && lastTimeEventIndex == i) continue;
+            String animation = event.optString("anim", "");
+            String dialogue = event.optString("dialogue", "");
+            if (!animation.isEmpty() && states.containsKey(animation)) showState(animation);
+            sleeping = "sleep".equals(animation);
+            if (!dialogue.isEmpty()) speak(dialogue);
+            lastTimeEventDay = day;
+            lastTimeEventIndex = i;
+            nextDecision = now + 2600L;
+            return;
+        }
         for (Map.Entry<String, AnimationState> entry : states.entrySet()) {
             AnimationState timed = entry.getValue();
             if (timed.trigger.equals(clock) && !entry.getKey().equals("midnight")) {
@@ -766,6 +875,17 @@ public final class HuanghunPetOverlay extends View {
         speak(action);
         if ("walk".equals(action)) direction = random.nextBoolean() ? 1 : -1;
         nextDecision = now + 1700L + random.nextInt(3800);
+    }
+
+    private boolean isTimeBetween(String current, String start, String end) {
+        try {
+            int value = Integer.parseInt(current.replace(":", ""));
+            int from = Integer.parseInt(start.replace(":", ""));
+            int to = Integer.parseInt(end.replace(":", ""));
+            return from <= to ? value >= from && value <= to : value >= from || value <= to;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private void tick() {
@@ -903,12 +1023,15 @@ public final class HuanghunPetOverlay extends View {
     }
 
     private void playRandomTapAction() {
-        String[] candidates = {"clicked", "jump", "squish", "scare", "cheer", "shy", "giggle"};
-        ArrayList<String> available = new ArrayList<>();
-        for (String candidate : candidates) if (states.containsKey(candidate)) available.add(candidate);
-        String action = available.isEmpty() ? "clicked" : available.get(random.nextInt(available.size()));
-        showState(action);
-        speak(action.equals("clicked") ? "tap" : action);
+        applyInteractionEvent("click", "clicked", "tap");
+    }
+
+    private void applyInteractionEvent(String name, String fallbackAnimation, String fallbackDialogue) {
+        JSONObject event = interactionEvents == null ? null : interactionEvents.optJSONObject(name);
+        String animation = event == null ? fallbackAnimation : event.optString("anim", fallbackAnimation);
+        String dialogue = event == null ? fallbackDialogue : event.optString("dialogue", fallbackDialogue);
+        if (!animation.isEmpty()) showState(animation);
+        if (!dialogue.isEmpty()) speak(dialogue);
     }
 
     private void showCompanionshipDuration() {
@@ -943,8 +1066,7 @@ public final class HuanghunPetOverlay extends View {
             case MotionEvent.ACTION_MOVE:
                 if (!dragging && Math.hypot(event.getX() - downX, event.getY() - downY) > dp(8)) {
                     dragging = true;
-                    showState("dragged");
-                    speak("drag");
+                    applyInteractionEvent("drag_start", "dragged", "drag");
                 }
                 if (dragging) {
                     petX = downPetX + event.getX() - downX;
@@ -956,7 +1078,7 @@ public final class HuanghunPetOverlay extends View {
             case MotionEvent.ACTION_UP:
                 long pressDuration = System.currentTimeMillis() - downTime;
                 if (!dragging && pressDuration >= LONG_PRESS_MS) {
-                    showCompanionshipDuration();
+                    applyInteractionEvent("press_and_hold", "squish", "squish");
                     nextDecision = System.currentTimeMillis() + 1800L;
                 } else if (sleeping && !dragging) {
                     sleeping = false;
@@ -966,8 +1088,7 @@ public final class HuanghunPetOverlay extends View {
                 } else if (dragging) {
                     getContext().getSharedPreferences("huanghun_pets", Context.MODE_PRIVATE).edit()
                             .putFloat("pet_x", petX).putFloat("pet_y", petY).apply();
-                    showState("squash");
-                    speak("squash");
+                    applyInteractionEvent("drag_end", "idle", "");
                     nextDecision = System.currentTimeMillis() + 1800L;
                 } else {
                     playRandomTapAction();
