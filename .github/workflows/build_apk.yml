@@ -1,4 +1,4 @@
-name: Build Huanghun APK
+name: Build 黄昏 APK
 on:
   push:
     branches: [ main, master, dev ]
@@ -36,5 +36,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Huanghun-APK
+          name: 黄昏-APK
           path: TMessagesProj/build/outputs/apk/debug/*.apk

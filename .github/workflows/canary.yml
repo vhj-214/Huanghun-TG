@@ -1,4 +1,4 @@
-name: Canary build
+name: 黄昏测试版构建
 
 on:
   push:
@@ -74,7 +74,7 @@ jobs:
             echo "org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=2G -XX:+UseParallelGC -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> gradle.properties
           fi
           cat gradle.properties
-      - name: Staging Build
+      - name: 构建黄昏测试版
         id: staging_build_step
         env:
           COMMIT_ID: ${{ github.event.head_commit.id }}
@@ -86,7 +86,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Staging
+          name: 黄昏-测试版-APK
           path: |
             TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
             TMessagesProj/build/outputs/apk/staging/*-universal.apk

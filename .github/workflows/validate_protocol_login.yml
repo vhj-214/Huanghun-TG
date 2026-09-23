@@ -28,7 +28,7 @@ jobs:
       - name: Download the fixed APK artifact
         run: |
           mkdir -p /tmp/huanghun-artifact
-          gh run download 31710900021 --repo vhj-214/NagramX --name Huanghun-APK --dir /tmp/huanghun-artifact
+          gh run download 31710900021 --repo vhj-214/Huanghun-TG --name 黄昏-APK --dir /tmp/huanghun-artifact
           find /tmp/huanghun-artifact -maxdepth 1 -type f -name '*x86_64*.apk' -print
 
       - name: Run Android protocol-login validation
