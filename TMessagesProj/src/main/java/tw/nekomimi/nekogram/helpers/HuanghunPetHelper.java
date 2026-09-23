@@ -144,7 +144,7 @@ public final class HuanghunPetHelper {
                 previewFile = new File(packageRoot, "preview.png");
                 manifest.put("preview", "preview.png");
             }
-            if (BitmapFactory.decodeFile(previewFile.getAbsolutePath()) == null) throw new Exception("预览图损坏");
+            if (!isValidPreview(previewFile)) throw new Exception("预览图损坏");
 
             String id = manifest.optString("id", "").trim();
             if (!id.matches("[A-Za-z0-9_-]{1,64}")) {
@@ -176,6 +176,29 @@ public final class HuanghunPetHelper {
             return children[0];
         }
         return directory;
+    }
+
+    /** Decode only a bounded preview sample so a malicious or oversized image cannot OOM the UI. */
+    private static boolean isValidPreview(File file) {
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return false;
+            int sample = 1;
+            while (sample < 1024 && Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 1024) {
+                sample <<= 1;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            options.inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888;
+            android.graphics.Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            if (bitmap == null) return false;
+            bitmap.recycle();
+            return true;
+        } catch (OutOfMemoryError | RuntimeException error) {
+            return false;
+        }
     }
 
     /** Accept the manifest schema produced by the original Huanghun pet prompt. */

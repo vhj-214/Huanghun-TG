@@ -37,8 +37,11 @@ import java.util.Random;
  * anything from a pet package. Packages provide only images and JSON metadata.
  */
 public final class HuanghunPetOverlay extends View {
-    private static final long TICK_MS = 50L;
+    // The pet animation is usually 5-10 fps; a 50 ms full-screen invalidation
+    // wastes GPU time when a dynamic TextureView wallpaper is also active.
+    private static final long TICK_MS = 80L;
     private static final int DEFAULT_SIZE_DP = 116;
+    private static final int MAX_BITMAP_DIMENSION = 1024;
     private static final int MIN_FRAME_MS = 40;
     private static final int MAX_FRAME_MS = 3000;
     private static final long CARE_FIRST_AFTER_MS = 10 * 60 * 1000L;
@@ -124,11 +127,12 @@ public final class HuanghunPetOverlay extends View {
         setClickable(false);
         setFocusable(false);
         bubblePaint.setColor(Color.WHITE);
-        bubblePaint.setShadowLayer(dp(5), 0, dp(2), 0x55000000);
         bubbleTextPaint.setColor(0xff252525);
         bubbleTextPaint.setTextSize(dp(14));
         bubbleTextPaint.setTypeface(android.graphics.Typeface.create("sans", android.graphics.Typeface.NORMAL));
-        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        // Keep this transparent full-screen overlay on the normal hardware
+        // pipeline. A software layer here forces the entire chat window to be
+        // rasterized on every tick and can starve a video wallpaper renderer.
         currentOverlay = new WeakReference<>(this);
         setVisibility(INVISIBLE);
     }
@@ -192,7 +196,7 @@ public final class HuanghunPetOverlay extends View {
             return;
         }
         removeCallbacks(tickRunnable);
-        recycleCurrentBitmap();
+        recycleAllBitmaps();
         states.clear();
         dialogs.clear();
         timeEvents.clear();
@@ -235,7 +239,7 @@ public final class HuanghunPetOverlay extends View {
         anchorX = manifest.optInt("anchor_x", frameWidth / 2);
         anchorY = manifest.optInt("anchor_y", frameHeight);
         if (frameWidth == 1 && frameHeight == 1) {
-            Bitmap preview = BitmapFactory.decodeFile(pet.preview().getAbsolutePath());
+            Bitmap preview = decodeBitmap(pet.preview());
             if (preview != null) {
                 frameWidth = Math.max(1, preview.getWidth());
                 frameHeight = Math.max(1, preview.getHeight());
@@ -714,13 +718,37 @@ public final class HuanghunPetOverlay extends View {
         clampPosition();
     }
 
+    private Bitmap decodeBitmap(File file) {
+        if (file == null || !file.isFile()) return null;
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+            int sample = 1;
+            while (sample < 1024 && Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > MAX_BITMAP_DIMENSION) {
+                sample <<= 1;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        } catch (OutOfMemoryError error) {
+            FileLog.e(error);
+            return null;
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return null;
+        }
+    }
+
     private void ensureCurrentBitmap() {
         if (currentState == null || currentState.frames.isEmpty()) {
             return;
         }
         AnimationFrame frame = currentState.frames.get(Math.min(frameIndex, currentState.frames.size() - 1));
         if (frame.bitmap == null || frame.bitmap.isRecycled()) {
-            frame.bitmap = BitmapFactory.decodeFile(frame.file.getAbsolutePath());
+            frame.bitmap = decodeBitmap(frame.file);
         }
         currentBitmap = frame.bitmap;
         if (currentBitmap != null) {
@@ -731,6 +759,19 @@ public final class HuanghunPetOverlay extends View {
     private void recycleCurrentBitmap() {
         if (currentState != null) {
             for (AnimationFrame frame : currentState.frames) {
+                if (frame.bitmap != null && !frame.bitmap.isRecycled()) {
+                    frame.bitmap.recycle();
+                }
+                frame.bitmap = null;
+            }
+        }
+        currentBitmap = null;
+    }
+
+    private void recycleAllBitmaps() {
+        for (AnimationState state : states.values()) {
+            if (state == null) continue;
+            for (AnimationFrame frame : state.frames) {
                 if (frame.bitmap != null && !frame.bitmap.isRecycled()) {
                     frame.bitmap.recycle();
                 }

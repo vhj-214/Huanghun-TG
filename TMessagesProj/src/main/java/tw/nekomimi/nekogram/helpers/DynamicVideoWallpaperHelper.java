@@ -380,6 +380,10 @@ public final class DynamicVideoWallpaperHelper {
         private final Handler playbackHandler = new Handler(Looper.getMainLooper());
         private Runnable retryRunnable;
         private int playbackErrorCount;
+        // MediaPlayer may dispatch completion/error callbacks after reset().
+        // A generation prevents an old callback from advancing or recovering
+        // a newer player instance during wallpaper/account transitions.
+        private long playbackGeneration;
         private boolean released;
         private final View.OnLayoutChangeListener videoLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> applyFitCenter();
         private int videoWidth;
@@ -398,7 +402,7 @@ public final class DynamicVideoWallpaperHelper {
             this.playlistMode = playlist != null && !playlist.isEmpty();
             this.playlistModeValue = mode;
             this.playbackKey = playbackKey;
-            PlaybackState state = readPlaybackState(playbackKey);
+            PlaybackState state = getPlaybackState();
             if (state != null) {
                 resumePositionMs = state.positionMs;
                 if (this.playlistMode) {
@@ -429,6 +433,7 @@ public final class DynamicVideoWallpaperHelper {
             if (released || surfaceTexture == null) {
                 return;
             }
+            cancelPlaybackRecovery();
             if (path == null || !new File(path).isFile()) {
                 if (playlistMode) {
                     playNextVideo();
@@ -438,7 +443,7 @@ public final class DynamicVideoWallpaperHelper {
                 return;
             }
             releaseMediaPlayer();
-            PlaybackState state = readPlaybackState(playbackKey);
+            PlaybackState state = getPlaybackState();
             if (state != null) {
                 resumePositionMs = state.positionMs;
                 if (playlistMode && playlist != null && !playlist.isEmpty()) {
@@ -456,6 +461,7 @@ public final class DynamicVideoWallpaperHelper {
                 }
             }
             try {
+                final long generation = ++playbackGeneration;
                 this.surfaceTexture = surfaceTexture;
                 // 清除旧视频遗留的矩阵，避免换视频后继续沿用旧比例。
                 textureView.setTransform(new Matrix());
@@ -471,7 +477,11 @@ public final class DynamicVideoWallpaperHelper {
                 mediaPlayer.setLooping(!playlistMode);
                 mediaPlayer.setVolume(0f, 0f);
                 if (playlistMode) {
-                    mediaPlayer.setOnCompletionListener(player -> playNextVideo());
+                    mediaPlayer.setOnCompletionListener(player -> {
+                        if (!released && generation == playbackGeneration && player == mediaPlayer) {
+                            playNextVideo();
+                        }
+                    });
                 }
                 mediaPlayer.setOnVideoSizeChangedListener((player, width, height) -> {
                     videoWidth = width;
@@ -503,7 +513,7 @@ public final class DynamicVideoWallpaperHelper {
                 });
                 mediaPlayer.setOnErrorListener((player, what, extra) -> {
                     FileLog.e("Dynamic video wallpaper playback failed: " + what + "/" + extra);
-                    if (!released && player == mediaPlayer) {
+                    if (!released && generation == playbackGeneration && player == mediaPlayer) {
                         schedulePlaybackRecovery();
                     }
                     return true;
@@ -651,6 +661,7 @@ public final class DynamicVideoWallpaperHelper {
 
         private void playNextVideo() {
             if (released || !playlistMode || playlist == null || playlist.isEmpty()) return;
+            cancelPlaybackRecovery();
             int nextIndex = playlistIndex;
             String nextPath = null;
             for (int attempt = 0; attempt < playlist.size(); attempt++) {
@@ -672,6 +683,7 @@ public final class DynamicVideoWallpaperHelper {
             playlistIndex = nextIndex;
             try {
                 if (mediaPlayer != null) {
+                    final long generation = ++playbackGeneration;
                     path = nextPath;
                     resumePositionMs = 0;
                     playbackErrorCount = 0;
@@ -681,7 +693,11 @@ public final class DynamicVideoWallpaperHelper {
                     mediaPlayer.setSurface(surface);
                     mediaPlayer.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING);
                     mediaPlayer.setLooping(false);
-                    mediaPlayer.setOnCompletionListener(player -> playNextVideo());
+                    mediaPlayer.setOnCompletionListener(player -> {
+                        if (!released && generation == playbackGeneration && player == mediaPlayer) {
+                            playNextVideo();
+                        }
+                    });
                     mediaPlayer.prepareAsync();
                 }
             } catch (Throwable e) { FileLog.e(e); }
@@ -739,8 +755,38 @@ public final class DynamicVideoWallpaperHelper {
                     position = 0;
                 }
                 writePlaybackState(playbackKey, path, playlistIndex, position);
+                textureView.getContext().getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                        .edit()
+                        .putString(playbackPreferenceKey("path"), path)
+                        .putInt(playbackPreferenceKey("playlist_index"), playlistIndex)
+                        .putInt(playbackPreferenceKey("position"), position)
+                        .apply();
             } catch (Throwable e) {
                 FileLog.e(e);
+            }
+        }
+
+        private String playbackPreferenceKey(String suffix) {
+            return "playback_" + playbackKey + "_" + suffix;
+        }
+
+        /** Prefer memory for fast transitions, with disk as the recreation fallback. */
+        private PlaybackState getPlaybackState() {
+            PlaybackState state = readPlaybackState(playbackKey);
+            if (state != null) return state;
+            try {
+                SharedPreferences preferences = textureView.getContext()
+                        .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+                String storedPath = preferences.getString(playbackPreferenceKey("path"), null);
+                if (storedPath == null) return null;
+                return new PlaybackState(
+                        storedPath,
+                        preferences.getInt(playbackPreferenceKey("playlist_index"), 0),
+                        preferences.getInt(playbackPreferenceKey("position"), 0)
+                );
+            } catch (Throwable e) {
+                FileLog.e(e);
+                return null;
             }
         }
 
