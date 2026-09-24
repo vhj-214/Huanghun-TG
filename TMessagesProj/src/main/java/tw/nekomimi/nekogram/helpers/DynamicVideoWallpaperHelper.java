@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.UserConfig;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
 
 import java.io.File;
@@ -33,6 +34,9 @@ import java.util.ArrayList;
 public final class DynamicVideoWallpaperHelper {
 
     private static final String PREFERENCES = "huanghun_dynamic_video_wallpapers";
+    private static final String GLOBAL_ENABLED = "global_device_enabled";
+    private static final String GLOBAL_VIDEO = "global_device_video";
+    private static final String GLOBAL_RESET_REQUIRED = "global_reset_required";
     private static final String DIRECTORY = "huanghun_dynamic_video_wallpapers";
     private static final long MAX_VIDEO_SIZE_BYTES = 100L * 1024L * 1024L;
 
@@ -66,6 +70,95 @@ public final class DynamicVideoWallpaperHelper {
 
     private static String key(int account, long dialogId) {
         return account + "_" + dialogId;
+    }
+
+    /** 是否将动态壁纸应用到本设备上的所有账号，默认关闭。 */
+    public static boolean isGlobalSharingEnabled(Context context) {
+        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .getBoolean(GLOBAL_ENABLED, false);
+    }
+
+    public static boolean requiresGlobalWallpaperReset(Context context) {
+        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .getBoolean(GLOBAL_RESET_REQUIRED, false);
+    }
+
+    public static void clearGlobalResetRequired(Context context) {
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .edit().putBoolean(GLOBAL_RESET_REQUIRED, false).commit();
+    }
+
+    /** 开启时把当前账号正在使用的单视频或多视频配置提升为设备级配置。 */
+    public static void setGlobalSharingEnabled(Context context, int account, boolean enabled) {
+        SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        if (!enabled) {
+            String oldGlobalPath = preferences.getString(GLOBAL_VIDEO, null);
+            preferences.edit().putBoolean(GLOBAL_ENABLED, false)
+                    .putBoolean(GLOBAL_RESET_REQUIRED, true)
+                    .remove(GLOBAL_VIDEO).commit();
+            MultiDynamicVideoWallpaperHelper.clearGlobal(context);
+            if (oldGlobalPath != null) {
+                try {
+                    new File(oldGlobalPath).delete();
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+            }
+            notifyAllAccountsWallpaperChanged();
+            return;
+        }
+        preferences.edit().putBoolean(GLOBAL_RESET_REQUIRED, false).commit();
+        String currentPath = preferences.getString(key(account, 0L), null);
+        if (currentPath != null && new File(currentPath).isFile()) {
+            MultiDynamicVideoWallpaperHelper.clearGlobal(context);
+            preferences.edit().putString(GLOBAL_VIDEO, currentPath).putBoolean(GLOBAL_ENABLED, true).commit();
+        } else if (MultiDynamicVideoWallpaperHelper.isEnabledForAccount(context, account)) {
+            preferences.edit().remove(GLOBAL_VIDEO).putBoolean(GLOBAL_ENABLED, true).commit();
+            MultiDynamicVideoWallpaperHelper.copyAccountToGlobal(context, account);
+        } else {
+            preferences.edit().putBoolean(GLOBAL_ENABLED, true).remove(GLOBAL_VIDEO).commit();
+        }
+        notifyAllAccountsWallpaperChanged();
+    }
+
+    private static void notifyAllAccountsWallpaperChanged() {
+        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+            if (UserConfig.isClientActivated(account)) {
+                notifyWallpaperChanged(account, 0L);
+            }
+        }
+    }
+
+    /** 清理设备级单视频，供设备级多视频设置成功后替换。 */
+    public static void clearGlobalSingle(Context context) {
+        SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        String path = preferences.getString(GLOBAL_VIDEO, null);
+        preferences.edit().remove(GLOBAL_VIDEO).commit();
+        if (path != null) {
+            try {
+                new File(path).delete();
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        }
+    }
+
+    /** 共享文件被替换时，保留仍被账号本地配置引用的文件。 */
+    public static boolean isLocalPathReferenced(Context context, String path) {
+        if (path == null) {
+            return false;
+        }
+        for (Object value : context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getAll().values()) {
+            if (path.equals(value)) {
+                return true;
+            }
+        }
+        for (Object value : context.getSharedPreferences("huanghun_multi_dynamic_wallpapers", Context.MODE_PRIVATE).getAll().values()) {
+            if (value instanceof String && ((String) value).contains(path)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String singlePlaybackKey(int account, String path) {
@@ -161,6 +254,23 @@ public final class DynamicVideoWallpaperHelper {
     public static void saveVideo(Context context, int account, long dialogId, String path) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         String oldPath = preferences.getString(key(account, dialogId), null);
+        if (isGlobalSharingEnabled(context)) {
+            String oldGlobalPath = preferences.getString(GLOBAL_VIDEO, null);
+            MultiDynamicVideoWallpaperHelper.clearGlobal(context);
+            preferences.edit().putBoolean(GLOBAL_RESET_REQUIRED, false).putString(GLOBAL_VIDEO, path).commit();
+            notifyAllAccountsWallpaperChanged();
+            if (oldGlobalPath != null && !oldGlobalPath.equals(path) && !isLocalPathReferenced(context, oldGlobalPath)) {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        new File(oldGlobalPath).delete();
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                }, 350L);
+            }
+            return;
+        }
+        preferences.edit().putBoolean(GLOBAL_RESET_REQUIRED, false).commit();
         // 两种动态壁纸模式互斥：重新设置单视频时关闭多轮模式。
         MultiDynamicVideoWallpaperHelper.setEnabled(context, account, false);
         // 使用同步提交确保通知当前聊天页刷新时，新路径已经可被立即读取。
@@ -170,7 +280,7 @@ public final class DynamicVideoWallpaperHelper {
                 .remove(disabledKey(account, dialogId))
                 .commit();
         notifyWallpaperChanged(account, dialogId);
-        if (oldPath != null && !oldPath.equals(path)) {
+        if (oldPath != null && !oldPath.equals(path) && !isLocalPathReferenced(context, oldPath)) {
             try {
                 // 旧播放器会在监听回调中先被释放，再异步删除旧文件，避免替换瞬间仍解码旧视频。
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
@@ -211,6 +321,18 @@ public final class DynamicVideoWallpaperHelper {
 
     public static String getVideoPath(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        if (requiresGlobalWallpaperReset(context)) {
+            return null;
+        }
+        if (isGlobalSharingEnabled(context)) {
+            String globalPath = preferences.getString(GLOBAL_VIDEO, null);
+            if (globalPath != null && new File(globalPath).isFile()) {
+                return globalPath;
+            }
+            if (MultiDynamicVideoWallpaperHelper.isEnabledGlobal(context)) {
+                return null;
+            }
+        }
         String selectedKey = key(account, dialogId);
         // 本会话改用静态壁纸后，不能再回退显示全局默认动态视频。
         if (preferences.getBoolean(disabledKey(account, dialogId), false)) {
@@ -247,6 +369,21 @@ public final class DynamicVideoWallpaperHelper {
 
     public static void clearVideo(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        if (isGlobalSharingEnabled(context)) {
+            String path = preferences.getString(GLOBAL_VIDEO, null);
+            preferences.edit().remove(GLOBAL_VIDEO).commit();
+            notifyAllAccountsWallpaperChanged();
+            if (path != null) {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        new File(path).delete();
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                }, 350L);
+            }
+            return;
+        }
         String path = preferences.getString(key(account, dialogId), null);
         preferences.edit()
                 .remove(key(account, dialogId))

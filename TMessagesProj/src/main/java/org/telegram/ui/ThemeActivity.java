@@ -153,6 +153,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
     @Keep
     private int backgroundRow;
+    private int globalDynamicWallpaperRow;
     private int dynamicVideoWallpaperRow;
     private int deleteDynamicVideoWallpaperRow;
     private int multiDynamicVideoWallpaperRow;
@@ -597,6 +598,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
         textSizeRow = -1;
         backgroundRow = -1;
+        globalDynamicWallpaperRow = -1;
         dynamicVideoWallpaperRow = -1;
         deleteDynamicVideoWallpaperRow = -1;
         multiDynamicVideoWallpaperRow = -1;
@@ -682,6 +684,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             textSizeHeaderRow = rowCount++;
             textSizeRow = rowCount++;
             backgroundRow = rowCount++;
+            globalDynamicWallpaperRow = rowCount++;
             dynamicVideoWallpaperRow = rowCount++;
             deleteDynamicVideoWallpaperRow = rowCount++;
             multiDynamicVideoWallpaperRow = rowCount++;
@@ -1319,7 +1322,20 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         actionBar.setAdaptiveBackground(listView);
         listView.setOnItemClickListener((view, position, x, y) -> {
-            if (position == enableAnimationsRow) {
+            if (position == globalDynamicWallpaperRow) {
+                boolean enabled = DynamicVideoWallpaperHelper.isGlobalSharingEnabled(ApplicationLoader.applicationContext);
+                DynamicVideoWallpaperHelper.setGlobalSharingEnabled(ApplicationLoader.applicationContext, currentAccount, !enabled);
+                if (view instanceof TextCheckCell) {
+                    ((TextCheckCell) view).setChecked(!enabled);
+                }
+                if (listAdapter != null) {
+                    listAdapter.notifyItemChanged(dynamicVideoWallpaperRow);
+                    listAdapter.notifyItemChanged(deleteDynamicVideoWallpaperRow);
+                    listAdapter.notifyItemChanged(multiDynamicVideoWallpaperRow);
+                    listAdapter.notifyItemChanged(multiDynamicModeRow);
+                    listAdapter.notifyItemChanged(multiDynamicViewRow);
+                }
+            } else if (position == enableAnimationsRow) {
                 SharedPreferences preferences = MessagesController.getGlobalMainSettings();
                 boolean animations = preferences.getBoolean("view_animations", true);
                 SharedPreferences.Editor editor = preferences.edit();
@@ -2919,7 +2935,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 }
                 case TYPE_TEXT_CHECK: {
                     TextCheckCell textCheckCell = (TextCheckCell) holder.itemView;
-                    if (position == scheduleLocationRow) {
+                    if (position == globalDynamicWallpaperRow) {
+                        textCheckCell.setTextAndValueAndCheck("全设备共用", "应用到当前客户端中的所有账号", DynamicVideoWallpaperHelper.isGlobalSharingEnabled(ApplicationLoader.applicationContext), true, true);
+                    } else if (position == scheduleLocationRow) {
                         textCheckCell.setTextAndCheck(getString("AutoNightLocation", R.string.AutoNightLocation), Theme.autoNightScheduleByLocation, true);
                     } else if (position == enableAnimationsRow) {
                         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
@@ -3110,7 +3128,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_HEADER;
             } else if (position == automaticBrightnessRow) {
                 return TYPE_BRIGHTNESS;
-            } else if (position == scheduleLocationRow || position == sendByEnterRow ||
+            } else if (position == globalDynamicWallpaperRow || position == scheduleLocationRow || position == sendByEnterRow ||
                     position == raiseToSpeakRow || position == raiseToListenRow || position == pauseOnRecordRow ||
                     position == directShareRow || position == chatBlurRow || position == pauseOnMediaRow || position == nextMediaTapRow || position == sensitiveContentRow) {
                 return TYPE_TEXT_CHECK;
