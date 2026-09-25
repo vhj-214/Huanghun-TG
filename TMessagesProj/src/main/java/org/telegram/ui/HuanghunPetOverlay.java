@@ -11,6 +11,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
+import android.util.LruCache;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -66,6 +67,21 @@ public final class HuanghunPetOverlay extends View {
     private final Paint bubblePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bubbleTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF petRect = new RectF();
+    // Keep a small bounded cache: decoding every frame on the UI thread was the
+    // main source of jank when the pet changed actions or a video wallpaper ran.
+    private final LruCache<String, Bitmap> bitmapCache = new LruCache<String, Bitmap>(8 * 1024) {
+        @Override
+        protected int sizeOf(String key, Bitmap value) {
+            return Math.max(1, value.getByteCount() / 1024);
+        }
+
+        @Override
+        protected void entryRemoved(boolean evicted, String key, Bitmap oldValue, Bitmap newValue) {
+            if (evicted && oldValue != null && oldValue != newValue && !oldValue.isRecycled()) {
+                oldValue.recycle();
+            }
+        }
+    };
     private final HashMap<String, AnimationState> states = new HashMap<>();
     private final HashMap<String, ArrayList<String>> dialogs = new HashMap<>();
     private final ArrayList<JSONObject> timeEvents = new ArrayList<>();
@@ -721,6 +737,11 @@ public final class HuanghunPetOverlay extends View {
     private Bitmap decodeBitmap(File file) {
         if (file == null || !file.isFile()) return null;
         try {
+            String cacheKey = file.getCanonicalPath();
+            Bitmap cached = bitmapCache.get(cacheKey);
+            if (cached != null && !cached.isRecycled()) {
+                return cached;
+            }
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
             BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
@@ -732,7 +753,11 @@ public final class HuanghunPetOverlay extends View {
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inSampleSize = sample;
             options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-            return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            Bitmap decoded = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            if (decoded != null) {
+                bitmapCache.put(cacheKey, decoded);
+            }
+            return decoded;
         } catch (OutOfMemoryError error) {
             FileLog.e(error);
             return null;
@@ -757,14 +782,9 @@ public final class HuanghunPetOverlay extends View {
     }
 
     private void recycleCurrentBitmap() {
-        if (currentState != null) {
-            for (AnimationFrame frame : currentState.frames) {
-                if (frame.bitmap != null && !frame.bitmap.isRecycled()) {
-                    frame.bitmap.recycle();
-                }
-                frame.bitmap = null;
-            }
-        }
+        // Do not recycle the whole state here. Animation aliases share frames,
+        // and eager recycling caused needless decode/recycle churn on every
+        // interaction. The bounded cache owns bitmap lifetime now.
         currentBitmap = null;
     }
 
@@ -772,12 +792,10 @@ public final class HuanghunPetOverlay extends View {
         for (AnimationState state : states.values()) {
             if (state == null) continue;
             for (AnimationFrame frame : state.frames) {
-                if (frame.bitmap != null && !frame.bitmap.isRecycled()) {
-                    frame.bitmap.recycle();
-                }
                 frame.bitmap = null;
             }
         }
+        bitmapCache.evictAll();
         currentBitmap = null;
     }
 

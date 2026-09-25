@@ -27,9 +27,11 @@ public final class HuanghunPetHelper {
     private static final String ROOT = "huanghun_pets";
     private static final String INSTALLED = "installed";
     private static final String PREFS = "huanghun_pets";
-    private static final long MAX_ARCHIVE_BYTES = 1024L * 1024L * 1024L;
-    private static final long MAX_UNPACKED_BYTES = 1024L * 1024L * 1024L;
-    private static final int MAX_FILES = 1024;
+    // Pet packages contain small images and metadata; a 1 GB allowance made a
+    // malformed archive an avoidable storage and decompression DoS risk.
+    private static final long MAX_ARCHIVE_BYTES = 128L * 1024L * 1024L;
+    private static final long MAX_UNPACKED_BYTES = 256L * 1024L * 1024L;
+    private static final int MAX_FILES = 512;
     private static final String[] ALLOWED = {".png", ".webp", ".jpg", ".jpeg", ".ogg", ".mp3", ".wav", ".json", ".txt", ".md", ".zip"};
     private static final String[] FORBIDDEN = {".exe", ".apk", ".aab", ".dll", ".jar", ".so", ".bat", ".cmd", ".sh", ".ps1", ".js", ".lua", ".py", ".class"};
 
@@ -363,7 +365,7 @@ public final class HuanghunPetHelper {
                     int n;
                     while ((n = zip.read(buffer)) != -1) {
                         total += n;
-                        if (total > MAX_UNPACKED_BYTES) throw new Exception("桌宠包解压后超过 1 GB");
+                        if (total > MAX_UNPACKED_BYTES) throw new Exception("桌宠包解压后超过 256 MB");
                         os.write(buffer, 0, n);
                     }
                 }
@@ -395,7 +397,7 @@ public final class HuanghunPetHelper {
         private final long limit;
         private long count;
         LimitedInputStream(InputStream input, long limit) { super(input); this.limit = limit; }
-        @Override public int read() throws java.io.IOException { int value = super.read(); if (value >= 0 && ++count > limit) throw new java.io.IOException("桌宠包压缩文件超过 1 GB"); return value; }
-        @Override public int read(byte[] buffer, int offset, int length) throws java.io.IOException { int value = super.read(buffer, offset, length); if (value > 0 && (count += value) > limit) throw new java.io.IOException("桌宠包压缩文件超过 1 GB"); return value; }
+        @Override public int read() throws java.io.IOException { int value = super.read(); if (value >= 0 && ++count > limit) throw new java.io.IOException("桌宠包压缩文件超过 128 MB"); return value; }
+        @Override public int read(byte[] buffer, int offset, int length) throws java.io.IOException { int value = super.read(buffer, offset, length); if (value > 0 && (count += value) > limit) throw new java.io.IOException("桌宠包压缩文件超过 128 MB"); return value; }
     }
 }

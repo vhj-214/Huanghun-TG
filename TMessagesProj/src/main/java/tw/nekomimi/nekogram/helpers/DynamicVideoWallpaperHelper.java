@@ -97,13 +97,7 @@ public final class DynamicVideoWallpaperHelper {
                     .putBoolean(GLOBAL_RESET_REQUIRED, true)
                     .remove(GLOBAL_VIDEO).commit();
             MultiDynamicVideoWallpaperHelper.clearGlobal(context);
-            if (oldGlobalPath != null) {
-                try {
-                    new File(oldGlobalPath).delete();
-                } catch (Throwable e) {
-                    FileLog.e(e);
-                }
-            }
+            deleteIfUnreferenced(context, oldGlobalPath);
             notifyAllAccountsWallpaperChanged();
             return;
         }
@@ -135,11 +129,7 @@ public final class DynamicVideoWallpaperHelper {
         String path = preferences.getString(GLOBAL_VIDEO, null);
         preferences.edit().remove(GLOBAL_VIDEO).commit();
         if (path != null) {
-            try {
-                new File(path).delete();
-            } catch (Throwable e) {
-                FileLog.e(e);
-            }
+            deleteIfUnreferenced(context, path);
         }
     }
 
@@ -159,6 +149,18 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
         return false;
+    }
+
+    private static void deleteIfUnreferenced(Context context, String path) {
+        if (path == null || isLocalPathReferenced(context, path)) {
+            return;
+        }
+        try {
+            //noinspection ResultOfMethodCallIgnored
+            new File(path).delete();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
     }
 
     private static String singlePlaybackKey(int account, String path) {
@@ -259,13 +261,9 @@ public final class DynamicVideoWallpaperHelper {
             MultiDynamicVideoWallpaperHelper.clearGlobal(context);
             preferences.edit().putBoolean(GLOBAL_RESET_REQUIRED, false).putString(GLOBAL_VIDEO, path).commit();
             notifyAllAccountsWallpaperChanged();
-            if (oldGlobalPath != null && !oldGlobalPath.equals(path) && !isLocalPathReferenced(context, oldGlobalPath)) {
+            if (oldGlobalPath != null && !oldGlobalPath.equals(path)) {
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    try {
-                        new File(oldGlobalPath).delete();
-                    } catch (Throwable e) {
-                        FileLog.e(e);
-                    }
+                    deleteIfUnreferenced(context, oldGlobalPath);
                 }, 350L);
             }
             return;
@@ -280,16 +278,11 @@ public final class DynamicVideoWallpaperHelper {
                 .remove(disabledKey(account, dialogId))
                 .commit();
         notifyWallpaperChanged(account, dialogId);
-        if (oldPath != null && !oldPath.equals(path) && !isLocalPathReferenced(context, oldPath)) {
+        if (oldPath != null && !oldPath.equals(path)) {
             try {
                 // 旧播放器会在监听回调中先被释放，再异步删除旧文件，避免替换瞬间仍解码旧视频。
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                    try {
-                        //noinspection ResultOfMethodCallIgnored
-                        new File(oldPath).delete();
-                    } catch (Throwable e) {
-                        FileLog.e(e);
-                    }
+                    deleteIfUnreferenced(context, oldPath);
                 }, 350L);
             } catch (Throwable e) {
                 FileLog.e(e);
@@ -374,13 +367,7 @@ public final class DynamicVideoWallpaperHelper {
             preferences.edit().remove(GLOBAL_VIDEO).commit();
             notifyAllAccountsWallpaperChanged();
             if (path != null) {
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    try {
-                        new File(path).delete();
-                    } catch (Throwable e) {
-                        FileLog.e(e);
-                    }
-                }, 350L);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> deleteIfUnreferenced(context, path), 350L);
             }
             return;
         }
@@ -391,12 +378,7 @@ public final class DynamicVideoWallpaperHelper {
                 .commit();
         notifyWallpaperChanged(account, dialogId);
         if (path != null) {
-            try {
-                //noinspection ResultOfMethodCallIgnored
-                new File(path).delete();
-            } catch (Throwable e) {
-                FileLog.e(e);
-            }
+            deleteIfUnreferenced(context, path);
         }
     }
 
