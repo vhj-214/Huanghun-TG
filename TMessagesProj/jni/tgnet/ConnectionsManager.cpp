@@ -50,6 +50,26 @@ namespace {
     std::array<std::unique_ptr<ConnectionsManager>, MAX_ACCOUNT_COUNT> connectionsManagerInstances;
     std::mutex connectionsManagerInstancesMutex;
     std::function<ConnectiosManagerDelegate *()> connectionsManagerDelegateFactory;
+
+    // Only these errors prove that the account's permanent authorization is no
+    // longer usable. Other 401 errors can be caused by a temporary DC/PFS
+    // problem and must not clear the locally persisted account.
+    bool isPermanentAuthorizationFailure(const std::string &error) {
+        static const char *const permanentErrors[] = {
+                "AUTH_KEY_UNREGISTERED",
+                "AUTH_KEY_INVALID",
+                "SESSION_REVOKED",
+                "SESSION_EXPIRED",
+                "USER_DEACTIVATED",
+                "USER_DEACTIVATED_BAN"
+        };
+        for (const char *value : permanentErrors) {
+            if (error.find(value) != std::string::npos) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 ConnectionsManager::ConnectionsManager(int32_t instance) {
@@ -1439,14 +1459,14 @@ void ConnectionsManager::processServerResponse(TLObject *message, int64_t messag
                                     request->startTimeMillis = 0;
                                     request->requestFlags |= RequestFlagResendAfter;
                                 } else if (error->error_message.find(bindFailed) != std::string::npos && typeid(*request->rawRequest) == typeid(TL_auth_bindTempAuthKey)) {
-                                    int datacenterId;
-                                    if (delegate != nullptr && getDatacenterWithId(DEFAULT_DATACENTER_ID) == datacenter) {
-                                        delegate->onLogout(instanceNum);
-                                        datacenterId = -1;
-                                    } else {
-                                        datacenterId = datacenter->getDatacenterId();
-                                    }
-                                    cleanUp(true, datacenterId);
+                                    // ENCRYPTED_MESSAGE_INVALID here belongs to the
+                                    // temporary PFS key binding. It does not revoke
+                                    // the permanent login key. The old code called
+                                    // onLogout() and cleanUp(true), which erased the
+                                    // account after a recoverable temp-key failure.
+                                    // Keep the permanent key and rebuild only this
+                                    // DC's temporary connection state.
+                                    cleanUp(false, datacenter->getDatacenterId());
                                 }
                             }
                         }
@@ -1516,7 +1536,24 @@ void ConnectionsManager::processServerResponse(TLObject *message, int64_t messag
                             if (implicitError->text.find(sessionPasswordNeeded) != std::string::npos) {
                                 //ignore this error
                             } else if (datacenter->getDatacenterId() == currentDatacenterId || datacenter->getDatacenterId() == movingToDatacenterId) {
-                                if (request->connectionType & ConnectionTypeGeneric && currentUserId) {
+                                // Do not interpret every 401 as a revoked login.
+                                // In particular, a transient authorization/PFS
+                                // error used to clear UserConfig and show the
+                                // destructive "Log out" dialog even though the
+                                // server-side device session was still present.
+                                bool permanentAuthorizationFailure = isPermanentAuthorizationFailure(implicitError->text);
+                                if (permanentAuthorizationFailure) {
+                                    if (LOGS_ENABLED) DEBUG_E("permanent authorization failure: %s", implicitError->text.c_str());
+                                } else {
+                                    if (LOGS_ENABLED) DEBUG_W("temporary authorization error; keeping account: %s", implicitError->text.c_str());
+                                    datacenter->authorized = false;
+                                    saveConfig();
+                                    discardResponse = true;
+                                    request->startTime = 0;
+                                    request->startTimeMillis = 0;
+                                    request->minStartTime = (int32_t) (getCurrentTimeMonotonicMillis() / 1000 + 2);
+                                }
+                                if (permanentAuthorizationFailure && request->connectionType & ConnectionTypeGeneric && currentUserId) {
                                     currentUserId = 0;
                                     currentUserPremium = false;
                                     if (delegate != nullptr) {
