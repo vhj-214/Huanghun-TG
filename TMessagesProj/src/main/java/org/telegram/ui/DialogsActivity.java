@@ -3218,6 +3218,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     private void refreshDialogsDynamicVideoWallpaper() {
         final int generation = ++dialogsDynamicVideoWallpaperGeneration;
+        // Preference/theme notifications can be emitted for unrelated UI
+        // changes. Keep the existing decoder when the effective source is the
+        // same; recreating MediaPlayer here caused visible stutter and reset
+        // the current video before it reached its natural end.
+        if (dialogsDynamicVideoWallpaperPlayer != null
+                && dialogsDynamicVideoWallpaperPlayer.matchesCurrentSource(wallpaperRootContext(), currentAccount, 0L)) {
+            return;
+        }
         if (dialogsDynamicVideoWallpaperPlayer != null) {
             dialogsDynamicVideoWallpaperPlayer.release();
             dialogsDynamicVideoWallpaperPlayer = null;
@@ -3241,6 +3249,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 player.release();
             }
         });
+    }
+
+    private Context wallpaperRootContext() {
+        return fragmentView == null ? null : fragmentView.getContext();
     }
 
     @Override

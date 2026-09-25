@@ -175,6 +175,17 @@ public final class DynamicVideoWallpaperHelper {
         return builder.toString();
     }
 
+    private static String sourceSignature(Context context, int account, long dialogId) {
+        if (context == null) return null;
+        if (MultiDynamicVideoWallpaperHelper.isAnyEnabled(context, account)) {
+            ArrayList<String> paths = MultiDynamicVideoWallpaperHelper.getVideoPaths(context, account);
+            if (paths.isEmpty()) return null;
+            return playlistPlaybackKey(account, paths, MultiDynamicVideoWallpaperHelper.getMode(context, account));
+        }
+        String path = getVideoPath(context, account, dialogId);
+        return path == null ? null : singlePlaybackKey(account, path);
+    }
+
     private static PlaybackState readPlaybackState(String playbackKey) {
         synchronized (PLAYBACK_STATE_LOCK) {
             return PLAYBACK_STATES.get(playbackKey);
@@ -488,6 +499,7 @@ public final class DynamicVideoWallpaperHelper {
         private final boolean playlistMode;
         private final int playlistModeValue;
         private final String playbackKey;
+        private String sourceSignature;
         private int playlistIndex;
         private int resumePositionMs;
         private MediaPlayer mediaPlayer;
@@ -521,6 +533,7 @@ public final class DynamicVideoWallpaperHelper {
             this.playlistMode = playlist != null && !playlist.isEmpty();
             this.playlistModeValue = mode;
             this.playbackKey = playbackKey;
+            this.sourceSignature = playbackKey;
             PlaybackState state = getPlaybackState();
             if (state != null) {
                 resumePositionMs = state.positionMs;
@@ -538,6 +551,11 @@ public final class DynamicVideoWallpaperHelper {
                     }
                 }
             }
+        }
+
+        public boolean matchesCurrentSource(Context context, int account, long dialogId) {
+            String current = sourceSignature(context, account, dialogId);
+            return sourceSignature != null && sourceSignature.equals(current);
         }
 
         private void start() {
