@@ -167,7 +167,7 @@ public final class MultiDynamicVideoWallpaperHelper {
         prefs(c).edit().putBoolean(key(KEY_ENABLED, storageAccount), enabled).commit();
         if (DynamicVideoWallpaperHelper.isGlobalSharingEnabled(c)) {
             for (int i = 0; i < org.telegram.messenger.UserConfig.MAX_ACCOUNT_COUNT; i++) {
-                if (org.telegram.messenger.UserConfig.isClientActivated(i)) {
+                if (org.telegram.messenger.UserConfig.getInstance(i).isClientActivated()) {
                     DynamicVideoWallpaperHelper.notifyWallpaperChanged(i, 0L);
                 }
             }

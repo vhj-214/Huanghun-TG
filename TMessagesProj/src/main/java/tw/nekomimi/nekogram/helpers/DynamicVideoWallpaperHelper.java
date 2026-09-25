@@ -123,7 +123,7 @@ public final class DynamicVideoWallpaperHelper {
 
     private static void notifyAllAccountsWallpaperChanged() {
         for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
-            if (UserConfig.isClientActivated(account)) {
+            if (UserConfig.getInstance(account).isClientActivated()) {
                 notifyWallpaperChanged(account, 0L);
             }
         }
