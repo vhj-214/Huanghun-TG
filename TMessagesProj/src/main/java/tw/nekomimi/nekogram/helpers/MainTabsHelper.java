@@ -2,6 +2,7 @@ package tw.nekomimi.nekogram.helpers;
 
 import org.telegram.ui.MainTabsActivity;
 
+import tw.nekomimi.nekogram.NekoConfig;
 import xyz.nextalone.nagram.NaConfig;
 
 public final class MainTabsHelper {
@@ -32,7 +33,11 @@ public final class MainTabsHelper {
     }
 
     public static boolean isContactsTabHidden() {
-        return NaConfig.INSTANCE.getMainTabsHideContacts().Bool();
+        return NaConfig.INSTANCE.getMainTabsHideContacts().Bool() && !NekoConfig.huanghunSpecialAttentionEnabled.Bool();
+    }
+
+    public static boolean isSpecialAttentionEnabled() {
+        return NekoConfig.huanghunSpecialAttentionEnabled.Bool();
     }
 
     public static int getChatsPosition() {

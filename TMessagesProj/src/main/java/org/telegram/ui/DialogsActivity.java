@@ -258,6 +258,7 @@ import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.SearchViewPager;
 import org.telegram.ui.Components.ShareTopView;
 import org.telegram.ui.Components.SharedMediaLayout;
+import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.SimpleThemeDescription;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.StickersAlert;
@@ -293,6 +294,7 @@ import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunSpecialAttentionHelper;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
@@ -645,6 +647,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private FragmentContextView fragmentContextView;
     private FrameLayout fragmentContextViewWrapper;
     private DialogsActivityTopPanelLayout topPanelLayout;
+    private TextSettingsCell specialAttentionFilterCell;
     private DialogsActivityTopBubblesFadeView topBubblesFadeView;
     private ActiveGiftAuctionsHintCell activeGiftAuctionsHintCell;
     private DialogsHintCell dialogsHintCell;
@@ -686,6 +689,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private boolean searching;
     private boolean searchWas;
     private boolean onlySelect;
+    private boolean specialAttentionList;
     private boolean canSelectTopics;
     private String searchString;
     private String initialSearchString;
@@ -726,6 +730,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private boolean canDeletePsaSelected;
 
     private int folderId;
+    private int specialAttentionFilter;
 
     private DialogsActivity parentForwardDialogFragment;
     private long communityId;
@@ -746,6 +751,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final static int add_to_folder = 109;
     private final static int remove_from_folder = 110;
     private final static int community_ungroup = 111;
+    private final static int special_attention = 112;
 
     private final static int select_all = 1000;
 
@@ -2914,6 +2920,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             checkCanWrite = arguments.getBoolean("checkCanWrite", true);
             afterSignup = arguments.getBoolean("afterSignup", false);
             folderId = arguments.getInt("folderId", 0);
+            specialAttentionList = arguments.getBoolean("huanghunSpecialAttentionList", false);
+            specialAttentionFilter = HuanghunSpecialAttentionHelper.getFilter(currentAccount);
             communityId = arguments.getLong("community_id", 0);
             if (communityId != 0) {
                 community = getMessagesController().getChat(communityId);
@@ -2967,6 +2975,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             observersGroup
                 .add(NotificationCenter.dialogsNeedReload)
+                .add(NotificationCenter.huanghunSpecialAttentionChanged)
                 .add(NotificationCenter.blockedUsersDidLoad)
                 .add(NotificationCenter.huanghunMutualGroupMessageBlockChanged)
                 .add(NotificationCenter.dialogFiltersUpdated)
@@ -3691,7 +3700,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             if (searchString != null || folderId != 0 || communityId != 0) {
                 actionBar.setBackButtonDrawable(backDrawable = new BackDrawable(false));
             }
-            if (folderId != 0) {
+            if (specialAttentionList) {
+                actionBar.setTitle(actionBarTitleNax = "特别关心");
+            } else if (folderId != 0) {
                 actionBar.setTitle(actionBarTitleNax = getString(R.string.ArchivedChats));
             } else if (communityId != 0) {
                 actionBar.setTitle(DialogObject.getName(community));
@@ -4220,6 +4231,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         hideActionMode(true);
                     });
                     showDialog(sheet);
+                } else if (id == special_attention) {
+                    boolean allMarked = !selectedDialogs.isEmpty();
+                    java.util.Set<Long> markedDialogs = HuanghunSpecialAttentionHelper.getDialogs(currentAccount);
+                    for (long dialogId : selectedDialogs) {
+                        if (!markedDialogs.contains(dialogId)) {
+                            allMarked = false;
+                            break;
+                        }
+                    }
+                    HuanghunSpecialAttentionHelper.setMarked(new ArrayList<>(selectedDialogs), !allMarked, currentAccount);
+                    hideActionMode(true);
                 } else if (id == remove_from_folder) {
                     MessagesController.DialogFilter filter = getMessagesController().getDialogFilters().get(viewPages[0].selectedType);
                     ArrayList<Long> neverShow = FiltersListBottomSheet.getDialogsCount(DialogsActivity.this, filter, selectedDialogs, false, false);
@@ -5098,6 +5120,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             topPanelLayout.setPadding(dp(11), dp(21), dp(11), dp(21));
             topPanelLayout.setBlurredBackground(topPanelLayoutBackground);
             topPanelLayout.setDefaultRadiusDp(communityId != 0 ? 18 : 24);
+            if (specialAttentionList) {
+                specialAttentionFilterCell = new TextSettingsCell(context, resourceProvider);
+                specialAttentionFilterCell.setBackground(Theme.getSelectorDrawable(false));
+                updateSpecialAttentionFilterCell();
+                specialAttentionFilterCell.setOnClickListener(v -> showSpecialAttentionFilters(specialAttentionFilterCell));
+                topPanelLayout.addView(specialAttentionFilterCell);
+                topPanelLayout.setPriority(specialAttentionFilterCell, 6);
+                topPanelLayout.setDebugName(specialAttentionFilterCell, "special attention type filter");
+                topPanelLayout.setViewVisible(specialAttentionFilterCell, true, false);
+            }
 
             fragmentLocationContextViewWrapper = new FrameLayout(context);
             topPanelLayout.addView(fragmentLocationContextViewWrapper);
@@ -7038,6 +7070,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         archiveItem = otherItem.addSubItem(archive, R.drawable.msg_archive, LocaleController.getString(R.string.Archive));
         pin2Item = otherItem.addSubItem(pin2, R.drawable.msg_pin, LocaleController.getString(R.string.DialogPin));
         addToFolderItem = otherItem.addSubItem(add_to_folder, R.drawable.msg_addfolder, LocaleController.getString(R.string.FilterAddTo));
+        java.util.Set<Long> markedSpecialAttentionDialogs = HuanghunSpecialAttentionHelper.getDialogs(currentAccount);
+        boolean allSelectedAreSpecial = !selectedDialogs.isEmpty();
+        for (long dialogId : selectedDialogs) {
+            if (!markedSpecialAttentionDialogs.contains(dialogId)) {
+                allSelectedAreSpecial = false;
+                break;
+            }
+        }
+        otherItem.addSubItem(special_attention, R.drawable.baseline_favorite_20, allSelectedAreSpecial ? "取消特别关心" : "设置为特别关心");
         removeFromFolderItem = otherItem.addSubItem(remove_from_folder, R.drawable.msg_removefolder, LocaleController.getString(R.string.FilterRemoveFrom));
         readItem = otherItem.addSubItem(read, R.drawable.msg_markread, LocaleController.getString(R.string.MarkAsRead));
         clearItem = otherItem.addSubItem(clear, R.drawable.msg_clear, LocaleController.getString(R.string.ClearHistory));
@@ -7144,6 +7185,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     private void updateFilterTabs(boolean force, boolean animated) {
         if (filterTabsView == null || inPreviewMode || searchIsShowed || (rightSlidingDialogContainer != null && rightSlidingDialogContainer.hasFragment())) {
+            return;
+        }
+        if (specialAttentionList) {
+            canShowFilterTabsView = false;
+            updateFilterTabsVisibility(animated);
+            return;
+        }
+        if (specialAttentionList) {
+            canShowFilterTabsView = false;
+            updateFilterTabsVisibility(animated);
             return;
         }
         if (filterOptions != null) {
@@ -10994,7 +11045,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.huanghunMutualGroupMessageBlockChanged || id == NotificationCenter.blockedUsersDidLoad) {
+        if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
+            specialAttentionFilter = HuanghunSpecialAttentionHelper.getFilter(currentAccount);
+            updateSpecialAttentionFilterCell();
+            if (viewPages != null && !dialogsListFrozen) {
+                for (ViewPage page : viewPages) {
+                    page.dialogsAdapter.notifyDataSetChanged();
+                }
+            }
+        } else if (id == NotificationCenter.huanghunMutualGroupMessageBlockChanged || id == NotificationCenter.blockedUsersDidLoad) {
             if (viewPages != null && !dialogsListFrozen) {
                 for (ViewPage page : viewPages) {
                     page.dialogsAdapter.notifyDataSetChanged();
@@ -11485,6 +11544,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return frozenDialogsList;
         }
         MessagesController messagesController = AccountInstance.getInstance(currentAccount).getMessagesController();
+        if (specialAttentionList && !onlySelect) {
+            ArrayList<TLRPC.Dialog> filteredDialogs = new ArrayList<>();
+            java.util.Set<Long> markedDialogs = HuanghunSpecialAttentionHelper.getDialogs(currentAccount);
+            int filter = specialAttentionFilter;
+            if (filter == 0) {
+                filter = HuanghunSpecialAttentionHelper.getFilter(currentAccount);
+            }
+            for (TLRPC.Dialog dialog : messagesController.getAllDialogs()) {
+                if (markedDialogs.contains(dialog.id) && matchesSpecialAttentionFilter(dialog.id, filter, messagesController)) {
+                    filteredDialogs.add(dialog);
+                }
+            }
+            return filteredDialogs;
+        }
         if (dialogsType == DIALOGS_TYPE_DEFAULT) {
             return messagesController.getDialogs(folderId);
         } else if (dialogsType == DIALOGS_TYPE_WIDGET || dialogsType == DIALOGS_TYPE_IMPORT_HISTORY) {
@@ -11621,6 +11694,104 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return dialogs;
         }
         return new ArrayList<>();
+    }
+
+    private boolean matchesSpecialAttentionFilter(long dialogId, int filter, MessagesController messagesController) {
+        if (filter == 0 || (filter & HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES) == HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES) {
+            return true;
+        }
+        if (DialogObject.isChatDialog(dialogId)) {
+            TLRPC.Chat chat = messagesController.getChat(-dialogId);
+            boolean isChannel = ChatObject.isChannelAndNotMegaGroup(chat);
+            return isChannel
+                    ? (filter & HuanghunSpecialAttentionHelper.FILTER_CHANNELS) != 0
+                    : (filter & HuanghunSpecialAttentionHelper.FILTER_GROUPS) != 0;
+        }
+        TLRPC.User user = null;
+        if (DialogObject.isEncryptedDialog(dialogId)) {
+            TLRPC.EncryptedChat encryptedChat = messagesController.getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
+            if (encryptedChat != null) {
+                user = messagesController.getUser(encryptedChat.user_id);
+            }
+        } else if (DialogObject.isUserDialog(dialogId)) {
+            user = messagesController.getUser(dialogId);
+        }
+        if (user == null) {
+            return false;
+        }
+        if (user.bot) {
+            return (filter & HuanghunSpecialAttentionHelper.FILTER_BOTS) != 0;
+        }
+        return UserObject.isContact(user)
+                ? (filter & HuanghunSpecialAttentionHelper.FILTER_CONTACTS) != 0
+                : (filter & HuanghunSpecialAttentionHelper.FILTER_NON_CONTACTS) != 0;
+    }
+
+    private void updateSpecialAttentionFilterCell() {
+        if (specialAttentionFilterCell != null) {
+            specialAttentionFilterCell.setTextAndValue("按类型筛选", HuanghunSpecialAttentionHelper.getFilterTitle(specialAttentionFilter), false);
+        }
+    }
+
+    private void showSpecialAttentionFilters(View anchor) {
+        if (getParentActivity() == null || anchor == null) {
+            return;
+        }
+        ItemOptions options = ItemOptions.makeOptions(this, anchor).setDismissWithButtons(false);
+        ArrayList<ActionBarMenuSubItem> items = new ArrayList<>();
+        options.addChecked(specialAttentionFilter == 0 || (specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES) == HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES,
+                "全部", () -> setSpecialAttentionFilter(HuanghunSpecialAttentionHelper.FILTER_ALL));
+        items.add(options.subItem);
+        options.addChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_GROUPS) != 0,
+                "群", () -> toggleSpecialAttentionFilter(HuanghunSpecialAttentionHelper.FILTER_GROUPS));
+        items.add(options.subItem);
+        options.addChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_CHANNELS) != 0,
+                "频道", () -> toggleSpecialAttentionFilter(HuanghunSpecialAttentionHelper.FILTER_CHANNELS));
+        items.add(options.subItem);
+        options.addChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_BOTS) != 0,
+                "机器人", () -> toggleSpecialAttentionFilter(HuanghunSpecialAttentionHelper.FILTER_BOTS));
+        items.add(options.subItem);
+        options.addChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_NON_CONTACTS) != 0,
+                "非联系人", () -> toggleSpecialAttentionFilter(HuanghunSpecialAttentionHelper.FILTER_NON_CONTACTS));
+        items.add(options.subItem);
+        options.addChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_CONTACTS) != 0,
+                "联系人", () -> toggleSpecialAttentionFilter(HuanghunSpecialAttentionHelper.FILTER_CONTACTS));
+        items.add(options.subItem);
+        specialAttentionFilterItems = items;
+        options.show();
+    }
+
+    private ArrayList<ActionBarMenuSubItem> specialAttentionFilterItems;
+
+    private void updateSpecialAttentionFilterItems() {
+        if (specialAttentionFilterItems == null) {
+            return;
+        }
+        specialAttentionFilterItems.get(0).setChecked(specialAttentionFilter == 0 || (specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES) == HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES);
+        specialAttentionFilterItems.get(1).setChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_GROUPS) != 0);
+        specialAttentionFilterItems.get(2).setChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_CHANNELS) != 0);
+        specialAttentionFilterItems.get(3).setChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_BOTS) != 0);
+        specialAttentionFilterItems.get(4).setChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_NON_CONTACTS) != 0);
+        specialAttentionFilterItems.get(5).setChecked((specialAttentionFilter & HuanghunSpecialAttentionHelper.FILTER_CONTACTS) != 0);
+    }
+
+    private void toggleSpecialAttentionFilter(int type) {
+        int updatedFilter = specialAttentionFilter ^ type;
+        if (updatedFilter == HuanghunSpecialAttentionHelper.FILTER_ALL_TYPES) {
+            updatedFilter = HuanghunSpecialAttentionHelper.FILTER_ALL;
+        }
+        setSpecialAttentionFilter(updatedFilter);
+        updateSpecialAttentionFilterItems();
+    }
+
+    private void setSpecialAttentionFilter(int filter) {
+        specialAttentionFilter = filter;
+        HuanghunSpecialAttentionHelper.setFilter(currentAccount, filter);
+        updateSpecialAttentionFilterCell();
+        updateSpecialAttentionFilterItems();
+        if (viewPages != null && viewPages[0] != null && viewPages[0].dialogsAdapter != null) {
+            viewPages[0].dialogsAdapter.notifyDataSetChanged();
+        }
     }
 
     private boolean meetRequestPeerRequirements(TLRPC.User user) {

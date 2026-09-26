@@ -72,6 +72,8 @@ public class NotificationCenter {
     public static final int blockedUsersDidLoad = totalEvents++;
     // Huanghun: 切换本地共同群消息屏蔽开关后刷新当前账户的聊天列表。
     public static final int huanghunMutualGroupMessageBlockChanged = totalEvents++;
+    // Huanghun: 切换特别关心专区或修改本机特别关心名单后刷新相关页面。
+    public static final int huanghunSpecialAttentionChanged = totalEvents++;
     public static final int openedChatChanged = totalEvents++;
     public static final int didCreatedNewDeleteTask = totalEvents++;
     public static final int mainUserInfoChanged = totalEvents++;

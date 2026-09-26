@@ -140,7 +140,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private MainTabsLayout tabsView;
     private BlurredBackgroundDrawable tabsViewBackground;
     private View fadeView;
-    private boolean lastHideContacts = NaConfig.INSTANCE.getMainTabsHideContacts().Bool();
+    private boolean lastHideContacts = MainTabsHelper.isContactsTabHidden();
+    private boolean lastSpecialAttentionEnabled = MainTabsHelper.isSpecialAttentionEnabled();
 
     public MainTabsActivity() {
         super();
@@ -302,7 +303,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private void checkContactsTabBadge() {
-        if (tabsView != null && tabs[INDEX_CONTACTS] != null) {
+        if (tabsView != null && tabs[INDEX_CONTACTS] != null && !MainTabsHelper.isSpecialAttentionEnabled()) {
             final boolean hasPermission = Build.VERSION.SDK_INT >= 23 && ContactsController.hasContactsPermission();
             if (hasPermission) {
                 MessagesController.getGlobalNotificationsSettings().edit().putBoolean("askAboutContacts2", true).apply();
@@ -311,6 +312,30 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 tabs[INDEX_CONTACTS].setCounter("!", true, true);
             } else {
                 tabs[INDEX_CONTACTS].setCounter(null, true, true);
+            }
+        }
+    }
+
+    private void updateSpecialAttentionTab() {
+        if (tabs == null || tabs[INDEX_CONTACTS] == null) {
+            return;
+        }
+        if (MainTabsHelper.isSpecialAttentionEnabled()) {
+            tabs[INDEX_CONTACTS].setTabAnimation(GlassTabView.TabAnimation.SPECIAL_ATTENTION);
+            tabs[INDEX_CONTACTS].setText("特别关心");
+            tabs[INDEX_CONTACTS].setCounter(null, true, true);
+        } else {
+            tabs[INDEX_CONTACTS].setTabAnimation(GlassTabView.TabAnimation.CONTACTS);
+            tabs[INDEX_CONTACTS].setText(getString(R.string.MainTabsContacts));
+        }
+        if (tabsView != null) {
+            tabsView.setViewVisible(tabs[INDEX_CONTACTS], !MainTabsHelper.isContactsTabHidden(), true);
+        }
+        if (tabsViewWrapper != null && tabsView != null) {
+            ViewGroup.LayoutParams params = tabsView.getLayoutParams();
+            if (params != null) {
+                params.width = dp(MainTabsHelper.getTabsViewWidth());
+                tabsView.setLayoutParams(params);
             }
         }
     }
@@ -363,9 +388,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         for (int index = 0; index < tabs.length; index++) {
             final GlassTabView view = tabs[index];
             final int tabIndex = index;
-            final int position = indexToPosition(index);
             tabs[index].setOnLongClickListener(v -> processLongClick(v, tabIndex));
             tabs[index].setOnClickListener(v -> {
+                final int position = indexToPosition(tabIndex);
                 if (position < 0) {
                     return;
                 }
@@ -390,6 +415,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         }
         checkUi_callTabVisible(getUserConfig().showCallsTab, false);
         tabsView.setViewVisible(tabs[INDEX_CONTACTS], !hideContacts, false);
+        updateSpecialAttentionTab();
 
         selectTab(viewPager.getCurrentPosition(), false);
 
@@ -848,6 +874,14 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     protected BaseFragment createBaseFragmentAt(int position) {
+        if (MainTabsHelper.isSpecialAttentionEnabled() && position == MainTabsHelper.getContactsPosition()) {
+            Bundle args = new Bundle();
+            args.putBoolean("hasMainTabs", true);
+            args.putBoolean("huanghunSpecialAttentionList", true);
+            DialogsActivity specialAttentionActivity = new DialogsActivity(args);
+            specialAttentionActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
+            return specialAttentionActivity;
+        }
         if (!MainTabsHelper.isContactsTabHidden() && position == MainTabsHelper.getContactsPosition()) {
             Bundle args = new Bundle();
             args.putBoolean("needPhonebook", true);
@@ -1056,6 +1090,23 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             }
         } else if (id == NotificationCenter.needSetDayNightTheme) {
             clearAllHiddenFragments();
+        } else if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
+            boolean enabled = MainTabsHelper.isSpecialAttentionEnabled();
+            boolean hideContacts = MainTabsHelper.isContactsTabHidden();
+            updateSpecialAttentionTab();
+            if (enabled != lastSpecialAttentionEnabled || hideContacts != lastHideContacts) {
+                if (viewPager != null) {
+                    viewPager.setPosition(getStartPosition());
+                }
+                for (int pos = 1; pos <= 3; pos++) {
+                    dropFragmentAtPosition(pos);
+                }
+                lastSpecialAttentionEnabled = enabled;
+                lastHideContacts = hideContacts;
+                if (tabs != null) {
+                    selectTab(viewPager != null ? viewPager.getCurrentPosition() : getStartPosition(), false);
+                }
+            }
         } else if (id == NotificationCenter.callTabsVisibleToggled) {
             final boolean callTabsVisible = getUserConfig().showCallsTab;
             checkUi_callTabVisible(callTabsVisible, true);
@@ -1088,6 +1139,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             .add(NotificationCenter.notificationsCountUpdated)
             .add(NotificationCenter.updateInterfaces)
             .add(NotificationCenter.callTabsVisibleToggled)
+            .add(NotificationCenter.huanghunSpecialAttentionChanged)
             .add(NotificationCenter.mainUserInfoChanged)
             .add(NotificationCenter.contactsPermissionBadgeCheck);
 
@@ -1318,7 +1370,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             return true;
         }
         if (index == INDEX_CONTACTS) {
-            return openContactsSelector(button);
+            return MainTabsHelper.isSpecialAttentionEnabled() ? false : openContactsSelector(button);
         }
         if (index == INDEX_CALLS) {
             return openCallsSelector(button);

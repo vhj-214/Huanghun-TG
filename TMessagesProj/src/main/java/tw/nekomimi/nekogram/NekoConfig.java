@@ -168,6 +168,8 @@ public class NekoConfig {
 
     // 活跃专区：默认开启自动真实表情点赞；高级自定义表情仅作为本机显示覆盖。方向 0=对方消息，1=自己消息，2=对方和自己。
     public static ConfigItem huanghunActiveZoneEnabled = addConfig("HuanghunActiveZoneEnabled", configTypeBool, true);
+    // 特别关心专区默认关闭；开启后占用底部导航栏的联系人位置。
+    public static ConfigItem huanghunSpecialAttentionEnabled = addConfig("HuanghunSpecialAttentionEnabled", configTypeBool, false);
     public static ConfigItem huanghunActiveZoneDirection = addConfig("HuanghunActiveZoneDirection", configTypeInt, 0);
     // 默认全部对象；指定用户支持每行一个 user id 或 username，也兼容逗号和分号。
     public static ConfigItem huanghunActiveZoneTargetMode = addConfig("HuanghunActiveZoneTargetMode", configTypeInt, 0);
