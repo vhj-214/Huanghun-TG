@@ -176,6 +176,8 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     private ArrayList<Quality> videoQualities;
     private Quality videoQualityToSelect;
+    /** Quality entries which already failed during the current prepare cycle. */
+    private final HashSet<Quality> failedQualities = new HashSet<>();
     private ArrayList<VideoUri> manifestUris;
     private Uri videoUri, audioUri;
     private String videoType, audioType;
@@ -400,6 +402,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     public void preparePlayer(Uri uri, String type, int priority, long videoByteOffset) {
+        failedQualities.clear();
         this.videoQualities = null;
         this.videoQualityToSelect = null;
         this.videoUri = uri;
@@ -422,6 +425,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     public void preparePlayer(ArrayList<Quality> qualities, Quality select) {
+        failedQualities.clear();
         this.videoQualities = qualities;
         this.videoQualityToSelect = select;
         this.videoUri = null;
@@ -848,6 +852,39 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
             activePlayers.add(playerId);
         }
+    }
+
+    /**
+     * A codec or one progressive file may fail even when Telegram supplied other
+     * playable variants. Try each variant once before reporting a hard failure.
+     */
+    private boolean tryNextPlayableQuality() {
+        if (videoQualities == null || videoQualities.size() < 2 || player == null) {
+            return false;
+        }
+        if (videoQualityToSelect != null) {
+            failedQualities.add(videoQualityToSelect);
+        }
+        Quality next = null;
+        for (Quality quality : videoQualities) {
+            if (quality == null || quality.uris.isEmpty() || failedQualities.contains(quality)) {
+                continue;
+            }
+            if (next == null || quality.p() < next.p()) {
+                next = quality;
+            }
+        }
+        if (next == null) {
+            return false;
+        }
+        FileLog.d("VideoPlayer: falling back to " + next + " after playback error");
+        boolean shouldPlay = player.getPlayWhenReady();
+        selectedQualityIndex = videoQualities.indexOf(next);
+        setSelectedQuality(false, next);
+        if (shouldPlay) {
+            play();
+        }
+        return true;
     }
 
     public Quality getCurrentQuality() {
@@ -1757,13 +1794,13 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                         cachedSupportedCodec.clear();
                     }
                     videoQualities = Quality.filterByCodec(videoQualities);
-                    if (videoQualities != null) {
+                    if (videoQualities != null && !videoQualities.isEmpty()) {
                         preparePlayer(videoQualities, videoQualityToSelect);
+                        return;
                     }
-                    return;
                 }
             }
-            if (textureView != null && (!triedReinit && cause instanceof MediaCodecRenderer.DecoderInitializationException || cause instanceof SurfaceNotValidException)) {
+            if (textureView != null && !triedReinit && (cause instanceof MediaCodecRenderer.DecoderInitializationException || cause instanceof SurfaceNotValidException)) {
                 triedReinit = true;
                 if (player != null) {
                     ViewGroup parent = (ViewGroup) textureView.getParent();
@@ -1800,6 +1837,8 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                         play();
                     }
                 }
+            } else if (tryNextPlayableQuality()) {
+                return;
             } else {
                 delegate.onError(this, error);
             }
