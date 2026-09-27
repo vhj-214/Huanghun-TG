@@ -919,6 +919,14 @@ public class ViewPagerFixed extends FrameLayout {
         }
     }
 
+    public void refreshCurrent() {
+        if (adapter == null || viewPages[0] == null) {
+            return;
+        }
+        adapter.bindView(viewPages[0], currentPosition, viewTypes[0]);
+        onTabAnimationUpdate(true);
+    }
+
     protected void onItemSelected(View currentPage, View oldPage, int position, int oldPosition) {
 
     }

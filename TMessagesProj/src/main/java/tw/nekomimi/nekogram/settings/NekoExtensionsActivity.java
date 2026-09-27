@@ -1461,7 +1461,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
                 if (position == specialAttentionNoticeRow) {
-                    cell.setText("开启后，底部“特别关心”入口会替代联系人按钮；特别关心会话名单仅保存在本机当前账号。 ");
+                    cell.setText("开启后，底部联系人位置默认显示“特别关心”；长按该位置可切换为联系人或特别关心，切换不会关闭本功能。特别关心会话名单仅保存在本机当前账号。 ");
                 } else {
                     cell.setText(position == activeNoticeRow ? "新消息到达后自动发送真实点赞。可选择对方消息、自己消息或双方消息；点赞对象可限定为全部对象、群或频道、所有用户或指定用户。普通表情会发送给 Telegram；高级自定义表情在本机显示，其他人看到可用的普通点赞。" : (position == localNoticeRow ? "本专区只修改本机显示和本地测试数据，不会修改 Telegram 服务器内容。虚拟星星不能真实购买；本地礼物也不会产生真实订单或扣款。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))))));
                 }

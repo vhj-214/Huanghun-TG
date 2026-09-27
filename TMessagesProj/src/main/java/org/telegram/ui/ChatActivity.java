@@ -399,6 +399,7 @@ import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunBuiltinVideoPreview;
 import tw.nekomimi.nekogram.helpers.HuanghunRealtimeVideoFinalizer;
 import tw.nekomimi.nekogram.helpers.HuanghunRoundVideoComposer;
+import tw.nekomimi.nekogram.helpers.HuanghunSpecialAttentionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
@@ -558,6 +559,7 @@ public class ChatActivity extends BaseFragment implements
     private ActionBarMenu.LazyItem attachItem;
     private ActionBarMenuItem.Item savedChatsItem, savedChatsGap;
     private ActionBarMenuItem headerItem;
+    private ActionBarMenuItem.Item specialAttentionItem;
     private ActionBarMenu.LazyItem editTextItem;
     protected ActionBarMenuItem searchItem;
     protected ActionBarMenuItem topicCreateItem;
@@ -1775,6 +1777,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int chat_menu_search = -1;
     private final static int chat_menu_options = -2;
     private final static int chat_menu_edit_text_options = -3;
+    private final static int special_attention = 75;
     private final static int clear_history = 15;
     private final static int delete_chat = 16;
     private final static int share_contact = 17;
@@ -3228,6 +3231,7 @@ public class ChatActivity extends BaseFragment implements
 
         observersGroup = getNotificationCenter().createObserversGroup(this);
         globalObserversGroup = NotificationCenter.getGlobalInstance().createObserversGroup(this);
+        observersGroup.add(NotificationCenter.huanghunSpecialAttentionChanged);
 
         getNotificationCenter().addPostponeNotificationsCallback(postponeNotificationsWhileLoadingCallback);
         getNotificationCenter().addObserver(this, NotificationCenter.closeChats);
@@ -4156,6 +4160,14 @@ public class ChatActivity extends BaseFragment implements
                         getMessagesController().getTopicsController().toggleViewForumAsMessages(-dialog_id, false);
                         TopicsFragment.prepareToSwitchAnimation(ChatActivity.this);
                     }
+                } else if (id == special_attention) {
+                    if (!NekoConfig.huanghunSpecialAttentionEnabled.Bool() || specialAttentionItem == null) {
+                        return;
+                    }
+                    boolean marked = HuanghunSpecialAttentionHelper.isMarked(dialog_id, currentAccount);
+                    ArrayList<Long> dialogIds = new ArrayList<>();
+                    dialogIds.add(dialog_id);
+                    HuanghunSpecialAttentionHelper.setMarked(dialogIds, !marked, currentAccount);
                 } else if (id == copy) {
                     SpannableStringBuilder str = new SpannableStringBuilder();
                     long previousUid = 0;
@@ -4871,6 +4883,11 @@ public class ChatActivity extends BaseFragment implements
             headerItem = menu.addItem(chat_menu_options, otherIcon);
             otherIcon.addView(headerItem.getIconView());
             headerItem.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
+            if (!isTopic && dialog_id != 0L && (currentChat != null || currentUser != null && !currentUser.self)) {
+                specialAttentionItem = headerItem.lazilyAddSubItem(special_attention, R.drawable.baseline_favorite_20,
+                    HuanghunSpecialAttentionHelper.isMarked(dialog_id, currentAccount) ? "取消特别关心" : "设为特别关心");
+                specialAttentionItem.setVisibility(NekoConfig.huanghunSpecialAttentionEnabled.Bool() ? View.VISIBLE : View.GONE);
+            }
             if (avatarContainer != null) {
                 avatarContainer.setAvatarOptionsMenuItem(headerItem);
             }
@@ -22252,6 +22269,16 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
+        if (id == NotificationCenter.huanghunSpecialAttentionChanged && account == currentAccount) {
+            boolean enabled = NekoConfig.huanghunSpecialAttentionEnabled.Bool();
+            if (specialAttentionItem != null) {
+                specialAttentionItem.setText(HuanghunSpecialAttentionHelper.isMarked(dialog_id, currentAccount) ? "取消特别关心" : "设为特别关心");
+            }
+            if (headerItem != null) {
+                headerItem.setSubItemShown(special_attention, enabled);
+            }
+            return;
+        }
         if (id == NotificationCenter.messagesDidLoad) {
             didReceivedNotification_messagesDidLoad(id, account, args);
         } else {

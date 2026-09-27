@@ -40,6 +40,10 @@ public final class MainTabsHelper {
         return NekoConfig.huanghunSpecialAttentionEnabled.Bool();
     }
 
+    public static boolean isSpecialAttentionTabSelected() {
+        return isSpecialAttentionEnabled() && NekoConfig.getPreferences().getBoolean("HuanghunSpecialAttentionTabSelected", true);
+    }
+
     public static int getChatsPosition() {
         return 0;
     }
