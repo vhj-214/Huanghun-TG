@@ -879,6 +879,7 @@ public class FileLoader extends BaseController {
         int type = MEDIA_DIR_CACHE;
         long documentId = 0;
         int dcId = 0;
+        File mappedStoreFile = null;
 
         if (secureDocument != null) {
             operation = new FileLoadOperation(secureDocument);
@@ -939,6 +940,7 @@ public class FileLoader extends BaseController {
                     File file = new File(path);
                     if (file.exists()) {
                         customPath = true;
+                        mappedStoreFile = file;
                         storeFileName = file.getName();
                         storeDir = file.getParentFile();
                     }
@@ -983,6 +985,12 @@ public class FileLoader extends BaseController {
             }
         } else if (cacheType == ImageLoader.CACHE_TYPE_ENCRYPTED) {
             operation.setEncryptFile(true);
+        }
+        if (cacheType == 0 && shouldStoreDocumentFileName(document, parentObject)) {
+            storeFileName = getUniqueStoreFileName(storeDir, getDocumentFileName(document), mappedStoreFile);
+            if (documentId != 0 && !storeFileName.equals(fileName)) {
+                operation.pathSaveData = new FilePathDatabase.PathData(documentId, dcId, type);
+            }
         }
         operation.setPaths(currentAccount, fileName, loaderQueue, storeDir, tempDir, storeFileName);
         if (cacheType == 10) {
@@ -1095,6 +1103,35 @@ public class FileLoader extends BaseController {
             return true;
         }
         return false;
+    }
+
+    private static boolean shouldStoreDocumentFileName(TLRPC.Document document, Object parentObject) {
+        if (document == null || TextUtils.isEmpty(getDocumentFileName(document)) || !(parentObject instanceof MessageObject)) {
+            return false;
+        }
+        MessageObject messageObject = (MessageObject) parentObject;
+        return !messageObject.isAnyKindOfSticker() && !messageObject.isRoundVideo() && !messageObject.isVoice()
+            && (messageObject.isDocument() || messageObject.isVideo() || messageObject.isMusic());
+    }
+
+    private static String getUniqueStoreFileName(File directory, String fileName, File currentFile) {
+        if (directory == null) {
+            return fileName;
+        }
+        File target = new File(directory, fileName);
+        if (target.equals(currentFile) || !target.exists()) {
+            return fileName;
+        }
+        int lastDotIndex = fileName.lastIndexOf('.');
+        int count = 1;
+        do {
+            String uniqueName = lastDotIndex > 0
+                ? fileName.substring(0, lastDotIndex) + " (" + count + ")" + fileName.substring(lastDotIndex)
+                : fileName + " (" + count + ")";
+            target = new File(directory, uniqueName);
+            count++;
+        } while (target.exists());
+        return target.getName();
     }
 
     private boolean canSaveToPublicStorage(Object parentObject) {
