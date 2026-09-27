@@ -179,6 +179,7 @@
     <string name="GeminiNotSupport">Gemini is not supported on this device.</string>
     <string name="OutgoingAutoTranslate">Outgoing Auto Translation</string>
     <string name="OutgoingAutoTranslateIncludeOriginal">Send Original and Translation</string>
+    <string name="BotButtonTranslation">Bot Button Translation</string>
     <string name="HuanghunTranslateSettings">Translation Settings</string>
     <string name="OutgoingAutoTranslateSourceLanguage">Send Language (Translation)</string>
     <string name="OutgoingAutoTranslateTargetLanguage">Original Language</string>

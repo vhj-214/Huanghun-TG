@@ -510,12 +510,23 @@ public final class DynamicVideoWallpaperHelper {
         private final ArrayList<SuppressedAlpha> suppressedAlphas = new ArrayList<>();
         private final Handler playbackHandler = new Handler(Looper.getMainLooper());
         private Runnable retryRunnable;
+        private final Runnable progressCheckpointRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (released || mediaPlayer == null || !mediaPrepared) {
+                    return;
+                }
+                savePlaybackPosition();
+                playbackHandler.postDelayed(this, 1000L);
+            }
+        };
         private int playbackErrorCount;
         // MediaPlayer may dispatch completion/error callbacks after reset().
         // A generation prevents an old callback from advancing or recovering
         // a newer player instance during wallpaper/account transitions.
         private long playbackGeneration;
         private boolean released;
+        private boolean mediaPrepared;
         private final View.OnLayoutChangeListener videoLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> applyFitCenter();
         private int videoWidth;
         private int videoHeight;
@@ -600,6 +611,7 @@ public final class DynamicVideoWallpaperHelper {
             try {
                 final long generation = ++playbackGeneration;
                 this.surfaceTexture = surfaceTexture;
+                mediaPrepared = false;
                 // 清除旧视频遗留的矩阵，避免换视频后继续沿用旧比例。
                 textureView.setTransform(new Matrix());
                 surface = new Surface(surfaceTexture);
@@ -641,6 +653,8 @@ public final class DynamicVideoWallpaperHelper {
                             }
                             resumePositionMs = 0;
                             playbackErrorCount = 0;
+                            mediaPrepared = true;
+                            startProgressCheckpoint();
                             player.start();
                         } catch (Throwable e) {
                             FileLog.e(e);
@@ -693,7 +707,7 @@ public final class DynamicVideoWallpaperHelper {
                 cancelPlaybackRecovery();
                 if (mediaPlayer == null && textureView.isAvailable()) {
                     prepare(textureView.getSurfaceTexture());
-                } else if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
+                } else if (mediaPlayer != null && mediaPrepared && !mediaPlayer.isPlaying()) {
                     mediaPlayer.start();
                 }
             } catch (Throwable e) {
@@ -825,6 +839,7 @@ public final class DynamicVideoWallpaperHelper {
                     resumePositionMs = 0;
                     playbackErrorCount = 0;
                     writePlaybackState(playbackKey, path, playlistIndex, 0);
+                    mediaPrepared = false;
                     mediaPlayer.reset();
                     mediaPlayer.setDataSource(nextPath);
                     mediaPlayer.setSurface(surface);
@@ -881,6 +896,15 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
 
+        private void startProgressCheckpoint() {
+            playbackHandler.removeCallbacks(progressCheckpointRunnable);
+            playbackHandler.postDelayed(progressCheckpointRunnable, 1000L);
+        }
+
+        private void stopProgressCheckpoint() {
+            playbackHandler.removeCallbacks(progressCheckpointRunnable);
+        }
+
         private void savePlaybackPosition() {
             if (mediaPlayer == null || released || path == null) {
                 return;
@@ -928,6 +952,8 @@ public final class DynamicVideoWallpaperHelper {
         }
 
         private void releaseMediaPlayer() {
+            stopProgressCheckpoint();
+            mediaPrepared = false;
             savePlaybackPosition();
             if (mediaPlayer != null) {
                 try {

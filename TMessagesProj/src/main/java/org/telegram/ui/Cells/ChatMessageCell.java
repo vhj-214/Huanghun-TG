@@ -265,6 +265,8 @@ import tw.nekomimi.nekogram.helpers.HuanghunBubbleStyleHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.TimeStringHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
+import tw.nekomimi.nekogram.translate.Translator;
+import tw.nekomimi.nekogram.translate.TranslatorKt;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.helper.BookmarksHelper;
@@ -1495,6 +1497,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private boolean autoPlayingMedia;
 
     private ArrayList<BotButton> botButtons = new ArrayList<>();
+    private static final HashMap<String, String> botButtonTranslations = new HashMap<>();
+    private static final HashSet<String> botButtonTranslationsInFlight = new HashSet<>();
+    private static final HashMap<String, String> botMessageTranslations = new HashMap<>();
+    private static final HashSet<String> botMessageTranslationsInFlight = new HashSet<>();
     private Path botButtonPath = new Path();
     private float[] botButtonRadii = new float[8];
     private HashMap<String, BotButton> botButtonsByData = new HashMap<>();
@@ -7781,6 +7787,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
 
                 setMessageObjectInternal(messageObject);
+                translateBotMessageText(messageObject);
                 giveawayMessageCell.setMessageContent(messageObject, getParentWidth(), forwardedNameWidth);
                 giveawayResultsMessageCell.setMessageContent(messageObject, getParentWidth(), forwardedNameWidth);
 
@@ -10977,6 +10984,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                                 botButton.title = oldButton.title;
                             } else {
                                 botButton.title = new Text(buttonText, botButtonPaint);
+                            }
+                            if (botButton.button != null) {
+                                translateBotButtonText(botButton, botButton.button.text, botButtonPaint);
                             }
                             botButtons.add(botButton);
                             if (column == buttonsCount - 1) {
@@ -29890,6 +29900,151 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             return botUser != null && UserObject.getPublicUsername(botUser) != null;
         }
         return !TextUtils.isEmpty(messageObject.messageOwner.via_bot_name);
+    }
+    /** Translates only bot message display text; messageOwner.message remains the original payload. */
+    private void translateBotMessageText(MessageObject messageObject) {
+        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool()
+                || messageObject == null
+                || messageObject.messageOwner == null
+                || messageObject.isOut()
+                || !messageObject.isFromUser()
+                || currentUser == null
+                || !currentUser.bot
+                || TextUtils.isEmpty(messageObject.messageOwner.message)) {
+            return;
+        }
+        String original = messageObject.messageOwner.message;
+        if (containsChinese(original)) {
+            return;
+        }
+        boolean hasLetter = false;
+        for (int i = 0; i < original.length(); i++) {
+            if (Character.isLetter(original.charAt(i))) {
+                hasLetter = true;
+                break;
+            }
+        }
+        if (!hasLetter) {
+            return;
+        }
+        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        String cacheKey = provider + "\u0000" + original;
+        final String cached;
+        synchronized (botMessageTranslations) {
+            cached = botMessageTranslations.get(cacheKey);
+            if (cached == null && !botMessageTranslationsInFlight.contains(cacheKey)) {
+                botMessageTranslationsInFlight.add(cacheKey);
+            } else if (cached == null) {
+                return;
+            }
+        }
+        if (cached != null) {
+            applyBotMessageTranslation(messageObject, original, cached);
+            return;
+        }
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, provider, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(String translation) {
+                synchronized (botMessageTranslations) {
+                    botMessageTranslationsInFlight.remove(cacheKey);
+                    if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                        if (botMessageTranslations.size() >= 256) {
+                            botMessageTranslations.remove(botMessageTranslations.keySet().iterator().next());
+                        }
+                        botMessageTranslations.put(cacheKey, translation);
+                    }
+                }
+                if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                    AndroidUtilities.runOnUIThread(() -> applyBotMessageTranslation(messageObject, original, translation));
+                }
+            }
+
+            @Override
+            public void onFailed(boolean unsupported, String message) {
+                synchronized (botMessageTranslations) {
+                    botMessageTranslationsInFlight.remove(cacheKey);
+                }
+            }
+        });
+    }
+
+    private void applyBotMessageTranslation(MessageObject messageObject, String original, String translation) {
+        if (currentMessageObject != messageObject || messageObject.messageOwner == null
+                || !TextUtils.equals(messageObject.messageOwner.message, original)) {
+            return;
+        }
+        String displayText = original + " — " + translation;
+        if (!TextUtils.equals(messageObject.messageText, displayText)) {
+            messageObject.applyNewText(displayText);
+            messageObject.generateCaption();
+            requestLayout();
+            invalidate();
+        }
+    }
+
+    /** Only changes the rendered label; the original KeyboardButton remains the click payload. */
+    private void translateBotButtonText(BotButton botButton, String original, TextPaint paint) {
+        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || TextUtils.isEmpty(original) || containsChinese(original)) {
+            return;
+        }
+        boolean hasLetter = false;
+        for (int i = 0; i < original.length(); i++) {
+            if (Character.isLetter(original.charAt(i))) {
+                hasLetter = true;
+                break;
+            }
+        }
+        if (!hasLetter) {
+            return;
+        }
+        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        String cacheKey = provider + "\u0000" + original;
+        final String cached;
+        synchronized (botButtonTranslations) {
+            cached = botButtonTranslations.get(cacheKey);
+            if (cached == null && !botButtonTranslationsInFlight.contains(cacheKey)) {
+                botButtonTranslationsInFlight.add(cacheKey);
+            } else if (cached == null) {
+                return;
+            }
+        }
+        if (cached != null) {
+            botButton.title = new Text(original + " — " + cached, paint);
+            invalidateOutbounds();
+            return;
+        }
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, provider, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(String translation) {
+                synchronized (botButtonTranslations) {
+                    botButtonTranslationsInFlight.remove(cacheKey);
+                    if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                        if (botButtonTranslations.size() >= 256) {
+                            botButtonTranslations.remove(botButtonTranslations.keySet().iterator().next());
+                        }
+                        botButtonTranslations.put(cacheKey, translation);
+                    }
+                }
+                if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                    botButton.title = new Text(original + " — " + translation, paint);
+                    invalidateOutbounds();
+                }
+            }
+            @Override
+            public void onFailed(boolean unsupported, String message) {
+                synchronized (botButtonTranslations) {
+                    botButtonTranslationsInFlight.remove(cacheKey);
+                }
+            }
+        });
+    }
+    private static boolean containsChinese(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.UnicodeScript.of(text.charAt(i)) == Character.UnicodeScript.HAN) {
+                return true;
+            }
+        }
+        return false;
     }
     // bookmark end
 

@@ -877,6 +877,12 @@ object NaConfig {
             ConfigItem.configTypeBool,
             true
         )
+    val botButtonTranslation =
+        addConfig(
+            "BotButtonTranslation",
+            ConfigItem.configTypeBool,
+            true
+        )
     // 新安装默认使用 Yandex 翻译；升级用户由黄昏一次性迁移同步。
     val outgoingAutoTranslateProvider =
         addConfig(

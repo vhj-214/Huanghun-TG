@@ -4229,7 +4229,7 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
 
     /** Keep the bot payload untouched while showing a Chinese translation beside foreign labels. */
     private void translateBotButtonText(BotButton botButton, String original, TextPaint paint) {
-        if (TextUtils.isEmpty(original) || containsChinese(original)) {
+        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || TextUtils.isEmpty(original) || containsChinese(original)) {
             return;
         }
         boolean hasLetter = false;
@@ -4243,11 +4243,13 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
             return;
         }
 
+        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        String cacheKey = provider + "\u0000" + original;
         final String cached;
         synchronized (botButtonTranslations) {
-            cached = botButtonTranslations.get(original);
-            if (cached == null && !botButtonTranslationsInFlight.contains(original)) {
-                botButtonTranslationsInFlight.add(original);
+            cached = botButtonTranslations.get(cacheKey);
+            if (cached == null && !botButtonTranslationsInFlight.contains(cacheKey)) {
+                botButtonTranslationsInFlight.add(cacheKey);
             } else if (cached == null) {
                 return;
             }
@@ -4261,14 +4263,16 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
         // independent NekoConfig translation provider used by message translation.
         // This keeps bot buttons on the same configured translation interface as
         // the user's outgoing auto-translate feature.
-        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
         Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, provider, new Translator.Companion.TranslateCallBack() {
             @Override
             public void onSuccess(String translation) {
                 synchronized (botButtonTranslations) {
-                    botButtonTranslationsInFlight.remove(original);
+                    botButtonTranslationsInFlight.remove(cacheKey);
                     if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
-                        botButtonTranslations.put(original, translation);
+                        if (botButtonTranslations.size() >= 256) {
+                            botButtonTranslations.remove(botButtonTranslations.keySet().iterator().next());
+                        }
+                        botButtonTranslations.put(cacheKey, translation);
                     }
                 }
                 if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
@@ -4280,7 +4284,7 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
             @Override
             public void onFailed(boolean unsupported, String message) {
                 synchronized (botButtonTranslations) {
-                    botButtonTranslationsInFlight.remove(original);
+                    botButtonTranslationsInFlight.remove(cacheKey);
                 }
                 FileLog.e("Bot button translation failed, provider=" + provider + ", text=" + original + ", error=" + message);
             }

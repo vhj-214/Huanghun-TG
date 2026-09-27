@@ -3218,11 +3218,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     /**
-     * 主列表只使用全局（dialogId=0）的动态壁纸。播放器是 ContentView 的首个子层，
-     * 消息列表、搜索栏和底部导航仍由各自的官方刷新逻辑独立管理。
+     * 主列表和转发列表只使用全局（dialogId=0）的动态壁纸。转发列表虽然是
+     * onlySelect 模式，但仍然是完整的聊天列表页面，不能因此跳过背景播放器。
+     * 播放器是 ContentView 的首个子层，消息列表、搜索栏和底部导航仍由各自的
+     * 官方刷新逻辑独立管理。
      */
     private boolean canShowDialogsDynamicVideoWallpaper() {
-        return !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && folderId == 0 && communityId == 0;
+        boolean isDialogsList = initialDialogsType == DIALOGS_TYPE_DEFAULT;
+        boolean isForwardList = initialDialogsType == DIALOGS_TYPE_FORWARD;
+        return (isDialogsList || isForwardList) && folderId == 0 && communityId == 0;
     }
 
     private void refreshDialogsDynamicVideoWallpaper() {

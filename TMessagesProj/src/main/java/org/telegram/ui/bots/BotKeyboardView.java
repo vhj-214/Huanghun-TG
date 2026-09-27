@@ -54,6 +54,7 @@ import me.vkryl.android.animator.ReplaceAnimator;
 import me.vkryl.core.lambda.Destroyable;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
+import xyz.nextalone.nagram.NaConfig;
 
 @SuppressLint("ViewConstructor")
 public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetView, ReplaceAnimator.Callback {
@@ -269,7 +270,7 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
     }
 
     private void translateButtonText(SpoilersTextView textView, String original) {
-        if (original == null || original.isEmpty() || containsChinese(original)) {
+        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || original == null || original.isEmpty() || containsChinese(original)) {
             return;
         }
         boolean hasLetter = false;
@@ -282,11 +283,13 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
         if (!hasLetter) {
             return;
         }
+        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        String cacheKey = provider + "\u0000" + original;
         final String cached;
         synchronized (buttonTranslations) {
-            cached = buttonTranslations.get(original);
-            if (cached == null && !translationsInFlight.contains(original)) {
-                translationsInFlight.add(original);
+            cached = buttonTranslations.get(cacheKey);
+            if (cached == null && !translationsInFlight.contains(cacheKey)) {
+                translationsInFlight.add(cacheKey);
             } else if (cached == null) {
                 return;
             }
@@ -295,13 +298,16 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
             setTranslatedButtonText(textView, original, cached);
             return;
         }
-        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, 0, new Translator.Companion.TranslateCallBack() {
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, provider, new Translator.Companion.TranslateCallBack() {
             @Override
             public void onSuccess(String translation) {
                 synchronized (buttonTranslations) {
-                    translationsInFlight.remove(original);
+                    translationsInFlight.remove(cacheKey);
                     if (translation != null && !translation.isEmpty() && !original.equals(translation)) {
-                        buttonTranslations.put(original, translation);
+                        if (buttonTranslations.size() >= 256) {
+                            buttonTranslations.remove(buttonTranslations.keySet().iterator().next());
+                        }
+                        buttonTranslations.put(cacheKey, translation);
                     }
                 }
                 if (translation != null && !translation.isEmpty() && !original.equals(translation)) {
@@ -312,7 +318,7 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
             @Override
             public void onFailed(boolean unsupported, String message) {
                 synchronized (buttonTranslations) {
-                    translationsInFlight.remove(original);
+                    translationsInFlight.remove(cacheKey);
                 }
             }
         });

@@ -124,6 +124,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
     private final AbstractConfigCell headerOutgoingAutoTranslate = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.OutgoingAutoTranslate)));
     private final AbstractConfigCell outgoingAutoTranslateRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getOutgoingAutoTranslate()));
     private final AbstractConfigCell outgoingAutoTranslateIncludeOriginalRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getOutgoingAutoTranslateIncludeOriginal()));
+    private final AbstractConfigCell botButtonTranslationRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getBotButtonTranslation()));
     private final AbstractConfigCell outgoingAutoTranslateProviderRow = cellGroup.appendCell(new ConfigCellCustom("OutgoingAutoTranslateProvider", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
     private final AbstractConfigCell outgoingAutoTranslateSourceLangRow = cellGroup.appendCell(new ConfigCellCustom("OutgoingAutoTranslateSourceLanguage", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
     private final AbstractConfigCell outgoingAutoTranslateTargetLangRow = cellGroup.appendCell(new ConfigCellCustom("OutgoingAutoTranslateTargetLanguage", CellGroup.ITEM_TYPE_TEXT_SETTINGS_CELL, true));
@@ -663,6 +664,7 @@ public class NekoTranslatorSettingsActivity extends BaseNekoXSettingsActivity {
         cellGroup.appendCell(headerOutgoingAutoTranslate);
         cellGroup.appendCell(outgoingAutoTranslateRow);
         cellGroup.appendCell(outgoingAutoTranslateIncludeOriginalRow);
+        cellGroup.appendCell(botButtonTranslationRow);
         cellGroup.appendCell(outgoingAutoTranslateProviderRow);
         cellGroup.appendCell(outgoingAutoTranslateSourceLangRow);
         cellGroup.appendCell(outgoingAutoTranslateTargetLangRow);
