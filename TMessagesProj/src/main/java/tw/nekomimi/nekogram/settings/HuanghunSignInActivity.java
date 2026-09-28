@@ -693,6 +693,10 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             delete.setMinWidth(AndroidUtilities.dp(48));
             delete.setMinHeight(AndroidUtilities.dp(48));
             top.addView(delete, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
+            addView(top, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+
+            LinearLayout resendRow = new LinearLayout(context);
+            resendRow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
             resend = new TextView(context);
             resend.setText("重发");
             resend.setTextSize(14);
@@ -701,8 +705,8 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             resend.setMinWidth(AndroidUtilities.dp(48));
             resend.setMinHeight(AndroidUtilities.dp(48));
             resend.setContentDescription("重新发送此签到任务");
-            top.addView(resend, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
-            addView(top, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            resendRow.addView(resend, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
+            addView(resendRow, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
             details = new TextView(context);
             details.setTextSize(14);
