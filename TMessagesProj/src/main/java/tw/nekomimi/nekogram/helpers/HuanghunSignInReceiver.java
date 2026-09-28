@@ -13,7 +13,9 @@ public class HuanghunSignInReceiver extends BroadcastReceiver {
         if (account >= 0 && account < UserConfig.MAX_ACCOUNT_COUNT) {
             HuanghunSignInHelper.executeDueTasks(account);
             HuanghunSignInScheduler.schedule(account);
-        } else if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+        } else if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
+                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(intent.getAction())) {
             HuanghunSignInScheduler.scheduleAll();
         }
     }

@@ -137,7 +137,10 @@ public final class HuanghunSignInHelper {
             if (parts.length != 2) { task.status = "失败：时间格式错误"; changed = true; continue; }
             try {
                 int targetMinute = Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
-                if (targetMinute == minutes && task.lastRunDay != day) {
+                // AlarmManager may deliver an inexact/idle alarm late. Treat a
+                // task as due once its minute has passed today, otherwise a
+                // delayed wake-up would silently skip the task until tomorrow.
+                if (targetMinute <= minutes && task.lastRunDay != day) {
                     task.lastRunDay = day;
                     try {
                         SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();

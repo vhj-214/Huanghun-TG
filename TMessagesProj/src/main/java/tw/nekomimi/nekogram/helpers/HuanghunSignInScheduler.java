@@ -35,8 +35,17 @@ public final class HuanghunSignInScheduler {
             for (HuanghunSignInHelper.Task task : HuanghunSignInHelper.getTasks(account)) {
                 trigger = Math.min(trigger, HuanghunSignInHelper.nextTriggerMillis(task.time, System.currentTimeMillis()));
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pending);
-            else alarm.setExact(AlarmManager.RTC_WAKEUP, trigger, pending);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarm.canScheduleExactAlarms()) {
+                // Exact alarms are a special app-op on Android 12+. Do not leave
+                // scheduling disabled when the user has not granted that access;
+                // this fallback still wakes the app and executeDueTasks catches
+                // up tasks whose minute has already passed.
+                alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pending);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pending);
+            } else {
+                alarm.setExact(AlarmManager.RTC_WAKEUP, trigger, pending);
+            }
         } catch (Throwable e) { FileLog.e(e); }
     }
 
