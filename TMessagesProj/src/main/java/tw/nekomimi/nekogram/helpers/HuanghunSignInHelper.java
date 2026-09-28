@@ -43,6 +43,7 @@ public final class HuanghunSignInHelper {
         public String time = "00:01";
         public String status = "未执行";
         public long lastRunDay;
+        public long retryDay;
         public int pendingMessageId;
     }
 
@@ -73,6 +74,7 @@ public final class HuanghunSignInHelper {
                 task.time = normalizeTime(object.optString("time", "00:01"));
                 task.status = object.optString("status", "未执行");
                 task.lastRunDay = object.optLong("lastRunDay", 0L);
+                task.retryDay = object.optLong("retryDay", 0L);
                 task.pendingMessageId = object.optInt("pendingMessageId", 0);
                 if (task.dialogId != 0 && !TextUtils.isEmpty(task.content)) result.add(task);
             }
@@ -88,7 +90,7 @@ public final class HuanghunSignInHelper {
                 object.put("id", task.id); object.put("dialogId", task.dialogId);
                 object.put("target", task.target); object.put("content", task.content);
                 object.put("time", normalizeTime(task.time)); object.put("status", task.status);
-                object.put("lastRunDay", task.lastRunDay); object.put("pendingMessageId", task.pendingMessageId); array.put(object);
+                object.put("lastRunDay", task.lastRunDay); object.put("retryDay", task.retryDay); object.put("pendingMessageId", task.pendingMessageId); array.put(object);
             }
         } catch (Throwable e) { FileLog.e(e); }
         prefs().edit().putString(KEY_TASKS + account, array.toString()).apply();
@@ -140,6 +142,12 @@ public final class HuanghunSignInHelper {
                 // AlarmManager may deliver an inexact/idle alarm late. Treat a
                 // task as due once its minute has passed today, otherwise a
                 // delayed wake-up would silently skip the task until tomorrow.
+                if (task.retryDay != 0 && task.retryDay != day) {
+                    task.retryDay = 0;
+                    if (task.status.startsWith("失败")) task.status = "等待执行";
+                    changed = true;
+                    continue;
+                }
                 if (targetMinute <= minutes && task.lastRunDay != day) {
                     try {
                         SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();
@@ -151,9 +159,10 @@ public final class HuanghunSignInHelper {
                         // SendMessagesHelper. A network/mute failure must remain
                         // due so the next foreground with connectivity retries it.
                         task.lastRunDay = day;
+                        task.retryDay = 0;
                         task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
                         task.status = task.pendingMessageId == 0 ? "发送请求已提交" : "发送中";
-                    } catch (Throwable e) { task.pendingMessageId = 0; task.status = "失败【目标永远存在禁言无法发送】"; FileLog.e(e); }
+                    } catch (Throwable e) { task.pendingMessageId = 0; task.retryDay = day; task.status = "失败【目标永远存在禁言无法发送】"; FileLog.e(e); }
                     changed = true;
                 }
             } catch (Throwable e) { task.status = "失败：时间格式错误"; changed = true; }
@@ -163,7 +172,7 @@ public final class HuanghunSignInHelper {
 
     private static void saveTasksWithoutReschedule(int account, ArrayList<Task> tasks) {
         JSONArray array = new JSONArray();
-        try { for (Task task : tasks) { JSONObject o = new JSONObject(); o.put("id", task.id); o.put("dialogId", task.dialogId); o.put("target", task.target); o.put("content", task.content); o.put("time", task.time); o.put("status", task.status); o.put("lastRunDay", task.lastRunDay); o.put("pendingMessageId", task.pendingMessageId); array.put(o); } } catch (Throwable e) { FileLog.e(e); }
+            try { for (Task task : tasks) { JSONObject o = new JSONObject(); o.put("id", task.id); o.put("dialogId", task.dialogId); o.put("target", task.target); o.put("content", task.content); o.put("time", task.time); o.put("status", task.status); o.put("lastRunDay", task.lastRunDay); o.put("retryDay", task.retryDay); o.put("pendingMessageId", task.pendingMessageId); array.put(o); } } catch (Throwable e) { FileLog.e(e); }
         prefs().edit().putString(KEY_TASKS + account, array.toString()).apply();
     }
 
@@ -193,7 +202,10 @@ public final class HuanghunSignInHelper {
             for (Task task : tasks) {
                 if (task.pendingMessageId == messageId) {
                     task.pendingMessageId = 0;
-                    if (event == NotificationCenter.messageSendError) task.lastRunDay = 0;
+                    if (event == NotificationCenter.messageSendError) {
+                        task.retryDay = task.lastRunDay;
+                        task.lastRunDay = 0;
+                    }
                     task.status = event == NotificationCenter.messageReceivedByServer
                             ? "成功（" + formatCurrentTime() + "）"
                             : "失败【目标永远存在禁言无法发送】";
@@ -219,6 +231,7 @@ public final class HuanghunSignInHelper {
                 task.time = normalizeTime(object.optString("time", "00:01"));
                 task.status = object.optString("status", "未执行");
                 task.lastRunDay = object.optLong("lastRunDay", 0);
+                task.retryDay = object.optLong("retryDay", 0);
                 task.pendingMessageId = object.optInt("pendingMessageId", 0);
                 if (task.dialogId != 0 && !TextUtils.isEmpty(task.content)) result.add(task);
             }
