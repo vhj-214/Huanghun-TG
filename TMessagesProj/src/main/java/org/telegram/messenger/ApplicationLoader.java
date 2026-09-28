@@ -246,12 +246,25 @@ public class ApplicationLoader extends Application {
                     }
 
                     boolean isSlow = isConnectionSlow();
+                    boolean networkAvailable = currentNetworkInfo != null
+                            && currentNetworkInfo.isConnectedOrConnecting();
                     for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                         if (!UserConfig.getInstance(a).isClientActivated()) {
                             continue;
                         }
                         ConnectionsManager.getInstance(a).checkConnection();
                         FileLoader.getInstance(a).onNetworkChanged(isSlow);
+                        if (networkAvailable) {
+                            // A task whose scheduled minute passed while offline is
+                            // retried as soon as connectivity returns. The helper's
+                            // per-day state keeps this idempotent across duplicate
+                            // connectivity broadcasts and foreground callbacks.
+                            final int account = a;
+                            AndroidUtilities.runOnUIThread(() -> {
+                                HuanghunSignInHelper.executeDueTasks(account);
+                                HuanghunSignInScheduler.schedule(account);
+                            }, 800);
+                        }
                     }
                 }
             };

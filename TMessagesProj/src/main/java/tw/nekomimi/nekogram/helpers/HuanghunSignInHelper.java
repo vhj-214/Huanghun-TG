@@ -11,6 +11,7 @@ import org.telegram.messenger.FileLog;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.SendMessagesHelper;
 import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -126,7 +127,7 @@ public final class HuanghunSignInHelper {
         return next.getTimeInMillis();
     }
 
-    public static void executeDueTasks(int account) {
+    public static synchronized void executeDueTasks(int account) {
         if (!isEnabled(account) || !UserConfig.getInstance(account).isClientActivated()) return;
         ensureStatusObserver(account);
         ArrayList<Task> tasks = getTasks(account);
@@ -146,9 +147,15 @@ public final class HuanghunSignInHelper {
                     task.retryDay = 0;
                     if (task.status.startsWith("失败")) task.status = "等待执行";
                     changed = true;
-                    continue;
                 }
                 if (targetMinute <= minutes && task.lastRunDay != day) {
+                    if (!isReadyToSend(account)) {
+                        task.retryDay = day;
+                        task.pendingMessageId = 0;
+                        task.status = "失败：无网络或 Telegram 未连接，等待重试";
+                        changed = true;
+                        continue;
+                    }
                     try {
                         SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();
                         int previousMessageId = helper.getSendingMessageId(task.dialogId);
@@ -170,6 +177,13 @@ public final class HuanghunSignInHelper {
         if (changed) saveTasksWithoutReschedule(account, tasks);
     }
 
+    private static boolean isReadyToSend(int account) {
+        if (!ApplicationLoader.isNetworkOnlineFast()) return false;
+        int state = AccountInstance.getInstance(account).getConnectionsManager().getConnectionState();
+        return state == ConnectionsManager.ConnectionStateConnected
+                || state == ConnectionsManager.ConnectionStateUpdating;
+    }
+
     private static void saveTasksWithoutReschedule(int account, ArrayList<Task> tasks) {
         JSONArray array = new JSONArray();
             try { for (Task task : tasks) { JSONObject o = new JSONObject(); o.put("id", task.id); o.put("dialogId", task.dialogId); o.put("target", task.target); o.put("content", task.content); o.put("time", task.time); o.put("status", task.status); o.put("lastRunDay", task.lastRunDay); o.put("retryDay", task.retryDay); o.put("pendingMessageId", task.pendingMessageId); array.put(o); } } catch (Throwable e) { FileLog.e(e); }
@@ -183,6 +197,7 @@ public final class HuanghunSignInHelper {
         NotificationCenter center = NotificationCenter.getInstance(account);
         center.addObserver(observer, NotificationCenter.messageReceivedByServer);
         center.addObserver(observer, NotificationCenter.messageSendError);
+        center.addObserver(observer, NotificationCenter.didUpdateConnectionState);
     }
 
     private static final class StatusObserver implements NotificationCenter.NotificationCenterDelegate {
@@ -194,7 +209,16 @@ public final class HuanghunSignInHelper {
 
         @Override
         public void didReceivedNotification(int event, int eventAccount, Object... args) {
-            if (eventAccount != account || args == null || args.length == 0 || !(args[0] instanceof Number)) return;
+            if (eventAccount != account) return;
+            if (event == NotificationCenter.didUpdateConnectionState) {
+                int state = AccountInstance.getInstance(account).getConnectionsManager().getConnectionState();
+                if (state == ConnectionsManager.ConnectionStateConnected
+                        || state == ConnectionsManager.ConnectionStateUpdating) {
+                    executeDueTasks(account);
+                }
+                return;
+            }
+            if (args == null || args.length == 0 || !(args[0] instanceof Number)) return;
             int messageId = ((Number) args[0]).intValue();
             if (messageId == 0) return;
             ArrayList<Task> tasks = getTasksWithoutObserver(account);
