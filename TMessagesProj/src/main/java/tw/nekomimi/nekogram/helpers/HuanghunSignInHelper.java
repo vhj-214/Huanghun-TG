@@ -148,6 +148,25 @@ public final class HuanghunSignInHelper {
                     if (task.status.startsWith("失败")) task.status = "等待执行";
                     changed = true;
                 }
+                // sendMessage() can enqueue a message before its temporary ID is
+                // visible through getSendingMessageId(). Persisting lastRunDay in
+                // that window used to make a process restart silently lose the
+                // task. First recover an existing queued message; if there is no
+                // queue entry, make the uncertain attempt due again.
+                if (targetMinute <= minutes && task.lastRunDay == day
+                        && task.pendingMessageId == 0 && isUnconfirmedSubmission(task.status)) {
+                    SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();
+                    int queuedMessageId = helper.getSendingMessageId(task.dialogId);
+                    if (queuedMessageId != 0) {
+                        task.pendingMessageId = queuedMessageId;
+                        task.status = "发送中";
+                        changed = true;
+                        continue;
+                    }
+                    task.lastRunDay = 0;
+                    task.status = "等待执行";
+                    changed = true;
+                }
                 if (targetMinute <= minutes && task.lastRunDay != day) {
                     if (!isReadyToSend(account)) {
                         task.retryDay = day;
@@ -156,15 +175,25 @@ public final class HuanghunSignInHelper {
                         changed = true;
                         continue;
                     }
+                    // Write an at-least-once marker before touching the send
+                    // queue. If the process dies during sendMessage(), the next
+                    // foreground/connection callback will retry this task
+                    // instead of treating it as already completed.
+                    task.lastRunDay = day;
+                    task.retryDay = 0;
+                    task.pendingMessageId = 0;
+                    task.status = "发送请求已提交";
+                    saveTasksWithoutReschedule(account, tasks);
                     try {
                         SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();
                         int previousMessageId = helper.getSendingMessageId(task.dialogId);
                         helper.sendMessage(
                                 SendMessagesHelper.SendMessageParams.of(task.content, task.dialogId, null, null, null, true, null, null, null, true, 0, 0, null, false));
                         int messageId = helper.getSendingMessageId(task.dialogId);
-                        // Mark the day only after the message was accepted by
-                        // SendMessagesHelper. A network/mute failure must remain
-                        // due so the next foreground with connectivity retries it.
+                        // Keep the day marker and replace the uncertain marker
+                        // with the real queue ID when SendMessagesHelper exposes
+                        // it. A network/mute failure must remain due so the next
+                        // foreground with connectivity retries it.
                         task.lastRunDay = day;
                         task.retryDay = 0;
                         task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
@@ -177,6 +206,12 @@ public final class HuanghunSignInHelper {
         if (changed) saveTasksWithoutReschedule(account, tasks);
     }
 
+    private static boolean isUnconfirmedSubmission(String status) {
+        return "发送请求已提交".equals(status)
+                || "已提交发送".equals(status)
+                || "已提交发送，等待确认".equals(status);
+    }
+
     private static boolean isReadyToSend(int account) {
         if (!ApplicationLoader.isNetworkOnlineFast()) return false;
         int state = AccountInstance.getInstance(account).getConnectionsManager().getConnectionState();
@@ -187,7 +222,10 @@ public final class HuanghunSignInHelper {
     private static void saveTasksWithoutReschedule(int account, ArrayList<Task> tasks) {
         JSONArray array = new JSONArray();
             try { for (Task task : tasks) { JSONObject o = new JSONObject(); o.put("id", task.id); o.put("dialogId", task.dialogId); o.put("target", task.target); o.put("content", task.content); o.put("time", task.time); o.put("status", task.status); o.put("lastRunDay", task.lastRunDay); o.put("retryDay", task.retryDay); o.put("pendingMessageId", task.pendingMessageId); array.put(o); } } catch (Throwable e) { FileLog.e(e); }
-        prefs().edit().putString(KEY_TASKS + account, array.toString()).apply();
+        // This method is also used for the marker written immediately before
+        // sendMessage(). Do not use apply(): the process may be killed before
+        // Android flushes the asynchronous preference write.
+        prefs().edit().putString(KEY_TASKS + account, array.toString()).commit();
     }
 
     private static synchronized void ensureStatusObserver(int account) {
