@@ -175,7 +175,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
                 }
             } catch (Throwable e) {
                 task.pendingMessageId = 0;
-                task.status = "发送失败：" + shortError(e);
+                task.status = "失败【目标永远存在禁言无法发送】";
                 FileLog.e(e);
             }
         }
@@ -552,7 +552,13 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
                 return new RecyclerView.ViewHolder(new ActionRow(mContext)) {};
             }
             if (viewType == TYPE_TASK) {
-                return new RecyclerView.ViewHolder(new TaskRow(mContext)) {};
+                TaskRow row = new TaskRow(mContext);
+                RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                params.leftMargin = AndroidUtilities.dp(16);
+                params.rightMargin = AndroidUtilities.dp(16);
+                params.bottomMargin = AndroidUtilities.dp(12);
+                row.setLayoutParams(params);
+                return new RecyclerView.ViewHolder(row) {};
             }
             return super.onCreateViewHolder(parent, viewType);
         }
@@ -656,7 +662,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
 
             details = new TextView(context);
             details.setTextSize(14);
-            details.setLineSpacing(AndroidUtilities.dp(3), 1f);
+            details.setLineSpacing(AndroidUtilities.dp(4), 1f);
             details.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
             LayoutParams detailParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
             detailParams.topMargin = AndroidUtilities.dp(8);
@@ -676,7 +682,10 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         void bind(HuanghunSignInHelper.Task task) {
             boundTask = task;
             target.setText(task.target);
-            details.setText("内容：" + task.content + "\n时间：" + task.time + "（北京时间）\n发送状态：" + task.status);
+            details.setText("内容  ·  " + task.content + "\n时间  ·  " + task.time + "（北京时间）\n状态  ·  " + task.status);
+            details.setTextColor(task.status.startsWith("失败")
+                    ? 0xffd94343
+                    : getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
         }
     }
 }

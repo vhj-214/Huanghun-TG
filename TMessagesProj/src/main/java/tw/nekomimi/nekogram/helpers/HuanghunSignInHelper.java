@@ -150,7 +150,7 @@ public final class HuanghunSignInHelper {
                         int messageId = helper.getSendingMessageId(task.dialogId);
                         task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
                         task.status = task.pendingMessageId == 0 ? "发送请求已提交" : "发送中";
-                    } catch (Throwable e) { task.pendingMessageId = 0; task.status = "发送失败：网络或目标错误"; FileLog.e(e); }
+                    } catch (Throwable e) { task.pendingMessageId = 0; task.status = "失败【目标永远存在禁言无法发送】"; FileLog.e(e); }
                     changed = true;
                 }
             } catch (Throwable e) { task.status = "失败：时间格式错误"; changed = true; }
@@ -192,7 +192,7 @@ public final class HuanghunSignInHelper {
                     task.pendingMessageId = 0;
                     task.status = event == NotificationCenter.messageReceivedByServer
                             ? "成功（" + formatCurrentTime() + "）"
-                            : "失败（发送失败）";
+                            : "失败【目标永远存在禁言无法发送】";
                     changed = true;
                 }
             }
