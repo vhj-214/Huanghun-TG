@@ -110,8 +110,9 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity {
         Bundle args = new Bundle(); args.putBoolean("onlySelect", true); args.putBoolean("checkCanWrite", false); args.putBoolean("allowGlobalSearch", true);
         DialogsActivity picker = new DialogsActivity(args);
         picker.setDelegate((fragment, dids, message, param, notify, scheduleDate, scheduleRepeatPeriod, topicsFragment) -> {
-            if (dids == null || dids.isEmpty()) return;
+            if (dids == null || dids.isEmpty()) return false;
             selectedDialogId = dids.get(0).dialogId; selectedDialogName = resolveName(selectedDialogId); target.setText(selectedDialogName); picker.finishFragment();
+            return true;
         });
         presentFragment(picker);
     }
