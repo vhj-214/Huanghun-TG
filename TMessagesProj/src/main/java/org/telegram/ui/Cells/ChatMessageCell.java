@@ -30026,8 +30026,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     }
                 }
                 if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
-                    botButton.title = new Text(original + " — " + translation, paint);
-                    invalidateOutbounds();
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (!botButtons.contains(botButton) || botButton.button == null
+                                || !TextUtils.equals(botButton.button.text, original)) {
+                            return;
+                        }
+                        botButton.title = new Text(original + " — " + translation, paint);
+                        invalidateOutbounds();
+                    });
                 }
             }
             @Override

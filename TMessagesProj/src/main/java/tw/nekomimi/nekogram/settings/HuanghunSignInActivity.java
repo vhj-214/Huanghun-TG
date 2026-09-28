@@ -186,6 +186,29 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         if (listAdapter != null) listAdapter.notifyDataSetChanged();
     }
 
+    private void resendTaskNow(HuanghunSignInHelper.Task task) {
+        if (task == null) return;
+        Context context = getParentActivity();
+        if (task.pendingMessageId != 0) {
+            if (context != null) Toast.makeText(context, "此任务正在发送，请稍候", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            SendMessagesHelper helper = org.telegram.messenger.AccountInstance.getInstance(currentAccount).getSendMessagesHelper();
+            int previousMessageId = helper.getSendingMessageId(task.dialogId);
+            helper.sendMessage(SendMessagesHelper.SendMessageParams.of(task.content, task.dialogId, null, null, null, true, null, null, null, true, 0, 0, null, false));
+            int messageId = helper.getSendingMessageId(task.dialogId);
+            task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
+            task.status = task.pendingMessageId == 0 ? "重新发送请求已提交，等待确认" : "重新发送中";
+        } catch (Throwable e) {
+            task.pendingMessageId = 0;
+            task.status = "失败【目标永远存在禁言无法发送】";
+            FileLog.e(e);
+        }
+        HuanghunSignInHelper.saveTasks(currentAccount, tasks);
+        if (listAdapter != null) listAdapter.notifyDataSetChanged();
+    }
+
     private void showTaskDialog(HuanghunSignInHelper.Task editing) {
         showTaskDialog(editing, editing == null ? "" : editing.content, editing == null ? "00:01" : editing.time);
     }
@@ -632,6 +655,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         private final TextView details;
         private final TextView edit;
         private final TextView delete;
+        private final TextView resend;
         private HuanghunSignInHelper.Task boundTask;
 
         TaskRow(Context context) {
@@ -669,6 +693,15 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             delete.setMinWidth(AndroidUtilities.dp(48));
             delete.setMinHeight(AndroidUtilities.dp(48));
             top.addView(delete, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
+            resend = new TextView(context);
+            resend.setText("重发");
+            resend.setTextSize(14);
+            resend.setTextColor(0xff2584c7);
+            resend.setGravity(Gravity.CENTER);
+            resend.setMinWidth(AndroidUtilities.dp(48));
+            resend.setMinHeight(AndroidUtilities.dp(48));
+            resend.setContentDescription("重新发送此签到任务");
+            top.addView(resend, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
             addView(top, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
             details = new TextView(context);
@@ -687,6 +720,9 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             });
             delete.setOnClickListener(v -> {
                 if (boundTask != null) confirmDeleteTask(boundTask);
+            });
+            resend.setOnClickListener(v -> {
+                if (boundTask != null) resendTaskNow(boundTask);
             });
         }
 

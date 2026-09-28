@@ -55,6 +55,7 @@ public final class SettingsBackupHelper {
     // themselves remain on the device and are never embedded in a settings JSON export.
     private static final String HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS = "huanghun_builtin_video_library";
     private static final String HUANGHUN_CALL_VIDEO_LIBRARY_PREFS = "huanghun_call_virtual_video_library";
+    private static final String HUANGHUN_SIGN_IN_PREFS = "huanghun_sign_in";
 
     public static String backupSettingsJson(boolean isCloud, int indentSpaces) throws JSONException {
         return backupSettingsJson(isCloud, indentSpaces, true);
@@ -140,6 +141,8 @@ public final class SettingsBackupHelper {
         // validate each path and silently omit entries whose private media file is not present.
         spToJSON(HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS, configJson, null, includeApiKeys);
         spToJSON(HUANGHUN_CALL_VIDEO_LIBRARY_PREFS, configJson, null, includeApiKeys);
+        // Include the account-scoped recurring sign-in tasks and their enabled switch.
+        spToJSON(HUANGHUN_SIGN_IN_PREFS, configJson, null);
 
         return configJson.toString(indentSpaces);
     }

@@ -45,8 +45,18 @@ import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.StaticLayoutEx;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+
+import tw.nekomimi.nekogram.translate.Translator;
+import tw.nekomimi.nekogram.translate.TranslatorKt;
+import xyz.nextalone.nagram.NaConfig;
 
 public class BotCommandsMenuView extends View {
+
+    private static final HashMap<String, String> commandDescriptionTranslations = new HashMap<>();
+    private static final HashSet<String> commandDescriptionTranslationsInFlight = new HashSet<>();
 
     final RectF rectTmp = new RectF();
     final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -122,6 +132,81 @@ public class BotCommandsMenuView extends View {
         super.onInitializeAccessibilityNodeInfo(info);
         info.addAction(isOpened()? AccessibilityNodeInfo.AccessibilityAction.ACTION_COLLAPSE : AccessibilityNodeInfo.AccessibilityAction.ACTION_EXPAND);
         info.setContentDescription(getString(R.string.AccDescrBotCommands));
+    }
+
+    private static void translateCommandDescription(BotCommandView view, String command, String original) {
+        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || TextUtils.isEmpty(original) || containsChinese(original)) {
+            view.description.setText(original);
+            return;
+        }
+        boolean hasLetter = false;
+        for (int i = 0; i < original.length(); i++) {
+            if (Character.isLetter(original.charAt(i))) {
+                hasLetter = true;
+                break;
+            }
+        }
+        if (!hasLetter) {
+            view.description.setText(original);
+            return;
+        }
+
+        int provider = NaConfig.INSTANCE.getOutgoingAutoTranslateProvider().Int();
+        String cacheKey = provider + "\u0000" + original;
+        final String cached;
+        synchronized (commandDescriptionTranslations) {
+            cached = commandDescriptionTranslations.get(cacheKey);
+            if (cached == null && !commandDescriptionTranslationsInFlight.contains(cacheKey)) {
+                commandDescriptionTranslationsInFlight.add(cacheKey);
+            } else if (cached == null) {
+                view.description.setText(original);
+                return;
+            }
+        }
+        if (cached != null) {
+            view.description.setText(original + " — " + cached);
+            return;
+        }
+
+        view.description.setText(original);
+        Translator.translateFromWithFallback(new Locale(""), TranslatorKt.getCode2Locale("zh_cn"), original, provider, new Translator.Companion.TranslateCallBack() {
+            @Override
+            public void onSuccess(String translation) {
+                synchronized (commandDescriptionTranslations) {
+                    commandDescriptionTranslationsInFlight.remove(cacheKey);
+                    if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                        if (commandDescriptionTranslations.size() >= 256) {
+                            commandDescriptionTranslations.remove(commandDescriptionTranslations.keySet().iterator().next());
+                        }
+                        commandDescriptionTranslations.put(cacheKey, translation);
+                    }
+                }
+                if (!TextUtils.isEmpty(translation) && !TextUtils.equals(original, translation)) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (TextUtils.equals(view.commandStr, command)
+                                && TextUtils.equals(view.originalDescription, original)) {
+                            view.description.setText(original + " — " + translation);
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onFailed(boolean unsupported, String message) {
+                synchronized (commandDescriptionTranslations) {
+                    commandDescriptionTranslationsInFlight.remove(cacheKey);
+                }
+            }
+        });
+    }
+
+    private static boolean containsChinese(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.UnicodeScript.of(text.charAt(i)) == Character.UnicodeScript.HAN) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -286,8 +371,7 @@ public class BotCommandsMenuView extends View {
                 view.command.setText(command);
             }
 
-            view.description.setText(newResultHelp.get(position));
-            view.commandStr = command;
+            view.setBotDescription(command, newResultHelp.get(position));
         }
 
         @Override
@@ -337,6 +421,7 @@ public class BotCommandsMenuView extends View {
         TextView command;
         TextView description;
         String commandStr;
+        String originalDescription;
 
         public BotCommandView(@NonNull Context context) {
             super(context);
@@ -367,6 +452,12 @@ public class BotCommandsMenuView extends View {
 
         public String getCommand() {
             return commandStr;
+        }
+
+        void setBotDescription(String command, String original) {
+            commandStr = command;
+            originalDescription = original;
+            translateCommandDescription(this, command, original);
         }
     }
 
