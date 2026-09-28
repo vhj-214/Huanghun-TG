@@ -109,6 +109,9 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
     @Override
     public void onResume() {
         super.onResume();
+        // Opening this page is also a retry point for tasks that missed their
+        // time while the device had no network connection.
+        HuanghunSignInHelper.executeDueTasks(currentAccount);
         tasks = HuanghunSignInHelper.getTasks(currentAccount);
         if (listAdapter != null) {
             listAdapter.notifyDataSetChanged();

@@ -141,13 +141,16 @@ public final class HuanghunSignInHelper {
                 // task as due once its minute has passed today, otherwise a
                 // delayed wake-up would silently skip the task until tomorrow.
                 if (targetMinute <= minutes && task.lastRunDay != day) {
-                    task.lastRunDay = day;
                     try {
                         SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();
                         int previousMessageId = helper.getSendingMessageId(task.dialogId);
                         helper.sendMessage(
                                 SendMessagesHelper.SendMessageParams.of(task.content, task.dialogId, null, null, null, true, null, null, null, true, 0, 0, null, false));
                         int messageId = helper.getSendingMessageId(task.dialogId);
+                        // Mark the day only after the message was accepted by
+                        // SendMessagesHelper. A network/mute failure must remain
+                        // due so the next foreground with connectivity retries it.
+                        task.lastRunDay = day;
                         task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
                         task.status = task.pendingMessageId == 0 ? "发送请求已提交" : "发送中";
                     } catch (Throwable e) { task.pendingMessageId = 0; task.status = "失败【目标永远存在禁言无法发送】"; FileLog.e(e); }
@@ -190,6 +193,7 @@ public final class HuanghunSignInHelper {
             for (Task task : tasks) {
                 if (task.pendingMessageId == messageId) {
                     task.pendingMessageId = 0;
+                    if (event == NotificationCenter.messageSendError) task.lastRunDay = 0;
                     task.status = event == NotificationCenter.messageReceivedByServer
                             ? "成功（" + formatCurrentTime() + "）"
                             : "失败【目标永远存在禁言无法发送】";

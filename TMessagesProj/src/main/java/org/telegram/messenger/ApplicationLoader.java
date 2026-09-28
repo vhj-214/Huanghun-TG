@@ -383,6 +383,12 @@ public class ApplicationLoader extends Application {
                 super.onActivityStarted(activity);
                 if (wasInBackground) {
                     ensureCurrentNetworkGet(true);
+                    AndroidUtilities.runOnUIThread(() -> {
+                        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+                            tw.nekomimi.nekogram.helpers.HuanghunSignInHelper.executeDueTasks(account);
+                        }
+                        tw.nekomimi.nekogram.helpers.HuanghunSignInScheduler.scheduleAll();
+                    }, 1200);
                 }
             }
         };
