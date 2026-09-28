@@ -1403,7 +1403,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 } else if (position == activeEmojiRow) {
                     cell.setTextAndValue("点赞表情", getActiveEmojiSummary(), false);
                 } else if (position == signInFunctionRow) {
-                    cell.setTextAndValue("自动签到函数", "设定目标、内容和北京时间", true);
+                    int taskCount = HuanghunSignInHelper.getTasks(currentAccount).size();
+                    cell.setTextAndValue("自动签到函数", taskCount == 0 ? "未设定" : "已设定 " + taskCount + " 个目标", true);
                 } else if (position == localStarsRow) {
                     cell.setTextAndValue("定义星星数量", String.valueOf(NekoConfig.huanghunLocalStars.Long()) + " 颗（仅本地测试）", true);
                 } else if (position == localGramRow) {
