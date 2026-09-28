@@ -329,7 +329,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         row.addView(inputWrap, new LinearLayout.LayoutParams(0, AndroidUtilities.dp(50), 1f));
 
         TextView choose = createTextButton(context, "选择", true);
-        LinearLayout.LayoutParams chooseParams = new LinearLayout.LayoutParams(AndroidUtilities.dp(88), AndroidUtilities.dp(42));
+        LinearLayout.LayoutParams chooseParams = new LinearLayout.LayoutParams(AndroidUtilities.dp(88), AndroidUtilities.dp(48));
         chooseParams.leftMargin = AndroidUtilities.dp(12);
         row.addView(choose, chooseParams);
         form.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, 0, 0, 0, 12));
@@ -521,6 +521,10 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         button.setTextSize(15);
         button.setTypeface(null, android.graphics.Typeface.BOLD);
         button.setGravity(Gravity.CENTER);
+        button.setMinHeight(AndroidUtilities.dp(48));
+        button.setMinWidth(AndroidUtilities.dp(48));
+        button.setMaxLines(1);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
         button.setTextColor(primary ? Color.WHITE : 0xff2584c7);
         button.setBackground(roundedBackground(primary ? 0xff2584c7 : 0xffeaf3fa, AndroidUtilities.dp(12)));
         button.setClickable(true);
@@ -651,13 +655,17 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             edit.setTextSize(14);
             edit.setTextColor(0xff2584c7);
             edit.setGravity(Gravity.CENTER);
-            top.addView(edit, new LayoutParams(AndroidUtilities.dp(44), AndroidUtilities.dp(36)));
+            edit.setMinWidth(AndroidUtilities.dp(48));
+            edit.setMinHeight(AndroidUtilities.dp(48));
+            top.addView(edit, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
             delete = new TextView(context);
             delete.setText("删除");
             delete.setTextSize(14);
             delete.setTextColor(0xffd94343);
             delete.setGravity(Gravity.CENTER);
-            top.addView(delete, new LayoutParams(AndroidUtilities.dp(44), AndroidUtilities.dp(36)));
+            delete.setMinWidth(AndroidUtilities.dp(48));
+            delete.setMinHeight(AndroidUtilities.dp(48));
+            top.addView(delete, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
             addView(top, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
             details = new TextView(context);
