@@ -59,6 +59,7 @@ import java.util.List;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunActiveZoneHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunSignInHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
@@ -77,6 +78,11 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     private int specialAttentionEnabledRow;
     private int specialAttentionNoticeRow;
     private int specialAttentionEndRow;
+    private int signInHeaderRow;
+    private int signInEnabledRow;
+    private int signInFunctionRow;
+    private int signInNoticeRow;
+    private int signInEndRow;
     private int activeHeaderRow;
     private int activeEnabledRow;
     private int activeDirectionRow;
@@ -145,6 +151,11 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         specialAttentionEnabledRow = addRow();
         specialAttentionNoticeRow = addRow();
         specialAttentionEndRow = addRow();
+        signInHeaderRow = addRow();
+        signInEnabledRow = addRow();
+        signInFunctionRow = addRow();
+        signInNoticeRow = addRow();
+        signInEndRow = addRow();
         activeHeaderRow = addRow();
         activeEnabledRow = addRow();
         activeDirectionRow = addRow();
@@ -299,6 +310,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 ((TextCheckCell) view).setChecked(enabled);
             }
             NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.huanghunSpecialAttentionChanged);
+            return;
+        }
+        if (position == signInEnabledRow) {
+            boolean enabled = HuanghunSignInHelper.isEnabled(currentAccount);
+            HuanghunSignInHelper.setEnabled(currentAccount, !enabled);
+            if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(!enabled);
+            return;
+        }
+        if (position == signInFunctionRow) {
+            presentFragment(new HuanghunSignInActivity());
             return;
         }
         if (position == activeEnabledRow) {
@@ -1360,6 +1381,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 HeaderCell cell = (HeaderCell) holder.itemView;
                 String headerText = position == specialAttentionHeaderRow
                         ? "特别关心通知专区"
+                        : (position == signInHeaderRow
+                        ? "自动签到功能专区"
                         : (position == activeHeaderRow
                         ? "活跃专区"
                         : (position == localHeaderRow
@@ -1368,7 +1391,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                         ? "视频专区"
                         : (position == privacyHeaderRow
                         ? "隐私专区"
-                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone))))));
+                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone)))))));
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
@@ -1379,6 +1402,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                     cell.setTextAndValue("点赞对象", HuanghunActiveZoneHelper.getTargetSummary(), true);
                 } else if (position == activeEmojiRow) {
                     cell.setTextAndValue("点赞表情", getActiveEmojiSummary(), false);
+                } else if (position == signInFunctionRow) {
+                    cell.setTextAndValue("自动签到函数", "设定目标、内容和北京时间", true);
                 } else if (position == localStarsRow) {
                     cell.setTextAndValue("定义星星数量", String.valueOf(NekoConfig.huanghunLocalStars.Long()) + " 颗（仅本地测试）", true);
                 } else if (position == localGramRow) {
@@ -1433,6 +1458,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 TextCheckCell cell = (TextCheckCell) holder.itemView;
                 if (position == specialAttentionEnabledRow) {
                     cell.setTextAndCheck("开启特别关心底部专区", NekoConfig.huanghunSpecialAttentionEnabled.Bool(), true);
+                } else if (position == signInEnabledRow) {
+                    cell.setTextAndCheck("开启自动签到", HuanghunSignInHelper.isEnabled(currentAccount), true);
                 } else if (position == activeEnabledRow) {
                     cell.setTextAndCheck("自动表情点赞", NekoConfig.huanghunActiveZoneEnabled.Bool(), true);
                 } else if (position == localEditMessageRow) {
@@ -1462,6 +1489,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
                 if (position == specialAttentionNoticeRow) {
                     cell.setText("开启后，底部联系人位置默认显示“特别关心”；长按该位置可切换为联系人或特别关心，切换不会关闭本功能。特别关心会话名单仅保存在本机当前账号。 ");
+                } else if (position == signInNoticeRow) {
+                    cell.setText("自动签到默认关闭。进入“自动签到函数”后可添加群、频道、用户或机器人，并按北京时间每天发送设定内容。需要网络连接，请提前配置好内置代理。");
                 } else {
                     cell.setText(position == activeNoticeRow ? "新消息到达后自动发送真实点赞。可选择对方消息、自己消息或双方消息；点赞对象可限定为全部对象、群或频道、所有用户或指定用户。普通表情会发送给 Telegram；高级自定义表情在本机显示，其他人看到可用的普通点赞。" : (position == localNoticeRow ? "本专区只修改本机显示和本地测试数据，不会修改 Telegram 服务器内容。虚拟星星不能真实购买；本地礼物也不会产生真实订单或扣款。" : (position == videoNoticeRow ? "内置视频仅保存在当前设备和当前账号中。圆形视频默认开启，方形视频默认关闭；两者可同时关闭，但不能同时开启。开启内置相机后，录制会循环预览所选视频，并按当前模式发送。关闭两种模式或关闭内置相机开关即可恢复 Telegram 官方真实摄像头录制。" : (position == cleanupNoticeRow ? getString(R.string.HuanghunCleanupNotice) : (position == privacyNoticeRow ? "隐私文件夹仅保存在本机。已加入的群组、频道、机器人或私聊会在本客户端的任意入口先要求密码验证；连续输错 3 次将锁定 30 分钟。忘记密码后可启动 24 小时安全重置，期间可随时取消。" : getString(R.string.HuanghunBlockNotice))))));
                 }
@@ -1473,16 +1502,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
         @Override
         public int getItemViewType(int position) {
-            if (position == specialAttentionHeaderRow || position == activeHeaderRow || position == localHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
+            if (position == specialAttentionHeaderRow || position == signInHeaderRow || position == activeHeaderRow || position == localHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
-            if (position == specialAttentionEnabledRow || position == activeEnabledRow || position == localEditMessageRow || position == localEditTimeRow || position == localEditAvatarRow || position == localEditBioRow || position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
+            if (position == specialAttentionEnabledRow || position == signInEnabledRow || position == activeEnabledRow || position == localEditMessageRow || position == localEditTimeRow || position == localEditAvatarRow || position == localEditBioRow || position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
                 return TYPE_CHECK;
             }
-            if (position == specialAttentionNoticeRow || position == activeNoticeRow || position == localNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
+            if (position == specialAttentionNoticeRow || position == signInNoticeRow || position == activeNoticeRow || position == localNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == specialAttentionEndRow || position == activeEndRow || position == localEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
+            if (position == specialAttentionEndRow || position == signInEndRow || position == activeEndRow || position == localEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;
