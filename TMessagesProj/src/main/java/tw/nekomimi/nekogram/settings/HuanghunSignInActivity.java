@@ -214,12 +214,12 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
 
         EditTextBoldCursor content = createInput(context, "请输入要发送的内容", true);
         content.setText(initialContent);
-        addField(context, form, "设定内容", content, AndroidUtilities.dp(92), false);
+        addField(context, form, "设定内容", content, 88, false);
 
         EditTextBoldCursor time = createInput(context, "例如 9:58 或 10:20（北京时间）", false);
         time.setInputType(InputType.TYPE_CLASS_DATETIME | InputType.TYPE_DATETIME_VARIATION_TIME);
         time.setText(initialTime);
-        addField(context, form, "设定时间", time, AndroidUtilities.dp(50), false);
+        addField(context, form, "设定时间", time, 52, false);
 
         TextView error = new TextView(context);
         error.setTextColor(0xffd94343);
@@ -292,18 +292,18 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         TextView title = new TextView(context);
         title.setText(label);
         title.setTextSize(14);
-        title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
-        title.setGravity(Gravity.BOTTOM);
-        form.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(26), 0, 0, 0, 3));
+        title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        form.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 26, 0, 0, 0, 3));
 
         LinearLayout inputWrap = new LinearLayout(context);
         inputWrap.setOrientation(LinearLayout.VERTICAL);
         inputWrap.setGravity(Gravity.CENTER_VERTICAL);
+        inputWrap.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        inputWrap.setBackground(roundedBackground(getThemedColor(Theme.key_windowBackgroundGray), AndroidUtilities.dp(12)));
         input.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         inputWrap.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        View divider = new View(context);
-        divider.setBackgroundColor(getThemedColor(Theme.key_divider));
-        inputWrap.addView(divider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1)));
         form.addView(inputWrap, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, inputHeight, 0, 0, 0, addChooseGap ? 5 : 12));
     }
 
@@ -311,9 +311,10 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         TextView title = new TextView(context);
         title.setText("目标设定");
         title.setTextSize(14);
-        title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
-        title.setGravity(Gravity.BOTTOM);
-        form.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(26), 0, 0, 0, 3));
+        title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        form.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 26, 0, 0, 0, 3));
 
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -321,18 +322,17 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         LinearLayout inputWrap = new LinearLayout(context);
         inputWrap.setOrientation(LinearLayout.VERTICAL);
         inputWrap.setGravity(Gravity.CENTER_VERTICAL);
+        inputWrap.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        inputWrap.setBackground(roundedBackground(getThemedColor(Theme.key_windowBackgroundGray), AndroidUtilities.dp(12)));
         target.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         inputWrap.addView(target, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        View divider = new View(context);
-        divider.setBackgroundColor(getThemedColor(Theme.key_divider));
-        inputWrap.addView(divider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1)));
         row.addView(inputWrap, new LinearLayout.LayoutParams(0, AndroidUtilities.dp(50), 1f));
 
         TextView choose = createTextButton(context, "选择", true);
         LinearLayout.LayoutParams chooseParams = new LinearLayout.LayoutParams(AndroidUtilities.dp(88), AndroidUtilities.dp(42));
         chooseParams.leftMargin = AndroidUtilities.dp(12);
         row.addView(choose, chooseParams);
-        form.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(50), 0, 0, 0, 12));
+        form.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, 0, 0, 0, 12));
         return choose;
     }
 
