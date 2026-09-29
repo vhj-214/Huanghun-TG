@@ -127,6 +127,55 @@ public final class HuanghunSignInHelper {
         return next.getTimeInMillis();
     }
 
+    public static synchronized boolean resendTaskNow(int account, long taskId) {
+        ArrayList<Task> tasks = getTasks(account);
+        Task task = null;
+        for (Task candidate : tasks) {
+            if (candidate.id == taskId) {
+                task = candidate;
+                break;
+            }
+        }
+        if (task == null) return false;
+        SendMessagesHelper helper = AccountInstance.getInstance(account).getSendMessagesHelper();
+        if (task.pendingMessageId != 0) {
+            int queuedMessageId = helper.getSendingMessageId(task.dialogId);
+            if (queuedMessageId != 0 && queuedMessageId != task.pendingMessageId) {
+                task.pendingMessageId = queuedMessageId;
+                task.status = "重新发送中";
+                saveTasksForResend(account, tasks);
+                return false;
+            } else if (task.pendingMessageId == -1 && queuedMessageId == 0) {
+                // -1 is the pre-send lock. If the process died before a queue
+                // entry appeared, release it so the next tap can retry safely.
+                task.pendingMessageId = 0;
+                task.status = "等待执行";
+                saveTasksForResend(account, tasks);
+            } else {
+                return false;
+            }
+        }
+        // Persist the lock before entering SendMessagesHelper. The send call can
+        // return before its temporary ID is visible, so using only that ID made
+        // the button appear idle and allowed duplicate taps.
+        task.pendingMessageId = -1;
+        task.status = "重新发送中";
+        saveTasksForResend(account, tasks);
+        try {
+            int previousMessageId = helper.getSendingMessageId(task.dialogId);
+            helper.sendMessage(SendMessagesHelper.SendMessageParams.of(task.content, task.dialogId, null, null, null, true, null, null, null, true, 0, 0, null, false));
+            int messageId = helper.getSendingMessageId(task.dialogId);
+            task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
+            task.status = task.pendingMessageId == 0 ? "重新发送请求已提交，等待确认" : "重新发送中";
+        } catch (Throwable e) {
+            task.pendingMessageId = 0;
+            task.status = "失败【目标永远存在禁言无法发送】";
+            FileLog.e(e);
+        }
+        saveTasksForResend(account, tasks);
+        return true;
+    }
+
     public static synchronized void executeDueTasks(int account) {
         if (!isEnabled(account) || !UserConfig.getInstance(account).isClientActivated()) return;
         ensureStatusObserver(account);
@@ -226,6 +275,31 @@ public final class HuanghunSignInHelper {
         // sendMessage(). Do not use apply(): the process may be killed before
         // Android flushes the asynchronous preference write.
         prefs().edit().putString(KEY_TASKS + account, array.toString()).commit();
+    }
+
+    private static void saveTasksForResend(int account, ArrayList<Task> tasks) {
+        JSONArray array = new JSONArray();
+        try {
+            for (Task task : tasks) {
+                JSONObject object = new JSONObject();
+                object.put("id", task.id);
+                object.put("dialogId", task.dialogId);
+                object.put("target", task.target);
+                object.put("content", task.content);
+                object.put("time", task.time);
+                object.put("status", task.status);
+                object.put("lastRunDay", task.lastRunDay);
+                object.put("retryDay", task.retryDay);
+                object.put("pendingMessageId", task.pendingMessageId);
+                array.put(object);
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        // The UI must not wait for disk I/O before SendMessagesHelper is called.
+        // apply() updates the in-memory preferences immediately and flushes in
+        // the background, while the -1 lock prevents duplicate taps now.
+        prefs().edit().putString(KEY_TASKS + account, array.toString()).apply();
     }
 
     private static synchronized void ensureStatusObserver(int account) {

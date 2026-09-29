@@ -189,23 +189,11 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
     private void resendTaskNow(HuanghunSignInHelper.Task task) {
         if (task == null) return;
         Context context = getParentActivity();
-        if (task.pendingMessageId != 0) {
-            if (context != null) Toast.makeText(context, "此任务正在发送，请稍候", Toast.LENGTH_SHORT).show();
-            return;
+        boolean accepted = HuanghunSignInHelper.resendTaskNow(currentAccount, task.id);
+        if (!accepted && context != null) {
+            Toast.makeText(context, "此任务正在发送，请稍候", Toast.LENGTH_SHORT).show();
         }
-        try {
-            SendMessagesHelper helper = org.telegram.messenger.AccountInstance.getInstance(currentAccount).getSendMessagesHelper();
-            int previousMessageId = helper.getSendingMessageId(task.dialogId);
-            helper.sendMessage(SendMessagesHelper.SendMessageParams.of(task.content, task.dialogId, null, null, null, true, null, null, null, true, 0, 0, null, false));
-            int messageId = helper.getSendingMessageId(task.dialogId);
-            task.pendingMessageId = messageId != 0 && messageId != previousMessageId ? messageId : 0;
-            task.status = task.pendingMessageId == 0 ? "重新发送请求已提交，等待确认" : "重新发送中";
-        } catch (Throwable e) {
-            task.pendingMessageId = 0;
-            task.status = "失败【目标永远存在禁言无法发送】";
-            FileLog.e(e);
-        }
-        HuanghunSignInHelper.saveTasks(currentAccount, tasks);
+        tasks = HuanghunSignInHelper.getTasks(currentAccount);
         if (listAdapter != null) listAdapter.notifyDataSetChanged();
     }
 
@@ -684,7 +672,6 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             edit.setGravity(Gravity.CENTER);
             edit.setMinWidth(AndroidUtilities.dp(48));
             edit.setMinHeight(AndroidUtilities.dp(48));
-            top.addView(edit, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
             delete = new TextView(context);
             delete.setText("删除");
             delete.setTextSize(14);
@@ -692,21 +679,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             delete.setGravity(Gravity.CENTER);
             delete.setMinWidth(AndroidUtilities.dp(48));
             delete.setMinHeight(AndroidUtilities.dp(48));
-            top.addView(delete, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
             addView(top, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-
-            LinearLayout resendRow = new LinearLayout(context);
-            resendRow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-            resend = new TextView(context);
-            resend.setText("重发");
-            resend.setTextSize(14);
-            resend.setTextColor(0xff2584c7);
-            resend.setGravity(Gravity.CENTER);
-            resend.setMinWidth(AndroidUtilities.dp(48));
-            resend.setMinHeight(AndroidUtilities.dp(48));
-            resend.setContentDescription("重新发送此签到任务");
-            resendRow.addView(resend, new LayoutParams(AndroidUtilities.dp(48), AndroidUtilities.dp(48)));
-            addView(resendRow, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
             details = new TextView(context);
             details.setTextSize(14);
@@ -715,6 +688,22 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             LayoutParams detailParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
             detailParams.topMargin = AndroidUtilities.dp(8);
             addView(details, detailParams);
+
+            LinearLayout actionRow = new LinearLayout(context);
+            actionRow.setGravity(Gravity.CENTER_VERTICAL);
+            actionRow.setPadding(0, AndroidUtilities.dp(6), 0, 0);
+            resend = new TextView(context);
+            resend.setText("重发");
+            resend.setTextSize(14);
+            resend.setTextColor(0xff2584c7);
+            resend.setGravity(Gravity.CENTER);
+            resend.setMinWidth(AndroidUtilities.dp(48));
+            resend.setMinHeight(AndroidUtilities.dp(48));
+            resend.setContentDescription("重新发送此签到任务");
+            actionRow.addView(edit, new LayoutParams(0, AndroidUtilities.dp(48), 1f));
+            actionRow.addView(delete, new LayoutParams(0, AndroidUtilities.dp(48), 1f));
+            actionRow.addView(resend, new LayoutParams(0, AndroidUtilities.dp(48), 1f));
+            addView(actionRow, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
             setOnClickListener(v -> {
                 if (boundTask != null) showTaskDialog(boundTask);
