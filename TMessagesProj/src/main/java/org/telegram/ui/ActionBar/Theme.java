@@ -901,10 +901,13 @@ public class Theme {
             // bubble uses exactly that one uniform scale. A character therefore keeps its preview
             // proportion instead of being shrunk, squeezed or repositioned, and only the panel's
             // own middle grows sideways to follow the real message width.
-            // Keep the catalog artwork readable on both one-line and very long messages. The
-            // panel follows Telegram's measured body, while the mascot uses a bounded uniform scale
-            // so a long paragraph cannot make the bitmap enormous or push it off-screen.
-            final float uniform = Math.max(0.75f, Math.min(2.40f, bodyHeight / sourceBodyHeight));
+            // Telegram has already measured the real message body. Do not impose an artificial
+            // width/height cap here: the complete artwork follows that measured size. The only
+            // fallback protects against invalid geometry and cannot affect normal messages.
+            float uniform = bodyHeight / sourceBodyHeight;
+            if (!(uniform > 0f) || Float.isNaN(uniform) || Float.isInfinite(uniform)) {
+                uniform = 1f;
+            }
             // The source bitmap includes transparent padding around the catalog preview. Use the
             // template's body and ornament bounds instead of the full bitmap height; otherwise a
             // chat row gets a large empty band above the bubble and the character appears detached.
@@ -963,7 +966,10 @@ public class Theme {
             final float panelTop = bitmap.getHeight() * 0.43f;
             final float panelBottom = bitmap.getHeight() * 0.81f;
             final float panelLeft = bitmap.getWidth() * 0.14f;
-            final float scale = Math.max(0.12f, Math.min(1.60f, bodyHeight / Math.max(1f, panelBottom - panelTop)));
+            float scale = bodyHeight / Math.max(1f, panelBottom - panelTop);
+            if (!(scale > 0f) || Float.isNaN(scale) || Float.isInfinite(scale)) {
+                scale = 1f;
+            }
             final float destinationLeft = bodyLeft - panelLeft * scale;
             final float destinationTop = bodyTop - panelTop * scale;
             huanghunBubbleSkinSourceRect.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
@@ -1026,11 +1032,12 @@ public class Theme {
             final int border = getHuanghunBubbleSkinBorderColor(base);
             final int top = Color.argb(alpha, Math.min(255, Color.red(base) + 20), Math.min(255, Color.green(base) + 20), Math.min(255, Color.blue(base) + 20));
             final int bottom = Color.argb(alpha, Math.max(0, Color.red(base) - 18), Math.max(0, Color.green(base) - 18), Math.max(0, Color.blue(base) - 18));
-            // Keep the original frame and the character overlap visible. Only the inner text
-            // field is replaced; covering the whole measured body hides the catalog composition.
-            final float insetX = Math.max(dp(4), Math.min(destinationWidth * 0.06f, dp(18)));
-            final float insetTop = Math.max(dp(4), Math.min(destinationHeight * 0.12f, dp(10)));
-            final float insetBottom = Math.max(dp(3), Math.min(destinationHeight * 0.08f, dp(7)));
+            // Cover the entire measured text body. The source catalog images are flattened and
+            // may contain baked sample words such as “大家好”; leaving an inset would expose those
+            // words at the edge. Mascots remain outside this body in the clean composition layer.
+            final float insetX = 0f;
+            final float insetTop = 0f;
+            final float insetBottom = 0f;
             final float panelLeft = bodyLeft + insetX;
             final float panelTop = bodyTop + insetTop;
             final float panelRight = bodyRight - insetX;
@@ -1648,11 +1655,16 @@ public class Theme {
                 generatePath(path, bounds, padding, rad, smallRad, nearRad, top, drawFullBottom, drawFullTop, paintToUse != null);
             }
 
-            canvas.drawPath(path, p);
-            if (paintToUse == null && huanghunBubbleStyle != HuanghunBubbleStyleHelper.DEFAULT_STYLE) {
+            // A Huanghun skin is a complete replacement background, not an overlay. Drawing the
+            // Telegram path first creates the duplicated upper/lower bubble seen in screenshots.
+            final boolean useHuanghunSkin = paintToUse == null && huanghunBubbleStyle != HuanghunBubbleStyleHelper.DEFAULT_STYLE;
+            if (!useHuanghunSkin) {
+                canvas.drawPath(path, p);
+            }
+            if (useHuanghunSkin) {
                 drawHuanghunBubbleSkin(canvas, bounds, path);
             }
-            if (gradientShader != null && isSelected && paintToUse == null) {
+            if (gradientShader != null && isSelected && paintToUse == null && !useHuanghunSkin) {
                 int color = getColor(key_chat_outBubbleGradientSelectedOverlay);
                 selectedPaint.setColor(ColorUtils.setAlphaComponent(color, (int) (Color.alpha(color) * alpha / 255f)));
                 canvas.drawPath(path, selectedPaint);
