@@ -898,10 +898,10 @@ public class Theme {
             huanghunDecorationPaint.setAlpha(alpha);
             // Left and right slices: frame, glow and characters in one piece, aligned with the
             // template's own body rows so the stretched panel starts exactly where they end.
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, stripLeft, artworkHeight,
+            drawHuanghunBubbleRawPatch(canvas, bitmap, 0, 0, stripLeft, artworkHeight,
                     bodyLeft - stripLeft * uniform, bodyTop - template[1] * uniform,
                     bodyLeft, bodyTop - template[1] * uniform + artworkHeight * uniform);
-            drawHuanghunBubbleSkinPatch(canvas, bitmap, stripRight, 0, artworkWidth, artworkHeight,
+            drawHuanghunBubbleRawPatch(canvas, bitmap, stripRight, 0, artworkWidth, artworkHeight,
                     bodyRight, bodyTop - template[1] * uniform,
                     bodyRight + (artworkWidth - stripRight) * uniform, bodyTop - template[1] * uniform + artworkHeight * uniform);
             // The panel itself is stretched over the whole measured body, so a two character
@@ -949,47 +949,31 @@ public class Theme {
          * bubble adapts to any message length without a shaded or covered middle section.
          */
         private void drawHuanghunBubbleBodyPanel(Canvas canvas, float bodyLeft, float bodyTop, float bodyRight, float bodyBottom, float bodyHeight) {
-            Bitmap body = getHuanghunBubbleBody();
-            if (body == null || body.getWidth() < 4 || body.getHeight() < 4) {
-                return;
-            }
             final float destinationWidth = bodyRight - bodyLeft;
             final float destinationHeight = bodyBottom - bodyTop;
             if (destinationWidth < 3f || destinationHeight < 3f) {
                 return;
             }
             final int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
-            final int sourceWidth = body.getWidth();
-            final int sourceHeight = body.getHeight();
-            final float uniform = Math.max(0.01f, bodyHeight / (float) sourceHeight);
-            int capWidth = style > 0 && style < huanghunBubbleStripCaps.length ? huanghunBubbleStripCaps[style] : 0;
-            int capHeight = style > 0 && style < huanghunBubbleBodyRadius.length ? huanghunBubbleBodyRadius[style] : 0;
-            capWidth = Math.max(1, Math.min(capWidth, sourceWidth / 2));
-            capHeight = Math.max(1, Math.min(capHeight, sourceHeight / 2));
-            float capX = Math.max(0.5f, Math.min(capWidth * uniform, destinationWidth * 0.5f - 0.5f));
-            float capY = Math.max(0.5f, Math.min(capHeight * uniform, destinationHeight * 0.5f - 0.5f));
-            final float middleSourceLeft = capWidth;
-            final float middleSourceRight = sourceWidth - capWidth;
-            final float middleSourceTop = capHeight;
-            final float middleSourceBottom = sourceHeight - capHeight;
-            final float middleLeft = bodyLeft + capX;
-            final float middleRight = bodyRight - capX;
-            final float middleTop = bodyTop + capY;
-            final float middleBottom = bodyBottom - capY;
+            // Do not stretch a rasterised sample panel: that is what produced the vertical bands in
+            // the earlier preview. The original skin is already drawn as the two side slices above;
+            // here we paint only a clean, scalable panel. Telegram draws the real message text
+            // afterwards, so the baked catalog wording can never be duplicated.
+            final int base = getHuanghunBubbleSkinBodyColor(null);
+            final int border = getHuanghunBubbleSkinBorderColor(base);
+            final int top = Color.argb(alpha, Math.min(255, Color.red(base) + 20), Math.min(255, Color.green(base) + 20), Math.min(255, Color.blue(base) + 20));
+            final int bottom = Color.argb(alpha, Math.max(0, Color.red(base) - 18), Math.max(0, Color.green(base) - 18), Math.max(0, Color.blue(base) - 18));
+            final float radius = Math.max(dp(5), Math.min(destinationHeight * 0.38f, dp(18)));
+            final float inset = Math.max(dp(1), Math.min(destinationHeight * 0.06f, dp(2)));
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
-            huanghunDecorationPaint.setAlpha(alpha);
-            // corners
-            drawHuanghunBubbleBodyPatch(canvas, body, 0, 0, capWidth, capHeight, bodyLeft, bodyTop, middleLeft, middleTop);
-            drawHuanghunBubbleBodyPatch(canvas, body, sourceWidth - capWidth, 0, sourceWidth, capHeight, middleRight, bodyTop, bodyRight, middleTop);
-            drawHuanghunBubbleBodyPatch(canvas, body, 0, sourceHeight - capHeight, capWidth, sourceHeight, bodyLeft, middleBottom, middleLeft, bodyBottom);
-            drawHuanghunBubbleBodyPatch(canvas, body, sourceWidth - capWidth, sourceHeight - capHeight, sourceWidth, sourceHeight, middleRight, middleBottom, bodyRight, bodyBottom);
-            // horizontal edges stretch only sideways, vertical edges only up and down
-            drawHuanghunBubbleBodyPatch(canvas, body, middleSourceLeft, 0, middleSourceRight, capHeight, middleLeft, bodyTop, middleRight, middleTop);
-            drawHuanghunBubbleBodyPatch(canvas, body, middleSourceLeft, middleSourceBottom, middleSourceRight, sourceHeight, middleLeft, middleBottom, middleRight, bodyBottom);
-            drawHuanghunBubbleBodyPatch(canvas, body, 0, middleSourceTop, capWidth, middleSourceBottom, bodyLeft, middleTop, middleLeft, middleBottom);
-            drawHuanghunBubbleBodyPatch(canvas, body, sourceWidth - capWidth, middleSourceTop, sourceWidth, middleSourceBottom, middleRight, middleTop, bodyRight, middleBottom);
-            // the stretched middle: clean, seamless and free of any sample wording or shadow
-            drawHuanghunBubbleBodyPatch(canvas, body, middleSourceLeft, middleSourceTop, middleSourceRight, middleSourceBottom, middleLeft, middleTop, middleRight, middleBottom);
+            huanghunDecorationPaint.setShader(new LinearGradient(bodyLeft, bodyTop, bodyLeft, bodyBottom, top, bottom, Shader.TileMode.CLAMP));
+            canvas.drawRoundRect(bodyLeft + inset, bodyTop + inset, bodyRight - inset, bodyBottom - inset, radius, radius, huanghunDecorationPaint);
+            huanghunDecorationPaint.setShader(null);
+            huanghunDecorationPaint.setStyle(Paint.Style.STROKE);
+            huanghunDecorationPaint.setStrokeWidth(Math.max(dp(1), destinationHeight * 0.025f));
+            huanghunDecorationPaint.setColor(Color.argb(alpha, Color.red(border), Color.green(border), Color.blue(border)));
+            canvas.drawRoundRect(bodyLeft + inset, bodyTop + inset, bodyRight - inset, bodyBottom - inset, radius, radius, huanghunDecorationPaint);
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
         }
 
         private void drawHuanghunBubbleBodyPatch(Canvas canvas, Bitmap body, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
@@ -1063,9 +1047,23 @@ public class Theme {
             canvas.restoreToCount(save);
         }
 
+        /** Draws the original artwork without the catalog-text clipping mask. The clean panel painted
+         * afterwards covers the baked sample wording; clipping the side artwork itself creates the
+         * black/transparent holes visible in the previous code preview. */
+        private void drawHuanghunBubbleRawPatch(Canvas canvas, Bitmap bitmap, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop || destinationRight <= destinationLeft || destinationBottom <= destinationTop) {
+                return;
+            }
+            huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
+            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
+            canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
+        }
+
         private int[] getHuanghunBubblePreviewTextRect() {
-            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
-            return style > 0 && style < huanghunBubblePreviewTextRects.length ? huanghunBubblePreviewTextRects[style] : null;
+            // The chat path now paints the original side artwork raw and covers the center with a
+            // clean scalable panel. There is intentionally no catalog-text clipping here: clipping
+            // the character source is what caused incomplete/black character fragments.
+            return null;
         }
 
         private int[] getHuanghunBubbleTemplateBounds() {
