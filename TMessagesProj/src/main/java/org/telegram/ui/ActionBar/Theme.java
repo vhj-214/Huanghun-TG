@@ -888,22 +888,26 @@ public class Theme {
             // bubble uses exactly that one uniform scale. A character therefore keeps its preview
             // proportion instead of being shrunk, squeezed or repositioned, and only the panel's
             // own middle grows sideways to follow the real message width.
-            final float uniform = Math.max(0.01f, bodyHeight / sourceBodyHeight);
+            // Keep the catalog artwork readable on both one-line and very long messages. The
+            // panel follows Telegram's measured body, while the mascot uses a bounded uniform scale
+            // so a long paragraph cannot make the bitmap enormous or push it off-screen.
+            final float uniform = Math.max(0.75f, Math.min(2.40f, bodyHeight / sourceBodyHeight));
             final int[] strip = getHuanghunBubbleStripBounds();
             final int artworkHeight = bitmap.getHeight();
             final int artworkWidth = Math.max(1, strip == null ? bitmap.getWidth() : strip[2]);
             final int stripLeft = Math.max(0, Math.min(strip == null ? template[0] : strip[0], artworkWidth - 2));
             final int stripRight = Math.max(stripLeft + 1, Math.min(strip == null ? template[2] : strip[1], artworkWidth));
+            final float artworkTop = bodyTop + (bodyHeight - artworkHeight * uniform) * 0.5f;
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setAlpha(alpha);
             // Left and right slices: frame, glow and characters in one piece, aligned with the
             // template's own body rows so the stretched panel starts exactly where they end.
             drawHuanghunBubbleRawPatch(canvas, bitmap, 0, 0, stripLeft, artworkHeight,
-                    bodyLeft - stripLeft * uniform, bodyTop - template[1] * uniform,
-                    bodyLeft, bodyTop - template[1] * uniform + artworkHeight * uniform);
+                    bodyLeft - stripLeft * uniform, artworkTop,
+                    bodyLeft, artworkTop + artworkHeight * uniform);
             drawHuanghunBubbleRawPatch(canvas, bitmap, stripRight, 0, artworkWidth, artworkHeight,
-                    bodyRight, bodyTop - template[1] * uniform,
-                    bodyRight + (artworkWidth - stripRight) * uniform, bodyTop - template[1] * uniform + artworkHeight * uniform);
+                    bodyRight, artworkTop,
+                    bodyRight + (artworkWidth - stripRight) * uniform, artworkTop + artworkHeight * uniform);
             // The panel itself is stretched over the whole measured body, so a two character
             // message and a twenty line one both show the artwork's own frame. The characters are
             // already below it, which is why nothing is duplicated or covered twice.
