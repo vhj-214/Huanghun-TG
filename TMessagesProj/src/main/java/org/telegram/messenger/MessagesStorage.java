@@ -4891,7 +4891,10 @@ public class MessagesStorage extends BaseController {
                         state.bindLong(16, MessageObject.getChannelId(message));
                         NativeByteBuffer customParams = MessageCustomParamsHelper.writeLocalParams(message);
                         if (customParams != null) {
-                            state.bindByteBuffer(16, customParams);
+                            // column 16 is is_channel and already bound: the local per-message
+                            // parameters belong to column 17, otherwise they overwrite is_channel
+                            // and every custom bubble style is written as NULL.
+                            state.bindByteBuffer(17, customParams);
                         } else {
                             state.bindNull(17);
                         }
@@ -16980,7 +16983,10 @@ public class MessagesStorage extends BaseController {
             }
 
             if (!dialogs.dialogs.isEmpty()) {
-                state_messages = database.executeFast("REPLACE INTO messages_v2 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)");
+                // The dialog list is refreshed very often. Keeping the row's previous custom_params
+                // (column 18) inside the statement means a message never loses its local bubble
+                // style just because its dialog was fetched again.
+                state_messages = database.executeFast("REPLACE INTO messages_v2 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, 0, (SELECT custom_params FROM messages_v2 WHERE mid = ? AND uid = ?), ?, ?)");
                 state_dialogs = database.executeFast("REPLACE INTO dialogs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 state_media = database.executeFast("REPLACE INTO media_v4 VALUES(?, ?, ?, ?, ?)");
                 state_settings = database.executeFast("REPLACE INTO dialog_settings VALUES(?, ?)");
@@ -17085,6 +17091,9 @@ public class MessagesStorage extends BaseController {
                         } else {
                             state_messages.bindInteger(17, 0);
                         }
+                        // keys of the sub select that preserves the row's custom_params
+                        state_messages.bindInteger(18, message.id);
+                        state_messages.bindLong(19, dialog.id);
                         state_messages.step();
 
                         if (MediaDataController.canAddMessageToMedia(message)) {

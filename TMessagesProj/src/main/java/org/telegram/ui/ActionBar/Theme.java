@@ -183,7 +183,7 @@ public class Theme {
             return 0;
         }
         int sourceBodyWidth = Math.max(1, template[2] - template[0]);
-        int sourceOrnamentWidth = Math.max(Math.max(0, template[6] - template[4]), Math.max(0, template[10] - template[8]));
+        int sourceOrnamentWidth = MessageDrawable.getHuanghunBubbleSideSourceWidth(normalizedStyle);
         return (int) Math.ceil(finalBodyWidth * (sourceOrnamentWidth / (float) sourceBodyWidth));
     }
 
@@ -201,8 +201,43 @@ public class Theme {
             return 0;
         }
         int sourceBodyWidth = Math.max(1, template[2] - template[0]);
-        int sourceOrnamentWidth = Math.max(Math.max(0, template[6] - template[4]), Math.max(0, template[10] - template[8]));
+        int sourceOrnamentWidth = MessageDrawable.getHuanghunBubbleSideSourceWidth(normalizedStyle);
         return (int) Math.ceil(availableRowWidth * (sourceOrnamentWidth / (float) (sourceBodyWidth + sourceOrnamentWidth * 2)));
+    }
+
+    /**
+     * Foreground colour for an outgoing message that uses a local bubble style. Text, links, time,
+     * receipts and view counters take the shade sampled from that style's own panel, so they stay
+     * readable on bright templates as well as on dark ones. Returns {@link Integer#MIN_VALUE} when
+     * the key is not owned by the bubble and the caller must fall back to the active theme.
+     */
+    public static int getHuanghunBubbleForegroundColor(int key, int style) {
+        int normalized = HuanghunBubbleStyleHelper.normalizeStyle(style);
+        if (normalized == HuanghunBubbleStyleHelper.DEFAULT_STYLE
+                || normalized >= MessageDrawable.huanghunBubbleTextColors.length) {
+            return Integer.MIN_VALUE;
+        }
+        int color = MessageDrawable.huanghunBubbleTextColors[normalized];
+        if (Color.alpha(color) == 0) {
+            return Integer.MIN_VALUE;
+        }
+        if (key == key_chat_messageTextOut || key == key_chat_messageLinkOut
+                || key == key_chat_outForwardedNameText || key == key_chat_outViaBotNameText
+                || key == key_chat_outReplyNameText || key == key_chat_outSiteNameText
+                || key == key_chat_outInstant) {
+            return color;
+        }
+        if (key == key_chat_outTimeText || key == key_chat_outTimeSelectedText
+                || key == key_chat_outViews || key == key_chat_outViewsSelected
+                || key == key_chat_outInstantSelected || key == key_chat_outPreviewInstantText) {
+            return ColorUtils.setAlphaComponent(color, 0xC0);
+        }
+        if (key == key_chat_outSentCheck || key == key_chat_outSentCheckSelected
+                || key == key_chat_outSentCheckRead || key == key_chat_outSentCheckReadSelected
+                || key == key_chat_outSentClock || key == key_chat_outSentClockSelected) {
+            return ColorUtils.setAlphaComponent(color, 0xD0);
+        }
+        return Integer.MIN_VALUE;
     }
 
     public static void applyDefaultShadow(Paint paint) {
@@ -256,95 +291,125 @@ public class Theme {
         // has genuine wording/artwork overlap that cannot be safely removed by a source rectangle.
         private static final SparseArray<Bitmap> huanghunBubbleChatOrnamentCache = new SparseArray<>();
         private static final SparseIntArray huanghunBubbleSkinBodyColorCache = new SparseIntArray();
-    // Per-style catalog lettering bounds, normalized to 0..1000. Values were extracted from
-    // the original 85 preview assets; a small safety expansion includes glyph antialiasing.
-    private static final int[][] huanghunBubblePreviewTextRects = new int[][]{
+        // Text free panel artwork of every catalog style. A single immutable asset per style is
+        // stretched with fixed caps, so the bubble keeps the artwork's own frame and glow for a two
+        // character message as well as for a twenty line one, while the middle stays clean.
+        private static final SparseArray<Bitmap> huanghunBubbleBodyCache = new SparseArray<>();
+        // Fixed cap width of that panel asset and its corner radius, in source pixels of the asset.
+        private static final int[] huanghunBubbleStripCaps = new int[]{
+                0,2,27,4,25,2,43,2,55,68,2,19,2,69,3,2,36,49,60,2,2,33,71,39,38,2,19,2,49,53,18,2,76,49,78,2,2,8,2,41,2,50,2,
+                35,2,22,2,54,2,2,2,47,28,13,13,2,2,40,44,50,2,2,51,2,50,40,2,13,33,2,21,66,44,2,2,8,2,20,2,19,28,85,32,2,56,8
+        };
+        private static final int[] huanghunBubbleBodyRadius = new int[]{
+                0,2,20,2,2,2,2,2,32,32,2,19,2,2,2,2,17,23,2,2,2,33,11,18,29,2,2,2,12,2,2,2,2,2,37,2,2,8,2,28,2,2,2,2,2,22,2,
+                11,2,2,2,2,23,6,2,2,2,2,2,2,2,2,2,2,24,2,2,13,16,2,16,23,21,2,2,2,2,15,2,19,2,15,15,2,26,5
+        };
+        // Foreground colour sampled from the panel artwork of every style, so text, time and read
+        // marks remain readable on bright as well as on dark templates.
+        /**
+         * Panel strip columns [left, right) and the artwork width of every style. The slices
+         * left and right of the strip keep the characters in their catalog proportion, so the
+         * chat bubble looks exactly like the preview entry the user picked.
+         */
+        private static final int[][] huanghunBubbleStripBounds = new int[][]{
             null,
-            {316, 406, 654, 600}, // 001
-            {266, 295, 706, 511}, // 002
-            {390, 288, 613, 413}, // 003
-            {322, 356, 648, 602}, // 004
-            {355, 302, 735, 529}, // 005
-            {413, 344, 629, 526}, // 006
-            {321, 403, 671, 569}, // 007
-            {341, 353, 624, 501}, // 008
-            {268, 356, 653, 560}, // 009
-            {248, 376, 662, 568}, // 010
-            null, // 011
-            {303, 362, 681, 537}, // 012
-            {312, 355, 700, 550}, // 013
-            {283, 326, 640, 464}, // 014
-            {335, 374, 640, 531}, // 015
-            {308, 319, 651, 468}, // 016
-            {277, 298, 747, 522}, // 017
-            {329, 298, 650, 466}, // 018
-            {355, 358, 665, 549}, // 019
-            {325, 347, 683, 473}, // 020
-            {292, 253, 695, 435}, // 021
-            {193, 291, 621, 513}, // 022
-            {120, 360, 521, 522}, // 023
-            {183, 456, 540, 606}, // 024
-            {338, 436, 665, 620}, // 025
-            {347, 404, 721, 596}, // 026
-            {270, 397, 695, 620}, // 027
-            {356, 364, 697, 552}, // 028
-            {370, 346, 699, 536}, // 029
-            {263, 396, 630, 542}, // 030
-            {294, 292, 665, 467}, // 031
-            {203, 306, 684, 520}, // 032
-            {202, 325, 593, 557}, // 033
-            {260, 326, 760, 544}, // 034
-            {319, 299, 669, 454}, // 035
-            {291, 382, 685, 533}, // 036
-            {259, 324, 607, 514}, // 037
-            {352, 362, 747, 548}, // 038
-            {227, 382, 595, 556}, // 039
-            {304, 311, 709, 532}, // 040
-            {326, 370, 720, 535}, // 041
-            {325, 318, 661, 474}, // 042
-            {289, 337, 709, 540}, // 043
-            {303, 316, 645, 526}, // 044
-            {271, 210, 655, 417}, // 045
-            {287, 300, 628, 509}, // 046
-            {370, 328, 677, 520}, // 047
-            {267, 360, 536, 523}, // 048
-            {308, 352, 618, 507}, // 049
-            {324, 351, 679, 503}, // 050
-            {237, 289, 618, 436}, // 051
-            {303, 277, 700, 470}, // 052
-            {297, 358, 679, 553}, // 053
-            {294, 340, 646, 487}, // 054
-            {383, 357, 665, 519}, // 055
-            {353, 300, 677, 490}, // 056
-            {344, 278, 675, 458}, // 057
-            {343, 329, 619, 500}, // 058
-            {217, 233, 558, 396}, // 059
-            {217, 389, 682, 550}, // 060
-            {305, 357, 791, 598}, // 061
-            {385, 356, 634, 509}, // 062
-            {287, 394, 732, 601}, // 063
-            {369, 283, 785, 434}, // 064
-            {356, 342, 627, 513}, // 065
-            {309, 392, 744, 608}, // 066
-            {265, 338, 716, 488}, // 067
-            {363, 208, 673, 381}, // 068
-            {356, 246, 663, 408}, // 069
-            {412, 309, 710, 485}, // 070
-            {297, 316, 713, 566}, // 071
-            {330, 84, 705, 266}, // 072
-            {330, 183, 601, 358}, // 073
-            {315, 365, 806, 564}, // 074
-            {287, 310, 673, 457}, // 075
-            {337, 52, 692, 248}, // 076
-            {298, 47, 683, 176}, // 077
-            {298, 263, 614, 444}, // 078
-            {315, 168, 610, 303}, // 079
-            {50, 288, 612, 406}, // 080
-            {5, 252, 611, 398}, // 081
-            {189, 0, 755, 112}, // 082
-            {158, 258, 543, 424}, // 083
-            {321, 429, 721, 568}, // 084
-            {290, 682, 622, 827}, // 085
+            {75, 281, 365},
+            {65, 301, 365},
+            {72, 309, 365},
+            {48, 309, 365},
+            {108, 295, 365},
+            {126, 274, 365},
+            {112, 274, 365},
+            {49, 291, 365},
+            {50, 318, 365},
+            {63, 298, 365},
+            {82, 318, 365},
+            {76, 261, 365},
+            {72, 293, 365},
+            {93, 280, 365},
+            {66, 318, 365},
+            {36, 331, 365},
+            {45, 315, 365},
+            {78, 292, 365},
+            {60, 316, 365},
+            {68, 290, 365},
+            {64, 299, 365},
+            {54, 267, 365},
+            {32, 252, 365},
+            {48, 280, 365},
+            {72, 303, 365},
+            {83, 314, 365},
+            {96, 280, 365},
+            {93, 283, 365},
+            {74, 295, 365},
+            {46, 321, 365},
+            {84, 283, 365},
+            {88, 316, 365},
+            {65, 295, 365},
+            {58, 312, 365},
+            {66, 299, 365},
+            {68, 296, 365},
+            {72, 302, 365},
+            {76, 296, 365},
+            {48, 272, 365},
+            {92, 271, 365},
+            {84, 296, 365},
+            {78, 282, 365},
+            {37, 328, 365},
+            {72, 304, 365},
+            {50, 311, 365},
+            {90, 271, 365},
+            {119, 284, 365},
+            {80, 275, 365},
+            {84, 322, 365},
+            {67, 298, 365},
+            {120, 261, 365},
+            {56, 312, 365},
+            {45, 301, 365},
+            {60, 295, 365},
+            {49, 323, 365},
+            {74, 280, 365},
+            {71, 254, 365},
+            {122, 285, 365},
+            {64, 256, 365},
+            {48, 320, 365},
+            {54, 324, 365},
+            {77, 262, 305},
+            {64, 264, 305},
+            {60, 271, 305},
+            {62, 231, 305},
+            {45, 295, 305},
+            {56, 273, 305},
+            {48, 244, 305},
+            {70, 279, 305},
+            {58, 287, 305},
+            {44, 244, 305},
+            {46, 252, 305},
+            {75, 209, 305},
+            {71, 257, 305},
+            {72, 243, 305},
+            {50, 262, 305},
+            {119, 179, 305},
+            {59, 246, 305},
+            {64, 236, 305},
+            {54, 262, 305},
+            {8, 263, 305},
+            {64, 264, 305},
+            {45, 279, 305},
+            {75, 253, 305},
+            {45, 250, 305},
+        };
+
+        private static final int[] huanghunBubbleTextColors = new int[]{
+            0x00000000,0xFF1D262F,0xFF2F3133,0xFFFFFFFF,0xFF212A2F,0xFF323336,0xFF2D2D2D,0xFFFFFFFF,0xFF34322F,0xFF30322C,
+            0xFFFFFFFF,0xFFFFFFFF,0xFF353230,0xFF373432,0xFF2F3236,0xFF2F2E31,0xFF393537,0xFF2E2F32,0xFF2A2623,0xFF393735,
+            0xFF37393A,0xFF3B3B3B,0xFF2D3437,0xFF262526,0xFF343433,0xFFFFFFFF,0xFF232223,0xFF363636,0xFF252523,0xFF333231,
+            0xFF332D2D,0xFF303031,0xFF2F2F30,0xFF383838,0xFF2F2E34,0xFF302E2D,0xFF333231,0xFF302F30,0xFF292829,0xFF343434,
+            0xFFFFFFFF,0xFF39352D,0xFFFFFFFF,0xFF37382D,0xFF333232,0xFFFFFFFF,0xFF2E2729,0xFFFFFFFF,0xFF343030,0xFFFFFFFF,
+            0xFF322A28,0xFF2D2929,0xFFFFFFFF,0xFFFFFFFF,0xFF363330,0xFF2E2822,0xFFFFFFFF,0xFF2B2928,0xFF303030,0xFF262826,
+            0xFF383632,0xFF2A2827,0xFF2E2E30,0xFF2E3034,0xFF2E2E2D,0xFF323233,0xFF363533,0xFF31312A,0xFF2C2C2A,0xFF2F302F,
+            0xFF313030,0xFF323233,0xFF303132,0xFF353636,0xFF242323,0xFF333434,0xFF323335,0xFF2B2E30,0xFF33332E,0xFF383734,
+            0xFF282A2D,0xFFFFFFFF,0xFF252527,0xFFFFFFFF,0xFF323233,0xFF2D2F31
     };
 
         private static final int[][] huanghunBubbleTemplateBounds = new int[][]{
@@ -819,30 +884,121 @@ public class Theme {
             final float bodyHeight = Math.max(1f, bodyBottom - bodyTop);
             final float sourceBodyWidth = Math.max(1f, template[2] - template[0]);
             final float sourceBodyHeight = Math.max(1f, template[3] - template[1]);
-            final float sourceOrnamentHeight = Math.max(1f, Math.max(template[7] - template[5], template[11] - template[9]));
-
-            // One uniform scale is taken from the live native body and the selected template's
-            // own geometry. Limiting it by the complete ornament height keeps a full character
-            // inside this ChatMessageCell rather than producing a vertically clipped half figure.
-            final float scale = Math.max(0.01f, Math.min(
-                    Math.min(bodyWidth / sourceBodyWidth, bodyHeight / sourceBodyHeight),
-                    bodyHeight / sourceOrnamentHeight
-            ));
+            // The catalog preview scales the complete artwork to the message height, so the chat
+            // bubble uses exactly that one uniform scale. A character therefore keeps its preview
+            // proportion instead of being shrunk, squeezed or repositioned, and only the panel's
+            // own middle grows sideways to follow the real message width.
+            final float uniform = Math.max(0.01f, bodyHeight / sourceBodyHeight);
+            final int[] strip = getHuanghunBubbleStripBounds();
+            final int artworkHeight = bitmap.getHeight();
+            final int artworkWidth = Math.max(1, strip == null ? bitmap.getWidth() : strip[2]);
+            final int stripLeft = Math.max(0, Math.min(strip == null ? template[0] : strip[0], artworkWidth - 2));
+            final int stripRight = Math.max(stripLeft + 1, Math.min(strip == null ? template[2] : strip[1], artworkWidth));
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
             huanghunDecorationPaint.setAlpha(alpha);
-            Bitmap leftChatOrnament = getHuanghunBubbleChatOrnament(false);
-            Bitmap rightChatOrnament = getHuanghunBubbleChatOrnament(true);
-            if (leftChatOrnament != null) {
-                drawHuanghunBubbleChatOrnament(canvas, leftChatOrnament, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, false);
-            } else {
-                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, false);
-            }
-            if (rightChatOrnament != null) {
-                drawHuanghunBubbleChatOrnament(canvas, rightChatOrnament, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, true);
-            } else {
-                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, bodyLeft, bodyRight, bodyTop, bodyBottom, scale, true);
-            }
+            // Left and right slices: frame, glow and characters in one piece, aligned with the
+            // template's own body rows so the stretched panel starts exactly where they end.
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, 0, 0, stripLeft, artworkHeight,
+                    bodyLeft - stripLeft * uniform, bodyTop - template[1] * uniform,
+                    bodyLeft, bodyTop - template[1] * uniform + artworkHeight * uniform);
+            drawHuanghunBubbleSkinPatch(canvas, bitmap, stripRight, 0, artworkWidth, artworkHeight,
+                    bodyRight, bodyTop - template[1] * uniform,
+                    bodyRight + (artworkWidth - stripRight) * uniform, bodyTop - template[1] * uniform + artworkHeight * uniform);
+            // The panel itself is stretched over the whole measured body, so a two character
+            // message and a twenty line one both show the artwork's own frame. The characters are
+            // already below it, which is why nothing is duplicated or covered twice.
+            drawHuanghunBubbleBodyPanel(canvas, bodyLeft, bodyTop, bodyRight, bodyBottom, bodyHeight);
             huanghunDecorationPaint.setAlpha(255);
+        }
+
+        private Bitmap getHuanghunBubbleBody() {
+            final int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            if (style == HuanghunBubbleStyleHelper.DEFAULT_STYLE) {
+                return null;
+            }
+            Bitmap cached = huanghunBubbleBodyCache.get(style);
+            if (cached != null && !cached.isRecycled()) {
+                return cached;
+            }
+            Context context = ApplicationLoader.applicationContext;
+            if (context == null) {
+                return null;
+            }
+            String skinResourceName = HuanghunBubbleStyleHelper.getSkinResourceName(style);
+            if (skinResourceName == null) {
+                return null;
+            }
+            // The clean panel keeps the catalog naming, only the asset kind changes.
+            String resourceName = skinResourceName.replace("huanghun_bubble_skin_", "huanghun_bubble_body_");
+            int resourceId = context.getResources().getIdentifier(resourceName, "drawable", context.getPackageName());
+            if (resourceId == 0) {
+                return null;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = false;
+            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
+            if (bitmap != null) {
+                huanghunBubbleBodyCache.put(style, bitmap);
+            }
+            return bitmap;
+        }
+
+        /**
+         * Stretches the text free panel artwork into the finally measured body. Only the middle of
+         * the panel grows, its frame, corners and glow keep their own pixel size, therefore the
+         * bubble adapts to any message length without a shaded or covered middle section.
+         */
+        private void drawHuanghunBubbleBodyPanel(Canvas canvas, float bodyLeft, float bodyTop, float bodyRight, float bodyBottom, float bodyHeight) {
+            Bitmap body = getHuanghunBubbleBody();
+            if (body == null || body.getWidth() < 4 || body.getHeight() < 4) {
+                return;
+            }
+            final float destinationWidth = bodyRight - bodyLeft;
+            final float destinationHeight = bodyBottom - bodyTop;
+            if (destinationWidth < 3f || destinationHeight < 3f) {
+                return;
+            }
+            final int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            final int sourceWidth = body.getWidth();
+            final int sourceHeight = body.getHeight();
+            final float uniform = Math.max(0.01f, bodyHeight / (float) sourceHeight);
+            int capWidth = style > 0 && style < huanghunBubbleStripCaps.length ? huanghunBubbleStripCaps[style] : 0;
+            int capHeight = style > 0 && style < huanghunBubbleBodyRadius.length ? huanghunBubbleBodyRadius[style] : 0;
+            capWidth = Math.max(1, Math.min(capWidth, sourceWidth / 2));
+            capHeight = Math.max(1, Math.min(capHeight, sourceHeight / 2));
+            float capX = Math.max(0.5f, Math.min(capWidth * uniform, destinationWidth * 0.5f - 0.5f));
+            float capY = Math.max(0.5f, Math.min(capHeight * uniform, destinationHeight * 0.5f - 0.5f));
+            final float middleSourceLeft = capWidth;
+            final float middleSourceRight = sourceWidth - capWidth;
+            final float middleSourceTop = capHeight;
+            final float middleSourceBottom = sourceHeight - capHeight;
+            final float middleLeft = bodyLeft + capX;
+            final float middleRight = bodyRight - capX;
+            final float middleTop = bodyTop + capY;
+            final float middleBottom = bodyBottom - capY;
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+            huanghunDecorationPaint.setAlpha(alpha);
+            // corners
+            drawHuanghunBubbleBodyPatch(canvas, body, 0, 0, capWidth, capHeight, bodyLeft, bodyTop, middleLeft, middleTop);
+            drawHuanghunBubbleBodyPatch(canvas, body, sourceWidth - capWidth, 0, sourceWidth, capHeight, middleRight, bodyTop, bodyRight, middleTop);
+            drawHuanghunBubbleBodyPatch(canvas, body, 0, sourceHeight - capHeight, capWidth, sourceHeight, bodyLeft, middleBottom, middleLeft, bodyBottom);
+            drawHuanghunBubbleBodyPatch(canvas, body, sourceWidth - capWidth, sourceHeight - capHeight, sourceWidth, sourceHeight, middleRight, middleBottom, bodyRight, bodyBottom);
+            // horizontal edges stretch only sideways, vertical edges only up and down
+            drawHuanghunBubbleBodyPatch(canvas, body, middleSourceLeft, 0, middleSourceRight, capHeight, middleLeft, bodyTop, middleRight, middleTop);
+            drawHuanghunBubbleBodyPatch(canvas, body, middleSourceLeft, middleSourceBottom, middleSourceRight, sourceHeight, middleLeft, middleBottom, middleRight, bodyBottom);
+            drawHuanghunBubbleBodyPatch(canvas, body, 0, middleSourceTop, capWidth, middleSourceBottom, bodyLeft, middleTop, middleLeft, middleBottom);
+            drawHuanghunBubbleBodyPatch(canvas, body, sourceWidth - capWidth, middleSourceTop, sourceWidth, middleSourceBottom, middleRight, middleTop, bodyRight, middleBottom);
+            // the stretched middle: clean, seamless and free of any sample wording or shadow
+            drawHuanghunBubbleBodyPatch(canvas, body, middleSourceLeft, middleSourceTop, middleSourceRight, middleSourceBottom, middleLeft, middleTop, middleRight, middleBottom);
+        }
+
+        private void drawHuanghunBubbleBodyPatch(Canvas canvas, Bitmap body, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop || destinationRight <= destinationLeft || destinationBottom <= destinationTop) {
+                return;
+            }
+            huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
+            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
+            canvas.drawBitmap(body, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
         }
 
         private void drawHuanghunBubbleSkinOrnament(Canvas canvas, Bitmap bitmap, int[] template, int offset, float bodyLeft, float bodyRight, float bodyTop, float bodyBottom, float scale, boolean anchorRight) {
@@ -915,6 +1071,26 @@ public class Theme {
         private int[] getHuanghunBubbleTemplateBounds() {
             int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
             return style > 0 && style < huanghunBubbleTemplateBounds.length ? huanghunBubbleTemplateBounds[style] : null;
+        }
+
+        private int[] getHuanghunBubbleStripBounds() {
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            return style > 0 && style < huanghunBubbleStripBounds.length ? huanghunBubbleStripBounds[style] : null;
+        }
+
+        /**
+         * Width of the widest side slice of a style in source pixels. {@code Theme} uses it to
+         * reserve room for the characters before Telegram wraps the message text.
+         */
+        private static int getHuanghunBubbleSideSourceWidth(int style) {
+            if (style <= HuanghunBubbleStyleHelper.DEFAULT_STYLE || style >= huanghunBubbleStripBounds.length) {
+                return 0;
+            }
+            int[] strip = huanghunBubbleStripBounds[style];
+            if (strip == null || strip.length < 3) {
+                return 0;
+            }
+            return Math.max(Math.max(0, strip[0]), Math.max(0, strip[2] - strip[1]));
         }
 
         private int getHuanghunBubbleSkinBodyColor(Bitmap bitmap) {

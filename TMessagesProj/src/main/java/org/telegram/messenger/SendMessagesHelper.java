@@ -7714,6 +7714,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 }
                                 // The server object has no local custom_params; copy the per-message bubble style first.
                                 MessageCustomParamsHelper.copyParams(newMsgObj, message);
+                                // ...and make sure the row created for the final server id carries it as
+                                // well, so re-opening the chat can never fall back to the default bubble.
+                                getMessagesStorage().updateMessageCustomParams(MessageObject.getDialogId(message), message);
                                 if (request instanceof TLRPC.TL_messages_sendMedia) { // paid media
                                     updateMediaPaths(msgObjs.get(0), message, message.id, originalPaths, false, -1, message.params);
                                 } else {

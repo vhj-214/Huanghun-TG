@@ -29370,6 +29370,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     public int getThemedColor(int key) {
+        // An outgoing message drawn with a local bubble style also owns its own foreground: the
+        // text, links, time and read marks of this very cell take the shade of the selected panel,
+        // so a dark template cannot hide them and a bright one cannot wash them out.
+        if (currentMessageObject != null && currentMessageObject.isOutOwner()
+                && HuanghunBubbleStyleHelper.isCustomStyle(currentMessageObject.messageOwner.huanghunBubbleStyle)) {
+            int bubbleColor = Theme.getHuanghunBubbleForegroundColor(key, currentMessageObject.messageOwner.huanghunBubbleStyle);
+            if (bubbleColor != Integer.MIN_VALUE) {
+                return bubbleColor;
+            }
+        }
         return Theme.getColor(key, resourcesProvider);
     }
 
