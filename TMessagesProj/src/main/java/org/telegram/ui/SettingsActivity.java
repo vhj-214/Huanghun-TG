@@ -39,6 +39,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -396,6 +397,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                     finishFragment();
                 } else if (id == 2) {
                     presentSettingFragment(new LogoutActivity());
+                } else if (id == 3) {
+                    showHideAccountCountdownDialog();
                 }
             }
         });
@@ -432,6 +435,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         otherItem = menu.addItem(1, R.drawable.ic_ab_other);
         otherItem.setContentDescription(getString(R.string.AccDescrMoreOptions));
         otherItem.addSubItem(2, R.drawable.msg_leave, getString(R.string.LogOut));
+        otherItem.addSubItem(3, R.drawable.msg_delete, getString(R.string.DeleteLocalAccount))
+                .setColors(getThemedColor(Theme.key_text_RedBold), getThemedColor(Theme.key_text_RedRegular));
 
         search = new ProfileActivity.SearchAdapter(this, context) {
             @Override
@@ -1166,6 +1171,57 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         TextView button = (TextView) dialog.getButton(DialogInterface.BUTTON_POSITIVE);
         if (button != null) {
             button.setTextColor(Theme.getColor(Theme.key_text_RedBold));
+        }
+    }
+
+    private void showHideAccountCountdownDialog() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final int targetAccount = getCurrentAccount();
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourceProvider);
+        builder.setTitle(getString(R.string.DeleteAccountNoticeTitle));
+        builder.setMessage(getString(R.string.DeleteAccountNoticeMessage));
+        builder.setPositiveButton(formatString(R.string.DeleteAccountCountdown, 5), null);
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(ignored -> {
+            View buttonView = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
+            if (!(buttonView instanceof TextView)) {
+                return;
+            }
+            TextView confirmButton = (TextView) buttonView;
+            confirmButton.setEnabled(false);
+            CountDownTimer countdown = new CountDownTimer(5000, 1000) {
+                @Override
+                public void onTick(long millisUntilFinished) {
+                    int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
+                    confirmButton.setText(formatString(R.string.DeleteAccountCountdown, seconds));
+                }
+
+                @Override
+                public void onFinish() {
+                    confirmButton.setEnabled(true);
+                    confirmButton.setText(getString(R.string.ConfirmDeleteAccount));
+                }
+            };
+            confirmButton.setOnClickListener(v -> {
+                if (!confirmButton.isEnabled()) {
+                    return;
+                }
+                dialog.dismiss();
+                hideAccountLocally(targetAccount);
+            });
+            dialog.setOnDismissListener(dismissed -> countdown.cancel());
+            countdown.start();
+        });
+        showDialog(dialog);
+    }
+
+    private void hideAccountLocally(int targetAccount) {
+        UserConfig.setAccountHidden(targetAccount, true);
+        if (LaunchActivity.instance != null) {
+            LaunchActivity.instance.switchToAvailableAccountOrLogout();
         }
     }
 

@@ -68,7 +68,6 @@ import android.media.MediaCodecList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.CountDownTimer;
 import android.os.SystemClock;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -636,7 +635,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private final static int edit_info = 30;
     private final static int logout = 31;
-    private final static int delete_local_account = 52;
     private final static int search_button = 32;
     private final static int set_as_main = 33;
     private final static int edit_avatar = 34;
@@ -2183,57 +2181,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
-    private void showDeleteAccountCountdownDialog() {
-        if (getParentActivity() == null) {
-            return;
-        }
-        final int targetAccount = getCurrentAccount();
-        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourcesProvider);
-        builder.setTitle(getString(R.string.DeleteAccountNoticeTitle));
-        builder.setMessage(getString(R.string.DeleteAccountNoticeMessage));
-        builder.setPositiveButton(formatString(R.string.DeleteAccountCountdown, 5), null);
-        builder.setNegativeButton(getString(R.string.Cancel), null);
-        AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(ignored -> {
-            View buttonView = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
-            if (!(buttonView instanceof TextView)) {
-                return;
-            }
-            TextView confirmButton = (TextView) buttonView;
-            confirmButton.setEnabled(false);
-            CountDownTimer countdown = new CountDownTimer(5000, 1000) {
-                @Override
-                public void onTick(long millisUntilFinished) {
-                    int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
-                    confirmButton.setText(formatString(R.string.DeleteAccountCountdown, seconds));
-                }
-
-                @Override
-                public void onFinish() {
-                    confirmButton.setEnabled(true);
-                    confirmButton.setText(getString(R.string.ConfirmDeleteAccount));
-                }
-            };
-            confirmButton.setOnClickListener(v -> {
-                if (!confirmButton.isEnabled()) {
-                    return;
-                }
-                dialog.dismiss();
-                hideAccountLocally(targetAccount);
-            });
-            dialog.setOnDismissListener(dismissed -> countdown.cancel());
-            countdown.start();
-        });
-        showDialog(dialog);
-    }
-
-    private void hideAccountLocally(int targetAccount) {
-        UserConfig.setAccountHidden(targetAccount, true);
-        if (LaunchActivity.instance != null) {
-            LaunchActivity.instance.switchToAvailableAccountOrLogout();
-        }
-    }
-
     @Override
     public boolean onFragmentCreate() {
         userId = arguments.getLong("user_id", 0);
@@ -3005,8 +2952,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     presentFragment(new ChangeUsernameActivity());
                 } else if (id == logout) {
                     presentFragment(new LogoutActivity());
-                } else if (id == delete_local_account) {
-                    showDeleteAccountCountdownDialog();
                 } else if (id == set_as_main) {
                     int position = avatarsViewPager.getRealPosition();
                     TLRPC.Photo photo = avatarsViewPager.getPhoto(position);
@@ -3340,7 +3285,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             otherItem.showSubItem(edit_avatar);
                             otherItem.showSubItem(delete_avatar);
                             otherItem.hideSubItem(logout);
-                            otherItem.hideSubItem(delete_local_account);
                         }
                     }
                     currentExpanAnimatorFracture = 1.0f;
@@ -9130,7 +9074,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 otherItem.showSubItem(delete_avatar);
                                 otherItem.hideSubItem(set_as_main);
                                 otherItem.hideSubItem(logout);
-                                otherItem.hideSubItem(delete_local_account);
                             }
                         }
                         if (searchItem != null) {
@@ -9230,7 +9173,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 otherItem.hideSubItem(delete_avatar);
                                 otherItem.showSubItem(add_photo);
                                 otherItem.showSubItem(logout);
-                                otherItem.showSubItem(delete_local_account);
 //                                otherItem.showSubItem(edit_name);
                             }
                         }
@@ -13198,12 +13140,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             otherItem.hideSubItem(gallery_menu_save);
         }
 
-        // myProfile is true for the active account's own profile; do not negate it here or the
-        // logout/local-hide entries will never be added for the account owner.
-        if (selfUser) {
+        if (selfUser && !myProfile) {
             otherItem.addSubItem(logout, R.drawable.msg_leave, LocaleController.getString(R.string.LogOut));
-            ActionBarMenuSubItem deleteLocalAccountItem = otherItem.addSubItem(delete_local_account, R.drawable.msg_delete, getString(R.string.DeleteLocalAccount));
-            deleteLocalAccountItem.setColors(getThemedColor(Theme.key_text_RedBold), getThemedColor(Theme.key_text_RedRegular));
         }
         if (!isPulledDown) {
             otherItem.hideSubItem(gallery_menu_save);
