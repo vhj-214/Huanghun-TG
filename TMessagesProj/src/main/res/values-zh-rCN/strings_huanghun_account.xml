@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DeleteLocalAccount">删除账号</string>
+    <string name="DeleteAccountNoticeTitle">删除通告</string>
+    <string name="DeleteAccountNoticeMessage">本程序只会隐藏这个账号在本客户端的显示，保留本机登录凭据和数据，不会退出登录设备。之后可在账号切换器或登录欢迎页恢复显示，无需重新登录。</string>
+    <string name="DeleteAccountCountdown">请等待 %1$d 秒</string>
+    <string name="ConfirmDeleteAccount">确认删除</string>
+    <string name="RestoreHiddenAccount">恢复隐藏账号</string>
+    <string name="RestoreHiddenAccountTitle">选择要恢复显示的账号</string>
+    <string name="HiddenAccount">隐藏账号</string>
+</resources>

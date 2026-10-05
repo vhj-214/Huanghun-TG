@@ -173,12 +173,22 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
     private boolean updateRingtone;
     private boolean updateRepeatNotifications;
 
+    private int getVisibleActivatedAccountsCount() {
+        int count = 0;
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated() && !UserConfig.isAccountHidden(a)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     @Override
     public boolean onFragmentCreate() {
         MessagesController.getInstance(currentAccount).loadSignUpNotificationsSettings();
         loadExceptions(null);
 
-        if (!individualAccountSettings && UserConfig.getActivatedAccountsCount() > 1) {
+        if (!individualAccountSettings && getVisibleActivatedAccountsCount() > 1) {
             accountsSectionRow = rowCount++;
             accountsAllRow = rowCount++;
             accountsPersonalRow = rowCount++;
@@ -249,7 +259,7 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
         ArrayList<CharSequence> accountNames = new ArrayList<>();
         for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
             UserConfig config = UserConfig.getInstance(account);
-            if (!config.isClientActivated() || config.getCurrentUser() == null) {
+            if (!config.isClientActivated() || config.getCurrentUser() == null || UserConfig.isAccountHidden(account)) {
                 continue;
             }
             TLRPC.User user = config.getCurrentUser();

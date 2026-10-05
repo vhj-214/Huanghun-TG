@@ -443,6 +443,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         instance = this;
         ApplicationLoader.postInitApplication();
         AndroidUtilities.checkDisplaySize(this, getResources().getConfiguration());
+        ensureSelectedAccountVisible();
         currentAccount = UserConfig.selectedAccount;
         registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         if (!UserConfig.getInstance(currentAccount).isClientActivated()) {
@@ -619,7 +620,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
         LiteMode.addOnPowerSaverAppliedListener(onPowerSaverCallback = this::onPowerSaver);
         if (actionBarLayout.getFragmentStack().isEmpty() && (layersActionBarLayout == null || layersActionBarLayout.getFragmentStack().isEmpty())) {
-            if (!UserConfig.getInstance(currentAccount).isClientActivated()) {
+            if (!UserConfig.getInstance(currentAccount).isClientActivated() || UserConfig.isAccountHidden(currentAccount)) {
                 actionBarLayout.addFragmentToStack(getClientNotActivatedFragment());
             } else {
                 MainTabsActivity mainTabsActivity = new MainTabsActivity();
@@ -1233,7 +1234,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     }
 
     public void switchToAccount(int account, boolean removeAll, GenericProvider<Void, MainTabsActivity> dialogsActivityProvider) {
-        if (account == UserConfig.selectedAccount || !UserConfig.isValidAccount(account)) {
+        if (account == UserConfig.selectedAccount || !UserConfig.isValidAccount(account) || UserConfig.isAccountHidden(account)) {
             return;
         }
         switchingAccount = true;
@@ -1280,10 +1281,54 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         switchingAccount = false;
     }
 
-    private void switchToAvailableAccountOrLogout() {
+    private void ensureSelectedAccountVisible() {
+        int selected = UserConfig.selectedAccount;
+        if (!UserConfig.isAccountHidden(selected)) {
+            return;
+        }
+        int replacement = -1;
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()
+                    && !UserConfig.isAccountHidden(a)
+                    && !tw.nekomimi.nekogram.helpers.PasscodeHelper.isAccountHidden(a)) {
+                replacement = a;
+                break;
+            }
+        }
+        if (replacement == -1) {
+            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+                if (!UserConfig.getInstance(a).isClientActivated()) {
+                    replacement = a;
+                    break;
+                }
+            }
+        }
+        if (replacement != -1 && replacement != selected) {
+            UserConfig.selectedAccount = replacement;
+            UserConfig.getInstance(0).saveConfig(false);
+        }
+    }
+
+    private int getVisibleActivatedAccountsCount() {
+        int count = 0;
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()
+                    && !UserConfig.isAccountHidden(a)
+                    && !tw.nekomimi.nekogram.helpers.PasscodeHelper.isAccountHidden(a)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public void switchToAvailableAccountOrLogout() {
         int account = -1;
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
-            if (UserConfig.getInstance(a).isClientActivated()) {
+            if (!UserConfig.getInstance(a).isClientActivated()
+                    || tw.nekomimi.nekogram.helpers.PasscodeHelper.isAccountHidden(a)) {
+                continue;
+            }
+            if (!UserConfig.isAccountHidden(a)) {
                 account = a;
                 break;
             }
@@ -1294,6 +1339,18 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         if (account != -1) {
             switchToAccount(account, true);
         } else {
+            int freeAccount = -1;
+            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+                if (!UserConfig.getInstance(a).isClientActivated()) {
+                    freeAccount = a;
+                    break;
+                }
+            }
+            if (freeAccount != -1) {
+                UserConfig.selectedAccount = freeAccount;
+                UserConfig.getInstance(0).saveConfig(false);
+                checkCurrentAccount();
+            }
             RestrictedLanguagesSelectActivity.checkRestrictedLanguages(true);
             clearFragments();
             actionBarLayout.rebuildLogout();
@@ -1572,7 +1629,14 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         int flags = intent.getFlags();
         String action = intent.getAction();
         final int[] intentAccount = new int[]{intent.getIntExtra("currentAccount", UserConfig.selectedAccount)};
-        switchToAccount(intentAccount[0], true);
+        if (!UserConfig.isValidAccount(intentAccount[0])) {
+            intentAccount[0] = UserConfig.selectedAccount;
+        } else if (UserConfig.isAccountHidden(intentAccount[0])) {
+            // An explicit notification/widget/deep-link target must never reveal a locally hidden login.
+            return true;
+        } else {
+            switchToAccount(intentAccount[0], true);
+        }
         final boolean isVoipIntent = action != null && action.equals("voip");
         final boolean isVoipAnswerIntent = action != null && action.equals("voip_answer");
         if ((isVoipIntent || isVoipAnswerIntent) && !isNew && ApplicationLoader.mainInterfacePaused) {
@@ -2649,7 +2713,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                                 long wantUserId = Long.parseLong(accountUserID);
                                                 for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                                                     UserConfig cfg = UserConfig.getInstance(a);
-                                                    if (cfg.isClientActivated() && cfg.getClientUserId() == wantUserId) {
+                                                    if (cfg.isClientActivated() && !UserConfig.isAccountHidden(a) && cfg.getClientUserId() == wantUserId) {
                                                         intentAccount[0] = a;
                                                         switchToAccount(a, true);
                                                         break;
@@ -2962,7 +3026,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                             int accountId = Utilities.parseInt(cursor.getString(cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_NAME)));
                                             for (int a = -1; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                                                 int i = a == -1 ? intentAccount[0] : a;
-                                                if ((a == -1 && MessagesStorage.getInstance(i).containsLocalDialog(userId)) || UserConfig.getInstance(i).getClientUserId() == accountId) {
+                                                if (!UserConfig.isAccountHidden(i) && ((a == -1 && MessagesStorage.getInstance(i).containsLocalDialog(userId)) || UserConfig.getInstance(i).getClientUserId() == accountId)) {
                                                     intentAccount[0] = i;
                                                     switchToAccount(intentAccount[0], true);
                                                     break;
@@ -3189,6 +3253,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 if (!actionBarLayout.getFragmentStack().isEmpty()) {
                     BaseFragment fragment = actionBarLayout.getFragmentStack().get(0);
                     fragment.showDialog(new SharingLocationsAlert(this, info -> {
+                        if (UserConfig.isAccountHidden(info.messageObject.currentAccount)) {
+                            return;
+                        }
                         intentAccount[0] = info.messageObject.currentAccount;
                         switchToAccount(intentAccount[0], true);
 
@@ -4102,7 +4169,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             progress.onCancel(() -> AndroidUtilities.cancelRunOnUIThread(runnable));
             AndroidUtilities.runOnUIThread(runnable, 7500);
             return;
-        } else if (state == 0 && UserConfig.getActivatedAccountsCount() >= 2 && auth != null) {
+        } else if (state == 0 && getVisibleActivatedAccountsCount() >= 2 && auth != null) {
             AlertsCreator.createAccountSelectDialog(this, account -> {
                 if (account != intentAccount) {
                     switchToAccount(account, true);

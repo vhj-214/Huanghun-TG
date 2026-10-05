@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DeleteLocalAccount">Delete account</string>
+    <string name="DeleteAccountNoticeTitle">Delete account notice</string>
+    <string name="DeleteAccountNoticeMessage">This only hides the account from this client and keeps its local login credentials and data. It does not sign this device out of Telegram. Restore it from the account switcher or sign-in welcome screen; you will not need to sign in again.</string>
+    <string name="DeleteAccountCountdown">Wait %1$d seconds</string>
+    <string name="ConfirmDeleteAccount">Confirm</string>
+    <string name="RestoreHiddenAccount">Restore hidden account</string>
+    <string name="RestoreHiddenAccountTitle">Choose an account to show again</string>
+    <string name="HiddenAccount">Hidden account</string>
+</resources>

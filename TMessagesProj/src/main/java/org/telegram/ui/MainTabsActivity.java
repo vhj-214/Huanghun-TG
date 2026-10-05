@@ -56,6 +56,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
+import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.EdgeToEdgeSupportMode;
 import org.telegram.ui.ActionBar.Theme;
@@ -681,12 +682,17 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     public boolean openAccountSelector(View button) {
         final ArrayList<Integer> accountNumbers = new ArrayList<>();
+        final ArrayList<Integer> hiddenAccountNumbers = new ArrayList<>();
 
         accountNumbers.clear();
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
             if (PasscodeHelper.isAccountHidden(a)) continue;
             if (UserConfig.getInstance(a).isClientActivated()) {
-                accountNumbers.add(a);
+                if (UserConfig.isAccountHidden(a)) {
+                    hiddenAccountNumbers.add(a);
+                } else {
+                    accountNumbers.add(a);
+                }
             }
         }
         Collections.sort(accountNumbers, (o1, o2) -> {
@@ -744,6 +750,14 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             }
         }
 
+        if (!hiddenAccountNumbers.isEmpty()) {
+            if (o.getItemsCount() > 0) o.addGap();
+            o.add(R.drawable.msg_openprofile, getString(R.string.RestoreHiddenAccount), () -> {
+                o.dismiss();
+                showRestoreHiddenAccountsDialog(hiddenAccountNumbers);
+            });
+        }
+
         o.setBlur(true);
         o.translate(0, -dp(4));
         final ShapeDrawable bg = Theme.createRoundRectDrawable(dp(28), getThemedColor(Theme.key_windowBackgroundWhite));
@@ -754,6 +768,28 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         HintsController.Hint.AccountSwitchHint.doNotShowAgain();
 
         return true;
+    }
+
+    private void showRestoreHiddenAccountsDialog(ArrayList<Integer> hiddenAccountNumbers) {
+        if (getParentActivity() == null || hiddenAccountNumbers.isEmpty()) {
+            return;
+        }
+        CharSequence[] accountNames = new CharSequence[hiddenAccountNumbers.size()];
+        for (int i = 0; i < hiddenAccountNumbers.size(); i++) {
+            TLRPC.User user = UserConfig.getInstance(hiddenAccountNumbers.get(i)).getCurrentUser();
+            accountNames[i] = user == null ? getString(R.string.HiddenAccount) : UserObject.getUserName(user);
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle(getString(R.string.RestoreHiddenAccountTitle));
+        builder.setItems(accountNames, (dialog, which) -> {
+            int account = hiddenAccountNumbers.get(which);
+            UserConfig.setAccountHidden(account, false);
+            if (LaunchActivity.instance != null) {
+                LaunchActivity.instance.switchToAccount(account, true);
+            }
+        });
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        showDialog(builder.create());
     }
 
     public LinearLayout accountView(int account, boolean selected) {

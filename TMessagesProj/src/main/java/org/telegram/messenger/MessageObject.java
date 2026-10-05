@@ -127,6 +127,7 @@ import java.util.regex.Pattern;
 import me.vkryl.core.BitwiseUtils;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.HuanghunBubbleStyleHelper;
 import tw.nekomimi.nekogram.filters.ReactionFilter;
 import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.helper.LocalMessageOverrideHelper;
@@ -8503,6 +8504,12 @@ public class MessageObject {
     }
 
     public boolean sideMenuEnabled;
+    private int huanghunBubble005MaxArtworkWidth;
+
+    public int getHuanghunBubble005MaxArtworkWidth() {
+        return huanghunBubble005MaxArtworkWidth;
+    }
+
     public int getMaxMessageTextWidth() {
         int maxWidth = 0;
         if (AndroidUtilities.isTablet() && eventId != 0) {
@@ -8545,6 +8552,18 @@ public class MessageObject {
             if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaGame) {
                 maxWidth -= dp(10);
             }
+        }
+        huanghunBubble005MaxArtworkWidth = 0;
+        if (type == TYPE_TEXT && isOutOwner() && messageOwner != null && messageOwner.huanghunBubbleStyle == 5) {
+            int artworkWidth = generatedWithMinSize - AndroidUtilities.dp(16);
+            if (sideMenuEnabled) {
+                artworkWidth -= AndroidUtilities.dp(64);
+            }
+            if (needDrawShareButton() && (isSaved || !isOutOwner())) {
+                artworkWidth -= AndroidUtilities.dp(isSaved && isOutOwner() ? 40 : 14);
+            }
+            huanghunBubble005MaxArtworkWidth = Math.max(AndroidUtilities.dp(48), artworkWidth);
+            maxWidth = Math.min(maxWidth, Theme.getHuanghunBubble005MaxTextWidth(artworkWidth));
         }
         if (emojiOnlyCount >= 1 && totalAnimatedEmojiCount <= 100 && (emojiOnlyCount - totalAnimatedEmojiCount) < (SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_HIGH ? 100 : 50) && (hasValidReplyMessageObject() || isForwarded())) {
             maxWidth = Math.min(maxWidth, (int) (generatedWithMinSize * .65f));
@@ -8758,6 +8777,13 @@ public class MessageObject {
             paint = Theme.chat_msgGameTextPaint;
         } else {
             paint = Theme.chat_msgTextPaint;
+        }
+        if (paint == Theme.chat_msgTextPaint && isOutOwner()
+                && HuanghunBubbleStyleHelper.isCustomStyle(messageOwner.huanghunBubbleStyle)) {
+            // Keep the user's regular chat font untouched; make only custom-skin outgoing text
+            // slightly larger, and let StaticLayout recalculate its wrapping and measured height.
+            paint = new TextPaint(paint);
+            paint.setTextSize(paint.getTextSize() * 1.125f);
         }
 
         CharSequence text = messageText;

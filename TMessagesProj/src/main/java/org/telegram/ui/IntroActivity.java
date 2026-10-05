@@ -67,6 +67,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
+import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.Vector;
@@ -110,6 +111,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     private TextView switchLanguageTextView;
     private GradientDrawable startMessagingButtonBackground;
     private TextView startMessagingButton;
+    private TextView restoreHiddenAccountsTextView;
     private FrameLayout frameLayout2;
     private FrameLayout frameContainerView;
 
@@ -385,8 +387,15 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
         startMessagingButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         startMessagingButton.setPadding(dp(34), 0, dp(34), 0);
         frameContainerView.addView(startMessagingButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM, 16, 0, 16, 76));
+        if (!hasAvailableAccountSlot()) {
+            startMessagingButton.setVisibility(View.GONE);
+        }
         startMessagingButton.setOnClickListener(view -> {
             if (startPressed) {
+                return;
+            }
+            if (!hasAvailableAccountSlot()) {
+                showRestoreHiddenAccountsDialog();
                 return;
             }
             startPressed = true;
@@ -394,6 +403,16 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
             presentFragment(new LoginActivity().setIntroView(frameContainerView, startMessagingButton), true);
             destroyed = true;
         });
+
+        if (hasRestorableHiddenAccounts()) {
+            restoreHiddenAccountsTextView = new TextView(context);
+            restoreHiddenAccountsTextView.setGravity(Gravity.CENTER);
+            restoreHiddenAccountsTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            restoreHiddenAccountsTextView.setText(LocaleController.getString(R.string.RestoreHiddenAccount));
+            restoreHiddenAccountsTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+            frameContainerView.addView(restoreHiddenAccountsTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 28, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 16, 0, 16, 126));
+            restoreHiddenAccountsTextView.setOnClickListener(v -> showRestoreHiddenAccountsDialog());
+        }
 
         bottomPages = new BottomPagesView(context, viewPager, 6);
         frameContainerView.addView(bottomPages, LayoutHelper.createFrame(66, 5, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, ICON_HEIGHT_DP + 200, 0, 0));
@@ -404,6 +423,10 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
         frameContainerView.addView(switchLanguageTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 30, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, 20));
         switchLanguageTextView.setOnClickListener(v -> {
             if (startPressed || localeInfo == null) {
+                return;
+            }
+            if (!hasAvailableAccountSlot()) {
+                showRestoreHiddenAccountsDialog();
                 return;
             }
             if (suggestedLanguagePack != null && localeInfo.isUnofficial() && getParentActivity() instanceof LaunchActivity) {
@@ -563,6 +586,10 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private void applySuggestedLanguageAndOpenLogin(Context context) {
+        if (!hasAvailableAccountSlot()) {
+            showRestoreHiddenAccountsDialog();
+            return;
+        }
         startPressed = true;
 
         AlertDialog loaderDialog = new AlertDialog(context, AlertDialog.ALERT_TYPE_SPINNER);
@@ -591,6 +618,61 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
         if (id == NotificationCenter.suggestedLangpack || id == NotificationCenter.configLoaded) {
             checkContinueText();
         }
+    }
+
+    private boolean hasAvailableAccountSlot() {
+        return UserConfig.getActivatedAccountsCount() < UserConfig.MAX_ACCOUNT_COUNT;
+    }
+
+    private boolean hasRestorableHiddenAccounts() {
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()
+                    && UserConfig.isAccountHidden(a)
+                    && !tw.nekomimi.nekogram.helpers.PasscodeHelper.isAccountHidden(a)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showRestoreHiddenAccountsDialog() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        ArrayList<Integer> hiddenAccounts = new ArrayList<>();
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()
+                    && UserConfig.isAccountHidden(a)
+                    && !tw.nekomimi.nekogram.helpers.PasscodeHelper.isAccountHidden(a)) {
+                hiddenAccounts.add(a);
+            }
+        }
+        if (hiddenAccounts.isEmpty()) {
+            return;
+        }
+        CharSequence[] accountNames = new CharSequence[hiddenAccounts.size()];
+        for (int i = 0; i < hiddenAccounts.size(); i++) {
+            TLRPC.User user = UserConfig.getInstance(hiddenAccounts.get(i)).getCurrentUser();
+            accountNames[i] = user == null ? LocaleController.getString(R.string.HiddenAccount) : UserObject.getUserName(user);
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle(LocaleController.getString(R.string.RestoreHiddenAccountTitle));
+        builder.setItems(accountNames, (dialog, which) -> {
+            int account = hiddenAccounts.get(which);
+            UserConfig.setAccountHidden(account, false);
+            if (getParentActivity() instanceof LaunchActivity) {
+                LaunchActivity launchActivity = (LaunchActivity) getParentActivity();
+                if (account == UserConfig.selectedAccount) {
+                    // The account-switch method intentionally no-ops for the already-selected
+                    // account. Recreate LaunchActivity so its startup path opens MainTabs instead.
+                    launchActivity.recreate();
+                } else {
+                    launchActivity.switchToAccount(account, true);
+                }
+            }
+        });
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        showDialog(builder.create());
     }
 
     public IntroActivity setOnLogout() {
@@ -1017,6 +1099,9 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
         logoDrawable.setColorFilter(Theme.multAlpha(getThemedColor(Theme.key_actionBarDefaultTitle), 0.9f), PorterDuff.Mode.MULTIPLY);
         fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
         switchLanguageTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+        if (restoreHiddenAccountsTextView != null) {
+            restoreHiddenAccountsTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+        }
         startMessagingButton.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
         startMessagingButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(24), Color.TRANSPARENT, Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
         darkThemeDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_featuredStickers_addButton), PorterDuff.Mode.SRC_IN));

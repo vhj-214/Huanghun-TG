@@ -7731,7 +7731,15 @@ public class AlertsCreator {
     }
 
     public static AlertDialog createAccountSelectDialog(Activity parentActivity, final AccountSelectDelegate delegate) {
-        if (UserConfig.getActivatedAccountsCount() < 2) {
+        int visibleAccountsCount = 0;
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()
+                    && !UserConfig.isAccountHidden(a)
+                    && !PasscodeHelper.isAccountHidden(a)) {
+                visibleAccountsCount++;
+            }
+        }
+        if (visibleAccountsCount < 2) {
             return null;
         }
 
@@ -7742,7 +7750,9 @@ public class AlertsCreator {
         final LinearLayout linearLayout = new LinearLayout(parentActivity);
         linearLayout.setOrientation(LinearLayout.VERTICAL);
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
-            if (PasscodeHelper.isAccountHidden(a)) continue;
+            if (!UserConfig.getInstance(a).isClientActivated()
+                    || PasscodeHelper.isAccountHidden(a)
+                    || UserConfig.isAccountHidden(a)) continue;
             TLRPC.User u = UserConfig.getInstance(a).getCurrentUser();
             if (u != null) {
                 AccountSelectCell cell = new AccountSelectCell(parentActivity, false);

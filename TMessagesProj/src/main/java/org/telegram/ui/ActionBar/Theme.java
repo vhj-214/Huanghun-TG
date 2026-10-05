@@ -168,6 +168,82 @@ public class Theme {
     public static final int default_shadow_color = ColorUtils.setAlphaComponent(Color.BLACK, 27);
     public static boolean disallowChangeServiceMessageColor;
 
+    // Pixel coordinates in the text-free, full style-005 composition asset. The authored frame is
+    // kept intact horizontally; for unusually tall messages only the panel's center strip grows.
+    private static final float HUANGHUN_005_ART_WIDTH = 1568f;
+    private static final float HUANGHUN_005_ART_HEIGHT = 1003f;
+    private static final float HUANGHUN_005_PANEL_TOP = 438f;
+    private static final float HUANGHUN_005_PANEL_BOTTOM = 812f;
+    private static final float HUANGHUN_005_TEXT_LEFT = 480f;
+    private static final float HUANGHUN_005_TEXT_RIGHT = 1240f;
+
+    public static int getHuanghunBubble005MaxTextWidth(int availableArtworkWidth) {
+        if (availableArtworkWidth <= 0) {
+            return 0;
+        }
+        return Math.max(AndroidUtilities.dp(48), Math.round(availableArtworkWidth
+                * ((HUANGHUN_005_TEXT_RIGHT - HUANGHUN_005_TEXT_LEFT) / HUANGHUN_005_ART_WIDTH)));
+    }
+
+    public static int getHuanghunBubble005ArtworkWidth(int textWidth, int textHeight) {
+        float scaleByWidth = Math.max(1, textWidth) / (HUANGHUN_005_TEXT_RIGHT - HUANGHUN_005_TEXT_LEFT);
+        float scaleByHeight = (Math.max(1, textHeight) + AndroidUtilities.dp(8))
+                / (HUANGHUN_005_PANEL_BOTTOM - HUANGHUN_005_PANEL_TOP);
+        return (int) Math.ceil(HUANGHUN_005_ART_WIDTH * Math.max(scaleByWidth, scaleByHeight));
+    }
+
+    public static int getHuanghunBubble005ArtworkWidth(int textWidth, int textHeight, int maxArtworkWidth) {
+        int desired = getHuanghunBubble005ArtworkWidth(textWidth, textHeight);
+        return Math.max(AndroidUtilities.dp(48), Math.min(desired, Math.max(AndroidUtilities.dp(48), maxArtworkWidth)));
+    }
+
+    public static int getHuanghunBubble005ArtworkHeight(int artworkWidth) {
+        return (int) Math.ceil(artworkWidth * HUANGHUN_005_ART_HEIGHT / HUANGHUN_005_ART_WIDTH);
+    }
+
+    public static int getHuanghunBubble005ArtworkHeight(int artworkWidth, int textHeight, int timeHeight) {
+        int artworkHeight = getHuanghunBubble005ArtworkHeight(artworkWidth);
+        float scale = artworkWidth / HUANGHUN_005_ART_WIDTH;
+        int panelHeight = Math.round((HUANGHUN_005_PANEL_BOTTOM - HUANGHUN_005_PANEL_TOP) * scale);
+        int requiredPanelHeight = Math.max(1, textHeight) + Math.max(0, timeHeight) + AndroidUtilities.dp(12);
+        return artworkHeight + Math.max(0, requiredPanelHeight - panelHeight);
+    }
+
+    public static int getHuanghunBubble005TextLeftOffset(int artworkWidth) {
+        return Math.round(artworkWidth * HUANGHUN_005_TEXT_LEFT / HUANGHUN_005_ART_WIDTH);
+    }
+
+    public static int getHuanghunBubble005TextTopOffset(int artworkWidth, int textHeight) {
+        float scale = artworkWidth / HUANGHUN_005_ART_WIDTH;
+        float panelTop = HUANGHUN_005_PANEL_TOP * scale;
+        float panelHeight = (HUANGHUN_005_PANEL_BOTTOM - HUANGHUN_005_PANEL_TOP) * scale;
+        return Math.round(panelTop + Math.max(0f, panelHeight - textHeight) * 0.5f);
+    }
+
+    public static int getHuanghunBubble005TextTopOffset(int artworkWidth, int artworkHeight, int textHeight, int timeHeight) {
+        float scale = artworkWidth / HUANGHUN_005_ART_WIDTH;
+        float panelTop = HUANGHUN_005_PANEL_TOP * scale;
+        float panelBottom = HUANGHUN_005_PANEL_BOTTOM * scale
+                + Math.max(0, artworkHeight - getHuanghunBubble005ArtworkHeight(artworkWidth));
+        float textAreaBottom = panelBottom - Math.max(0, timeHeight) - AndroidUtilities.dp(7);
+        float textAreaHeight = Math.max(0, textAreaBottom - panelTop - AndroidUtilities.dp(4));
+        return Math.round(panelTop + AndroidUtilities.dp(4) + Math.max(0, (textAreaHeight - textHeight) * 0.5f));
+    }
+
+    public static int getHuanghunBubble005TimeTopOffset(int artworkWidth, int artworkHeight, int timeHeight) {
+        float scale = artworkWidth / HUANGHUN_005_ART_WIDTH;
+        float panelBottom = HUANGHUN_005_PANEL_BOTTOM * scale
+                + Math.max(0, artworkHeight - getHuanghunBubble005ArtworkHeight(artworkWidth));
+        return Math.round(panelBottom - Math.max(0, timeHeight) - AndroidUtilities.dp(4));
+    }
+
+    public static int getHuanghunBubble005TimeOffset(int artworkWidth, int timeWidth) {
+        float scale = artworkWidth / HUANGHUN_005_ART_WIDTH;
+        // The outgoing status drawable is placed immediately after the time text. Reserve enough
+        // white-panel width for a double-check icon instead of letting it spill into decoration.
+        return Math.round((HUANGHUN_005_TEXT_RIGHT - 8f) * scale) - timeWidth - AndroidUtilities.dp(18);
+    }
+
     /**
      * Returns the side envelope required for a specific, final Telegram body width. The value
      * is a pure relationship between the selected template's panel and its complete ornaments;
@@ -276,6 +352,8 @@ public class Theme {
         private int currentBackgroundHeight;
         private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private Paint selectedPaint;
+        private final Rect huanghunSourceRect = new Rect();
+        private final RectF huanghunDestinationRect = new RectF();
         private int currentColor;
         private int currentGradientColor1;
         private int currentGradientColor2;
@@ -284,15 +362,13 @@ public class Theme {
         // Local per-message style. Global theme drawables never carry this state; ChatMessageCell
         // creates an independent MessageDrawable only for outgoing messages with a custom style.
         private int huanghunBubbleStyle;
-        // Cache immutable, user-provided local skin bitmaps by style ID. Individual MessageDrawable
-        // instances retain only their style ID, so recycled chat cells cannot leak a skin to another message.
+        private boolean huanghunBubble005CompositionEnabled = true;
+        // Cache chat-ready skin bitmaps by style ID. Their catalog sample lettering is removed once
+        // when loaded; individual MessageDrawable instances retain only their style ID.
         private static final SparseArray<Bitmap> huanghunBubbleSkinCache = new SparseArray<>();
-        // AI-cleaned, text-free composition assets. Missing styles safely fall back to the
-        // deterministic original-art path below; a bad/missing optional asset must never blank a chat.
-        private static final SparseArray<Bitmap> huanghunBubbleCleanSkinCache = new SparseArray<>();
-        // The catalog source remains immutable. Chat-only assets are loaded only when a template
-        // has genuine wording/artwork overlap that cannot be safely removed by a source rectangle.
+        // Optional, manually cleaned side sprites for styles whose preview art overlaps the panel.
         private static final SparseArray<Bitmap> huanghunBubbleChatOrnamentCache = new SparseArray<>();
+        private static Bitmap huanghunBubble005CompositionCache;
         private static final SparseIntArray huanghunBubbleSkinBodyColorCache = new SparseIntArray();
         // Text free panel artwork of every catalog style. A single immutable asset per style is
         // stretched with fixed caps, so the bubble keeps the artwork's own frame and glow for a two
@@ -805,6 +881,10 @@ public class Theme {
             huanghunBubbleStyle = style >= 0 && style <= HuanghunBubbleStyleHelper.STYLE_COUNT ? style : 0;
         }
 
+        public void setHuanghunBubble005CompositionEnabled(boolean enabled) {
+            huanghunBubble005CompositionEnabled = enabled;
+        }
+
         public int getHuanghunBubbleStyle() {
             return huanghunBubbleStyle;
         }
@@ -830,16 +910,72 @@ public class Theme {
             options.inScaled = false;
             Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
             if (bitmap != null) {
+                Bitmap editable = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+                if (editable != null) {
+                    removeHuanghunBubblePreviewText(editable, huanghunBubbleStyle);
+                    if (!bitmap.isRecycled()) {
+                        bitmap.recycle();
+                    }
+                    bitmap = editable;
+                }
                 huanghunBubbleSkinCache.put(huanghunBubbleStyle, bitmap);
             }
             return bitmap;
         }
 
+        private static void removeHuanghunBubblePreviewText(Bitmap bitmap, int style) {
+            if (style <= 0 || style >= huanghunBubbleTemplateBounds.length || style >= huanghunBubbleTextColors.length) {
+                return;
+            }
+            int[] template = huanghunBubbleTemplateBounds[style];
+            if (template == null || template.length < 4) {
+                return;
+            }
+            int paddingX = Math.max(8, Math.round((template[2] - template[0]) * 0.45f));
+            int paddingY = Math.max(4, Math.round((template[3] - template[1]) * 0.22f));
+            int left = Math.max(0, template[0] - paddingX);
+            int top = Math.max(0, template[1] - paddingY);
+            int right = Math.min(bitmap.getWidth(), template[2] + paddingX);
+            int bottom = Math.min(bitmap.getHeight(), template[3] + paddingY);
+            if (right <= left || bottom <= top) {
+                return;
+            }
+
+            int width = bitmap.getWidth();
+            int[] pixels = new int[width * bitmap.getHeight()];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, bitmap.getHeight());
+            int textColor = huanghunBubbleTextColors[style];
+            int targetRed = Color.red(textColor);
+            int targetGreen = Color.green(textColor);
+            int targetBlue = Color.blue(textColor);
+            for (int y = top; y < bottom; y++) {
+                int row = y * width;
+                for (int x = left; x < right; x++) {
+                    int color = pixels[row + x];
+                    if (Color.alpha(color) == 0) {
+                        continue;
+                    }
+                    int red = Color.red(color);
+                    int green = Color.green(color);
+                    int blue = Color.blue(color);
+                    int high = Math.max(red, Math.max(green, blue));
+                    int low = Math.min(red, Math.min(green, blue));
+                    int luminance = (red + green + blue) / 3;
+                    boolean matchesTextColor = Math.max(Math.abs(red - targetRed), Math.max(Math.abs(green - targetGreen), Math.abs(blue - targetBlue))) < 56;
+                    boolean neutralTextInk = high - low < 32 && luminance < 190;
+                    if (matchesTextColor || neutralTextInk) {
+                        pixels[row + x] = color & 0x00ffffff;
+                    }
+                }
+            }
+            bitmap.setPixels(pixels, 0, width, 0, 0, width, bitmap.getHeight());
+        }
+
         private Bitmap getHuanghunBubbleChatOrnament(boolean rightSide) {
             final int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
-            // This pair is an already committed, text-free source asset. It is not a generated
-            // preview and it lets the two rabbits remain whole without any clipping in real chat.
-            if (style != 12) {
+            // These are text-free crops from committed source assets, not generated artwork. The
+            // style-005 crop remains only as a fallback if its full composition cannot be decoded.
+            if ((style != 5 && style != 12) || (style == 5 && rightSide)) {
                 return null;
             }
             final int cacheKey = style * 2 + (rightSide ? 1 : 0);
@@ -851,7 +987,9 @@ public class Theme {
             if (context == null) {
                 return null;
             }
-            String resourceName = rightSide ? "huanghun_bubble_chat_012_right_clean" : "huanghun_bubble_chat_012_left_clean";
+            String resourceName = style == 5
+                    ? "huanghun_bubble_chat_005_left_clean"
+                    : (rightSide ? "huanghun_bubble_chat_012_right_clean" : "huanghun_bubble_chat_012_left_clean");
             int resourceId = context.getResources().getIdentifier(resourceName, "drawable", context.getPackageName());
             if (resourceId == 0) {
                 return null;
@@ -869,80 +1007,9 @@ public class Theme {
             return style > HuanghunBubbleStyleHelper.DEFAULT_STYLE && style < huanghunBubbleTemplateBounds.length;
         }
 
-        private void drawHuanghunBubbleSkin(Canvas canvas, Rect bounds, Path bubblePath) {
-            Bitmap bitmap = getHuanghunBubbleSkin();
-            int[] template = getHuanghunBubbleTemplateBounds();
-            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3 || bubblePath == null || template == null) {
-                return;
-            }
-            // bounds is the final body measured by Telegram after all wrapping, timestamp and
-            // receipt calculations. It remains untouched: the official MessageDrawable drawn
-            // immediately before this method owns the transparent body, tail, corners and state.
-            final float inset = dp(1);
-            final float bodyLeft = bounds.left + inset;
-            final float bodyTop = bounds.top + inset;
-            final float bodyRight = bounds.right - inset;
-            final float bodyBottom = bounds.bottom - inset;
-            final float bodyWidth = Math.max(1f, bodyRight - bodyLeft);
-            final float bodyHeight = Math.max(1f, bodyBottom - bodyTop);
-            final float sourceBodyWidth = Math.max(1f, template[2] - template[0]);
-            final float sourceBodyHeight = Math.max(1f, template[3] - template[1]);
-            Bitmap cleanBitmap = getHuanghunBubbleCleanSkin();
-            if (cleanBitmap != null) {
-                // The cleaned composition already contains the complete mascot and frame. Draw it
-                // as one aspect-preserving layer, then extend only the inner text field below.
-                drawHuanghunBubbleCleanSkin(canvas, cleanBitmap, bodyLeft, bodyTop, bodyRight, bodyBottom, bodyHeight);
-                drawHuanghunBubbleBodyPanel(canvas, bodyLeft, bodyTop, bodyRight, bodyBottom, bodyHeight);
-                huanghunDecorationPaint.setShader(null);
-                huanghunDecorationPaint.setAlpha(255);
-                return;
-            }
-            // The catalog preview scales the complete artwork to the message height, so the chat
-            // bubble uses exactly that one uniform scale. A character therefore keeps its preview
-            // proportion instead of being shrunk, squeezed or repositioned, and only the panel's
-            // own middle grows sideways to follow the real message width.
-            // Telegram has already measured the real message body. Do not impose an artificial
-            // width/height cap here: the complete artwork follows that measured size. The only
-            // fallback protects against invalid geometry and cannot affect normal messages.
-            float uniform = bodyHeight / sourceBodyHeight;
-            if (!(uniform > 0f) || Float.isNaN(uniform) || Float.isInfinite(uniform)) {
-                uniform = 1f;
-            }
-            // The source bitmap includes transparent padding around the catalog preview. Use the
-            // template's body and ornament bounds instead of the full bitmap height; otherwise a
-            // chat row gets a large empty band above the bubble and the character appears detached.
-            int artworkSourceTop = Math.max(0, Math.min(template[1], Math.min(template[5], template[9])));
-            int artworkSourceBottom = Math.min(bitmap.getHeight(), Math.max(template[3], Math.max(template[7], template[11])));
-            if (artworkSourceBottom <= artworkSourceTop) {
-                artworkSourceTop = 0;
-                artworkSourceBottom = bitmap.getHeight();
-            }
-            final int artworkHeight = artworkSourceBottom - artworkSourceTop;
-            final float artworkTop = bodyTop - (template[1] - artworkSourceTop) * uniform;
-            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
-            huanghunDecorationPaint.setAlpha(alpha);
-            // Draw the complete catalog artwork as one uniformly scaled layer. Splitting it into
-            // left/right strips stretches transparent padding and decorative lines into bands; the
-            // single source layer keeps the mascot and all ornaments in their original relationship.
-            final float artworkLeft = bodyLeft - template[0] * uniform;
-            drawHuanghunBubbleRawPatch(canvas, bitmap, 0, artworkSourceTop, bitmap.getWidth(), artworkSourceBottom,
-                    artworkLeft, artworkTop,
-                    artworkLeft + bitmap.getWidth() * uniform, artworkTop + artworkHeight * uniform);
-            // The panel itself is stretched over the whole measured body, so a two character
-            // message and a twenty line one both show the artwork's own frame. The characters are
-            // already below it, which is why nothing is duplicated or covered twice.
-            drawHuanghunBubbleBodyPanel(canvas, bodyLeft, bodyTop, bodyRight, bodyBottom, bodyHeight);
-            huanghunDecorationPaint.setAlpha(255);
-        }
-
-        private Bitmap getHuanghunBubbleCleanSkin() {
-            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
-            if (style != 5) {
-                return null;
-            }
-            Bitmap cached = huanghunBubbleCleanSkinCache.get(style);
-            if (cached != null && !cached.isRecycled()) {
-                return cached;
+        private Bitmap getHuanghunBubble005Composition() {
+            if (huanghunBubble005CompositionCache != null && !huanghunBubble005CompositionCache.isRecycled()) {
+                return huanghunBubble005CompositionCache;
             }
             Context context = ApplicationLoader.applicationContext;
             if (context == null) {
@@ -952,33 +1019,152 @@ public class Theme {
             if (resourceId == 0) {
                 return null;
             }
-            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId);
-            if (bitmap != null && bitmap.getWidth() > 4 && bitmap.getHeight() > 4) {
-                huanghunBubbleCleanSkinCache.put(style, bitmap);
-                return bitmap;
-            }
-            return null;
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = false;
+            huanghunBubble005CompositionCache = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
+            return huanghunBubble005CompositionCache;
         }
 
-        private void drawHuanghunBubbleCleanSkin(Canvas canvas, Bitmap bitmap, float bodyLeft, float bodyTop, float bodyRight, float bodyBottom, float bodyHeight) {
-            // Bounds measured from the generated transparent asset: the white panel occupies the
-            // lower middle; keeping these ratios localizes the optional asset to style 005 only.
-            final float panelTop = bitmap.getHeight() * 0.43f;
-            final float panelBottom = bitmap.getHeight() * 0.81f;
-            final float panelLeft = bitmap.getWidth() * 0.14f;
-            float scale = bodyHeight / Math.max(1f, panelBottom - panelTop);
-            if (!(scale > 0f) || Float.isNaN(scale) || Float.isInfinite(scale)) {
-                scale = 1f;
-            }
-            final float destinationLeft = bodyLeft - panelLeft * scale;
-            final float destinationTop = bodyTop - panelTop * scale;
-            huanghunBubbleSkinSourceRect.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
-            huanghunBubbleSkinRect.set(destinationLeft, destinationTop,
-                    destinationLeft + bitmap.getWidth() * scale,
-                    destinationTop + bitmap.getHeight() * scale);
+        private void drawHuanghunBubble005Composition(Canvas canvas, Bitmap composition, Rect bounds) {
+            float scale = bounds.width() / (float) composition.getWidth();
+            float baseHeight = composition.getHeight() * scale;
+            float extraPanelHeight = Math.max(0, bounds.height() - baseHeight);
+            int panelTop = Math.round(composition.getHeight() * HUANGHUN_005_PANEL_TOP / HUANGHUN_005_ART_HEIGHT);
+            int panelBottom = Math.round(composition.getHeight() * HUANGHUN_005_PANEL_BOTTOM / HUANGHUN_005_ART_HEIGHT);
+            panelTop = Math.max(1, Math.min(composition.getHeight() - 2, panelTop));
+            panelBottom = Math.max(panelTop + 1, Math.min(composition.getHeight() - 1, panelBottom));
+
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+            huanghunDecorationPaint.setShader(null);
+            huanghunDecorationPaint.setFilterBitmap(true);
             huanghunDecorationPaint.setAlpha(alpha);
-            canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
+            if (extraPanelHeight <= 0.5f) {
+                canvas.drawBitmap(composition, null, new RectF(bounds), huanghunDecorationPaint);
+            } else {
+                canvas.save();
+                canvas.clipRect(bounds);
+
+                huanghunSourceRect.set(0, 0, composition.getWidth(), panelTop);
+                huanghunDestinationRect.set(bounds.left, bounds.top, bounds.right, bounds.top + panelTop * scale);
+                canvas.drawBitmap(composition, huanghunSourceRect, huanghunDestinationRect, huanghunDecorationPaint);
+
+                huanghunSourceRect.set(0, panelTop, composition.getWidth(), panelBottom);
+                huanghunDestinationRect.set(bounds.left, bounds.top + panelTop * scale,
+                        bounds.right, bounds.top + panelBottom * scale + extraPanelHeight);
+                canvas.drawBitmap(composition, huanghunSourceRect, huanghunDestinationRect, huanghunDecorationPaint);
+
+                huanghunSourceRect.set(0, panelBottom, composition.getWidth(), composition.getHeight());
+                huanghunDestinationRect.set(bounds.left, bounds.top + panelBottom * scale + extraPanelHeight,
+                        bounds.right, bounds.bottom);
+                canvas.drawBitmap(composition, huanghunSourceRect, huanghunDestinationRect, huanghunDecorationPaint);
+
+                canvas.restore();
+            }
+            huanghunDecorationPaint.setAlpha(255);
+        }
+
+        private void drawHuanghunBubbleSkin(Canvas canvas, Rect bounds, Path bubblePath) {
+            if (HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle) == 5 && huanghunBubble005CompositionEnabled) {
+                Bitmap composition = getHuanghunBubble005Composition();
+                if (composition != null && !composition.isRecycled()) {
+                    drawHuanghunBubble005Composition(canvas, composition, bounds);
+                    return;
+                }
+            }
+            Bitmap bitmap = getHuanghunBubbleSkin();
+            int[] template = getHuanghunBubbleTemplateBounds();
+            if (bitmap == null || bitmap.getWidth() < 3 || bitmap.getHeight() < 3 || bubblePath == null || template == null) {
+                return;
+            }
+            final float inset = dp(1);
+            final float bodyLeft = bounds.left + inset;
+            final float bodyTop = bounds.top + inset;
+            final float bodyRight = bounds.right - inset;
+            final float bodyBottom = bounds.bottom - inset;
+            final float bodyHeight = Math.max(1f, bodyBottom - bodyTop);
+            final float bodyWidth = Math.max(1f, bodyRight - bodyLeft);
+            final float sourceBodyHeight = Math.max(1f, template[3] - template[1]);
+            huanghunDecorationPaint.setStyle(Paint.Style.FILL);
+            huanghunDecorationPaint.setShader(null);
+            huanghunDecorationPaint.setAlpha(alpha);
+
+            // Style 005 normally returns above with its full text-free composition. Other styles
+            // reconstruct the panel independently so catalog preview lettering never reaches chat.
+            Bitmap body = getHuanghunBubbleBody();
+            if (HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle) == 5) {
+                // Fallback if the dedicated clean composition resource cannot be decoded.
+                drawHuanghunBubbleBodyPanel(canvas, bodyLeft, bodyTop, bodyRight, bodyBottom, bodyHeight);
+            } else if (body != null && body.getWidth() > 2 && body.getHeight() > 2) {
+                drawHuanghunBubbleBodyAsset(canvas, body, bodyLeft, bodyTop, bodyRight, bodyBottom);
+            } else {
+                drawHuanghunBubbleBodyPanel(canvas, bodyLeft, bodyTop, bodyRight, bodyBottom, bodyHeight);
+            }
+
+            // Scale the available clean ornaments uniformly to fit the live row height. This keeps
+            // the character intact on one-line messages and prevents later cells from painting
+            // over the decoration. The body itself still uses Telegram's measured width/height.
+            float leftHeight = Math.max(0f, template[7] - template[5]);
+            float rightHeight = Math.max(0f, template[11] - template[9]);
+            float maxOrnamentHeight = Math.max(leftHeight, rightHeight);
+            float ornamentScale = bodyHeight / sourceBodyHeight;
+            if (maxOrnamentHeight > 0f) {
+                ornamentScale = Math.min(ornamentScale, bodyHeight / maxOrnamentHeight);
+            }
+            if (!(ornamentScale > 0f) || Float.isNaN(ornamentScale) || Float.isInfinite(ornamentScale)) {
+                ornamentScale = 1f;
+            }
+
+            Bitmap leftCleanOrnament = getHuanghunBubbleChatOrnament(false);
+            Bitmap rightCleanOrnament = getHuanghunBubbleChatOrnament(true);
+            if (leftCleanOrnament != null || rightCleanOrnament != null) {
+                float cleanScale = bodyHeight / Math.max(
+                        leftCleanOrnament == null ? 0 : leftCleanOrnament.getHeight(),
+                        rightCleanOrnament == null ? 0 : rightCleanOrnament.getHeight());
+                if (HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle) == 5 && leftCleanOrnament != null) {
+                    // Style 005 has a tall, narrow mascot. Size it from the measured bubble area
+                    // rather than row height alone, then cap both axes so it stays proportional
+                    // to short/narrow bubbles and never spills into a neighboring message row.
+                    float aspect = leftCleanOrnament.getWidth() / (float) leftCleanOrnament.getHeight();
+                    float referenceArea = dp(350f) * dp(60f);
+                    float areaHeight = dp(52f) * (float) Math.sqrt(bodyWidth * bodyHeight / referenceArea);
+                    float maxOrnamentWidth = Math.max(bodyWidth * 0.18f, dp(24f));
+                    float maxHeight = Math.min(bodyHeight * 0.96f, maxOrnamentWidth / aspect);
+                    float cleanHeight = Math.min(Math.max(dp(24f), areaHeight), maxHeight);
+                    cleanScale = cleanHeight / leftCleanOrnament.getHeight();
+                }
+                if (leftCleanOrnament != null) {
+                    drawHuanghunBubbleChatOrnament(canvas, leftCleanOrnament, bodyLeft, bodyRight, bodyTop, bodyBottom, cleanScale, false);
+                } else {
+                    drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, bodyLeft, bodyRight, bodyTop, bodyBottom, ornamentScale, false);
+                }
+                if (rightCleanOrnament != null) {
+                    drawHuanghunBubbleChatOrnament(canvas, rightCleanOrnament, bodyLeft, bodyRight, bodyTop, bodyBottom, cleanScale, true);
+                } else if (HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle) != 5) {
+                    drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, bodyLeft, bodyRight, bodyTop, bodyBottom, ornamentScale, true);
+                }
+            } else {
+                drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 4, bodyLeft, bodyRight, bodyTop, bodyBottom, ornamentScale, false);
+                if (HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle) != 5) {
+                    drawHuanghunBubbleSkinOrnament(canvas, bitmap, template, 8, bodyLeft, bodyRight, bodyTop, bodyBottom, ornamentScale, true);
+                }
+            }
+            huanghunDecorationPaint.setAlpha(255);
+        }
+
+        private void drawHuanghunBubbleBodyAsset(Canvas canvas, Bitmap body, float left, float top, float right, float bottom) {
+            final float destinationWidth = right - left;
+            final float destinationHeight = bottom - top;
+            if (destinationWidth < 3f || destinationHeight < 3f) {
+                return;
+            }
+            int style = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle);
+            int cap = style > 0 && style < huanghunBubbleStripCaps.length ? huanghunBubbleStripCaps[style] : 2;
+            cap = Math.max(1, Math.min(cap, (body.getWidth() - 1) / 2));
+            float scaleY = destinationHeight / body.getHeight();
+            float destinationCap = Math.min(destinationWidth / 2f, cap * scaleY);
+            drawHuanghunBubbleBodyPatch(canvas, body, 0, 0, cap, body.getHeight(), left, top, left + destinationCap, bottom);
+            drawHuanghunBubbleBodyPatch(canvas, body, cap, 0, body.getWidth() - cap, body.getHeight(), left + destinationCap, top, right - destinationCap, bottom);
+            drawHuanghunBubbleBodyPatch(canvas, body, body.getWidth() - cap, 0, body.getWidth(), body.getHeight(), right - destinationCap, top, right, bottom);
         }
 
         private Bitmap getHuanghunBubbleBody() {
@@ -998,7 +1184,7 @@ public class Theme {
             if (skinResourceName == null) {
                 return null;
             }
-            // The clean panel keeps the catalog naming, only the asset kind changes.
+            // Body assets share the catalog naming; only the asset kind changes.
             String resourceName = skinResourceName.replace("huanghun_bubble_skin_", "huanghun_bubble_body_");
             int resourceId = context.getResources().getIdentifier(resourceName, "drawable", context.getPackageName());
             if (resourceId == 0) {
@@ -1030,8 +1216,9 @@ public class Theme {
             // afterwards, so the baked catalog wording can never be duplicated.
             final int base = getHuanghunBubbleSkinBodyColor(null);
             final int border = getHuanghunBubbleSkinBorderColor(base);
-            final int top = Color.argb(alpha, Math.min(255, Color.red(base) + 20), Math.min(255, Color.green(base) + 20), Math.min(255, Color.blue(base) + 20));
-            final int bottom = Color.argb(alpha, Math.max(0, Color.red(base) - 18), Math.max(0, Color.green(base) - 18), Math.max(0, Color.blue(base) - 18));
+            final boolean flatPanel = HuanghunBubbleStyleHelper.normalizeStyle(huanghunBubbleStyle) == 5;
+            final int top = flatPanel ? Color.argb(alpha, Color.red(base), Color.green(base), Color.blue(base)) : Color.argb(alpha, Math.min(255, Color.red(base) + 20), Math.min(255, Color.green(base) + 20), Math.min(255, Color.blue(base) + 20));
+            final int bottom = flatPanel ? top : Color.argb(alpha, Math.max(0, Color.red(base) - 18), Math.max(0, Color.green(base) - 18), Math.max(0, Color.blue(base) - 18));
             // Cover the entire measured text body. The source catalog images are flattened and
             // may contain baked sample words such as “大家好”; leaving an inset would expose those
             // words at the edge. Mascots remain outside this body in the clean composition layer.
@@ -1047,7 +1234,10 @@ public class Theme {
             }
             final float radius = Math.max(dp(5), Math.min((panelBottom - panelTop) * 0.38f, dp(18)));
             huanghunDecorationPaint.setStyle(Paint.Style.FILL);
-            huanghunDecorationPaint.setShader(new LinearGradient(panelLeft, panelTop, panelLeft, panelBottom, top, bottom, Shader.TileMode.CLAMP));
+            huanghunDecorationPaint.setShader(flatPanel ? null : new LinearGradient(panelLeft, panelTop, panelLeft, panelBottom, top, bottom, Shader.TileMode.CLAMP));
+            if (flatPanel) {
+                huanghunDecorationPaint.setColor(top);
+            }
             canvas.drawRoundRect(panelLeft, panelTop, panelRight, panelBottom, radius, radius, huanghunDecorationPaint);
             huanghunDecorationPaint.setShader(null);
             huanghunDecorationPaint.setStyle(Paint.Style.STROKE);
@@ -1076,10 +1266,12 @@ public class Theme {
             }
             final float ornamentWidth = (sourceRight - sourceLeft) * scale;
             final float ornamentHeight = (sourceBottom - sourceTop) * scale;
-            // The small overlap joins the artwork to the official outline. It is deliberately
-            // independent of template size: it cannot reach Telegram's text, time or receipt area.
+            // The small overlap joins the ornament to the custom panel edge without depending on
+            // template dimensions; Telegram's text, time and receipt are drawn later on top.
             final float edgeOverlap = dp(2);
-            final float destinationLeft = anchorRight ? bodyRight - edgeOverlap : bodyLeft - ornamentWidth + edgeOverlap;
+            // The right-hand decoration stays inside the bubble's right edge. Outgoing bubbles
+            // are right-aligned, so placing it outside the body would clip it at the screen edge.
+            final float destinationLeft = anchorRight ? bodyRight - ornamentWidth + edgeOverlap : bodyLeft - ornamentWidth + edgeOverlap;
             // The scale above already limits the whole decoration to this live body height.
             // Center it in that final measured body so neither a hat nor a pendant can be clipped
             // at the ChatMessageCell's top or bottom on compact one-line messages.
@@ -1091,7 +1283,7 @@ public class Theme {
             final float ornamentWidth = ornament.getWidth() * scale;
             final float ornamentHeight = ornament.getHeight() * scale;
             final float edgeOverlap = dp(2);
-            final float destinationLeft = rightSide ? bodyRight - edgeOverlap : bodyLeft - ornamentWidth + edgeOverlap;
+            final float destinationLeft = rightSide ? bodyRight - ornamentWidth + edgeOverlap : bodyLeft - ornamentWidth + edgeOverlap;
             final float destinationTop = bodyTop + ((bodyBottom - bodyTop) - ornamentHeight) * 0.5f;
             huanghunBubbleSkinSourceRect.set(0, 0, ornament.getWidth(), ornament.getHeight());
             huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationLeft + ornamentWidth, destinationTop + ornamentHeight);
@@ -1104,47 +1296,7 @@ public class Theme {
             }
             huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
             huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
-            // Only the pre-measured catalog wording is removed from the ornament source. No body
-            // rectangle is cleared and no character is scaled in two axes, so an ornament remains
-            // complete even when the real Telegram message becomes short, long or multi-line.
-            int[] wording = getHuanghunBubblePreviewTextRect();
-            int save = canvas.save();
-            if (wording != null) {
-                float wordingLeft = bitmap.getWidth() * wording[0] / 1000f;
-                float wordingTop = bitmap.getHeight() * wording[1] / 1000f;
-                float wordingRight = bitmap.getWidth() * wording[2] / 1000f;
-                float wordingBottom = bitmap.getHeight() * wording[3] / 1000f;
-                if (sourceLeft < wordingRight && sourceRight > wordingLeft && sourceTop < wordingBottom && sourceBottom > wordingTop) {
-                    float sourceWidth = sourceRight - sourceLeft;
-                    float sourceHeight = sourceBottom - sourceTop;
-                    float maskedLeft = destinationLeft + (Math.max(sourceLeft, wordingLeft) - sourceLeft) * (destinationRight - destinationLeft) / sourceWidth;
-                    float maskedTop = destinationTop + (Math.max(sourceTop, wordingTop) - sourceTop) * (destinationBottom - destinationTop) / sourceHeight;
-                    float maskedRight = destinationLeft + (Math.min(sourceRight, wordingRight) - sourceLeft) * (destinationRight - destinationLeft) / sourceWidth;
-                    float maskedBottom = destinationTop + (Math.min(sourceBottom, wordingBottom) - sourceTop) * (destinationBottom - destinationTop) / sourceHeight;
-                    canvas.clipOutRect(maskedLeft, maskedTop, maskedRight, maskedBottom);
-                }
-            }
             canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
-            canvas.restoreToCount(save);
-        }
-
-        /** Draws the original artwork without the catalog-text clipping mask. The clean panel painted
-         * afterwards covers the baked sample wording; clipping the side artwork itself creates the
-         * black/transparent holes visible in the previous code preview. */
-        private void drawHuanghunBubbleRawPatch(Canvas canvas, Bitmap bitmap, int sourceLeft, int sourceTop, int sourceRight, int sourceBottom, float destinationLeft, float destinationTop, float destinationRight, float destinationBottom) {
-            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop || destinationRight <= destinationLeft || destinationBottom <= destinationTop) {
-                return;
-            }
-            huanghunBubbleSkinSourceRect.set(sourceLeft, sourceTop, sourceRight, sourceBottom);
-            huanghunBubbleSkinRect.set(destinationLeft, destinationTop, destinationRight, destinationBottom);
-            canvas.drawBitmap(bitmap, huanghunBubbleSkinSourceRect, huanghunBubbleSkinRect, huanghunDecorationPaint);
-        }
-
-        private int[] getHuanghunBubblePreviewTextRect() {
-            // The chat path now paints the original side artwork raw and covers the center with a
-            // clean scalable panel. There is intentionally no catalog-text clipping here: clipping
-            // the character source is what caused incomplete/black character fragments.
-            return null;
         }
 
         private int[] getHuanghunBubbleTemplateBounds() {

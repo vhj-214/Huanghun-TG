@@ -1194,13 +1194,12 @@ public class PopupNotificationActivity extends Activity implements NotificationC
         popupMessages.clear();
         if (isReply) {
             int account = intent != null ? intent.getIntExtra("currentAccount", UserConfig.selectedAccount) : UserConfig.selectedAccount;
-            if (!UserConfig.isValidAccount(account)) {
-                return;
+            if (UserConfig.isValidAccount(account) && !UserConfig.isAccountHidden(account)) {
+                popupMessages.addAll(NotificationsController.getInstance(account).popupReplyMessages);
             }
-            popupMessages.addAll(NotificationsController.getInstance(account).popupReplyMessages);
         } else {
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
-                if (UserConfig.getInstance(a).isClientActivated()) {
+                if (UserConfig.getInstance(a).isClientActivated() && !UserConfig.isAccountHidden(a)) {
                     popupMessages.addAll(NotificationsController.getInstance(a).popupMessages);
                 }
             }
@@ -1470,7 +1469,7 @@ public class PopupNotificationActivity extends Activity implements NotificationC
             if (!isReply) {
                 popupMessages.clear();
                 for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
-                    if (UserConfig.getInstance(a).isClientActivated()) {
+                    if (UserConfig.getInstance(a).isClientActivated() && !UserConfig.isAccountHidden(a)) {
                         popupMessages.addAll(NotificationsController.getInstance(a).popupMessages);
                     }
                 }

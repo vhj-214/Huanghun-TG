@@ -816,7 +816,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         accountNumbers.clear();
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
-            if (PasscodeHelper.isAccountHidden(a)) continue;
+            if (PasscodeHelper.isAccountHidden(a) || UserConfig.isAccountHidden(a)) continue;
             if (UserConfig.getInstance(a).isClientActivated() && currentAccount != a) {
                 accountNumbers.add(a);
             }

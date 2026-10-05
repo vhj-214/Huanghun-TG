@@ -111,6 +111,38 @@ public class UserConfig extends BaseController {
         return count;
     }
 
+    private static SharedPreferences getAccountVisibilityPreferences() {
+        return ApplicationLoader.applicationContext.getSharedPreferences("accountvisibility", Context.MODE_PRIVATE);
+    }
+
+    public static boolean isAccountHidden(int account) {
+        return account >= 0 && account < MAX_ACCOUNT_COUNT
+                && getAccountVisibilityPreferences().getBoolean("hidden" + account, false);
+    }
+
+    public static void setAccountHidden(int account, boolean hidden) {
+        if (account < 0 || account >= MAX_ACCOUNT_COUNT) {
+            return;
+        }
+        SharedPreferences.Editor editor = getAccountVisibilityPreferences().edit();
+        if (hidden) {
+            editor.putBoolean("hidden" + account, true);
+        } else {
+            editor.remove("hidden" + account);
+        }
+        editor.apply();
+    }
+
+    public static int getHiddenActivatedAccountsCount() {
+        int count = 0;
+        for (int a = 0; a < MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated() && isAccountHidden(a)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public UserConfig(int instance) {
         super(instance);
     }
@@ -464,6 +496,7 @@ public class UserConfig extends BaseController {
     }
 
     public void clearConfig() {
+        setAccountHidden(currentAccount, false);
         getPreferences().edit().clear().apply();
 
         sharingMyLocationUntil = 0;

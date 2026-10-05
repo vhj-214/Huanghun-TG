@@ -16415,6 +16415,7 @@ public class MessagesController extends BaseController implements NotificationCe
             getConnectionsManager().cleanup(type == 2);
         }
         getUserConfig().clearConfig();
+        UserConfig.setAccountHidden(currentAccount, false);
         SharedPrefsHelper.cleanupAccount(currentAccount);
 
         boolean shouldHandle = true;
