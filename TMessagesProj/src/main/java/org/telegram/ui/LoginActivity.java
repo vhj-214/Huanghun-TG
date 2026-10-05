@@ -1968,6 +1968,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         if (existingAccount >= 0) {
             ConnectionsManager.getInstance(currentAccount).cleanup(true);
             UserConfig.getInstance(currentAccount).clearConfig();
+            // A locally hidden account is still an active session. Signing in with its
+            // phone number again should restore the account before switching to it.
+            UserConfig.setAccountHidden(existingAccount, false);
             Toast.makeText(getParentActivity(), "该账号已登录，已切换至现有账户", Toast.LENGTH_SHORT).show();
             if (getParentActivity() instanceof LaunchActivity) {
                 ((LaunchActivity) getParentActivity()).switchToAccount(existingAccount, true);
