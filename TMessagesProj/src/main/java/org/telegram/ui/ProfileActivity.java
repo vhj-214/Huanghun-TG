@@ -13198,7 +13198,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             otherItem.hideSubItem(gallery_menu_save);
         }
 
-        if (selfUser && !myProfile) {
+        // myProfile is true for the active account's own profile; do not negate it here or the
+        // logout/local-hide entries will never be added for the account owner.
+        if (selfUser) {
             otherItem.addSubItem(logout, R.drawable.msg_leave, LocaleController.getString(R.string.LogOut));
             ActionBarMenuSubItem deleteLocalAccountItem = otherItem.addSubItem(delete_local_account, R.drawable.msg_delete, getString(R.string.DeleteLocalAccount));
             deleteLocalAccountItem.setColors(getThemedColor(Theme.key_text_RedBold), getThemedColor(Theme.key_text_RedRegular));
