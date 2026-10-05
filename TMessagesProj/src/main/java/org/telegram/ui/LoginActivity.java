@@ -3421,8 +3421,16 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                             builder.setTitle(getString(R.string.NagramX));
                             builder.setMessage(getString("AccountAlreadyLoggedIn", R.string.AccountAlreadyLoggedIn));
                             builder.setPositiveButton(getString("AccountSwitch", R.string.AccountSwitch), (dialog, which) -> {
+                                // This shortcut runs before authentication completes. Restore a
+                                // locally hidden account here, otherwise switchToAccount rejects
+                                // it and the account remains hidden after pressing Switch.
+                                UserConfig.setAccountHidden(num, false);
                                 if (UserConfig.selectedAccount != num) {
                                     ((LaunchActivity) getParentActivity()).switchToAccount(num, true);
+                                } else {
+                                    // switchToAccount intentionally returns for the selected slot.
+                                    // Recreate so the now-visible account opens its main screen.
+                                    ((LaunchActivity) getParentActivity()).recreate();
                                 }
                                 finishFragment();
                             });
