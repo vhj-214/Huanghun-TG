@@ -3432,7 +3432,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                                     // Recreate so the now-visible account opens its main screen.
                                     ((LaunchActivity) getParentActivity()).recreate();
                                 }
-                                finishFragment();
                             });
                             builder.setNegativeButton(getString("OK", R.string.OK), null);
                             showDialog(builder.create());
