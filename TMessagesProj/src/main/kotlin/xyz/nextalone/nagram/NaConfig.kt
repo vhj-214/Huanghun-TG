@@ -544,6 +544,23 @@ object NaConfig {
             ConfigItem.configTypeBool,
             true
         )
+
+    // 解除「该频道不允许拷贝和转发」限制(本地生效)
+    val enableNoForwardsBypass =
+        addConfig(
+            "EnableNoForwardsBypass",
+            ConfigItem.configTypeBool,
+            true
+        )
+
+    // 重发(以副本转发)时,如果这批消息里有视频就只发视频
+    val repostVideoOnly =
+        addConfig(
+            "RepostVideoOnly",
+            ConfigItem.configTypeBool,
+            false
+        )
+
     val playerDecoder =
         addConfig(
             "VideoPlayerDecoder",

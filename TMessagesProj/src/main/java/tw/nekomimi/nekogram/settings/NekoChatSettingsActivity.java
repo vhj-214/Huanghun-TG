@@ -147,6 +147,8 @@ public class NekoChatSettingsActivity extends BaseNekoXSettingsActivity implemen
             getString(R.string.Official),
             "Nekogram",
     }, null));
+    private final AbstractConfigCell noForwardsBypassRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getEnableNoForwardsBypass(), getString(R.string.EnableNoForwardsBypassNotice)));
+    private final AbstractConfigCell repostVideoOnlyRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getRepostVideoOnly(), getString(R.string.RepostVideoOnlyNotice)));
     private final AbstractConfigCell dividerChats = cellGroup.appendCell(new ConfigCellDivider());
 
     // Double Tap

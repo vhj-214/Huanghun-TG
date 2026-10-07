@@ -6832,6 +6832,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isChatNoForwards(TLRPC.Chat chat) {
+        if (tw.nekomimi.nekogram.helpers.NoForwardsHelper.isBypassEnabled()) {
+            return false;
+        }
         if (chat == null) {
             return false;
         }
@@ -6849,6 +6852,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isPeerNoForwards(long dialogId) {
+        if (tw.nekomimi.nekogram.helpers.NoForwardsHelper.isBypassEnabled()) {
+            return false;
+        }
         return dialogId > 0 ? isUserNoForwards(dialogId) : isChatNoForwards(-dialogId);
     }
 
@@ -6857,6 +6863,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isUserNoForwards(TLRPC.UserFull userFull) {
+        if (tw.nekomimi.nekogram.helpers.NoForwardsHelper.isBypassEnabled()) {
+            return false;
+        }
         if (userFull == null) {
             return false;
         }

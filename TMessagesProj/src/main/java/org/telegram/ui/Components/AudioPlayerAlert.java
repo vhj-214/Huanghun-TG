@@ -90,6 +90,7 @@ import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SendMessagesHelper;
+import tw.nekomimi.nekogram.helpers.NoForwardsHelper;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
@@ -3233,7 +3234,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             document = null;
         }
         if (fmessages != null) {
-            SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, dialogId, false, false, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0, 0);
+            NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, dialogId, false, null);
         } else {
             SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(document, null, messageObject.messageOwner.attachPath, dialogId, null, null, null, null, null, null, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0, 0, 0, savedMusicList, null, false, false));
         }
@@ -3282,7 +3283,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(message.toString(), did, null, null, null, true, null, null, null, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0, 0, null, false));
                     }
                     if (fmessages != null) {
-                        SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, did, false, false, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0, 0);
+                        NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, did, false, null);
                     } else {
                         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(document, null, messageObject.messageOwner.attachPath, did, null, null, null, null, null, null, notify && !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), scheduleDate, 0, 0, savedMusicList, null, false, false));
                     }

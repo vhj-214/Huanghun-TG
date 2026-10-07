@@ -124,4 +124,11 @@
     <string name="PushServiceTypeFCM" translatable="false">Google FCM</string>
     <string name="PushServiceTypeMicroG" translatable="false">microG</string>
     <string name="PushServiceTypeUnified" translatable="false">UnifiedPush</string>
+    <string name="RepostAsCopyTo">重发副本到…</string>
+    <string name="RepostDownloading">正在下载媒体…</string>
+    <string name="RepostSent">已按副本重发</string>
+    <string name="EnableNoForwardsBypass">解除「不允许拷贝和转发」</string>
+    <string name="EnableNoForwardsBypassNotice">在本机解除受保护会话对拷贝、转发、保存的限制;重发时以副本形式重新上传</string>
+    <string name="RepostVideoOnly">重发时只发视频</string>
+    <string name="RepostVideoOnlyNotice">以副本重发时,这批消息里只要有视频就只发视频,跳过图片</string>
 </resources>

@@ -403,6 +403,7 @@ import tw.nekomimi.nekogram.helpers.HuanghunSpecialAttentionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunVideoLibraryHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
+import tw.nekomimi.nekogram.helpers.NoForwardsHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
 import tw.nekomimi.nekogram.helpers.remote.PagePreviewRulesHelper;
@@ -489,6 +490,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int nkbtn_editPermission = 2020;
     private final static int nkbtn_copy_link_in_pm = 2025;
     private final static int nkbtn_repeatascopy = 2028;
+    private final static int nkbtn_repostascopy = 2042;
     private final static int nkbtn_setReminder = 2029;
     private final static int nkbtn_reply_private = 2033;
     private final static int nkbtn_translate_llm = 2034;
@@ -940,6 +942,8 @@ public class ChatActivity extends BaseFragment implements
     public MessageSuggestionParams messageSuggestionParams;
     private CharSequence formwardingNameText;
     public MessageObject forwardingMessage;
+    /** 「重发副本到…」流程里待重发的消息(非空表示正在等用户挑会话) */
+    private ArrayList<MessageObject> repostAsCopyMessages;
     public MessageObject.GroupedMessages forwardingMessageGroup;
     private MessageObject.GroupedMessages replyingQuoteGroup;
     public MessageObject replyingTopMessage;
@@ -11148,6 +11152,7 @@ public class ChatActivity extends BaseFragment implements
         }
         if (canSendMessages) {
             actionModeOtherItem.addSubItem(nkbtn_repeatascopy, R.drawable.msg_repeat, LocaleController.getString(R.string.RepeatAsCopy));
+            actionModeOtherItem.addSubItem(nkbtn_repostascopy, R.drawable.msg_forward, LocaleController.getString(R.string.RepostAsCopyTo));
         }
         actionModeOtherItem.addSubItem(nkbtn_hide, R.drawable.msg_disable, LocaleController.getString(R.string.Hide));
         actionModeOtherItem.addSubItem(nkbtn_report, R.drawable.msg_report, LocaleController.getString(R.string.ReportChat));
@@ -13461,6 +13466,9 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private boolean hasSelectedNoforwardsMessage() {
+        if (NoForwardsHelper.isBypassEnabled()) {
+            return false;
+        }
         try {
             for (int i = 0; i < selectedMessagesIds.length; ++i) {
                 for (int j = 0; j < selectedMessagesIds[i].size(); ++j) {
@@ -15696,6 +15704,11 @@ public class ChatActivity extends BaseFragment implements
         if (arrayList == null || arrayList.isEmpty()) {
             return;
         }
+        if (NoForwardsHelper.isBypassEnabled() && needsCopyInsteadOfForward(arrayList)) {
+            // 受保护内容直连转发会被服务端挡,改成"下载 + 副本重发"送出去
+            NoForwardsHelper.forwardOrRepost(currentAccount, arrayList, dialog_id, fromMyName, null);
+            return;
+        }
         if (!checkSlowModeAlert()) {
             return;
         }
@@ -15718,6 +15731,12 @@ public class ChatActivity extends BaseFragment implements
     // This method is used to forward messages to Saved Messages, or to multi Dialogs
     private void forwardMessages(ArrayList<MessageObject> arrayList, boolean fromMyName, boolean hideCaption, boolean notify, int scheduleDate, long did, long payStars) {
         if (arrayList == null || arrayList.isEmpty()) {
+            return;
+        }
+        final long forwardTarget = did == 0 ? dialog_id : did;
+        if (NoForwardsHelper.isBypassEnabled() && needsCopyInsteadOfForward(arrayList)) {
+            // 受保护内容:收藏夹 / 多会话转发同样走"下载 + 副本重发",保证发得出去
+            NoForwardsHelper.forwardOrRepost(currentAccount, arrayList, forwardTarget, fromMyName, null);
             return;
         }
         if ((scheduleDate != 0) == (chatMode == MODE_SCHEDULED)) {
@@ -20580,12 +20599,14 @@ public class ChatActivity extends BaseFragment implements
                 ActionBarMenuSubItem forwardNoQuoteItem = null;
                 ActionBarMenuSubItem repeatItem = null;
                 ActionBarMenuSubItem RepeatAsCopyItem = null;
+                ActionBarMenuSubItem RepostAsCopyToItem = null;
                 ActionBarMenuSubItem reportItem = null;
                 if (actionModeOtherItem != null) {
                     saveMessageItem = actionModeOtherItem.getSubItem(nkbtn_savemessage);
                     forwardNoQuoteItem = actionModeOtherItem.getSubItem(nkbtn_forward_noquote);
                     repeatItem = actionModeOtherItem.getSubItem(nkbtn_repeat);
                     RepeatAsCopyItem = actionModeOtherItem.getSubItem(nkbtn_repeatascopy);
+                    RepostAsCopyToItem = actionModeOtherItem.getSubItem(nkbtn_repostascopy);
                     reportItem = actionModeOtherItem.getSubItem(nkbtn_report);
                 }
 
@@ -20613,6 +20634,9 @@ public class ChatActivity extends BaseFragment implements
                 }
                 if (RepeatAsCopyItem != null) {
                     RepeatAsCopyItem.setVisibility(canSendMessage && (!noforwards || getMessageHelper().canSendMessagesAsCopy(getSelectedMessages1())));
+                }
+                if (RepostAsCopyToItem != null) {
+                    RepostAsCopyToItem.setVisibility(canSendMessage && chatMode == MODE_DEFAULT && NoForwardsHelper.isBypassEnabled() ? View.VISIBLE : View.GONE);
                 }
                 if (reportItem != null) {
                     reportItem.setVisibility(canReport);
@@ -31857,6 +31881,8 @@ public class ChatActivity extends BaseFragment implements
         checkAdjustResize();
         MediaController.getInstance().startRaiseToEarSensors(this);
         checkRaiseSensors();
+        // 返回会话时(用户取消了「重发副本到…」的会话选择)清掉待重发状态,避免下次误用
+        repostAsCopyMessages = null;
         if (chatAttachAlert != null) {
             chatAttachAlert.onResume();
         }
@@ -32947,7 +32973,7 @@ public class ChatActivity extends BaseFragment implements
             allowPin = false;
         }
         allowPin = allowPin && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
-        boolean noforwards = isPeerNoForwards() || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
+        boolean noforwards = getDialogId() == UserObject.VERIFY || (!NoForwardsHelper.isBypassEnabled() && (isPeerNoForwards() || message.messageOwner.noforwards));
         boolean noforwardsOverride = false;
         boolean noforwardsOrPaidMedia = noforwardsOverride || message.type == MessageObject.TYPE_PAID_MEDIA;
         boolean allowUnpin = message.getDialogId() != mergeDialogId && allowPin && (pinnedMessageObjects.containsKey(message.getId()) || groupedMessages != null && !groupedMessages.messages.isEmpty() && pinnedMessageObjects.containsKey(groupedMessages.messages.get(0).getId())) && !message.isExpiredStory();
@@ -36942,6 +36968,10 @@ public class ChatActivity extends BaseFragment implements
                 repeatMessage(true, true);
                 return 2;
             }
+            case nkbtn_repostascopy: {
+                repostAsCopyTo();
+                return 2;
+            }
         }
         return 0;
     }
@@ -36998,6 +37028,17 @@ public class ChatActivity extends BaseFragment implements
                     }
                 }
             }
+        }
+
+        if (repostAsCopyMessages != null) {
+            final ArrayList<MessageObject> repost = repostAsCopyMessages;
+            repostAsCopyMessages = null;
+            sendRepostAsCopy(repost, dids, notify, scheduleDate, fragment);
+            return true;
+        }
+        if (NoForwardsHelper.isBypassEnabled() && needsCopyInsteadOfForward(fmessages)) {
+            sendRepostAsCopy(fmessages, dids, notify, scheduleDate, fragment);
+            return true;
         }
 
         if (!fragment.isQuote && (dids.size() > 1 || dids.get(0).dialogId == getUserConfig().getClientUserId() || message != null || scheduleDate != 0 || !notify)) {
@@ -39200,7 +39241,7 @@ public class ChatActivity extends BaseFragment implements
         if (url == null || getParentActivity() == null) {
             return;
         }
-        boolean noforwards = isPeerNoForwards() || (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.noforwards);
+        boolean noforwards = !NoForwardsHelper.isBypassEnabled() && (isPeerNoForwards() || (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.noforwards));
         boolean noforwardsOverride = false;
         if (url instanceof URLSpanMono) {
             if (!noforwardsOverride || getDialogId() == UserObject.VERIFY) {
@@ -47320,6 +47361,8 @@ public class ChatActivity extends BaseFragment implements
         } else if (id == nkbtn_repeatascopy) {
             repeatMessage(false, true);
             clearSelectionMode();
+        } else if (id == nkbtn_repostascopy) {
+            repostAsCopyTo();
         } else if (id == nkheaderbtn_hide_title) {
             if (avatarContainer != null) {
                 avatarContainer.setTitle("");
@@ -47382,6 +47425,10 @@ public class ChatActivity extends BaseFragment implements
             }
             case nkbtn_repeatascopy: {
                 repeatMessage(false, true);
+                break;
+            }
+            case nkbtn_repostascopy: {
+                repostAsCopyTo();
                 break;
             }
             case nkbtn_forward_nocaption:
@@ -47641,6 +47688,88 @@ public class ChatActivity extends BaseFragment implements
         });
         builder.setNegativeButton(getString(R.string.Cancel), null);
         showDialog(builder.create());
+    }
+
+    /**
+     * 「重发副本到…」:先把选中的图片 / 视频 / 文件下载到本地,再让用户挑一个会话,
+     * 按原消息的样子(媒体 + 文字)重新拼装后以副本形式发出去。
+     */
+    private void repostAsCopyTo() {
+        ArrayList<MessageObject> selected = getSelectedMessages();
+        if (selected.isEmpty() && selectedObject != null) {
+            selected.add(selectedObject);
+        }
+        if (selected.isEmpty()) {
+            return;
+        }
+        final ArrayList<MessageObject> messages = NoForwardsHelper.filterForRepost(selected);
+        repostAsCopyMessages = messages;
+        if (NoForwardsHelper.countPending(messages) > 0) {
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.ic_download, getString(R.string.RepostDownloading)).show();
+        }
+        NoForwardsHelper.ensureDownloaded(currentAccount, messages, () -> {
+            if (getParentActivity() == null || repostAsCopyMessages == null) {
+                return;
+            }
+            Bundle args = new Bundle();
+            args.putBoolean("onlySelect", true);
+            args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_FORWARD);
+            args.putInt("messagesCount", messages.size());
+            args.putBoolean("canSelectTopics", true);
+            DialogsActivity fragment = new DialogsActivity(args);
+            fragment.setDelegate(ChatActivity.this);
+            presentFragment(fragment);
+        }, () -> {
+            repostAsCopyMessages = null;
+            BulletinFactory.of(this).createErrorBulletin(getString(R.string.PleaseDownload), themeDelegate).show();
+        });
+    }
+
+    /** 原消息带「不允许拷贝和转发」时,转发走副本重发,不再直连转发(否则会被服务端挡掉) */
+    private boolean needsCopyInsteadOfForward(ArrayList<MessageObject> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return false;
+        }
+        if (NoForwardsHelper.containsProtected(currentAccount, messages)) {
+            return true;
+        }
+        return NoForwardsHelper.isPeerProtectedRaw(currentAccount, getDialogId());
+    }
+
+    /**
+     * 下载齐了以后,把这些消息以「副本」形式重发到目标会话(媒体重新上传 + 文字重新拼装)。
+     */
+    private void sendRepostAsCopy(ArrayList<MessageObject> messages, ArrayList<MessagesStorage.TopicKey> dids, boolean notify, int scheduleDate, DialogsActivity fragment) {
+        if (messages == null || messages.isEmpty() || dids == null || dids.isEmpty()) {
+            return;
+        }
+        if (NoForwardsHelper.countPending(messages) > 0) {
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.ic_download, getString(R.string.RepostDownloading)).show();
+        }
+        NoForwardsHelper.ensureDownloaded(currentAccount, messages, () -> {
+            boolean sent = false;
+            for (int a = 0; a < dids.size(); a++) {
+                if (NoForwardsHelper.republishAsCopy(currentAccount, messages, dids.get(a).dialogId)) {
+                    sent = true;
+                }
+            }
+            for (int a = 1; a >= 0; a--) {
+                selectedMessagesCanCopyIds[a].clear();
+                selectedMessagesCanStarIds[a].clear();
+                selectedMessagesIds[a].clear();
+            }
+            hideActionMode();
+            updatePinnedMessageView(true);
+            updateVisibleRows();
+            if (fragment != null) {
+                fragment.finishFragment();
+            }
+            if (sent) {
+                BulletinFactory.of(ChatActivity.this).createSimpleBulletin(R.raw.ic_download, getString(R.string.RepostSent)).show();
+            } else {
+                BulletinFactory.of(ChatActivity.this).createErrorBulletin(getString(R.string.PleaseDownload), themeDelegate).show();
+            }
+        }, () -> BulletinFactory.of(this).createErrorBulletin(getString(R.string.PleaseDownload), themeDelegate).show());
     }
 
     private void doRepeatMessage(boolean isLongClick, ArrayList<MessageObject> messages, boolean isRepeatAsCopy) {
@@ -49159,7 +49288,7 @@ public class ChatActivity extends BaseFragment implements
             allowPin = false;
         }
         allowPin = allowPin && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
-        boolean noforwards = isEphemeral || isPeerNoForwards() || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
+        boolean noforwards = isEphemeral || getDialogId() == UserObject.VERIFY || (!NoForwardsHelper.isBypassEnabled() && (isPeerNoForwards() || message.messageOwner.noforwards));
         boolean noforwardsOverride = false;
         boolean noforwardsOrPaidMedia = noforwardsOverride || message.type == MessageObject.TYPE_PAID_MEDIA;
         boolean allowUnpin = !isEphemeral && message.getDialogId() != mergeDialogId && allowPin && (pinnedMessageObjects.containsKey(message.getId()) || groupedMessages != null && !groupedMessages.messages.isEmpty() && pinnedMessageObjects.containsKey(groupedMessages.messages.get(0).getId())) && !message.isExpiredStory();
@@ -49823,6 +49952,11 @@ public class ChatActivity extends BaseFragment implements
                         items.add(LocaleController.getString(R.string.RepeatAsCopy));
                         options.add(nkbtn_repeatascopy);
                         icons.add(R.drawable.msg_repeat);
+                    }
+                    if (NoForwardsHelper.isBypassEnabled() && chatMode == 0 && !isAyuDeleted && !selectedObject.needDrawBluredPreview() && (currentUser != null || (currentChat != null && ChatObject.canSendMessages(currentChat)))) {
+                        items.add(LocaleController.getString(R.string.RepostAsCopyTo));
+                        options.add(nkbtn_repostascopy);
+                        icons.add(R.drawable.msg_forward);
                     }
                     if (NekoConfig.showDeleteDownloadedFile.Bool() && getMessageHelper().messageObjectIsFile(type, selectedObject)) {
                         items.add(LocaleController.getString(R.string.DeleteDownloadedFile));
@@ -50903,6 +51037,9 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public boolean isPeerNoForwards() {
+        if (NoForwardsHelper.isBypassEnabled()) {
+            return false;
+        }
         return currentChat != null ?
             getMessagesController().isChatNoForwards(currentChat) :
             getMessagesController().isUserNoForwards(userInfo);

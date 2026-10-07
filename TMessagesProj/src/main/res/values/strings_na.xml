@@ -111,4 +111,11 @@
     <string name="VideoPlayerDecoderPreferSW">Prefer SW</string>
     <string name="VideoPlayerDecoderHardware">HW Only</string>
     <string name="VideoPlayerDecoderPreferHW">Prefer HW</string>
+    <string name="RepostAsCopyTo">Repost as Copy to…</string>
+    <string name="RepostDownloading">Downloading media…</string>
+    <string name="RepostSent">Reposted as copy</string>
+    <string name="EnableNoForwardsBypass">Remove copy/forward restriction</string>
+    <string name="EnableNoForwardsBypassNotice">Locally unlocks copying, forwarding and saving in protected chats; media is re-uploaded as a copy</string>
+    <string name="RepostVideoOnly">Repost videos only</string>
+    <string name="RepostVideoOnlyNotice">When reposting as copy, send only the videos and skip the photos</string>
 </resources>

@@ -105,4 +105,11 @@
     <string name="VideoPlayerDecoderPreferSW">軟解優先</string>
     <string name="VideoPlayerDecoderHardware">僅硬解</string>
     <string name="VideoPlayerDecoderPreferHW">硬解優先</string>
+    <string name="RepostAsCopyTo">重發副本到…</string>
+    <string name="RepostDownloading">正在下載媒體…</string>
+    <string name="RepostSent">已按副本重發</string>
+    <string name="EnableNoForwardsBypass">解除「不允許複製與轉發」</string>
+    <string name="EnableNoForwardsBypassNotice">在本機解除受保護會話對複製、轉發、儲存的限制;重發時以副本形式重新上傳</string>
+    <string name="RepostVideoOnly">重發時只發影片</string>
+    <string name="RepostVideoOnlyNotice">以副本重發時,這批訊息裡只要有影片就只發影片,略過圖片</string>
 </resources>

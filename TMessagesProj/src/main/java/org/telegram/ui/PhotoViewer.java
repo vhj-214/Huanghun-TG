@@ -356,6 +356,7 @@ import tw.nekomimi.nekogram.utils.AndroidUtil;
 import tw.nekomimi.nekogram.utils.ProxyUtil;
 import xyz.nextalone.nagram.NaConfig;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
+import tw.nekomimi.nekogram.helpers.NoForwardsHelper;
 import tw.nekomimi.nekogram.streaming.MediaStreamingProvider;
 
 import me.vkryl.android.animator.BoolAnimator;
@@ -5352,7 +5353,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                                     if (message != null) {
                                         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(message.toString(), did, null, null, null, true, null, null, null, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0, 0, null, false));
                                     }
-                                    SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, did, id == gallery_menu_send_noquote, false, !NaConfig.INSTANCE.getSilentMessageByDefault().Bool(), 0, 0);
+                                    NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, did, id == gallery_menu_send_noquote, null);
                                 }
                                 fragment1.finishFragment();
                                 if (parentChatActivityFinal != null) {
@@ -5384,7 +5385,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                                 if (topicKey.topicId != 0) {
                                     ForumUtilities.applyTopic(chatActivity, topicKey);
                                 }
-                                if (((LaunchActivity) parentActivity).presentFragment(chatActivity, true, false)) {
+                                if (NoForwardsHelper.isBypassEnabled() && NoForwardsHelper.containsProtected(currentAccount, fmessages)) {
+                                    // 受保护内容:跳过去再点发送还是会被服务端挡,这里直接强制转发到位
+                                    NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, did, id == gallery_menu_send_noquote, null);
+                                    fragment1.finishFragment();
+                                } else if (((LaunchActivity) parentActivity).presentFragment(chatActivity, true, false)) {
                                     chatActivity.showFieldPanelForForward(true, fmessages);
                                 } else {
                                     fragment1.finishFragment();
@@ -8676,7 +8681,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     if (message != null) {
                         SendMessagesHelper.getInstance(currentAccount).sendMessage(message.toString(), did, null, null, null, true, null, null, null, notify, scheduleDate, 0, null, false);
                     }
-                    SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, did, noQuote, false, notify, scheduleDate, 0);
+                    NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, did, noQuote, null);
                 }
                 fragment1.finishFragment();
                 if (parentChatActivityFinal != null) {
@@ -8705,7 +8710,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 if (topicKey.topicId != 0) {
                     ForumUtilities.applyTopic(chatActivity, topicKey);
                 }
-                if (((LaunchActivity) parentActivity).presentFragment(chatActivity, true, false)) {
+                if (NoForwardsHelper.isBypassEnabled() && NoForwardsHelper.containsProtected(currentAccount, fmessages)) {
+                    // 受保护内容:跳过去再点发送还是会被服务端挡,这里直接强制转发到位
+                    NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, did, noQuote, null);
+                    fragment1.finishFragment();
+                } else if (((LaunchActivity) parentActivity).presentFragment(chatActivity, true, false)) {
                     chatActivity.showFieldPanelForForward(true, fmessages);
                 } else {
                     fragment1.finishFragment();
@@ -14452,7 +14461,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
         animatorPollAttachButtonsVisibility.setValue(sendPhotoTypeIsPollMediaEdit, false);
 
-        final boolean noforwards = messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) || (messageObject.messageOwner != null && messageObject.messageOwner.noforwards) || messageObject.hasRevealedExtendedMedia());
+        final boolean noforwards = messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) || (messageObject.messageOwner != null && messageObject.messageOwner.noforwards && !NoForwardsHelper.isBypassEnabled()) || messageObject.hasRevealedExtendedMedia());
         if (messageObject != null && messages == null) {
             if (messageObject.messageOwner != null && MessageObject.getMedia(messageObject.messageOwner) instanceof TLRPC.TL_messageMediaWebPage && MessageObject.getMedia(messageObject.messageOwner).webpage != null) {
                 TLRPC.WebPage webPage = MessageObject.getMedia(messageObject.messageOwner).webpage;
@@ -14907,7 +14916,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             actionBarContainer.setSubtitle(subtitle, animated);
 
             boolean isInvoice = newMessageObject.isInvoice();
-            boolean noforwards = MessagesController.getInstance(currentAccount).isPeerNoForwards(newMessageObject.getDialogId()) || (newMessageObject.messageOwner != null && newMessageObject.messageOwner.noforwards) || newMessageObject.hasRevealedExtendedMedia();
+            boolean noforwards = MessagesController.getInstance(currentAccount).isPeerNoForwards(newMessageObject.getDialogId()) || (newMessageObject.messageOwner != null && newMessageObject.messageOwner.noforwards && !NoForwardsHelper.isBypassEnabled()) || newMessageObject.hasRevealedExtendedMedia();
             if (isVideo && !isLivePhoto) {
                 bottomLayout.setVisibility(View.VISIBLE);
                 bottomLayout.setTag(1);
@@ -16114,7 +16123,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 return;
             }
             MessageObject newMessageObject = imagesArr.get(currentIndex);
-            final boolean noforwards = newMessageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(newMessageObject.getDialogId()) || (newMessageObject.messageOwner != null && newMessageObject.messageOwner.noforwards) || newMessageObject.hasRevealedExtendedMedia());
+            final boolean noforwards = newMessageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(newMessageObject.getDialogId()) || (newMessageObject.messageOwner != null && newMessageObject.messageOwner.noforwards && !NoForwardsHelper.isBypassEnabled()) || newMessageObject.hasRevealedExtendedMedia());
             sameImage = init && currentMessageObject != null && currentMessageObject.getId() == newMessageObject.getId();
             if (sameImage) {
                 newMessageObject.putInDownloadsStore = currentMessageObject.putInDownloadsStore;
