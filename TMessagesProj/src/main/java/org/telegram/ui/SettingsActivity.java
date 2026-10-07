@@ -40,7 +40,10 @@ import android.media.MediaCodecList;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -156,6 +159,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.TimeZone;
 
 import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
@@ -1174,18 +1178,49 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
     }
 
+    private static final String HIDDEN_ACCOUNT_NOTICE_PREFS = "huanghun_hidden_account_notice";
+    private static final String HIDDEN_ACCOUNT_NOTICE_DATE = "last_shown_beijing_date";
+
+    private boolean shouldShowHiddenAccountNotice() {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        dateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+        String today = dateFormat.format(new Date());
+        SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences(HIDDEN_ACCOUNT_NOTICE_PREFS, Context.MODE_PRIVATE);
+        if (today.equals(preferences.getString(HIDDEN_ACCOUNT_NOTICE_DATE, null))) {
+            return false;
+        }
+        preferences.edit().putString(HIDDEN_ACCOUNT_NOTICE_DATE, today).apply();
+        return true;
+    }
+
     private void showHideAccountCountdownDialog() {
         if (getParentActivity() == null) {
             return;
         }
         final int targetAccount = getCurrentAccount();
+        final boolean showNotice = shouldShowHiddenAccountNotice();
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourceProvider);
-        builder.setTitle(getString(R.string.DeleteAccountNoticeTitle));
-        builder.setMessage(getString(R.string.DeleteAccountNoticeMessage));
+        builder.setTitle(getString(showNotice ? R.string.DeleteAccountNoticeTitle : R.string.DeleteLocalAccount));
+        if (showNotice) {
+            builder.setMessage(getString(R.string.DeleteAccountNoticeMessage) + "\n\n" + getString(R.string.DeleteAccountNoticeFooter));
+        }
         builder.setPositiveButton(formatString(R.string.DeleteAccountCountdown, 5), null);
         builder.setNegativeButton(getString(R.string.Cancel), null);
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(ignored -> {
+            if (showNotice) {
+                TextView messageView = dialog.findViewById(android.R.id.message);
+                if (messageView != null) {
+                    String footer = getString(R.string.DeleteAccountNoticeFooter);
+                    String message = messageView.getText().toString();
+                    int footerStart = message.lastIndexOf(footer);
+                    if (footerStart >= 0) {
+                        SpannableStringBuilder styledMessage = new SpannableStringBuilder(message);
+                        styledMessage.setSpan(new ForegroundColorSpan(Theme.getColor(Theme.key_text_RedBold)), footerStart, message.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        messageView.setText(styledMessage);
+                    }
+                }
+            }
             View buttonView = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
             if (!(buttonView instanceof TextView)) {
                 return;
