@@ -244,21 +244,16 @@ public final class ProtocolLoginHelper {
                         request.loadPassword(new PasskeyLoginHelper.PasswordCallback() {
                             @Override
                             public void onSuccess(TL_account.Password password) {
-                                // The native password page is shown in the same activity. The
-                                // non-cancelable import dialog must not remain above it.
                                 batch.progress.dismiss();
-                                AndroidUtilities.runOnUIThread(() -> loginActivity.showProtocolPasswordPage(
-                                        accountNum, password, new LoginActivity.ProtocolPasswordCallback() {
-                                            @Override
-                                            public void onSuccess(TLRPC.TL_auth_authorization authorization) {
-                                                request.complete(authorization);
-                                            }
-
-                                            @Override
-                                            public void onFailure(String reason) {
-                                                request.fail(reason);
-                                            }
-                                        }));
+                                if (passkey.twoFactorPassword != null && !passkey.twoFactorPassword.trim().isEmpty()) {
+                                    // Prefer the password carried by a single credential file.
+                                    // If Telegram rejects it, re-open the native password page
+                                    // without losing the pending login request.
+                                    request.submit(passkey.twoFactorPassword, () -> showNativePasswordPage(
+                                            loginActivity, accountNum, password, request));
+                                } else {
+                                    showNativePasswordPage(loginActivity, accountNum, password, request);
+                                }
                             }
 
                             @Override
@@ -290,6 +285,23 @@ public final class ProtocolLoginHelper {
                 recordPasskeyFailure(loginActivity, activity, candidates, batch, index, "通行密钥文件无法解析");
             });
         }
+    }
+
+    private static void showNativePasswordPage(LoginActivity loginActivity, int accountNum,
+                                               TL_account.Password password,
+                                               PasskeyLoginHelper.TwoFactorRequest request) {
+        AndroidUtilities.runOnUIThread(() -> loginActivity.showProtocolPasswordPage(
+                accountNum, password, new LoginActivity.ProtocolPasswordCallback() {
+                    @Override
+                    public void onSuccess(TLRPC.TL_auth_authorization authorization) {
+                        request.complete(authorization);
+                    }
+
+                    @Override
+                    public void onFailure(String reason) {
+                        request.fail(reason);
+                    }
+                }));
     }
 
     private static void recordPasskeyFailure(LoginActivity loginActivity, Activity activity,

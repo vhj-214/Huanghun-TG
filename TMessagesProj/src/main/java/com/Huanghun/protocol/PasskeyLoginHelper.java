@@ -162,7 +162,7 @@ public final class PasskeyLoginHelper {
     private static void finishWithTwoFactor(ConnectionsManager manager, PasskeyParser.PasskeyData data,
                                              String twoFactorPassword, AtomicBoolean completed,
                                              AtomicBoolean passwordPending, Callback callback,
-                                             AtomicInteger requestToken) {
+                                             AtomicInteger requestToken, Runnable onPasswordInvalid) {
         if (twoFactorPassword == null || twoFactorPassword.isEmpty()) {
             finishFailure(completed, callback, "密码错误");
             return;
@@ -192,7 +192,15 @@ public final class PasskeyLoginHelper {
                 checkPassword.password = check;
                 requestToken.set(manager.sendRequest(checkPassword, (authorization, checkError) -> {
                     if (checkError != null || !(authorization instanceof TLRPC.TL_auth_authorization)) {
-                        finishFailure(completed, callback, isPasswordInvalid(checkError) ? "密码错误" : readableError(manager, checkError, "两步验证失败"));
+                        if (isPasswordInvalid(checkError) && onPasswordInvalid != null) {
+                            // The password embedded in a single credential file is only an
+                            // optional fast path. Re-open the request so the user can enter
+                            // the password manually when that value is stale.
+                            passwordPending.set(true);
+                            onPasswordInvalid.run();
+                        } else {
+                            finishFailure(completed, callback, isPasswordInvalid(checkError) ? "密码错误" : readableError(manager, checkError, "两步验证失败"));
+                        }
                         return;
                     }
                     TLRPC.TL_auth_authorization auth = (TLRPC.TL_auth_authorization) authorization;
@@ -328,9 +336,17 @@ public final class PasskeyLoginHelper {
         }
 
         public void submit(String password) {
+            submit(password, null);
+        }
+
+        public void submit(String password, Runnable onPasswordInvalid) {
             if (!submitted.compareAndSet(false, true) || completed.get()) return;
             passwordPending.set(false);
-            finishWithTwoFactor(manager, data, password, completed, passwordPending, callback, requestToken);
+            Runnable retry = onPasswordInvalid == null ? null : () -> {
+                submitted.set(false);
+                onPasswordInvalid.run();
+            };
+            finishWithTwoFactor(manager, data, password, completed, passwordPending, callback, requestToken, retry);
         }
 
         public void cancel() {
