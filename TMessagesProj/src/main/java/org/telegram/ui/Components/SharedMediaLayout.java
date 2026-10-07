@@ -5505,7 +5505,7 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                         if (message != null) {
                             profileActivity.getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of(message.toString(), did, null, null, null, true, null, null, null, true, 0, 0, null, false));
                         }
-                        NoForwardsHelper.forwardOrRepost(currentAccount, fmessages, did, id == forward_noquote, null);
+                        NoForwardsHelper.forwardOrRepost(profileActivity.getCurrentAccount(), fmessages, did, id == forward_noquote, null);
                     }
                     fragment1.finishFragment();
                     UndoView undoView = null;
