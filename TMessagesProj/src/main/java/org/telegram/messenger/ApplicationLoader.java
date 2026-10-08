@@ -54,6 +54,7 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.UpdateLayout;
 import org.telegram.ui.IUpdateLayout;
 import org.telegram.ui.LauncherIconController;
+import tw.nekomimi.nekogram.helpers.HuanghunComebackHelper;
 
 import java.io.File;
 import java.util.Locale;
@@ -308,6 +309,7 @@ public class ApplicationLoader extends Application {
             }
             MessagesController.getInstance(a);
             HuanghunActiveZoneHelper.getInstance(a);
+            HuanghunComebackHelper.getInstance(a);
             if (a == 0) {
                 SharedConfig.pushStringStatus = "__FIREBASE_GENERATING_SINCE_" + ConnectionsManager.getInstance(a).getCurrentTime() + "__";
             } else {

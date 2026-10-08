@@ -143,10 +143,12 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     private int keywordsRow;
     private int blockNoticeRow;
     private int blockEndRow;
+    private int comebackFeatureRow;
 
     @Override
     protected void updateRows() {
         super.updateRows();
+        comebackFeatureRow = addRow();
         specialAttentionHeaderRow = addRow();
         specialAttentionEnabledRow = addRow();
         specialAttentionNoticeRow = addRow();
@@ -304,6 +306,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
+        if (position == comebackFeatureRow) {
+            presentFragment(new HuanghunComebackActivity());
+            return;
+        }
         if (position == specialAttentionEnabledRow) {
             boolean enabled = NekoConfig.huanghunSpecialAttentionEnabled.toggleConfigBool();
             if (view instanceof TextCheckCell) {
@@ -1398,6 +1404,8 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 cell.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
                 if (position == activeDirectionRow) {
                     cell.setTextAndValue("点赞消息方向", getActiveDirectionSummary(), true);
+                } else if (position == comebackFeatureRow) {
+                    cell.setTextAndValue("回怼系统", "触发词与词库", true);
                 } else if (position == activeTargetRow) {
                     cell.setTextAndValue("点赞对象", HuanghunActiveZoneHelper.getTargetSummary(), true);
                 } else if (position == activeEmojiRow) {
