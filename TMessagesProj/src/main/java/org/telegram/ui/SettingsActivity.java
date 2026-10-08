@@ -1198,29 +1198,23 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             return;
         }
         final int targetAccount = getCurrentAccount();
-        final boolean showNotice = shouldShowHiddenAccountNotice();
-        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourceProvider);
-        builder.setTitle(getString(showNotice ? R.string.DeleteAccountNoticeTitle : R.string.DeleteLocalAccount));
-        if (showNotice) {
-            builder.setMessage(getString(R.string.DeleteAccountNoticeMessage) + "\n\n" + getString(R.string.DeleteAccountNoticeFooter));
+        if (!shouldShowHiddenAccountNotice()) {
+            hideAccountLocally(targetAccount);
+            return;
         }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourceProvider);
+        builder.setTitle(getString(R.string.DeleteAccountNoticeTitle));
+        String notice = getString(R.string.DeleteAccountNoticeMessage);
+        String footer = getString(R.string.DeleteAccountNoticeFooter);
+        SpannableStringBuilder styledMessage = new SpannableStringBuilder(notice).append("\n\n");
+        int footerStart = styledMessage.length();
+        styledMessage.append(footer);
+        styledMessage.setSpan(new ForegroundColorSpan(Theme.getColor(Theme.key_text_RedBold)), footerStart, styledMessage.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        builder.setMessage(styledMessage);
         builder.setPositiveButton(formatString(R.string.DeleteAccountCountdown, 5), null);
         builder.setNegativeButton(getString(R.string.Cancel), null);
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(ignored -> {
-            if (showNotice) {
-                TextView messageView = dialog.findViewById(android.R.id.message);
-                if (messageView != null) {
-                    String footer = getString(R.string.DeleteAccountNoticeFooter);
-                    String message = messageView.getText().toString();
-                    int footerStart = message.lastIndexOf(footer);
-                    if (footerStart >= 0) {
-                        SpannableStringBuilder styledMessage = new SpannableStringBuilder(message);
-                        styledMessage.setSpan(new ForegroundColorSpan(Theme.getColor(Theme.key_text_RedBold)), footerStart, message.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        messageView.setText(styledMessage);
-                    }
-                }
-            }
             View buttonView = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
             if (!(buttonView instanceof TextView)) {
                 return;
