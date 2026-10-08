@@ -285,9 +285,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     @Override
     public void onPause() {
-        if (settingsDynamicVideoWallpaperPlayer != null) {
-            settingsDynamicVideoWallpaperPlayer.pause();
-        }
+        // 页面切换不暂停视频，播放器继续当前时间轴，返回时不会从头重播。
         if (contentView != null) {
             contentView.onPause();
         }
@@ -683,6 +681,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
         // SizeNotifierFrameLayout 负责官方静态、动态主题壁纸的 Drawable 生命周期。
         contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        if (settingsDynamicVideoWallpaperPlayer != null
+                && settingsDynamicVideoWallpaperPlayer.matchesCurrentSource(contentView.getContext(), currentAccount, 0L)) {
+            contentView.setBackgroundColor(Color.TRANSPARENT);
+            settingsDynamicVideoWallpaperPlayer.resume();
+            if (actionBarBackground != null) {
+                actionBarBackground.invalidate();
+            }
+            return;
+        }
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.release();
             settingsDynamicVideoWallpaperPlayer = null;

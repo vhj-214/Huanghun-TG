@@ -6,6 +6,7 @@ import static org.telegram.messenger.LocaleController.getString;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.text.SpannableStringBuilder;
@@ -54,6 +55,7 @@ import java.util.Locale;
 import tw.nekomimi.nekogram.ui.cells.AccountCell;
 import tw.nekomimi.nekogram.ui.cells.EmojiSetCell;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 
 public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
@@ -87,6 +89,13 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     protected int rowCount;
     protected HashMap<String, Integer> rowMap = new HashMap<>(20);
     protected HashMap<Integer, String> rowMapReverse = new HashMap<>(20);
+    private DynamicVideoWallpaperHelper.Player settingsDynamicVideoWallpaperPlayer;
+    private boolean settingsDynamicVideoWallpaperPaused;
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener settingsDynamicVideoWallpaperChangeListener = (account, dialogId) -> {
+        if (account == currentAccount && dialogId == 0L && fragmentView != null) {
+            AndroidUtilities.runOnUIThread(this::refreshSettingsWallpaper);
+        }
+    };
 
 
     @Override
@@ -101,8 +110,15 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         fragmentView = new BlurContentView(context);
-        fragmentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
+        // 子设置页沿用主设置页的壁纸；没有视频时直接透出静态壁纸，不再填充实体灰/白色。
+        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        frameLayout.setBackgroundColor(Color.TRANSPARENT);
+        DynamicVideoWallpaperHelper.addChangeListener(settingsDynamicVideoWallpaperChangeListener);
+        settingsDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
+        }
 
         actionBar.setDrawBlurBackground(frameLayout);
 
@@ -159,6 +175,65 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         return fragmentView;
     }
 
+    private void refreshSettingsWallpaper() {
+        if (!(fragmentView instanceof SizeNotifierFrameLayout)) {
+            return;
+        }
+        SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
+        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        if (settingsDynamicVideoWallpaperPaused) {
+            return;
+        }
+        if (settingsDynamicVideoWallpaperPlayer != null
+                && settingsDynamicVideoWallpaperPlayer.matchesCurrentSource(frameLayout.getContext(), currentAccount, 0L)) {
+            frameLayout.setBackgroundColor(Color.TRANSPARENT);
+            settingsDynamicVideoWallpaperPlayer.resume();
+            return;
+        }
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.release();
+            settingsDynamicVideoWallpaperPlayer = null;
+        }
+        settingsDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, frameLayout.getContext(), currentAccount, 0L);
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
+        }
+        frameLayout.setBackgroundColor(Color.TRANSPARENT);
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    @Override
+    public void onResume() {
+        super.onResume();
+        settingsDynamicVideoWallpaperPaused = false;
+        if (settingsDynamicVideoWallpaperPlayer != null
+                && settingsDynamicVideoWallpaperPlayer.matchesCurrentSource(getContext(), currentAccount, 0L)) {
+            settingsDynamicVideoWallpaperPlayer.resume();
+        } else {
+            refreshSettingsWallpaper();
+        }
+        if (listAdapter != null) {
+            listAdapter.notifyDataSetChanged();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        settingsDynamicVideoWallpaperPaused = true;
+        // 页面切换只改变可见性，不暂停或重置壁纸播放器；返回时继续当前时间轴。
+        super.onPause();
+    }
+
+    @Override
+    public void onFragmentDestroy() {
+        DynamicVideoWallpaperHelper.removeChangeListener(settingsDynamicVideoWallpaperChangeListener);
+        if (settingsDynamicVideoWallpaperPlayer != null) {
+            settingsDynamicVideoWallpaperPlayer.release();
+            settingsDynamicVideoWallpaperPlayer = null;
+        }
+        super.onFragmentDestroy();
+    }
+
     // @Override
     protected void setParentLayout(ActionBarLayout layout) {
         if (layout != null && !hasWhiteActionBar()) {
@@ -171,7 +246,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     public ActionBar createActionBar(Context context) {
         ActionBar actionBar = super.createActionBar(context);
         if (hasWhiteActionBar()) {
-            actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setItemsColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText), false);
             actionBar.setTitleColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
             actionBar.setCastShadows(false);
@@ -229,15 +304,6 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     protected abstract BaseListAdapter createAdapter(Context context);
 
     protected abstract String getActionBarTitle();
-
-    @SuppressLint("NotifyDataSetChanged")
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (listAdapter != null) {
-            listAdapter.notifyDataSetChanged();
-        }
-    }
 
     protected boolean hasWhiteActionBar() {
         return true;
@@ -389,23 +455,23 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     break;
                 case TYPE_SETTINGS:
                     view = new TextSettingsCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_CHECK:
                     view = new TextCheckCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_HEADER:
                     view = new HeaderCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_NOTIFICATION_CHECK:
                     view = new NotificationsCheckCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_DETAIL_SETTINGS:
                     view = new TextDetailSettingsCell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_INFO_PRIVACY:
                     view = new TextInfoPrivacyCell(mContext, resourcesProvider);
@@ -413,38 +479,38 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     break;
                 case TYPE_TEXT:
                     view = new TextCell(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_CHECKBOX:
                     view = new TextCheckbox2Cell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_RADIO:
                     view = new TextRadioCell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_ACCOUNT:
                     view = new AccountCell(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_EMOJI:
                 case TYPE_EMOJI_SELECTION:
                     view = new EmojiSetCell(mContext, viewType == TYPE_EMOJI_SELECTION);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_CREATION:
                     CreationTextCell creationTextCell = new CreationTextCell(mContext, 70, resourcesProvider);
                     creationTextCell.startPadding = 61;
                     view = creationTextCell;
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_FLICKER:
                     view = new FlickerLoadingView(mContext, resourcesProvider);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_CHECK2:
                     view = new TextCheckCell2(mContext);
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_CHECKBOX2:
                     CheckBoxCell checkBoxCell = new CheckBoxCell(mContext, CheckBoxCell.TYPE_CHECK_BOX_ROUND, 21, getResourceProvider());
@@ -452,7 +518,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     checkBoxCell.getCheckBoxRound().setColor(Theme.key_switch2TrackChecked, Theme.key_radioBackground, Theme.key_checkboxCheck);
                     checkBoxCell.setEnabled(true);
                     view = checkBoxCell;
-                    view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
             }
             // noinspection ConstantConditions

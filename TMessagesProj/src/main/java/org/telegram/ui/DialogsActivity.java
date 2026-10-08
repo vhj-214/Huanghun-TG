@@ -3005,6 +3005,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 .add(NotificationCenter.mainUserInfoChanged);
 
             globalObserversGroup.add(NotificationCenter.didSetPasscode);
+            globalObserversGroup.add(NotificationCenter.didSetNewWallpapper);
         }
         observersGroup
             .add(NotificationCenter.messagesDeleted)
@@ -4315,6 +4316,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         ContentView contentView = new ContentView(context);
         fragmentView = contentView;
+
+        // 未配置动态视频时也透出当前主题壁纸，避免根容器回退为整页实体白色。
+        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        contentView.setBackgroundColor(Color.TRANSPARENT);
 
         viewPositionWatcher = new ViewPositionWatcher(contentView);
         iBlur3FactoryFrostedLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
@@ -7621,9 +7626,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         dialogsDynamicVideoWallpaperPaused = true;
-        if (dialogsDynamicVideoWallpaperPlayer != null) {
-            dialogsDynamicVideoWallpaperPlayer.pause();
-        }
+        // 页面切换不暂停视频；播放器保留当前时间轴，返回时继续播放。
         super.onPause();
         if (storiesBulletin != null) {
             storiesBulletin.hide();
@@ -11049,7 +11052,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
+        if (id == NotificationCenter.didSetNewWallpapper) {
+            if (fragmentView instanceof ContentView) {
+                ContentView contentView = (ContentView) fragmentView;
+                contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+                contentView.setBackgroundColor(Color.TRANSPARENT);
+            }
+        } else if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
             specialAttentionFilter = HuanghunSpecialAttentionHelper.getFilter(currentAccount);
             updateSpecialAttentionFilterCell();
             if (viewPages != null && !dialogsListFrozen) {

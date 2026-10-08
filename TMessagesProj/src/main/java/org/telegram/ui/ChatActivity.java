@@ -32121,11 +32121,7 @@ public class ChatActivity extends BaseFragment implements
         if (contentView != null) {
             contentView.onPause();
         }
-        // 离开聊天页时暂停旧播放器，避免资料页或其他页面同时解码多个视频。
-        // 群资料页拥有独立背景播放器；返回聊天后 onResume() 仅恢复当前播放器。
-        if (dynamicVideoWallpaperPlayer != null) {
-            dynamicVideoWallpaperPlayer.pause();
-        }
+        // 页面切换不暂停旧播放器；返回聊天时沿用当前时间轴，不从头重播。
         if (chatMode == 0 || chatMode == MODE_SAVED && getUserConfig().getClientUserId() == getSavedDialogId() || chatMode == MODE_SUGGESTIONS && ChatObject.isMonoForum(currentChat)) {
             saveDraft();
             getMessagesController().cancelTyping(0, dialog_id, threadMessageId);

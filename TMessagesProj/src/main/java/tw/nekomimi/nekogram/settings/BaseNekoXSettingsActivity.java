@@ -5,6 +5,7 @@ import static org.telegram.messenger.LocaleController.getString;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.view.View;
@@ -39,6 +40,7 @@ import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.UndoView;
 
 import java.util.ArrayList;
@@ -61,6 +63,7 @@ import tw.nekomimi.nekogram.config.cell.WithBindConfig;
 import tw.nekomimi.nekogram.config.cell.WithKey;
 import tw.nekomimi.nekogram.config.cell.WithOnClick;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 
 public class BaseNekoXSettingsActivity extends BaseFragment {
 
@@ -70,7 +73,13 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     protected UndoView tooltip;
     protected HashMap<String, Integer> rowMap = new HashMap<>(20);
     protected HashMap<Integer, String> rowMapReverse = new HashMap<>(20);
-    protected HashMap<Integer, ConfigItem> rowConfigMapReverse = new HashMap<>(20);
+    protected HashMap<Integer, ConfigItem> rowConfigMapReverse = new HashMap<>();
+    private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener dynamicVideoWallpaperChangeListener = (account, dialogId) -> {
+        if (account == currentAccount && dialogId == 0L) {
+            AndroidUtilities.runOnUIThread(this::refreshDynamicVideoWallpaper);
+        }
+    };
 
     protected BlurredRecyclerView createListView(Context context) {
         return new BlurredRecyclerView(context);
@@ -87,6 +96,8 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setTitle(getTitle());
+        actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
 
         if (AndroidUtilities.isTablet()) {
             actionBar.setOccupyStatusBar(false);
@@ -103,9 +114,15 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
             }
         });
 
-        fragmentView = new FrameLayout(context);
-        fragmentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
-        FrameLayout frameLayout = (FrameLayout) fragmentView;
+        SizeNotifierFrameLayout frameLayout = new SizeNotifierFrameLayout(context);
+        fragmentView = frameLayout;
+        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        frameLayout.setBackgroundColor(Color.TRANSPARENT);
+        DynamicVideoWallpaperHelper.addChangeListener(dynamicVideoWallpaperChangeListener);
+        dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
+        }
 
         listView = createListView(context);
         listView.setVerticalScrollBarEnabled(false);
@@ -128,6 +145,37 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         return fragmentView;
     }
 
+    private void refreshDynamicVideoWallpaper() {
+        if (!(fragmentView instanceof SizeNotifierFrameLayout)) return;
+        SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
+        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        if (dynamicVideoWallpaperPlayer != null
+                && dynamicVideoWallpaperPlayer.matchesCurrentSource(frameLayout.getContext(), currentAccount, 0L)) {
+            frameLayout.setBackgroundColor(Color.TRANSPARENT);
+            dynamicVideoWallpaperPlayer.resume();
+            return;
+        }
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.release();
+            dynamicVideoWallpaperPlayer = null;
+        }
+        dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, frameLayout.getContext(), currentAccount, 0L);
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
+        }
+        frameLayout.setBackgroundColor(Color.TRANSPARENT);
+    }
+
+    @Override
+    public void onFragmentDestroy() {
+        DynamicVideoWallpaperHelper.removeChangeListener(dynamicVideoWallpaperChangeListener);
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.release();
+            dynamicVideoWallpaperPlayer = null;
+        }
+        super.onFragmentDestroy();
+    }
+
     protected void onActionBarItemClick(int id) {
     }
 
@@ -135,6 +183,9 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (dynamicVideoWallpaperPlayer != null) {
+            dynamicVideoWallpaperPlayer.resume();
+        }
         if (getListAdapter() != null) {
             getListAdapter().notifyDataSetChanged();
         }
