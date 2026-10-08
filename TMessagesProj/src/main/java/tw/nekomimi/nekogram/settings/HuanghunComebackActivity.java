@@ -57,7 +57,8 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         triggerRow = addRow();
         importRow = addRow();
         selectAllRow = addRow();
-        deleteAllRow = addRow();
+        // Both bulk actions share one row: left half enables all, right half deletes all.
+        deleteAllRow = selectAllRow;
         noticeRow = addRow();
         corpusHeaderRow = addRow();
         defaultCorpusRow = addRow();
@@ -92,10 +93,12 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         } else if (position == importRow) {
             chooseCorpora();
         } else if (position == selectAllRow) {
-            helper.setAllCorporaEnabled(true);
-            refreshRows();
-        } else if (position == deleteAllRow) {
-            showDeleteAllDialog();
+            if (x >= view.getWidth() / 2f) {
+                showDeleteAllDialog();
+            } else {
+                helper.setAllCorporaEnabled(true);
+                refreshRows();
+            }
         } else if (position == defaultCorpusRow) {
             helper.setDefaultEnabled(!helper.isDefaultEnabled());
             refreshRows();
@@ -257,6 +260,9 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
     }
 
     private void refreshRows() {
+        // Reload persisted state before rebinding; otherwise an imported corpus toggle
+        // is saved but the adapter keeps rendering the old in-memory snapshot.
+        corpora = HuanghunComebackHelper.getInstance(currentAccount).getCorpora();
         if (listAdapter != null) listAdapter.notifyDataSetChanged();
     }
 
@@ -289,7 +295,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     break;
                 case TYPE_INFO_PRIVACY:
                     TextInfoPrivacyCell info = (TextInfoPrivacyCell) holder.itemView;
-                    info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。每行发送一条，间隔 1–3 秒。建议仅在你确认的对话中使用。关闭总开关会停止尚未发送的内容。");
+                    info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。每行发送一条，间隔 0.32–1.7 秒。建议仅在你确认的对话中使用。关闭总开关会停止尚未发送的内容。");
                     break;
                 case TYPE_SHADOW:
                     break;
@@ -298,10 +304,8 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     cell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
                     if (position == triggerRow) cell.setTextAndValue("当前快捷触发词语", HuanghunComebackHelper.getInstance(currentAccount).getTrigger() + "　自定义", true);
                     else if (position == importRow) cell.setTextAndValue("自定义词库", "点我选择 .txt 文件", true);
-                    else if (position == selectAllRow) cell.setText("全选使用", true);
-                    else if (position == deleteAllRow) {
-                        cell.setTextColor(Theme.getColor(Theme.key_text_RedRegular));
-                        cell.setText("全选删除自定义词库", true);
+                    else if (position == selectAllRow) {
+                        cell.setTextAndValue("全选使用", "全选删除", false);
                     } else if (position == activeCorpusRow) {
                         cell.setTextAndValue("当前使用词库", "查看启用顺序", false);
                     } else {

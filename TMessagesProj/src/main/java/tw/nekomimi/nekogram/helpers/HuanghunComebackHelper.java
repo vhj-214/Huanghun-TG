@@ -211,7 +211,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             if (next == null) { sending = false; return; }
         }
         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(next.text, next.dialogId));
-        long delay = 1000L + RANDOM.nextInt(2001);
+        // Keep a noticeable but responsive pause between replies: 0.32–1.70 seconds.
+        long delay = 320L + RANDOM.nextInt(1381);
         AndroidUtilities.runOnUIThread(this::sendNext, delay);
     }
 

@@ -143,12 +143,18 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     private int keywordsRow;
     private int blockNoticeRow;
     private int blockEndRow;
+    private int comebackHeaderRow;
     private int comebackFeatureRow;
+    private int comebackNoticeRow;
+    private int comebackEndRow;
 
     @Override
     protected void updateRows() {
         super.updateRows();
+        comebackHeaderRow = addRow();
         comebackFeatureRow = addRow();
+        comebackNoticeRow = addRow();
+        comebackEndRow = addRow();
         specialAttentionHeaderRow = addRow();
         specialAttentionEnabledRow = addRow();
         specialAttentionNoticeRow = addRow();
@@ -1385,7 +1391,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
             int type = holder.getItemViewType();
             if (type == TYPE_HEADER) {
                 HeaderCell cell = (HeaderCell) holder.itemView;
-                String headerText = position == specialAttentionHeaderRow
+                String headerText = position == comebackHeaderRow
+                        ? "回怼系统专区"
+                        : (position == specialAttentionHeaderRow
                         ? "特别关心通知专区"
                         : (position == signInHeaderRow
                         ? "自动签到功能专区"
@@ -1397,7 +1405,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                         ? "视频专区"
                         : (position == privacyHeaderRow
                         ? "隐私专区"
-                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone)))))));
+                        : (position == blockHeaderRow ? getString(R.string.HuanghunBlockZone) : getString(R.string.HuanghunCleanupZone))))))));
                 cell.setText(headerText);
             } else if (type == TYPE_SETTINGS) {
                 TextSettingsCell cell = (TextSettingsCell) holder.itemView;
@@ -1496,7 +1504,9 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 }
             } else if (type == TYPE_INFO_PRIVACY) {
                 TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                if (position == specialAttentionNoticeRow) {
+                if (position == comebackNoticeRow) {
+                    cell.setText("开启后，仅当当前账号本人在私聊中发送完整触发词时自动发送词库内容；不会识别他人消息、群组或频道。进入“回怼系统”可管理触发词、自定义词库和发送间隔。 ");
+                } else if (position == specialAttentionNoticeRow) {
                     cell.setText("开启后，底部联系人位置默认显示“特别关心”；长按该位置可切换为联系人或特别关心，切换不会关闭本功能。特别关心会话名单仅保存在本机当前账号。 ");
                 } else if (position == signInNoticeRow) {
                     cell.setText("自动签到默认关闭。进入“自动签到函数”后可添加群、频道、用户或机器人，并按北京时间每天发送设定内容。需要网络连接，请提前配置好内置代理。");
@@ -1511,16 +1521,16 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
         @Override
         public int getItemViewType(int position) {
-            if (position == specialAttentionHeaderRow || position == signInHeaderRow || position == activeHeaderRow || position == localHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
+            if (position == comebackHeaderRow || position == specialAttentionHeaderRow || position == signInHeaderRow || position == activeHeaderRow || position == localHeaderRow || position == videoHeaderRow || position == cleanupHeaderRow || position == privacyHeaderRow || position == blockHeaderRow) {
                 return TYPE_HEADER;
             }
             if (position == specialAttentionEnabledRow || position == signInEnabledRow || position == activeEnabledRow || position == localEditMessageRow || position == localEditTimeRow || position == localEditAvatarRow || position == localEditBioRow || position == builtinCameraRow || position == builtinVideoSoundRow || position == builtinRoundVideoRow || position == builtinSquareVideoRow || position == videoToGifRow || position == blockNonContactsRow || position == blockMutualGroupMessagesRow) {
                 return TYPE_CHECK;
             }
-            if (position == specialAttentionNoticeRow || position == signInNoticeRow || position == activeNoticeRow || position == localNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
+            if (position == comebackNoticeRow || position == specialAttentionNoticeRow || position == signInNoticeRow || position == activeNoticeRow || position == localNoticeRow || position == videoNoticeRow || position == cleanupNoticeRow || position == privacyNoticeRow || position == blockNoticeRow) {
                 return TYPE_INFO_PRIVACY;
             }
-            if (position == specialAttentionEndRow || position == signInEndRow || position == activeEndRow || position == localEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
+            if (position == comebackEndRow || position == specialAttentionEndRow || position == signInEndRow || position == activeEndRow || position == localEndRow || position == videoEndRow || position == cleanupEndRow || position == privacyEndRow || position == blockEndRow) {
                 return TYPE_SHADOW;
             }
             return TYPE_SETTINGS;
