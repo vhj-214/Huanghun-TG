@@ -2829,16 +2829,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     hash.add(getThemedColor(Theme.key_windowBackgroundWhite));
                     hash.add(SharedConfig.chatBlurEnabled());
 
-                    if (SharedConfig.chatBlurEnabled()) {
-                        TopicsFragment topicsFragment = null;
-                        if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
-                            topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
-                        }
+                    TopicsFragment topicsFragment = null;
+                    if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
+                        topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
+                    }
 
-                        if (topicsFragment != null && topicsFragment.getFragmentView() != null && !searching) {
-                            hash.unsupported();
-                            return;
-                        }
+                    if (topicsFragment != null && topicsFragment.getFragmentView() != null && !searching) {
+                        hash.unsupported();
+                        return;
                     }
                 }
 
@@ -2847,27 +2845,25 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                    if (SharedConfig.chatBlurEnabled()) {
-                        TopicsFragment topicsFragment = null;
-                        if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
-                            topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
-                        }
-
-                        if (topicsFragment != null && topicsFragment.getFragmentView() != null && !searching) {
-                            BlurredBackgroundSource source = topicsFragment.getGlassSource();
-                            if (source != null) {
-                                canvas.save();
-                                canvas.translate(
-                                        topicsFragment.getFragmentView().getTranslationX(),
-                                        topicsFragment.getFragmentView().getTranslationY());
-                                source.draw(canvas, 0, 0, width, height);
-                                canvas.restore();
-                            }
-                        }
-
-                        scrollableViewNoiseSuppressor.draw(canvas, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
+                    // Keep untouched pixels transparent so the page wallpaper can show through.
+                    TopicsFragment topicsFragment = null;
+                    if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
+                        topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
                     }
+
+                    if (topicsFragment != null && topicsFragment.getFragmentView() != null && !searching) {
+                        BlurredBackgroundSource source = topicsFragment.getGlassSource();
+                        if (source != null) {
+                            canvas.save();
+                            canvas.translate(
+                                    topicsFragment.getFragmentView().getTranslationX(),
+                                    topicsFragment.getFragmentView().getTranslationY());
+                            source.draw(canvas, 0, 0, width, height);
+                            canvas.restore();
+                        }
+                    }
+
+                    scrollableViewNoiseSuppressor.draw(canvas, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
                 }
             });
 
@@ -5474,7 +5470,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            BlurredBackgroundDrawable filterTabsViewBackground = iBlur3FactoryLiquidGlass.create(filterTabsView, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            BlurredBackgroundSource folderGlassSource = iBlur3SourceGlass;
+            if (folderGlassSource == null) {
+                BlurredBackgroundSourceColor transparentSource = new BlurredBackgroundSourceColor();
+                transparentSource.setColor(0x00000000);
+                folderGlassSource = transparentSource;
+            }
+            BlurredBackgroundDrawableViewFactory folderGlassFactory = new BlurredBackgroundDrawableViewFactory(folderGlassSource);
+            folderGlassFactory.setSourceRootView(viewPositionWatcher, contentView);
+            folderGlassFactory.setLiquidGlassEffectAllowed(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU);
+            BlurredBackgroundDrawable filterTabsViewBackground = folderGlassFactory.create(filterTabsView, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
             filterTabsViewBackground.setRadius(dp(18));
             filterTabsViewBackground.setPadding(dp(6.666f));
             filterTabsViewBackground.setThickness(dp(14));

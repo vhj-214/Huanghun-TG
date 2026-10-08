@@ -55,10 +55,9 @@ public class BlurredBackgroundProviderImpl {
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
-                // Keep the wallpaper visible while giving the glass enough body to
-                // show its refraction and separation from the content underneath.
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.42f : 0.34f;
-                return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
+                // No fill: let the sampled page show through. The white rim and
+                // liquid-glass refraction provide the surface without a white veil.
+                return 0x00000000;
             })
             .setStrokeColorTop(0x66FFFFFF, 0x3CFFFFFF)
             .setStrokeColorBottom(0x33000000, 0x2EFFFFFF)
