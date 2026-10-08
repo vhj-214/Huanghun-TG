@@ -498,13 +498,14 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 if (hasSettingsWallpaperLayer()) {
                     // 壁纸首帧与滑动过程不能依赖尚未完成的模糊捕获，否则顶部会短暂露出父容器黑底。
                     // 直接在已铺满状态栏的壁纸层上绘制固定玻璃承接层，避免透明、黑色和主题色之间来回切换。
-                    blurScrimPaint.setColor(Theme.isCurrentThemeDark() ? 0x36000000 : 0x26ffffff);
+                    // 只保留轻微液态磨砂，避免顶部出现整块近白色填充和亮边。
+                    blurScrimPaint.setColor(Theme.isCurrentThemeDark() ? 0x22000000 : 0x14ffffff);
                     canvas.drawRect(AndroidUtilities.rectTmp2, blurScrimPaint);
                 } else {
                     blurScrimPaint.setColor(actionBarColor);
                     contentView.drawBlurRect(canvas, 0, AndroidUtilities.rectTmp2, blurScrimPaint, true);
                 }
-                if (getParentLayout() != null) {
+                if (!hasSettingsWallpaperLayer() && getParentLayout() != null) {
                     getParentLayout().drawHeaderShadow(canvas, top);
                 }
             }
