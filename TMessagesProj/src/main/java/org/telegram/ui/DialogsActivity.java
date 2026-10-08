@@ -5478,6 +5478,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // repaint an opaque backing surface even when its provider alpha is zero.
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
             filterTabsView.setBlurredBackground(null);
+            filterTabsView.setBackgroundColor(Color.TRANSPARENT);
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
 

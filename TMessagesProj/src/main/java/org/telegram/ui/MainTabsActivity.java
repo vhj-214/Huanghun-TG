@@ -73,7 +73,6 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.Premium.LimitReachedBottomSheet;
 import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
-import org.telegram.ui.Components.blur3.BlurredBackgroundWithFadeDrawable;
 import org.telegram.ui.Components.blur3.RenderNodeWithHash;
 import org.telegram.ui.Components.blur3.capture.IBlur3Hash;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
@@ -434,13 +433,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         // own selected state, icons, labels, and counters independently.
         tabsView.setBackground(null);
 
-        BlurredBackgroundDrawableViewFactory iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
-        iBlur3FactoryFade.setSourceRootView(viewPositionWatcher, contentView);
-
         fadeView = new View(context);
-        BlurredBackgroundWithFadeDrawable fadeDrawable = new BlurredBackgroundWithFadeDrawable(iBlur3FactoryFade.create(fadeView, null));
-        fadeDrawable.setFadeHeight(dp(60), true);
-        fadeView.setBackground(fadeDrawable);
+        // Keep the navigation surface transparent; the old white fade became a
+        // visible rectangular block over video and static wallpapers.
+        fadeView.setBackground(null);
 
         contentView.addView(fadeView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 0, Gravity.BOTTOM));
 

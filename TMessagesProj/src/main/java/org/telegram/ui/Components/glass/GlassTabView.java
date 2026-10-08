@@ -58,6 +58,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     private BackupImageView backupImageView;
     private Theme.ResourcesProvider resourcesProvider;
     private final Paint paintCounterBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintSelectedStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final AnimatedTextView.AnimatedTextDrawable counter;
 
     private static final int ANIMATOR_ID_IS_SELECTED = 0;
@@ -162,6 +163,14 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
             canvas.scale(s, s, tmpRectF.centerX(), tmpRectF.centerY());
             canvas.drawRoundRect(tmpRectF, r, r, paintCounterBackground);
             canvas.restore();
+
+            // Keep the selected control visible over wallpapers without making it opaque.
+            paintSelectedStroke.setStyle(Paint.Style.STROKE);
+            paintSelectedStroke.setStrokeWidth(dp(0.8f));
+            paintSelectedStroke.setColor(Theme.multAlpha(colorSelected, 0.28f * alpha));
+            final float halfStroke = paintSelectedStroke.getStrokeWidth() / 2f;
+            tmpRectF.inset(halfStroke, halfStroke);
+            canvas.drawRoundRect(tmpRectF, Math.max(0, r - halfStroke), Math.max(0, r - halfStroke), paintSelectedStroke);
         }
 
         final float hasCounter = (usePremiumCounter ? 1f : isHasCounterAnimator.getFloatValue()) * attachScale;
