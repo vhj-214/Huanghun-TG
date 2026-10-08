@@ -55,14 +55,16 @@ public class BlurredBackgroundProviderImpl {
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.30f : 0.24f;
+                // Keep the wallpaper visible while giving the glass enough body to
+                // show its refraction and separation from the content underneath.
+                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.42f : 0.34f;
                 return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
             })
-            .setStrokeColorTop(0x44FFFFFF, 0x28FFFFFF)
-            .setStrokeColorBottom(0x22000000, 0x22FFFFFF)
-            .setShadowColor(0x18000000, 0x0AFFFFFF)
-            .setShadowLayer(dpf2(2.667f), 0, dpf2(0.85f))
-            .setStrokeWidth(dpf2(0.4f), dpf2(0.4f))
+            .setStrokeColorTop(0x66FFFFFF, 0x3CFFFFFF)
+            .setStrokeColorBottom(0x33000000, 0x2EFFFFFF)
+            .setShadowColor(0x2A000000, 0x12FFFFFF)
+            .setShadowLayer(dpf2(3.5f), 0, dpf2(1.0f))
+            .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
             .build();
     }
 
@@ -71,10 +73,7 @@ public class BlurredBackgroundProviderImpl {
     }
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
-        // The folder strip belongs to the chat surface, so it must use the
-        // same full liquid-glass treatment as the chat top panel rather than
-        // the separate bottom-navigation glass palette.
-        return topPanel(resourcesProvider);
+        return mainNavigationTransparentGlass(resourcesProvider);
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
