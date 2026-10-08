@@ -435,8 +435,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsViewBackground = iBlur3FactoryGlass.create(tabsView, BlurredBackgroundProviderImpl.mainTabsTransparent(resourceProvider));
         tabsViewBackground.setRadius(dp(MainTabsHelper.getMainTabsHeight() / 2f));
         tabsViewBackground.setPadding(dp(mainTabsMargin - 0.334f));
-        tabsViewBackground.setThickness(dp(14));
-        tabsViewBackground.setIntensity(0.95f);
         tabsView.setBackground(tabsViewBackground);
 
         BlurredBackgroundDrawableViewFactory iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);

@@ -62,8 +62,10 @@ public class BlurredBackgroundProviderImpl {
             })
             .setStrokeColorTop(0x66FFFFFF, 0x3CFFFFFF)
             .setStrokeColorBottom(0x33000000, 0x2EFFFFFF)
-            .setShadowColor(0x2A000000, 0x12FFFFFF)
-            .setShadowLayer(dpf2(3.5f), 0, dpf2(1.0f))
+            // The translucent fill already separates the navigation surface from
+            // wallpaper; an extra blur shadow creates a dark halo.
+            .setShadowColor(0, 0)
+            .setShadowLayer(0, 0, 0)
             .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
             .build();
     }
@@ -73,7 +75,19 @@ public class BlurredBackgroundProviderImpl {
     }
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
-        return mainNavigationTransparentGlass(resourcesProvider);
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+            .setBackgroundColor((r, isDark) -> {
+                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.42f : 0.34f;
+                return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
+            })
+            // The folder strip sits directly over the wallpaper. Avoid the
+            // highlight edge and shadow that appear as a white border/halo.
+            .setStrokeColorTop(0, 0)
+            .setStrokeColorBottom(0, 0)
+            .setShadowColor(0, 0)
+            .setShadowLayer(0, 0, 0)
+            .setStrokeWidth(0, 0)
+            .build();
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {

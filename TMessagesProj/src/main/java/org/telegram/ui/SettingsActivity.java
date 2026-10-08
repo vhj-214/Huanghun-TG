@@ -1199,6 +1199,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
         final int targetAccount = getCurrentAccount();
         final boolean showNotice = shouldShowHiddenAccountNotice();
+        if (!showNotice) {
+            hideAccountLocally(targetAccount);
+            return;
+        }
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), resourceProvider);
         builder.setTitle(getString(showNotice ? R.string.DeleteAccountNoticeTitle : R.string.DeleteLocalAccount));
         if (showNotice) {
