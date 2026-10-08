@@ -39,7 +39,9 @@ keystorePwd = keystorePwd ?: System.getenv('KEYSTORE_PASS')
 alias = alias ?: System.getenv('ALIAS_NAME')
 pwd = pwd ?: System.getenv('ALIAS_PASS')
 
-def nativeTarget = System.getenv('NATIVE_TARGET') ?: ''
+// CI passes -PnativeTarget=arm64-v8a. Prefer the Gradle property and keep the
+// environment variable as a compatible fallback for local builds.
+def nativeTarget = (project.findProperty('nativeTarget') ?: System.getenv('NATIVE_TARGET') ?: '').toString()
 
 if (nativeTarget == 'SKIP') {
     tasks.configureEach { task ->
