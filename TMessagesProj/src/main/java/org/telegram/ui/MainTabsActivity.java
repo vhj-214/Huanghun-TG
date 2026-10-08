@@ -185,8 +185,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
-
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
                         final BaseFragment fragment = state.fragment;
@@ -425,7 +423,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         final ViewPositionWatcher viewPositionWatcher = new ViewPositionWatcher(contentView);
 
-        BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceTabGlass != null ? iBlur3SourceTabGlass : iBlur3SourceColor);
+        BlurredBackgroundSourceColor transparentGlassFallback = new BlurredBackgroundSourceColor();
+        transparentGlassFallback.setColor(0x00000000);
+        BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceTabGlass != null ? iBlur3SourceTabGlass : transparentGlassFallback);
         iBlur3FactoryGlass.setSourceRootView(viewPositionWatcher, contentView);
         // The main navigation surface is designed as a liquid-glass control. Do not
         // let the global LiteMode switch turn it into a plain opaque white pill.
