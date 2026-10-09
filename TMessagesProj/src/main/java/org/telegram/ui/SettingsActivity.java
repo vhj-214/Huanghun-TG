@@ -298,11 +298,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
      */
     private static Drawable createHuanghunSettingsGlassDrawable() {
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(0x38FFFFFF);
+        // Borderless, low-alpha glass: the live wallpaper remains visible even while
+        // motion/video wallpaper is playing; no fixed white edge is drawn.
+        drawable.setColor(0x20FFFFFF);
         drawable.setCornerRadius(dp(20));
-        drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
-        // 背景与单元格使用相同高度，避免 50/60dp 内容超出被上下缩短后的玻璃外框。
-        return new android.graphics.drawable.InsetDrawable(drawable, 0, 0, 0, 0);
+        return drawable;
     }
 
     private boolean ignoreClearViews;

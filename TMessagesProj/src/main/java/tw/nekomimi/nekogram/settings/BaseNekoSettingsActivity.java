@@ -170,7 +170,22 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             return false;
         });
 
-        listView.setSections(true);
+        // The default RecyclerListView section renderer paints an opaque white card.
+        // This is the actual background behind every Huanghun settings group, so keep
+        // the wallpaper/video visible and use one low-alpha, borderless glass surface.
+        final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        listView.setSections(
+                view -> view.getParent() == listView && !(view instanceof ShadowSectionCell),
+                dp(12),
+                18,
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? 0x26000000 : 0x20FFFFFF);
+                    sectionGlassPaint.setAlpha(Math.round(255 * alpha));
+                    float radius = Math.max(topRadius, bottomRadius);
+                    canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
+                },
+                false
+        );
         actionBar.setAdaptiveBackground(listView);
         return fragmentView;
     }
@@ -452,6 +467,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             switch (viewType) {
                 case TYPE_SHADOW:
                     view = new ShadowSectionCell(mContext, resourcesProvider);
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_SETTINGS:
                     view = new TextSettingsCell(mContext, resourcesProvider);
@@ -475,7 +491,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     break;
                 case TYPE_INFO_PRIVACY:
                     view = new TextInfoPrivacyCell(mContext, resourcesProvider);
-                    view.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, getThemedColor(Theme.key_windowBackgroundGrayShadow)));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case TYPE_TEXT:
                     view = new TextCell(mContext, resourcesProvider);

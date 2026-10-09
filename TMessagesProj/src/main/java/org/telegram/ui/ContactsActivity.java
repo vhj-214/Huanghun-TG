@@ -295,11 +295,12 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
      * 仅用于已登录主联系人页的单层中性玻璃表面；不使用彩色渐变，避免与单元格内容叠色。
      */
     private android.graphics.drawable.Drawable createHuanghunContactsGlassDrawable() {
+        // Keep this surface translucent and borderless: the section renderer below
+        // supplies the adaptive group shape, while this is only for the search field.
         android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
-        drawable.setColor(0x38FFFFFF);
+        drawable.setColor(0x20FFFFFF);
         drawable.setCornerRadius(dp(18));
-        drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
-        return new android.graphics.drawable.InsetDrawable(drawable, dp(10), dp(2), dp(10), dp(2));
+        return drawable;
     }
 
     @Override
@@ -471,7 +472,9 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 RecyclerView.ViewHolder holder = super.onCreateViewHolder(parent, viewType);
                 // 只为成功登录后的主联系人入口添加玻璃层；联系人选择器、转发和建群入口保持官方单元格行为。
                 if (hasMainTabs && (holder.itemView instanceof UserCell || holder.itemView instanceof TextCell)) {
-                    holder.itemView.setBackground(createHuanghunContactsGlassDrawable());
+                    // The section surface is the only background. Individual cells stay
+                    // transparent so wallpaper/video cannot be hidden by white cards.
+                    holder.itemView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
                 }
                 return holder;
             }
@@ -588,7 +591,19 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         listView.addEdgeEffectListener(() -> listView.postOnAnimation(() -> {
             blur3_InvalidateBlur();
         }));
-        listView.setSections(true);
+        final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        listView.setSections(
+                view -> view.getParent() == listView && !(view instanceof ContactsEmptyView),
+                dp(10),
+                18,
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    sectionGlassPaint.setColor(0x20FFFFFF);
+                    sectionGlassPaint.setAlpha(Math.round(255 * alpha));
+                    float radius = Math.max(topRadius, bottomRadius);
+                    canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
+                },
+                false
+        );
         contentView.setBackgroundImage(hasMainTabs ? Theme.getCachedWallpaper() : null, Theme.isWallpaperMotion());
         contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
         if (hasMainTabs) {
