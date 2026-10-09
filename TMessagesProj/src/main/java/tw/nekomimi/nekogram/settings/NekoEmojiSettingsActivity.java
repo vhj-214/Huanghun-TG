@@ -445,10 +445,10 @@ public class NekoEmojiSettingsActivity extends BaseNekoSettingsActivity implemen
                 case TYPE_INFO_PRIVACY: {
                     TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
                     if (position == emojiPack2Row) {
-                        cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+                        // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                         cell.setText(getString(R.string.EmojiSetHint));
                     } else if (position == useSystemEmoji2Row) {
-                        cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                        // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                         cell.setText(getString(R.string.CustomEmojiSetHint));
                     }
                     break;

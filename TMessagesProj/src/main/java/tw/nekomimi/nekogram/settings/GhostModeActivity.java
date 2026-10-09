@@ -243,7 +243,7 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, boolean payload) {
             switch (holder.getItemViewType()) {
                 case TYPE_SHADOW:
-                    holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                    // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     break;
                 case TYPE_CHECK:
                     TextCheckCell textCheckCell = (TextCheckCell) holder.itemView;
@@ -266,7 +266,7 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
                     break;
                 case TYPE_INFO_PRIVACY:
                     TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
-                    cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                    // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     if (position == ghostModeNoticeRow) {
                         cell.setText(getString(R.string.GhostModeNotice));
                     } else if (position == markReadAfterSendNoticeRow) {

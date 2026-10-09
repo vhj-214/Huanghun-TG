@@ -399,7 +399,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             int viewType = holder.getItemViewType();
             switch (viewType) {
                 case TYPE_SHADOW: {
-                    holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                    // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     break;
                 }
                 case TYPE_TEXT: {

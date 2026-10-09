@@ -304,9 +304,9 @@ public class HuanghunCallSettingsActivity extends BaseNekoSettingsActivity {
                 cell.setText(position == callCameraNoticeRow
                         ? "默认摄像头用于关闭虚拟摄像头时的新视频通话。选择“手机屏幕”时，开启视频会进入 Telegram 官方屏幕共享授权流程。"
                         : "通话内置视频仅保存在当前设备和当前账号中，与视频录制专区完全隔离。开启虚拟摄像头并在视频通话中开启摄像头后，将循环播放所选视频；通话界面会显示上一个、下一个、暂停和播放控制按钮。视频会保持原始宽高比例，自适应通话画面。关闭“视频声音”后，不会向通话上行混入内置视频原声。");
-                cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
             } else if (type == TYPE_SHADOW) {
-                holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+                // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
             }
         }
 

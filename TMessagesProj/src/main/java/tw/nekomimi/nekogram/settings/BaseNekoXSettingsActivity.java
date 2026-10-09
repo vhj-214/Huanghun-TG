@@ -140,7 +140,24 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         tooltip = new UndoView(context);
         frameLayout.addView(tooltip, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.LEFT, 8, 0, 8, 8));
 
-        listView.setSections(true);
+        // setSections(true) uses the default opaque theme section drawable.
+        // Keep wallpaper/video visible through every NekoX settings page.
+        listView.setSections(
+                view -> {
+                    if (view.getParent() != listView) {
+                        return false;
+                    }
+                    RecyclerView.ViewHolder holder = listView.getChildViewHolder(view);
+                    return holder != null && !(view instanceof ShadowSectionCell);
+                },
+                viewType -> viewType != CellGroup.ITEM_TYPE_DIVIDER,
+                0,
+                0,
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    // Rows provide their own translucent glass; no opaque group surface.
+                },
+                false
+        );
         actionBar.setAdaptiveBackground(listView);
         return fragmentView;
     }

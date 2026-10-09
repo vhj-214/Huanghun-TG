@@ -241,9 +241,9 @@ public class NekoPasscodeSettingsActivity extends BaseNekoSettingsActivity {
             switch (holder.getItemViewType()) {
                 case 1: {
                     if (position == clearPasscodes2Row) {
-                        holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+                        // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     } else {
-                        holder.itemView.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                        // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     }
                     break;
                 }
@@ -283,7 +283,7 @@ public class NekoPasscodeSettingsActivity extends BaseNekoSettingsActivity {
                 case 7: {
                     TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
                     cell.setEnabled(passcodeSet, null);
-                    cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+                    // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     if (position == accountsEndRow) {
                         cell.setText(getString(R.string.PasscodeAbout));
                     } else if (position == panicCode2Row) {
@@ -304,7 +304,7 @@ public class NekoPasscodeSettingsActivity extends BaseNekoSettingsActivity {
                         cell.setText(stringBuilder);
                     } else if (position == showNotificationContentWhenLocked2Row) {
                         cell.setText(getString(R.string.PasscodeShowMessagePreviewWhenLockedAbout));
-                        cell.setBackground(Theme.getThemedDrawable(mContext, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+                        // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     }
                     break;
                 }
