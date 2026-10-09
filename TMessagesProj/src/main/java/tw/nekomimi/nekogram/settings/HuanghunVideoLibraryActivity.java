@@ -102,6 +102,8 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setTitle(deleteMode ? "删除内置视频" : "查看内置视频");
+        actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
         actionBar.setAllowOverlayTitle(true);
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
@@ -112,8 +114,7 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         fragmentView = root;
 
         int topOffset = 0;

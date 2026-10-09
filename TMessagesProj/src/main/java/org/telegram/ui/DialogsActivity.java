@@ -975,7 +975,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         @Override
         public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
-                canvas.drawRect(rectTmp, blurScrimPaint);
+                if (dialogsDynamicVideoWallpaperPlayer != null || Theme.getCachedWallpaper() != null) {
+                    int oldAlpha = blurScrimPaint.getAlpha();
+                    blurScrimPaint.setAlpha(70);
+                    canvas.drawRect(rectTmp, blurScrimPaint);
+                    blurScrimPaint.setAlpha(oldAlpha);
+                } else {
+                    canvas.drawRect(rectTmp, blurScrimPaint);
+                }
                 return;
             }
 

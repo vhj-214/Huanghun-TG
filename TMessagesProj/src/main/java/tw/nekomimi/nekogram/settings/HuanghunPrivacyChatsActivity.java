@@ -59,6 +59,8 @@ public class HuanghunPrivacyChatsActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setTitle("管理隐私聊天");
+        actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -93,15 +95,14 @@ public class HuanghunPrivacyChatsActivity extends BaseFragment {
 
         reloadDialogs(context);
 
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
 
         selectionStatus = new TextView(context);
         selectionStatus.setTextSize(13);
         selectionStatus.setGravity(Gravity.CENTER_VERTICAL);
         selectionStatus.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
         selectionStatus.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
-        selectionStatus.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        selectionStatus.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         root.addView(selectionStatus, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP));
 
         listView = new RecyclerListView(context);

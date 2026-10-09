@@ -69,8 +69,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
 
         favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
         updateBatchPresentation();
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
 
         listView = new RecyclerListView(context);
         listView.setLayoutManager(new GridLayoutManager(context, 3));
@@ -128,6 +127,8 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
         } else {
             actionBar.setTitle(LocaleController.getString(R.string.HuanghunCustomBubbles));
         }
+        actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
         ActionBarMenu menu = actionBar.createMenu();
         menu.clearItems();
         menu.addItem(MENU_BATCH, LocaleController.getString(batchMode ? R.string.Done : R.string.HuanghunBubbleBatch));

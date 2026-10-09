@@ -58,6 +58,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
+import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
@@ -149,6 +150,12 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private FragmentFloatingButton floatingButton;
     private boolean floatingButtonVisibleByScroll = true;
     private SizeNotifierFrameLayout contentView;
+    private DynamicVideoWallpaperHelper.Player contactsDynamicWallpaperPlayer;
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener contactsWallpaperChangeListener = (account, dialogId) -> {
+        if (hasMainTabs && account == currentAccount && dialogId == 0L && contentView != null) {
+            AndroidUtilities.runOnUIThread(this::refreshContactsWallpaper);
+        }
+    };
 
     private boolean searchWas;
     private boolean searching;
@@ -262,6 +269,11 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
     @Override
     public void onFragmentDestroy() {
+        DynamicVideoWallpaperHelper.removeChangeListener(contactsWallpaperChangeListener);
+        if (contactsDynamicWallpaperPlayer != null) {
+            contactsDynamicWallpaperPlayer.release();
+            contactsDynamicWallpaperPlayer = null;
+        }
         super.onFragmentDestroy();
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.contactsDidLoad);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.updateInterfaces);
@@ -299,6 +311,10 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         additionFloatingButtonOffset = hasMainTabs ? dp(MainTabsHelper.getMainTabsHeight() + MainTabsHelper.getMainTabsMargin()) : 0;
 
         actionBar.setAllowOverlayTitle(true);
+        if (hasMainTabs) {
+            actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
+        }
         if (destroyAfterSelect) {
             if (returnAsResult) {
                 actionBar.setTitle(getString(R.string.SelectContact));
@@ -499,7 +515,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                     if (iBlur3SourceGlassFrosted != null && !iBlur3SourceGlassFrosted.inRecording()) {
                         // if (iBlur3SourceGlassFrosted.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
                         final Canvas c = iBlur3SourceGlassFrosted.beginRecording(width, height);
-                        c.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                        c.drawColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
                         if (SharedConfig.chatBlurEnabled()) {
                             scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_FROSTED_GLASS);
                         }
@@ -509,7 +525,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                     if (iBlur3SourceGlass != null && !iBlur3SourceGlass.inRecording()) {
                         // if (iBlur3SourceGlass.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
                         final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
-                        c.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                        c.drawColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
                         if (SharedConfig.chatBlurEnabled()) {
                             scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
                         }
@@ -525,7 +541,14 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             @Override
             public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null) {
-                    canvas.drawRect(rectTmp, blurScrimPaint);
+                    if (hasMainTabs && (contactsDynamicWallpaperPlayer != null || Theme.getCachedWallpaper() != null)) {
+                        int oldAlpha = blurScrimPaint.getAlpha();
+                        blurScrimPaint.setAlpha(70);
+                        canvas.drawRect(rectTmp, blurScrimPaint);
+                        blurScrimPaint.setAlpha(oldAlpha);
+                    } else {
+                        canvas.drawRect(rectTmp, blurScrimPaint);
+                    }
                     return;
                 }
 
@@ -535,7 +558,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 canvas.restore();
 
                 final int oldScrimAlpha = blurScrimPaint.getAlpha();
-                blurScrimPaint.setAlpha(ChatActivity.ACTION_BAR_BLUR_ALPHA);
+                blurScrimPaint.setAlpha(hasMainTabs ? 70 : ChatActivity.ACTION_BAR_BLUR_ALPHA);
                 canvas.drawRect(rectTmp, blurScrimPaint);
                 blurScrimPaint.setAlpha(oldScrimAlpha);
             }
@@ -566,7 +589,15 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             blur3_InvalidateBlur();
         }));
         listView.setSections(true);
-        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+        contentView.setBackgroundImage(hasMainTabs ? Theme.getCachedWallpaper() : null, Theme.isWallpaperMotion());
+        contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
+        if (hasMainTabs) {
+            DynamicVideoWallpaperHelper.addChangeListener(contactsWallpaperChangeListener);
+            contactsDynamicWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, 0L);
+            if (contactsDynamicWallpaperPlayer != null) {
+                contactsDynamicWallpaperPlayer.setFallbackBackgroundColor(android.graphics.Color.TRANSPARENT);
+            }
+        }
 
         FlickerLoadingView flickerLoadingView = new FlickerLoadingView(context);
         flickerLoadingView.setViewType(FlickerLoadingView.PROFILE_SEARCH_CELL);
@@ -1264,9 +1295,35 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         return super.onBackPressed(invoked);
     }
 
+    private void refreshContactsWallpaper() {
+        if (!hasMainTabs || contentView == null) return;
+        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        if (contactsDynamicWallpaperPlayer != null
+                && contactsDynamicWallpaperPlayer.matchesCurrentSource(contentView.getContext(), currentAccount, 0L)) {
+            contentView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            contactsDynamicWallpaperPlayer.resume();
+            return;
+        }
+        if (contactsDynamicWallpaperPlayer != null) {
+            contactsDynamicWallpaperPlayer.release();
+            contactsDynamicWallpaperPlayer = null;
+        }
+        contactsDynamicWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, contentView.getContext(), currentAccount, 0L);
+        if (contactsDynamicWallpaperPlayer != null) {
+            contactsDynamicWallpaperPlayer.setFallbackBackgroundColor(android.graphics.Color.TRANSPARENT);
+        }
+        contentView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        contentView.invalidate();
+    }
     @Override
     public void onResume() {
         super.onResume();
+        if (hasMainTabs && contentView != null && (contactsDynamicWallpaperPlayer == null
+                || !contactsDynamicWallpaperPlayer.matchesCurrentSource(contentView.getContext(), currentAccount, 0L))) {
+            refreshContactsWallpaper();
+        } else if (contactsDynamicWallpaperPlayer != null) {
+            contactsDynamicWallpaperPlayer.resume();
+        }
         if (listViewAdapter != null) {
             listViewAdapter.notifyDataSetChanged();
         }
@@ -1377,6 +1434,9 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
     @Override
     public void onPause() {
+        if (contactsDynamicWallpaperPlayer != null) {
+            contactsDynamicWallpaperPlayer.pause();
+        }
         super.onPause();
         if (actionBar != null) {
             actionBar.closeSearchField();
@@ -1483,7 +1543,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 actionBar.updateColors();
             }
             if (contentView != null) {
-                contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+                contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
             }
         };
 

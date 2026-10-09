@@ -51,6 +51,8 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setTitle("隐私文件夹");
+        actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -60,8 +62,7 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         RecyclerListView listView = new RecyclerListView(context);
         listView.setLayoutManager(new LinearLayoutManager(context));
         listView.setAdapter(adapter = new FolderAdapter(context));
