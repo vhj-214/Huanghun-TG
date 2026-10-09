@@ -179,15 +179,29 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                 dp(12),
                 18,
                 (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? 0x26000000 : 0x20FFFFFF);
-                    sectionGlassPaint.setAlpha(Math.round(255 * alpha));
+                    // setAlpha replaces the alpha from setColor. Keep the section
+                    // surface genuinely translucent so the wallpaper is visible.
+                    sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                    sectionGlassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x26 : 0x20) * alpha));
                     float radius = Math.max(topRadius, bottomRadius);
                     canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
                 },
                 false
         );
-        actionBar.setAdaptiveBackground(listView);
+        applyHuanghunSettingsActionBarGlass();
         return fragmentView;
+    }
+
+    /** Keep every Huanghun settings page in the same wallpaper-backed glass mode. */
+    private void applyHuanghunSettingsActionBarGlass() {
+        if (!hasWhiteActionBar() || actionBar == null) {
+            return;
+        }
+        // Adaptive action-bar colors are opaque theme surfaces and create the white
+        // strip above the first settings card. A translucent color keeps ActionBar
+        // inside the blur/scrim path while allowing the wallpaper through.
+        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setCastShadows(false);
     }
 
     private void refreshSettingsWallpaper() {
@@ -220,6 +234,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
+        applyHuanghunSettingsActionBarGlass();
         settingsDynamicVideoWallpaperPaused = false;
         if (settingsDynamicVideoWallpaperPlayer != null
                 && settingsDynamicVideoWallpaperPlayer.matchesCurrentSource(getContext(), currentAccount, 0L)) {

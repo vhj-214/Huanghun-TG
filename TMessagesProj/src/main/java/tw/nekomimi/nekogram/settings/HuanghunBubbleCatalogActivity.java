@@ -70,6 +70,8 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
         favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
         updateBatchPresentation();
         FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        actionBar.setDrawBlurBackground(root);
+        actionBar.setBackgroundColor(0x20FFFFFF);
 
         listView = new RecyclerListView(context);
         listView.setLayoutManager(new GridLayoutManager(context, 3));
@@ -215,7 +217,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
             setPadding(AndroidUtilities.dp(5), AndroidUtilities.dp(5), AndroidUtilities.dp(5), AndroidUtilities.dp(5));
 
             GradientDrawable card = new GradientDrawable();
-            card.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            card.setColor(0x20FFFFFF);
             card.setCornerRadius(AndroidUtilities.dp(14));
             setBackground(card);
             setOnClickListener(v -> onStyleTapped(style));

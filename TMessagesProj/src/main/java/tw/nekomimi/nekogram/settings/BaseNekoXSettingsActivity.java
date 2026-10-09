@@ -118,6 +118,7 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         fragmentView = frameLayout;
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         frameLayout.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setDrawBlurBackground(frameLayout);
         DynamicVideoWallpaperHelper.addChangeListener(dynamicVideoWallpaperChangeListener);
         dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
         if (dynamicVideoWallpaperPlayer != null) {
@@ -158,8 +159,13 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
                 },
                 false
         );
-        actionBar.setAdaptiveBackground(listView);
+        applyHuanghunSettingsActionBarGlass();
         return fragmentView;
+    }
+
+    private void applyHuanghunSettingsActionBarGlass() {
+        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setCastShadows(false);
     }
 
     private void refreshDynamicVideoWallpaper() {
@@ -200,6 +206,7 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
+        applyHuanghunSettingsActionBarGlass();
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.resume();
         }

@@ -116,6 +116,8 @@ public class HuanghunVideoLibraryActivity extends BaseFragment {
 
         FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         fragmentView = root;
+        actionBar.setDrawBlurBackground(root);
+        actionBar.setBackgroundColor(0x20FFFFFF);
 
         int topOffset = 0;
         if (selectionEnabled) {
