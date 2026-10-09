@@ -150,6 +150,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private FragmentFloatingButton floatingButton;
     private boolean floatingButtonVisibleByScroll = true;
     private SizeNotifierFrameLayout contentView;
+    public boolean hasMainTabs;
     private DynamicVideoWallpaperHelper.Player contactsDynamicWallpaperPlayer;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener contactsWallpaperChangeListener = (account, dialogId) -> {
         if (hasMainTabs && account == currentAccount && dialogId == 0L && contentView != null) {
@@ -161,7 +162,6 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private boolean searching;
     private boolean onlyUsers;
     private boolean needPhonebook;
-    public boolean hasMainTabs;
     private boolean destroyAfterSelect;
     private boolean returnAsResult;
     private boolean createSecretChat;
