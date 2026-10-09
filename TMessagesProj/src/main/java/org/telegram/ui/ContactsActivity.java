@@ -115,8 +115,12 @@ import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.ViewGroupPartRenderer;
 import org.telegram.ui.Components.blur3.capture.IBlur3Capture;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
+import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.inset.WindowAnimatedInsetsProvider;
 
@@ -186,6 +190,10 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private HeaderShadowView headerShadowView;
     private FragmentSearchField searchField;
     private BlurredBackgroundDrawableViewFactory contactsGlassFactory;
+    private BlurredBackgroundDrawableViewFactory contactsRowsGlassFactory;
+    private final WallpaperBitmapProvider contactsRowsWallpaperBitmapProvider = new WallpaperBitmapProvider();
+    private final BlurredBackgroundSourceColor contactsRowsWallpaperFallbackSource = new BlurredBackgroundSourceColor();
+    private final BlurredBackgroundSourceWrapped contactsRowsWallpaperSource = new BlurredBackgroundSourceWrapped();
 
     private AlertDialog permissionDialog;
     private boolean askAboutContacts = true;
@@ -313,6 +321,18 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         drawable.setCornerRadius(dp(18));
         drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
         return new android.graphics.drawable.InsetDrawable(drawable, dp(10), dp(2), dp(10), dp(2));
+    }
+
+    private android.graphics.drawable.Drawable createHuanghunContactsRowGlassDrawable(View target) {
+        // List rows are part of the Blur3 capture; sample the wallpaper directly to avoid capturing this drawable recursively.
+        if (contactsRowsGlassFactory != null) {
+            BlurredBackgroundDrawable drawable = contactsRowsGlassFactory.create(
+                    target, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            drawable.setRadius(dp(18));
+            drawable.setPadding(dp(4));
+            return drawable;
+        }
+        return createHuanghunContactsGlassDrawable(target);
     }
 
     @Override
@@ -484,7 +504,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 RecyclerView.ViewHolder holder = super.onCreateViewHolder(parent, viewType);
                 // 只为成功登录后的主联系人入口添加玻璃层；联系人选择器、转发和建群入口保持官方单元格行为。
                 if (hasMainTabs && (holder.itemView instanceof UserCell || holder.itemView instanceof TextCell)) {
-                    holder.itemView.setBackground(createHuanghunContactsGlassDrawable(holder.itemView));
+                    holder.itemView.setBackground(createHuanghunContactsRowGlassDrawable(holder.itemView));
                 }
                 return holder;
             }
@@ -584,6 +604,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
                 checkUi_listViewPadding();
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                updateContactsRowsWallpaperSourceSize(getMeasuredWidth(), getMeasuredHeight());
             }
 
             @Override
@@ -614,6 +635,10 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             }
             contactsGlassFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
             contactsGlassFactory.setSourceRootView(new ViewPositionWatcher(contentView), contentView);
+            contactsRowsWallpaperFallbackSource.setColor(android.graphics.Color.TRANSPARENT);
+            updateContactsRowsWallpaperSource(Theme.getCachedWallpaper());
+            contactsRowsGlassFactory = new BlurredBackgroundDrawableViewFactory(contactsRowsWallpaperSource);
+            contactsRowsGlassFactory.setSourceRootView(new ViewPositionWatcher(contentView), contentView);
             searchField.setBackground(createHuanghunContactsGlassDrawable(searchField));
             DynamicVideoWallpaperHelper.addChangeListener(contactsWallpaperChangeListener);
             contactsDynamicWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, 0L);
@@ -1324,7 +1349,9 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
     private void refreshContactsWallpaper() {
         if (!hasMainTabs || contentView == null) return;
-        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        android.graphics.drawable.Drawable wallpaper = Theme.getCachedWallpaper();
+        contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
+        updateContactsRowsWallpaperSource(wallpaper);
         if (contactsDynamicWallpaperPlayer != null
                 && contactsDynamicWallpaperPlayer.matchesCurrentSource(contentView.getContext(), currentAccount, 0L)) {
             contentView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
@@ -1342,6 +1369,32 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         contentView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         contentView.invalidate();
     }
+
+    private void updateContactsRowsWallpaperSource(android.graphics.drawable.Drawable wallpaper) {
+        BlurredBackgroundSource source = wallpaper == null
+                ? contactsRowsWallpaperFallbackSource
+                : contactsRowsWallpaperBitmapProvider.updateSourceFromBackgroundViewDrawable(wallpaper);
+        if (source instanceof BlurredBackgroundSourceColor
+                && ((BlurredBackgroundSourceColor) source).getColor() == android.graphics.Color.BLACK) {
+            source = contactsRowsWallpaperFallbackSource;
+        }
+        contactsRowsWallpaperSource.setSource(source);
+        if (contentView != null) {
+            updateContactsRowsWallpaperSourceSize(contentView.getMeasuredWidth(), contentView.getMeasuredHeight());
+            contentView.invalidate();
+        }
+    }
+
+    private void updateContactsRowsWallpaperSourceSize(int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        BlurredBackgroundSource source = contactsRowsWallpaperSource.getSource();
+        if (source instanceof BlurredBackgroundSourceBitmap) {
+            ((BlurredBackgroundSourceBitmap) source).setParentSize(width, height, 0);
+        }
+    }
+
     @Override
     public void onResume() {
         super.onResume();
