@@ -839,12 +839,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             super(context);
         }
 
-        @Override
-        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            updateMainDialogsWallpaperSourceSize(getMeasuredWidth(), getMeasuredHeight());
-        }
-
         private int startedTrackingPointerId;
         private int startedTrackingX;
         private int startedTrackingY;
@@ -1286,6 +1280,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 });
                 wasPortrait = portrait;
             }
+            updateMainDialogsWallpaperSourceSize(getMeasuredWidth(), getMeasuredHeight());
         }
 
         @Override
