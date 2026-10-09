@@ -974,28 +974,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
-                if (dialogsDynamicVideoWallpaperPlayer != null || Theme.getCachedWallpaper() != null) {
-                    int oldAlpha = blurScrimPaint.getAlpha();
-                    blurScrimPaint.setAlpha(70);
-                    canvas.drawRect(rectTmp, blurScrimPaint);
-                    blurScrimPaint.setAlpha(oldAlpha);
-                } else {
-                    canvas.drawRect(rectTmp, blurScrimPaint);
-                }
-                return;
+            final boolean canDrawFrostedBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                && SharedConfig.chatBlurEnabled()
+                && iBlur3SourceGlassFrosted != null
+                && BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider);
+            if (canDrawFrostedBlur) {
+                canvas.save();
+                canvas.translate(0, -y);
+                iBlur3SourceGlassFrosted.draw(canvas, rectTmp.left, rectTmp.top + y, rectTmp.right, rectTmp.bottom + y);
+                canvas.restore();
             }
-
+            // Keep the home header translucent in every mode. When live blur is disabled or
+            // unsupported, the wallpaper remains visible through the same glass tint instead
+            // of falling back to an opaque theme-colored (white/black) rectangle.
             final boolean isThemeLight = resourceProvider != null ? !resourceProvider.isDark() : !Theme.isCurrentThemeDark();
-            // 顶部只保留轻微液态磨砂，不能用 Telegram 默认的近不透明白色承接层覆盖视频壁纸。
-            int blurAlpha = isThemeLight ? 70 : 48;
-            canvas.save();
-            canvas.translate(0, -y);
-            iBlur3SourceGlassFrosted.draw(canvas, rectTmp.left, rectTmp.top + y, rectTmp.right, rectTmp.bottom + y);
-            canvas.restore();
-
             final int oldScrimAlpha = blurScrimPaint.getAlpha();
-            blurScrimPaint.setAlpha(blurAlpha);
+            blurScrimPaint.setAlpha(isThemeLight ? 82 : 68);
             canvas.drawRect(rectTmp, blurScrimPaint);
             blurScrimPaint.setAlpha(oldScrimAlpha);
         }
@@ -2785,7 +2779,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             scrollableViewNoiseSuppressor = new DownscaleScrollableNoiseSuppressor();
-            iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(null);
+            BlurredBackgroundSourceColor softwareGlassFallback = new BlurredBackgroundSourceColor();
+            softwareGlassFallback.setColor(Color.TRANSPARENT);
+            iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(softwareGlassFallback);
             iBlur3SourceGlassFrosted.setupRenderer(new RenderNodeWithHash.Renderer() {
                 @Override
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
@@ -2810,8 +2806,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
                     if (SharedConfig.chatBlurEnabled()) {
+                        canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
                         TopicsFragment topicsFragment = null;
                         if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
                             topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
@@ -2833,7 +2829,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             });
 
-            iBlur3SourceGlass = new BlurredBackgroundSourceRenderNode(null);
+            iBlur3SourceGlass = new BlurredBackgroundSourceRenderNode(softwareGlassFallback);
             iBlur3SourceGlass.setupRenderer(new RenderNodeWithHash.Renderer() {
                 @Override
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
@@ -2858,8 +2854,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
                     if (SharedConfig.chatBlurEnabled()) {
+                        canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
                         TopicsFragment topicsFragment = null;
                         if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
                             topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
@@ -2883,16 +2879,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
-            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(true);
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(true);
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
         } else {
             scrollableViewNoiseSuppressor = null;
             iBlur3SourceGlassFrosted = null;
             iBlur3SourceGlass = null;
-            iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
-            iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
+            BlurredBackgroundSourceColor transparentGlassFallback = new BlurredBackgroundSourceColor();
+            transparentGlassFallback.setColor(Color.TRANSPARENT);
+            iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(transparentGlassFallback);
+            iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(transparentGlassFallback);
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
         }
         iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
@@ -4343,7 +4341,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final PointF tmpPoint = new PointF();
         iBlur3Capture = (canvas, position) -> {
             final int searchViewAlpha = searchViewPager != null ? (int) (searchViewPager.getAlpha() * 255) : 0;
-
+            // Include the real wallpaper in the frosted source; dialog rows alone sample as a solid theme color.
+            if (contentView.backgroundView != null && contentView.backgroundView.getVisibility() == View.VISIBLE) {
+                canvas.save();
+                canvas.clipRect(position);
+                contentView.backgroundView.draw(canvas);
+                canvas.restore();
+            }
             for (ViewPage viewPage : viewPages) {
                 if (viewPage != null && viewPage.getVisibility() == View.VISIBLE && viewPage.getAlpha() > 0f) {
                     float rp = getRightSlidingProgress();
@@ -5136,7 +5140,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             BlurredBackgroundDrawable topPanelLayoutBackground = iBlur3FactoryLiquidGlass.create(topPanelLayout)
-                .setColorProvider(BlurredBackgroundProviderImpl.topPanel(resourceProvider))
+                .setColorProvider(BlurredBackgroundProviderImpl.mainScreenGlass(resourceProvider))
                 .setPadding(dp(7));
 
             topPanelLayout.setPadding(dp(11), dp(21), dp(11), dp(21));
@@ -5215,9 +5219,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             chatInputViewsContainer.setClipChildren(false);
             chatInputViewsContainer.setWindowInsetsProvider(windowInsetsStateHolder);
             chatInputViewsContainer.setInputIslandBubbleDrawable(
-                iBlur3FactoryLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
+                iBlur3FactoryLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.mainScreenGlass(resourceProvider)));
             chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
-                iBlur3FactoryFrostedLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
+                iBlur3FactoryFrostedLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.mainScreenGlass(resourceProvider)));
 
             BlurredBackgroundWithFadeDrawable fadeDrawable = new BlurredBackgroundWithFadeDrawable(
                     iBlur3FactoryFade.create(chatInputViewsContainer, null));
@@ -5492,16 +5496,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            // Keep the folder strip fully transparent. A glass RenderNode can
-            // repaint an opaque backing surface even when its provider alpha is zero.
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
-            filterTabsView.setBlurredBackground(null);
-            filterTabsView.setBackgroundColor(Color.TRANSPARENT);
+            BlurredBackgroundDrawable folderTabsGlass = iBlur3FactoryFrostedLiquidGlass.create(
+                filterTabsView, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            folderTabsGlass.setRadius(dp(16));
+            folderTabsGlass.setPadding(0);
+            filterTabsView.setBlurredBackground(folderTabsGlass);
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
 
         if (fragmentSearchField != null) {
-            fragmentSearchField.setupBlurredBackground(iBlur3FactoryLiquidGlass.create(fragmentSearchField, BlurredBackgroundProviderImpl.topPanel(resourceProvider)));
+            fragmentSearchField.setupBlurredBackground(iBlur3FactoryLiquidGlass.create(fragmentSearchField, BlurredBackgroundProviderImpl.mainScreenGlass(resourceProvider)));
         }
 
         dialogStoriesCell = new DialogStoriesCell(context, this, currentAccount, isArchive() ? DialogStoriesCell.TYPE_ARCHIVE : DialogStoriesCell.TYPE_DIALOGS) {

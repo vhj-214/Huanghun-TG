@@ -10,6 +10,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.RenderNode;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -56,7 +57,20 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setLiquidGlassEffectAllowed() {
-        liquidGlassEffect = new LiquidGlassEffect(renderNodeFill);
+        try {
+            liquidGlassEffect = new LiquidGlassEffect(renderNodeFill);
+        } catch (RuntimeException error) {
+            disableLiquidGlassEffect(error);
+        }
+    }
+
+    private void disableLiquidGlassEffect(RuntimeException error) {
+        liquidGlassEffect = null;
+        try {
+            renderNodeFill.setRenderEffect(null);
+        } catch (RuntimeException ignored) {
+        }
+        Log.e("BlurredBackground", "Liquid Glass shader unavailable; using translucent glass fallback", error);
     }
 
 
@@ -117,14 +131,18 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                 boundProps.liquidThickness <= 0 ? dp(11) : boundProps.liquidThickness,
                 Math.min(boundProps.boundsWithPadding.width(), boundProps.boundsWithPadding.height()) / 5), 1);
 
-            liquidGlassEffect.update(
-                0, 0, boundProps.boundsWithPadding.width(), boundProps.boundsWithPadding.height(),
-                boundProps.shaderRadii[0], boundProps.shaderRadii[2], boundProps.shaderRadii[4], boundProps.shaderRadii[6],
-                thickness,
-                boundProps.liquidIntensity,
-                boundProps.liquidIndex,
-                backgroundColor
-            );
+            try {
+                liquidGlassEffect.update(
+                    0, 0, boundProps.boundsWithPadding.width(), boundProps.boundsWithPadding.height(),
+                    boundProps.shaderRadii[0], boundProps.shaderRadii[2], boundProps.shaderRadii[4], boundProps.shaderRadii[6],
+                    thickness,
+                    boundProps.liquidIntensity,
+                    boundProps.liquidIndex,
+                    backgroundColor
+                );
+            } catch (RuntimeException error) {
+                disableLiquidGlassEffect(error);
+            }
         }
         source.draw(c, sL, sT, sR, sB);
         c.save();

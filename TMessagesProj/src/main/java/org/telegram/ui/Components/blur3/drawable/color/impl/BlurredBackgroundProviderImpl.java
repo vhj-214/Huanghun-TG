@@ -32,6 +32,22 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
+    /**
+     * Home-screen glass material: translucent in every theme, with no opaque theme-color fallback.
+     * The backdrop is supplied by the screen's RenderNode when blur is available; otherwise the
+     * current wallpaper remains visible through this tint.
+     */
+    public static BlurredBackgroundProvider mainScreenGlass(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+            .setBackgroundColor((r, isDark) -> Theme.multAlpha(
+                Theme.getColor(Theme.key_windowBackgroundWhite, r), 0.36f))
+            .setStrokeColorTop(0x22FFFFFF, 0x18FFFFFF)
+            .setStrokeColorBottom(0x10000000, 0x12FFFFFF)
+            .setShadowColor(0, 0)
+            .setShadowLayer(0, 0, 0)
+            .setStrokeWidth(dpf2(0.35f), dpf2(0.35f))
+            .build();
+    }
     public static BlurredBackgroundProvider topPanel(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {

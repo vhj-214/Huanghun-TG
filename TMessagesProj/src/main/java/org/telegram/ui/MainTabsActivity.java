@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.ShapeDrawable;
@@ -73,9 +74,11 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.Premium.LimitReachedBottomSheet;
 import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.RenderNodeWithHash;
 import org.telegram.ui.Components.blur3.capture.IBlur3Hash;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
+import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.glass.GlassTabView;
@@ -144,7 +147,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     public MainTabsActivity() {
         super();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            iBlur3SourceTabGlass = new BlurredBackgroundSourceRenderNode(null);
+            BlurredBackgroundSourceColor softwareGlassFallback = new BlurredBackgroundSourceColor();
+            softwareGlassFallback.setColor(Color.TRANSPARENT);
+            iBlur3SourceTabGlass = new BlurredBackgroundSourceRenderNode(softwareGlassFallback);
             iBlur3SourceTabGlass.setupRenderer(new RenderNodeWithHash.Renderer() {
                 @Override
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
@@ -181,7 +186,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    if (SharedConfig.chatBlurEnabled()) {
+                        canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    }
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
@@ -421,18 +428,18 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         final ViewPositionWatcher viewPositionWatcher = new ViewPositionWatcher(contentView);
 
-        BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceTabGlass != null ? iBlur3SourceTabGlass : iBlur3SourceColor);
+        BlurredBackgroundSourceColor transparentGlassFallback = new BlurredBackgroundSourceColor();
+        transparentGlassFallback.setColor(Color.TRANSPARENT);
+        BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new BlurredBackgroundDrawableViewFactory(
+            iBlur3SourceTabGlass != null ? iBlur3SourceTabGlass : transparentGlassFallback);
         iBlur3FactoryGlass.setSourceRootView(viewPositionWatcher, contentView);
-        // The main navigation surface is designed as a liquid-glass control. Do not
-        // let the global LiteMode switch turn it into a plain opaque white pill.
-        // BlurredBackgroundDrawableViewFactory still falls back safely on Android < 13.
-        iBlur3FactoryGlass.setLiquidGlassEffectAllowed(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU);
-
-        // Keep the navigation container fully transparent so the dynamic
-        // wallpaper remains visible behind it. GlassTabView draws each tab's
-        // own selected state, icons, labels, and counters independently.
-        tabsView.setBackground(null);
-
+        // Apply the requested iOS liquid-glass material whenever the Android renderer supports it.
+        iBlur3FactoryGlass.setLiquidGlassEffectAllowed(true);
+        BlurredBackgroundDrawable mainTabsGlass = iBlur3FactoryGlass.create(
+            tabsView, BlurredBackgroundProviderImpl.mainTabsTransparent(resourceProvider));
+        mainTabsGlass.setRadius(dp(28));
+        mainTabsGlass.setPadding(0);
+        tabsView.setBackground(mainTabsGlass);
         fadeView = new View(context);
         // Keep the navigation surface transparent; the old white fade became a
         // visible rectangular block over video and static wallpapers.
