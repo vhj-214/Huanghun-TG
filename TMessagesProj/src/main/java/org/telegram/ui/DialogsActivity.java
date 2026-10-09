@@ -210,9 +210,11 @@ import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundPro
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.blur3.utils.Blur3Utils;
 import org.telegram.ui.Components.chat.ChatInputViewsContainer;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
+import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
 import org.telegram.ui.Components.chat.layouts.ChatActivityFadeView;
 import org.telegram.ui.Components.inset.WindowInsetsStateHolder;
 import org.telegram.ui.Gifts.GiftSheet;
@@ -2896,6 +2898,25 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
         }
         iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
+
+        iBlur3MainWallpaperSource = new BlurredBackgroundSourceWrapped();
+        iBlur3MainWallpaperFallbackSourceColor.setColor(Color.TRANSPARENT);
+        updateMainDialogsWallpaperSource(Theme.getCachedWallpaper());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            iBlur3MainWallpaperGlassSource = new BlurredBackgroundSourceRenderNode(iBlur3MainWallpaperSource);
+            iBlur3MainWallpaperGlassSource.setupRenderer(new RenderNodeWithHash.Renderer() {
+                @Override
+                public void renderNodeUpdateDisplayList(Canvas canvas) {
+                    // Wallpaper is supplied by underSource; this layer stays transparent.
+                }
+            });
+            iBlur3MainWallpaperGlassSource.setUnderSource(iBlur3MainWallpaperSource);
+            iBlur3MainWallpaperFactory = new BlurredBackgroundDrawableViewFactory(iBlur3MainWallpaperGlassSource);
+        } else {
+            iBlur3MainWallpaperGlassSource = null;
+            iBlur3MainWallpaperFactory = new BlurredBackgroundDrawableViewFactory(iBlur3MainWallpaperSource);
+        }
+        iBlur3MainWallpaperFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
     }
 
     private MainTabsActivityController mainTabsActivityController;
@@ -4335,6 +4356,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         contentView.setBackgroundColor(Color.TRANSPARENT);
 
         viewPositionWatcher = new ViewPositionWatcher(contentView);
+        iBlur3MainWallpaperFactory.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryFrostedLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryFade.setSourceRootView(viewPositionWatcher, contentView);
@@ -5493,9 +5515,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         if (filterTabsView != null) {
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
-            BlurredBackgroundDrawable folderTabsGlass = iBlur3FactoryLiquidGlass.create(
+            BlurredBackgroundDrawable folderTabsGlass = iBlur3MainWallpaperFactory.create(
                     filterTabsView,
-                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+                    BlurredBackgroundProviderImpl.mainDialogsFoldersTransparent(resourceProvider));
             folderTabsGlass.setRadius(dp(18));
             folderTabsGlass.setPadding(dp(6));
             filterTabsView.setBlurredBackground(folderTabsGlass);
@@ -5766,7 +5788,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             showSearch(false, false, false);
         }
         actionBar.setDrawBlurBackground(contentView);
-        actionBar.setupGlass(iBlur3FactoryLiquidGlass, BlurredBackgroundProviderImpl.topPanelChatActivity(resourceProvider));
+        actionBar.setupGlass(iBlur3MainWallpaperFactory, BlurredBackgroundProviderImpl.mainDialogsTopPanelTransparent(resourceProvider));
 
         rightSlidingDialogContainer = new RightSlidingDialogContainer(context) {
 
@@ -11072,6 +11094,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             if (fragmentView instanceof ContentView) {
                 ContentView contentView = (ContentView) fragmentView;
                 contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+                updateMainDialogsWallpaperSource(Theme.getCachedWallpaper());
                 contentView.setBackgroundColor(Color.TRANSPARENT);
             }
         } else if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
@@ -14937,6 +14960,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final @Nullable BlurredBackgroundSourceRenderNode iBlur3SourceGlassFrosted;
     private final @Nullable BlurredBackgroundSourceRenderNode iBlur3SourceGlass;
     private final @NonNull BlurredBackgroundSourceColor iBlur3SourceColor;
+    private final WallpaperBitmapProvider iBlur3MainWallpaperBitmapProvider = new WallpaperBitmapProvider();
+    private final BlurredBackgroundSourceColor iBlur3MainWallpaperFallbackSourceColor = new BlurredBackgroundSourceColor();
+    private BlurredBackgroundSourceWrapped iBlur3MainWallpaperSource;
+    private @Nullable BlurredBackgroundSourceRenderNode iBlur3MainWallpaperGlassSource;
+    private BlurredBackgroundDrawableViewFactory iBlur3MainWallpaperFactory;
     private final @NonNull BlurredBackgroundDrawableViewFactory iBlur3FactoryFrostedLiquidGlass;
     private final @NonNull BlurredBackgroundDrawableViewFactory iBlur3FactoryBlur;
     private final @NonNull BlurredBackgroundDrawableViewFactory iBlur3FactoryLiquidGlass;
@@ -14950,6 +14978,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final RectF iBlur3PositionMainTabs = new RectF(); {
         iBlur3Positions.add(iBlur3PositionActionBar);
         iBlur3Positions.add(iBlur3PositionMainTabs);
+    }
+
+    private void updateMainDialogsWallpaperSource(Drawable wallpaper) {
+        if (iBlur3MainWallpaperSource == null) {
+            return;
+        }
+        BlurredBackgroundSource source = wallpaper == null
+                ? iBlur3MainWallpaperFallbackSourceColor
+                : iBlur3MainWallpaperBitmapProvider.updateSourceFromBackgroundViewDrawable(wallpaper);
+        iBlur3MainWallpaperSource.setSource(source);
+        if (iBlur3MainWallpaperGlassSource != null) {
+            iBlur3MainWallpaperGlassSource.invalidateDisplayListForDrawables();
+        }
+        if (fragmentView != null) {
+            fragmentView.invalidate();
+        }
     }
 
     /**
@@ -15022,6 +15066,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (iBlur3SourceGlass != null) {
             iBlur3SourceGlass.setSize(fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
             iBlur3SourceGlass.updateDisplayListIfNeeded();
+        }
+        if (iBlur3MainWallpaperGlassSource != null) {
+            iBlur3MainWallpaperGlassSource.setSize(fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+            iBlur3MainWallpaperGlassSource.updateDisplayListIfNeeded();
         }
     }
 
