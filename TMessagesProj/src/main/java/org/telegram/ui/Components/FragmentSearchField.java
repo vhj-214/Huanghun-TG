@@ -260,6 +260,13 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
         updateColors();
     }
 
+    /** Uses the internal background path without recreating the opaque theme drawable. */
+    public void setGlassBackground(Drawable drawable) {
+        isSectionBackground = false;
+        bg = drawable;
+        invalidate();
+    }
+
     private boolean isWhiteBackground;
 
     public void setWhiteBackground() {

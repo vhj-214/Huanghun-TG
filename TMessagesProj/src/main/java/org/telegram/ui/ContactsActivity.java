@@ -335,7 +335,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         searchField.setSectionBackground();
         if (hasMainTabs) {
             // 主联系人页属于登录后导航，不影响任何登录或联系人选择流程。
-            searchField.setBackground(createHuanghunContactsGlassDrawable());
+            searchField.setGlassBackground(createHuanghunContactsGlassDrawable());
         }
         searchField.setPivotY(0);
         final ActionBarMenu actionMode = actionBar.createActionMode(false, null);
