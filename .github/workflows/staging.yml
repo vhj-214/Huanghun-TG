@@ -83,14 +83,25 @@ jobs:
           export BUILD_TIMESTAMP=$(date +%s)
           echo "build_timestamp=$BUILD_TIMESTAMP" >> "$GITHUB_OUTPUT"
           ./gradlew TMessagesProj:assembleStaging
+      - name: Verify installable universal APK
+        shell: bash
+        run: |
+          shopt -s nullglob
+          apks=(TMessagesProj/build/outputs/apk/staging/*-universal.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "Expected exactly one universal staging APK, found ${#apks[@]}" >&2
+            find TMessagesProj/build/outputs/apk/staging -type f -name '*.apk' -print >&2
+            exit 1
+          fi
+          apk="${apks[0]}"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: 黄昏-测试版-APK
-          # The Android Gradle plugin may place split/universal outputs in
-          # different subdirectories and the project also rewrites filenames.
-          # Upload every staging APK instead of relying on a stale filename.
-          path: TMessagesProj/build/outputs/apk/**/*.apk
+          path: TMessagesProj/build/outputs/apk/staging/*-universal.apk
           if-no-files-found: error
   upload:
     name: Upload staging

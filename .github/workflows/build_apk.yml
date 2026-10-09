@@ -20,6 +20,10 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
+      - name: Set up Android SDK build tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "build-tools;36.0.0"
       - name: Restore native build cache
         uses: actions/cache@v4
         with:
@@ -33,8 +37,21 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         run: ./gradlew :TMessagesProj:assembleDebug -PnativeTarget=arm64-v8a --no-daemon --parallel --build-cache
+      - name: Verify installable APK
+        shell: bash
+        run: |
+          shopt -s nullglob
+          apks=(TMessagesProj/build/outputs/apk/debug/*.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "Expected exactly one debug APK, found ${#apks[@]}" >&2
+            exit 1
+          fi
+          test -s "${apks[0]}"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "${apks[0]}"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "${apks[0]}"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: 黄昏-APK
           path: TMessagesProj/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
