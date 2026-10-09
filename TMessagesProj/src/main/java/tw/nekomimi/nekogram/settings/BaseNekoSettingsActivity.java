@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.LiteMode;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarLayout;
@@ -40,6 +41,14 @@ import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextRadioCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.BlurredRecyclerView;
+import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
+import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
+import org.telegram.ui.Components.chat.ViewPositionWatcher;
+import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.FlickerLoadingView;
@@ -85,6 +94,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     protected BaseListAdapter listAdapter;
     protected LinearLayoutManager layoutManager;
     protected Theme.ResourcesProvider resourcesProvider;
+    private BlurredBackgroundDrawableViewFactory settingsGlassFactory;
 
     protected int rowCount;
     protected HashMap<String, Integer> rowMap = new HashMap<>(20);
@@ -120,7 +130,21 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
 
+        BlurredBackgroundSource source = new WallpaperBitmapProvider()
+                .updateSourceFromBackgroundViewDrawable(Theme.getCachedWallpaper());
+        if (source == null) {
+            BlurredBackgroundSourceColor colorSource = new BlurredBackgroundSourceColor();
+            colorSource.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            source = colorSource;
+        }
+        BlurredBackgroundSourceWrapped wrappedSource = new BlurredBackgroundSourceWrapped();
+        wrappedSource.setSource(source);
+        settingsGlassFactory = new BlurredBackgroundDrawableViewFactory(wrappedSource);
+        settingsGlassFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+        settingsGlassFactory.setSourceRootView(new ViewPositionWatcher(frameLayout), frameLayout);
+
         actionBar.setDrawBlurBackground(frameLayout);
+        actionBar.setupGlass(settingsGlassFactory, BlurredBackgroundProviderImpl.topPanelChatActivity(resourcesProvider));
 
         listView = new BlurredRecyclerView(context);
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -171,7 +195,6 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         });
 
         listView.setSections(true);
-        actionBar.setAdaptiveBackground(listView);
         return fragmentView;
     }
 
@@ -522,6 +545,14 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                     break;
             }
             // noinspection ConstantConditions
+            if (settingsGlassFactory != null && viewType != TYPE_SHADOW && viewType != TYPE_HEADER
+                    && viewType != TYPE_INFO_PRIVACY && viewType != TYPE_FLICKER) {
+                BlurredBackgroundDrawable glass = settingsGlassFactory.create(
+                        view, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourcesProvider));
+                glass.setRadius(dp(13));
+                glass.setPadding(dp(4));
+                view.setBackground(glass);
+            }
             view.setLayoutParams(new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT));
             return new RecyclerListView.Holder(view);
         }

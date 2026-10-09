@@ -90,6 +90,54 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
+    /**
+     * Low-fill glass reserved for the main dialogs screen, where the wallpaper
+     * should remain clearly visible through the top navigation surface.
+     */
+    public static BlurredBackgroundProvider mainDialogsTopPanelTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> {
+                    final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.26f : 0.20f;
+                    return Theme.multAlpha(Theme.getColor(Theme.key_chat_topPanelBackground, r), alpha);
+                })
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(0, 0)
+                .build();
+    }
+
+    /** Full-width, edge-free glass bed that visually joins the status bar and ActionBar. */
+    public static BlurredBackgroundProvider mainDialogsConnectedTopBackdrop(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> {
+                    final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.26f : 0.20f;
+                    return Theme.multAlpha(Theme.getColor(Theme.key_chat_topPanelBackground, r), alpha);
+                })
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(0, 0)
+                .build();
+    }
+
+    /** Low-fill, shadow-free wallpaper glass for the main dialogs folder strip. */
+    public static BlurredBackgroundProvider mainDialogsFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> {
+                    final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.20f : 0.14f;
+                    return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
+                })
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(0, 0)
+                .build();
+    }
+
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
                 .setBackgroundColor((r, isDark) -> {
