@@ -38,6 +38,10 @@ if (properties != null) {
 keystorePwd = keystorePwd ?: System.getenv('KEYSTORE_PASS')
 alias = alias ?: System.getenv('ALIAS_NAME')
 pwd = pwd ?: System.getenv('ALIAS_PASS')
+def hasReleaseSigning = [keystorePwd, alias, pwd].every { value -> value != null && !value.isBlank() } && project.file('release.keystore').isFile()
+if (!hasReleaseSigning) {
+    println('WARNING: Release signing credentials are unavailable; staging APKs will use the CI debug key and cannot update a release-signed installation.')
+}
 
 // CI passes -PnativeTarget=arm64-v8a. Prefer the Gradle property and keep the
 // environment variable as a compatible fallback for local builds.
@@ -155,7 +159,7 @@ android {
         staging {
             debuggable = false
             jniDebuggable = false
-            signingConfig signingConfigs.release
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             minifyEnabled = true
             shrinkResources = true
             multiDexEnabled = true
