@@ -4339,6 +4339,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         iBlur3FactoryLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryFade.setSourceRootView(viewPositionWatcher, contentView);
         iBlur3FactoryBlur.setSourceRootView(viewPositionWatcher, contentView);
+        // Keep the title area on the same wallpaper-aware liquid-glass surface
+        // as the other navigation controls. Without this drawable, the
+        // transparent ActionBar exposes the window's opaque fallback.
+        actionBar.setupGlass(iBlur3FactoryLiquidGlass,
+                BlurredBackgroundProviderImpl.topPanel(resourceProvider));
 
         final PointF tmpPoint = new PointF();
         iBlur3Capture = (canvas, position) -> {
@@ -5492,11 +5497,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            // Keep the folder strip fully transparent. A glass RenderNode can
-            // repaint an opaque backing surface even when its provider alpha is zero.
+            // Use the same wallpaper-aware glass surface as the top panel.
+            // An empty background exposes the window's white fallback over
+            // motion wallpapers.
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
-            filterTabsView.setBlurredBackground(null);
-            filterTabsView.setBackgroundColor(Color.TRANSPARENT);
+            filterTabsView.setBlurredBackground(iBlur3FactoryLiquidGlass.create(
+                    filterTabsView,
+                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider))
+                    .setRadius(dp(16))
+                    .setPadding(dp(6.666f)));
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
 
