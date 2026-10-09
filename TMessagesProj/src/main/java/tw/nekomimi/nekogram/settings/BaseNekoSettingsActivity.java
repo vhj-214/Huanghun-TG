@@ -45,6 +45,7 @@ import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
@@ -95,6 +96,8 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     protected LinearLayoutManager layoutManager;
     protected Theme.ResourcesProvider resourcesProvider;
     private BlurredBackgroundDrawableViewFactory settingsGlassFactory;
+    private final WallpaperBitmapProvider settingsWallpaperBitmapProvider = new WallpaperBitmapProvider();
+    private final BlurredBackgroundSourceWrapped settingsWallpaperSource = new BlurredBackgroundSourceWrapped();
 
     protected int rowCount;
     protected HashMap<String, Integer> rowMap = new HashMap<>(20);
@@ -130,16 +133,13 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
 
-        BlurredBackgroundSource source = new WallpaperBitmapProvider()
-                .updateSourceFromBackgroundViewDrawable(Theme.getCachedWallpaper());
-        if (source == null) {
+        updateSettingsWallpaperSource(Theme.getCachedWallpaper());
+        if (settingsWallpaperSource.getSource() == null) {
             BlurredBackgroundSourceColor colorSource = new BlurredBackgroundSourceColor();
-            colorSource.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-            source = colorSource;
+            colorSource.setColor(Color.TRANSPARENT);
+            settingsWallpaperSource.setSource(colorSource);
         }
-        BlurredBackgroundSourceWrapped wrappedSource = new BlurredBackgroundSourceWrapped();
-        wrappedSource.setSource(source);
-        settingsGlassFactory = new BlurredBackgroundDrawableViewFactory(wrappedSource);
+        settingsGlassFactory = new BlurredBackgroundDrawableViewFactory(settingsWallpaperSource);
         settingsGlassFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
         settingsGlassFactory.setSourceRootView(new ViewPositionWatcher(frameLayout), frameLayout);
 
@@ -203,7 +203,9 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             return;
         }
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
-        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        android.graphics.drawable.Drawable wallpaper = Theme.getCachedWallpaper();
+        frameLayout.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
+        updateSettingsWallpaperSource(wallpaper);
         if (settingsDynamicVideoWallpaperPaused) {
             return;
         }
@@ -222,6 +224,42 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
         frameLayout.setBackgroundColor(Color.TRANSPARENT);
+    }
+
+    private void updateSettingsWallpaperSource(android.graphics.drawable.Drawable wallpaper) {
+        if (settingsWallpaperSource == null) {
+            return;
+        }
+        BlurredBackgroundSource source = wallpaper == null
+                ? null
+                : settingsWallpaperBitmapProvider.updateSourceFromBackgroundViewDrawable(wallpaper);
+        if (source instanceof BlurredBackgroundSourceColor
+                && ((BlurredBackgroundSourceColor) source).getColor() == Color.BLACK) {
+            source = null;
+        }
+        if (source == null) {
+            BlurredBackgroundSourceColor transparentSource = new BlurredBackgroundSourceColor();
+            transparentSource.setColor(Color.TRANSPARENT);
+            source = transparentSource;
+        }
+        settingsWallpaperSource.setSource(source);
+        if (fragmentView != null) {
+            updateSettingsWallpaperSourceSize(fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+            fragmentView.invalidate();
+        }
+    }
+
+    private void updateSettingsWallpaperSourceSize(int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        BlurredBackgroundSource source = settingsWallpaperSource.getSource();
+        while (source instanceof BlurredBackgroundSourceWrapped) {
+            source = ((BlurredBackgroundSourceWrapped) source).getSource();
+        }
+        if (source instanceof BlurredBackgroundSourceBitmap) {
+            ((BlurredBackgroundSourceBitmap) source).setParentSize(width, height, 0);
+        }
     }
 
     @SuppressLint("NotifyDataSetChanged")
@@ -413,6 +451,12 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             super(context);
             needBlur = hasWhiteActionBar();
             blurBehindViews.add(this);
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            updateSettingsWallpaperSourceSize(getMeasuredWidth(), getMeasuredHeight());
         }
 
         @Override
