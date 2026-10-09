@@ -10,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.ShapeDrawable;
@@ -74,11 +73,12 @@ import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.Premium.LimitReachedBottomSheet;
 import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
-import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
+import org.telegram.ui.Components.blur3.BlurredBackgroundWithFadeDrawable;
 import org.telegram.ui.Components.blur3.RenderNodeWithHash;
 import org.telegram.ui.Components.blur3.capture.IBlur3Hash;
-import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.glass.GlassTabView;
@@ -139,6 +139,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private UpdateLayoutWrapper updateLayoutWrapper;
     private FrameLayout tabsViewWrapper;
     private MainTabsLayout tabsView;
+    private BlurredBackgroundDrawable tabsViewBackground;
     private View fadeView;
     private boolean lastHideContacts = MainTabsHelper.isContactsTabHidden();
     private boolean lastSpecialAttentionEnabled = MainTabsHelper.isSpecialAttentionEnabled();
@@ -147,9 +148,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     public MainTabsActivity() {
         super();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            BlurredBackgroundSourceColor softwareGlassFallback = new BlurredBackgroundSourceColor();
-            softwareGlassFallback.setColor(Color.TRANSPARENT);
-            iBlur3SourceTabGlass = new BlurredBackgroundSourceRenderNode(softwareGlassFallback);
+            iBlur3SourceTabGlass = new BlurredBackgroundSourceRenderNode(null);
             iBlur3SourceTabGlass.setupRenderer(new RenderNodeWithHash.Renderer() {
                 @Override
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
@@ -186,9 +185,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    if (SharedConfig.chatBlurEnabled()) {
-                        canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                    }
+                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
@@ -428,22 +425,25 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         final ViewPositionWatcher viewPositionWatcher = new ViewPositionWatcher(contentView);
 
-        BlurredBackgroundSourceColor transparentGlassFallback = new BlurredBackgroundSourceColor();
-        transparentGlassFallback.setColor(Color.TRANSPARENT);
-        BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new BlurredBackgroundDrawableViewFactory(
-            iBlur3SourceTabGlass != null ? iBlur3SourceTabGlass : transparentGlassFallback);
+        BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceTabGlass != null ? iBlur3SourceTabGlass : iBlur3SourceColor);
         iBlur3FactoryGlass.setSourceRootView(viewPositionWatcher, contentView);
-        // Apply the requested iOS liquid-glass material whenever the Android renderer supports it.
-        iBlur3FactoryGlass.setLiquidGlassEffectAllowed(true);
-        BlurredBackgroundDrawable mainTabsGlass = iBlur3FactoryGlass.create(
-            tabsView, BlurredBackgroundProviderImpl.mainTabsTransparent(resourceProvider));
-        mainTabsGlass.setRadius(dp(28));
-        mainTabsGlass.setPadding(0);
-        tabsView.setBackground(mainTabsGlass);
+        iBlur3FactoryGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+
+        tabsViewBackground = iBlur3FactoryGlass.create(tabsView, BlurredBackgroundProviderImpl.mainTabsTransparent(resourceProvider));
+        tabsViewBackground.setRadius(dp(MainTabsHelper.getMainTabsHeight() / 2f));
+        // 玻璃绘制区域与里面的标签使用同一套内缩(与 tabsView 的 padding 一致),
+        // 这样框正好包住标签。之前用 margin - 0.334 会让玻璃在四周各多出一圈空边,
+        // 视觉上就是底部那条"大了一圈"的模糊条。
+        tabsViewBackground.setPadding(paddingH);
+        tabsView.setBackground(tabsViewBackground);
+
+        BlurredBackgroundDrawableViewFactory iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
+        iBlur3FactoryFade.setSourceRootView(viewPositionWatcher, contentView);
+
         fadeView = new View(context);
-        // Keep the navigation surface transparent; the old white fade became a
-        // visible rectangular block over video and static wallpapers.
-        fadeView.setBackground(null);
+        BlurredBackgroundWithFadeDrawable fadeDrawable = new BlurredBackgroundWithFadeDrawable(iBlur3FactoryFade.create(fadeView, null));
+        fadeDrawable.setFadeHeight(dp(60), true);
+        fadeView.setBackground(fadeDrawable);
 
         contentView.addView(fadeView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 0, Gravity.BOTTOM));
 
@@ -1403,6 +1403,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     private void blur3_updateColors() {
         blur3_updateFadeColors();
+        if (tabsViewBackground != null) {
+            tabsViewBackground.updateColors();
+        }
         blur3_invalidateBlur();
         if (fadeView != null) {
             fadeView.invalidate();

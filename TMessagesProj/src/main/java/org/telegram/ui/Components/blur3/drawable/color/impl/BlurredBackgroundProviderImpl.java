@@ -32,22 +32,6 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
-    /**
-     * Home-screen glass material: translucent in every theme, with no opaque theme-color fallback.
-     * The backdrop is supplied by the screen's RenderNode when blur is available; otherwise the
-     * current wallpaper remains visible through this tint.
-     */
-    public static BlurredBackgroundProvider mainScreenGlass(Theme.ResourcesProvider resourcesProvider) {
-        return new BlurredBackgroundProviderBuilder(resourcesProvider)
-            .setBackgroundColor((r, isDark) -> Theme.multAlpha(
-                Theme.getColor(Theme.key_windowBackgroundWhite, r), 0.36f))
-            .setStrokeColorTop(0x22FFFFFF, 0x18FFFFFF)
-            .setStrokeColorBottom(0x10000000, 0x12FFFFFF)
-            .setShadowColor(0, 0)
-            .setShadowLayer(0, 0, 0)
-            .setStrokeWidth(dpf2(0.35f), dpf2(0.35f))
-            .build();
-    }
     public static BlurredBackgroundProvider topPanel(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
@@ -65,24 +49,22 @@ public class BlurredBackgroundProviderImpl {
     }
 
     /**
-     * Wallpaper-aware glass used only by the main chat-folder strip and the bottom main tabs.
-     * It deliberately keeps the tint light so video and static wallpapers remain visible in both themes.
+     * iOS 风格的液态透明玻璃,用于分类标签栏、空闲搜索框和底部主导航。
+     * 关键点:①只做极轻的着色,让壁纸完整透出来;②描边用白色高光而不是黑色轮廓,
+     * ③阴影压到几乎不可见 —— 之前那版用了较重的黑色描边与投影,会在玻璃后面
+     * 形成一圈"黑边",看起来像一个多余的大方框。
      */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
-                // Keep the wallpaper visible while giving the glass enough body to
-                // show its refraction and separation from the content underneath.
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.42f : 0.34f;
+                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.22f : 0.18f;
                 return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
             })
-            .setStrokeColorTop(0x66FFFFFF, 0x3CFFFFFF)
-            .setStrokeColorBottom(0x33000000, 0x2EFFFFFF)
-            // The translucent fill already separates the navigation surface from
-            // wallpaper; an extra blur shadow creates a dark halo.
-            .setShadowColor(0, 0)
-            .setShadowLayer(0, 0, 0)
-            .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
+            .setStrokeColorTop(0x5CFFFFFF, 0x33FFFFFF)
+            .setStrokeColorBottom(0x24FFFFFF, 0x1AFFFFFF)
+            .setShadowColor(0x0D000000, 0x00000000)
+            .setShadowLayer(dpf2(2f), 0, dpf2(0.5f))
+            .setStrokeWidth(dpf2(0.5f), dpf2(0.5f))
             .build();
     }
 
@@ -91,19 +73,10 @@ public class BlurredBackgroundProviderImpl {
     }
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
-        return new BlurredBackgroundProviderBuilder(resourcesProvider)
-            .setBackgroundColor((r, isDark) -> {
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.42f : 0.34f;
-                return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
-            })
-            // The folder strip sits directly over the wallpaper. Avoid the
-            // highlight edge and shadow that appear as a white border/halo.
-            .setStrokeColorTop(0, 0)
-            .setStrokeColorBottom(0, 0)
-            .setShadowColor(0, 0)
-            .setShadowLayer(0, 0, 0)
-            .setStrokeWidth(0, 0)
-            .build();
+        // 分类标签栏和底部导航属于同一层级的悬浮玻璃,统一走透明配方。
+        // 之前这里走的是 topPanel(接近不透明的面板 + 黑色描边投影),结果在标签后面
+        // 多出一个明显的大方框和黑边 —— 这正是要修掉的那处。
+        return mainNavigationTransparentGlass(resourcesProvider);
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {

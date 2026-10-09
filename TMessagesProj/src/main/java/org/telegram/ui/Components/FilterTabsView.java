@@ -916,6 +916,14 @@ public class FilterTabsView extends FrameLayout {
     private final LinearLayoutManager layoutManager;
     private final ListAdapter adapter;
 
+    /**
+     * 标签内容相对控件左右边缘的内缩量。玻璃背景要用它对齐内容,
+     * 否则玻璃框会比标签本身宽出一圈。
+     */
+    public int getContentPaddingHorizontal() {
+        return listViewPaddingH;
+    }
+
     private FilterTabsViewDelegate delegate;
 
     private int currentPosition;

@@ -87,6 +87,21 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         return this;
     }
 
+    /**
+     * 单独指定水平方向的内缩。当里面的内容本身带水平 padding(例如分类标签栏)时,
+     * 用它把玻璃绘制区域对齐到内容上,避免玻璃比内容多出一圈"空边"。
+     * 不调用时行为与 {@link #setPadding(int)} 完全一致。
+     */
+    public BlurredBackgroundDrawable setPaddingHorizontal(int paddingHorizontal) {
+        if (boundProps.paddingHorizontal != paddingHorizontal) {
+            boundProps.paddingHorizontal = paddingHorizontal;
+            boundProps.build();
+
+            onBoundPropsChanged();
+        }
+        return this;
+    }
+
     public BlurredBackgroundDrawable setHasPadding(boolean hasPadding) {
         boundProps.hasPadding = hasPadding;
         return this;
@@ -94,7 +109,8 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
 
     @Override
     public boolean getPadding(@NonNull Rect padding) {
-        padding.set(boundProps.padding, boundProps.padding, boundProps.padding, boundProps.padding);
+        final int h = boundProps.paddingHorizontal >= 0 ? boundProps.paddingHorizontal : boundProps.padding;
+        padding.set(h, boundProps.padding, h, boundProps.padding);
         return boundProps.hasPadding;
     }
 
@@ -221,6 +237,8 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         public final float[] radii = new float[8];
         public final float[] shaderRadii = new float[8];
         public int padding;
+        /** 水平方向独立内缩;< 0 表示跟随 {@link #padding} */
+        public int paddingHorizontal = -1;
         public boolean hasPadding;
         public int liquidThickness;
         public float liquidIntensity = 0.75f;
@@ -241,7 +259,9 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
             radiiAreSame = radiiAreSame(radii);
 
             boundsWithPadding.set(bounds);
-            boundsWithPadding.inset(padding, padding);
+            boundsWithPadding.inset(
+                paddingHorizontal >= 0 ? paddingHorizontal : padding,
+                padding);
 
             path.rewind();
             path.addRoundRect(
