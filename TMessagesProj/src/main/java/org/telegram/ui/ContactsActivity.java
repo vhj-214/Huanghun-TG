@@ -303,6 +303,25 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         return drawable;
     }
 
+    /** Keep the top bar in the wallpaper blur drawing path, including the status bar. */
+    private void applyHuanghunContactsActionBarGlass() {
+        if (!hasMainTabs || actionBar == null) {
+            return;
+        }
+        // A fully transparent actionBarColor skips ActionBar's blur/scrim pass and
+        // exposes the light theme's white parent surface as a strip above the wallpaper.
+        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setBackground(null);
+        actionBar.setCastShadows(false);
+        if (actionBar.getTitlesContainer() != null) {
+            // Stop the initial title replacement animation from blinking while the
+            // wallpaper render node is being initialized.
+            actionBar.getTitlesContainer().animate().cancel();
+            actionBar.getTitlesContainer().setAlpha(1f);
+            actionBar.getTitlesContainer().setTranslationY(0f);
+        }
+    }
+
     @Override
     public View createView(Context context) {
         searching = false;
@@ -313,9 +332,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
         actionBar.setAllowOverlayTitle(true);
         if (hasMainTabs) {
-            actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            actionBar.setBackground(null);
-            actionBar.setCastShadows(false);
+            applyHuanghunContactsActionBarGlass();
         }
         if (destroyAfterSelect) {
             if (returnAsResult) {
@@ -564,7 +581,9 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 canvas.restore();
 
                 final int oldScrimAlpha = blurScrimPaint.getAlpha();
-                blurScrimPaint.setAlpha(hasMainTabs ? 70 : ChatActivity.ACTION_BAR_BLUR_ALPHA);
+                // Match the translucent search/section surfaces instead of drawing
+                // another opaque-looking white strip over the wallpaper.
+                blurScrimPaint.setAlpha(hasMainTabs ? 32 : ChatActivity.ACTION_BAR_BLUR_ALPHA);
                 canvas.drawRect(rectTmp, blurScrimPaint);
                 blurScrimPaint.setAlpha(oldScrimAlpha);
             }
@@ -1054,8 +1073,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         if (hasMainTabs) {
             // The default adaptive colors are opaque theme surfaces; they cover the wallpaper
             // even though the ActionBar was initially made transparent above.
-            actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            actionBar.setBackground(null);
+            applyHuanghunContactsActionBarGlass();
         } else {
             actionBar.setAdaptiveBackground(listView);
         }
@@ -1354,6 +1372,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     @Override
     public void onResume() {
         super.onResume();
+        applyHuanghunContactsActionBarGlass();
         if (hasMainTabs && contentView != null && (contactsDynamicWallpaperPlayer == null
                 || !contactsDynamicWallpaperPlayer.matchesCurrentSource(contentView.getContext(), currentAccount, 0L))) {
             refreshContactsWallpaper();
@@ -1577,6 +1596,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             }
             if (actionBar != null) {
                 actionBar.updateColors();
+                applyHuanghunContactsActionBarGlass();
             }
             if (contentView != null) {
                 contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
