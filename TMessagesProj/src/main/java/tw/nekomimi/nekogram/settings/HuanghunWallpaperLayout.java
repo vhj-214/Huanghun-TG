@@ -12,15 +12,16 @@ final class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
     private final int account;
     private DynamicVideoWallpaperHelper.Player player;
     private boolean listening;
-    private final DynamicVideoWallpaperHelper.WallpaperChangeListener wallpaperChangeListener = (changedAccount, dialogId) -> {
-        if (changedAccount == account && dialogId == 0L && isAttachedToWindow()) {
-            AndroidUtilities.runOnUIThread(this::refreshWallpaper);
-        }
-    };
+    private final DynamicVideoWallpaperHelper.WallpaperChangeListener wallpaperChangeListener;
 
     HuanghunWallpaperLayout(Context context, int account) {
         super(context);
         this.account = account;
+        wallpaperChangeListener = (changedAccount, dialogId) -> {
+            if (changedAccount == this.account && dialogId == 0L && isAttachedToWindow()) {
+                AndroidUtilities.runOnUIThread(this::refreshWallpaper);
+            }
+        };
         refreshWallpaper();
     }
 
