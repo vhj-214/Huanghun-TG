@@ -314,6 +314,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         actionBar.setAllowOverlayTitle(true);
         if (hasMainTabs) {
             actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            actionBar.setBackground(null);
             actionBar.setCastShadows(false);
         }
         if (destroyAfterSelect) {
@@ -471,10 +472,12 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
                 RecyclerView.ViewHolder holder = super.onCreateViewHolder(parent, viewType);
                 // 只为成功登录后的主联系人入口添加玻璃层；联系人选择器、转发和建群入口保持官方单元格行为。
-                if (hasMainTabs && (holder.itemView instanceof UserCell || holder.itemView instanceof TextCell)) {
-                    // The section surface is the only background. Individual cells stay
-                    // transparent so wallpaper/video cannot be hidden by white cards.
+                if (hasMainTabs) {
+                    // The section surface is the only background. Telegram's stock cell
+                    // drawables are opaque white in the light theme, so clear them for the
+                    // main contacts tab; otherwise every row hides the live wallpaper.
                     holder.itemView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                    holder.itemView.setBackground(null);
                 }
                 return holder;
             }
@@ -604,6 +607,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 },
                 false
         );
+        listView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         contentView.setBackgroundImage(hasMainTabs ? Theme.getCachedWallpaper() : null, Theme.isWallpaperMotion());
         contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
         if (hasMainTabs) {
@@ -997,7 +1001,9 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 //                }
 
                 final boolean shadowVisible = !(firstVisibleItem == 0 && firstViewTop >= listView.getPaddingTop());
-                headerShadowView.setShadowVisible(shadowVisible, true);
+                // The stock shadow is an opaque light gradient and becomes a white
+                // horizontal edge over the wallpaper. Main-tab glass has its own tint.
+                headerShadowView.setShadowVisible(shadowVisible && !hasMainTabs, true);
 
                 lastScrollToDown = dy < 0;
 
