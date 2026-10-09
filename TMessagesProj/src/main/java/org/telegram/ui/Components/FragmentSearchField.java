@@ -179,6 +179,7 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     }
 
     private Drawable bg;
+    private Drawable glassBackground;
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
@@ -263,6 +264,7 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     /** Uses the internal background path without recreating the opaque theme drawable. */
     public void setGlassBackground(Drawable drawable) {
         isSectionBackground = false;
+        glassBackground = drawable;
         bg = drawable;
         invalidate();
     }
@@ -277,7 +279,7 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     @Override
     public void updateColors() {
         final boolean isDark = resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark();
-        bg = isSectionBackground ?
+        bg = glassBackground != null ? glassBackground : isSectionBackground ?
             Theme.createRoundRectDrawableShadowed(dp(20), getThemedColor(Theme.key_windowBackgroundWhite)) :
             Theme.createRoundRectDrawable(dp(20), isWhiteBackground ? getThemedColor(Theme.key_windowBackgroundWhite) : getThemedColor(Theme.key_windowBackgroundWhiteBlackText, isDark ? 0.07f : 0.05f));
         searchIcon.setColorFilter(getThemedColor(Theme.key_windowBackgroundWhiteBlackText, 0.6f), PorterDuff.Mode.MULTIPLY);

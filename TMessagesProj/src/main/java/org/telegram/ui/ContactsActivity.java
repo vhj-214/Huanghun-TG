@@ -600,8 +600,16 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 dp(10),
                 18,
                 (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    sectionGlassPaint.setColor(0x20FFFFFF);
-                    sectionGlassPaint.setAlpha(Math.round(255 * alpha));
+                    if (hasMainTabs) {
+                        // setAlpha replaces (rather than multiplies) the alpha in setColor.
+                        // Keep the main-tab surface genuinely translucent so wallpaper remains visible.
+                        sectionGlassPaint.setColor(android.graphics.Color.WHITE);
+                        sectionGlassPaint.setAlpha(Math.round(0x14 * alpha));
+                    } else {
+                        // Preserve the stock opaque surface for contact pickers and other flows.
+                        sectionGlassPaint.setColor(0x20FFFFFF);
+                        sectionGlassPaint.setAlpha(Math.round(255 * alpha));
+                    }
                     float radius = Math.max(topRadius, bottomRadius);
                     canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
                 },
@@ -1043,7 +1051,14 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         headerShadowView.setShadowVisible(false, false);
         contentView.addView(headerShadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 5, Gravity.TOP));
 
-        actionBar.setAdaptiveBackground(listView);
+        if (hasMainTabs) {
+            // The default adaptive colors are opaque theme surfaces; they cover the wallpaper
+            // even though the ActionBar was initially made transparent above.
+            actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            actionBar.setBackground(null);
+        } else {
+            actionBar.setAdaptiveBackground(listView);
+        }
         actionBar.setDrawBlurBackground(contentView);
 
 //        animatorSearchFieldHeight.forceFactor(dp(DialogsActivity.SEARCH_FIELD_HEIGHT));
