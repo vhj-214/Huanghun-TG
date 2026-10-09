@@ -5492,11 +5492,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            // Keep the folder strip fully transparent. A glass RenderNode can
-            // repaint an opaque backing surface even when its provider alpha is zero.
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
-            filterTabsView.setBlurredBackground(null);
-            filterTabsView.setBackgroundColor(Color.TRANSPARENT);
+            BlurredBackgroundDrawable folderTabsGlass = iBlur3FactoryLiquidGlass.create(
+                    filterTabsView,
+                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            folderTabsGlass.setRadius(dp(18));
+            folderTabsGlass.setPadding(dp(6));
+            filterTabsView.setBlurredBackground(folderTabsGlass);
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
 
@@ -5764,6 +5766,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             showSearch(false, false, false);
         }
         actionBar.setDrawBlurBackground(contentView);
+        actionBar.setupGlass(iBlur3FactoryLiquidGlass, BlurredBackgroundProviderImpl.topPanelChatActivity(resourceProvider));
 
         rightSlidingDialogContainer = new RightSlidingDialogContainer(context) {
 

@@ -110,9 +110,14 @@ import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.StickerEmptyView;
 import org.telegram.ui.Components.blur3.DownscaleScrollableNoiseSuppressor;
+import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
+import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.ViewGroupPartRenderer;
 import org.telegram.ui.Components.blur3.capture.IBlur3Capture;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
+import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.inset.WindowAnimatedInsetsProvider;
 
 import java.util.ArrayList;
@@ -180,6 +185,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private String initialSearchString;
     private HeaderShadowView headerShadowView;
     private FragmentSearchField searchField;
+    private BlurredBackgroundDrawableViewFactory contactsGlassFactory;
 
     private AlertDialog permissionDialog;
     private boolean askAboutContacts = true;
@@ -292,11 +298,18 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     }
 
     /**
-     * 仅用于已登录主联系人页的单层中性玻璃表面；不使用彩色渐变，避免与单元格内容叠色。
+     * 仅用于已登录主联系人页的液态玻璃表面；联系人选择器保持官方样式。
      */
-    private android.graphics.drawable.Drawable createHuanghunContactsGlassDrawable() {
+    private android.graphics.drawable.Drawable createHuanghunContactsGlassDrawable(View target) {
+        if (contactsGlassFactory != null) {
+            BlurredBackgroundDrawable drawable = contactsGlassFactory.create(
+                    target, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            drawable.setRadius(dp(18));
+            drawable.setPadding(dp(4));
+            return drawable;
+        }
         android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
-        drawable.setColor(0x38FFFFFF);
+        drawable.setColor(0x24FFFFFF);
         drawable.setCornerRadius(dp(18));
         drawable.setStroke(Math.max(1, dp(1)), 0x66FFFFFF);
         return new android.graphics.drawable.InsetDrawable(drawable, dp(10), dp(2), dp(10), dp(2));
@@ -334,7 +347,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         searchField.setSectionBackground();
         if (hasMainTabs) {
             // 主联系人页属于登录后导航，不影响任何登录或联系人选择流程。
-            searchField.setBackground(createHuanghunContactsGlassDrawable());
+            searchField.setBackground(createHuanghunContactsGlassDrawable(searchField));
         }
         searchField.setPivotY(0);
         final ActionBarMenu actionMode = actionBar.createActionMode(false, null);
@@ -471,7 +484,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
                 RecyclerView.ViewHolder holder = super.onCreateViewHolder(parent, viewType);
                 // 只为成功登录后的主联系人入口添加玻璃层；联系人选择器、转发和建群入口保持官方单元格行为。
                 if (hasMainTabs && (holder.itemView instanceof UserCell || holder.itemView instanceof TextCell)) {
-                    holder.itemView.setBackground(createHuanghunContactsGlassDrawable());
+                    holder.itemView.setBackground(createHuanghunContactsGlassDrawable(holder.itemView));
                 }
                 return holder;
             }
@@ -592,6 +605,16 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         contentView.setBackgroundImage(hasMainTabs ? Theme.getCachedWallpaper() : null, Theme.isWallpaperMotion());
         contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
         if (hasMainTabs) {
+            if (iBlur3SourceGlass != null) {
+                contactsGlassFactory = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
+            } else {
+                BlurredBackgroundSourceColor sourceColor = new BlurredBackgroundSourceColor();
+                sourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                contactsGlassFactory = new BlurredBackgroundDrawableViewFactory(sourceColor);
+            }
+            contactsGlassFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            contactsGlassFactory.setSourceRootView(new ViewPositionWatcher(contentView), contentView);
+            searchField.setBackground(createHuanghunContactsGlassDrawable(searchField));
             DynamicVideoWallpaperHelper.addChangeListener(contactsWallpaperChangeListener);
             contactsDynamicWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, 0L);
             if (contactsDynamicWallpaperPlayer != null) {
@@ -1022,7 +1045,11 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         headerShadowView.setShadowVisible(false, false);
         contentView.addView(headerShadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 5, Gravity.TOP));
 
-        actionBar.setAdaptiveBackground(listView);
+        if (hasMainTabs) {
+            actionBar.setupGlass(contactsGlassFactory, BlurredBackgroundProviderImpl.topPanelChatActivity(resourceProvider));
+        } else {
+            actionBar.setAdaptiveBackground(listView);
+        }
         actionBar.setDrawBlurBackground(contentView);
 
 //        animatorSearchFieldHeight.forceFactor(dp(DialogsActivity.SEARCH_FIELD_HEIGHT));
