@@ -100,11 +100,26 @@ public class BlurredBackgroundProviderImpl {
                     final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.26f : 0.20f;
                     return Theme.multAlpha(Theme.getColor(Theme.key_chat_topPanelBackground, r), alpha);
                 })
-                .setStrokeColorTop(0x35FFFFFF, 0x20FFFFFF)
-                .setStrokeColorBottom(0x18000000, 0x24FFFFFF)
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
                 .setShadowColor(0, 0)
                 .setShadowLayer(0, 0, 0)
-                .setStrokeWidth(dpf2(0.55f), dpf2(0.55f))
+                .setStrokeWidth(0, 0)
+                .build();
+    }
+
+    /** Full-width, edge-free glass bed that visually joins the status bar and ActionBar. */
+    public static BlurredBackgroundProvider mainDialogsConnectedTopBackdrop(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> {
+                    final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.26f : 0.20f;
+                    return Theme.multAlpha(Theme.getColor(Theme.key_chat_topPanelBackground, r), alpha);
+                })
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(0, 0)
                 .build();
     }
 
