@@ -2780,7 +2780,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         super(args);
 
         iBlur3SourceColor = new BlurredBackgroundSourceColor();
-        iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        iBlur3SourceColor.setColor(Color.TRANSPARENT);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             scrollableViewNoiseSuppressor = new DownscaleScrollableNoiseSuppressor();
             iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(null);
@@ -12819,7 +12819,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 floatingButtonStories.updateColors();
             }
 
-            iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            iBlur3SourceColor.setColor(Color.TRANSPARENT);
             updateHuanghunDialogsGlassBase();
             if (topPanelLayout != null) {
                 topPanelLayout.updateColors();

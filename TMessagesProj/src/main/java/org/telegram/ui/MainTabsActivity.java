@@ -424,7 +424,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         selectTab(viewPager.getCurrentPosition(), false);
 
-        iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        iBlur3SourceColor.setColor(Color.TRANSPARENT);
 
         final ViewPositionWatcher viewPositionWatcher = new ViewPositionWatcher(contentView);
 
@@ -1399,7 +1399,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private void blur3_updateFadeColors() {
-        iBlur3SourceColor.setColor(getEstBackgroundColor());
+        iBlur3SourceColor.setColor(Color.TRANSPARENT);
         if (fadeView != null) {
             fadeView.invalidate();
         }
