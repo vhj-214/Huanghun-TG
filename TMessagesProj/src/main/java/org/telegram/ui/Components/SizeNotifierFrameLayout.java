@@ -77,6 +77,7 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
     protected SizeNotifierFrameLayoutDelegate delegate;
     protected final ArrayList<SizeNotifierFrameLayoutDelegate> delegates = new ArrayList<>();
     private boolean occupyStatusBar = true;
+    private boolean drawBackgroundBehindTopBars;
     private WallpaperParallaxEffect parallaxEffect;
     private float translationX;
     private float translationY;
@@ -228,7 +229,7 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
                 if (drawable instanceof MotionBackgroundDrawable) {
                     MotionBackgroundDrawable motionBackgroundDrawable = (MotionBackgroundDrawable) drawable;
                     if (motionBackgroundDrawable.hasPattern()) {
-                        int actionBarHeight = (isActionBarVisible() ? ActionBar.getCurrentActionBarHeight() : 0) + (isStatusBarVisible() && occupyStatusBar ? AndroidUtilities.statusBarHeight : 0);
+                        int actionBarHeight = drawBackgroundBehindTopBars ? 0 : (isActionBarVisible() ? ActionBar.getCurrentActionBarHeight() : 0) + (isStatusBarVisible() && occupyStatusBar ? AndroidUtilities.statusBarHeight : 0);
                         int viewHeight = useRootView() ? getRootView().getMeasuredHeight() - actionBarHeight : getHeight();
                         float scaleX = (float) getMeasuredWidth() / (float) drawable.getIntrinsicWidth();
                         float scaleY = (float) (viewHeight) / (float) drawable.getIntrinsicHeight();
@@ -289,7 +290,7 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
                         checkSnowflake(canvas);
                         canvas.restore();
                     } else {
-                        int actionBarHeight = (isActionBarVisible() ? ActionBar.getCurrentActionBarHeight() : 0) + (isStatusBarVisible() && occupyStatusBar ? AndroidUtilities.statusBarHeight : 0);
+                        int actionBarHeight = drawBackgroundBehindTopBars ? 0 : (isActionBarVisible() ? ActionBar.getCurrentActionBarHeight() : 0) + (isStatusBarVisible() && occupyStatusBar ? AndroidUtilities.statusBarHeight : 0);
                         int viewHeight = useRootView() ? getRootView().getMeasuredHeight() - actionBarHeight : getHeight();
                         float scaleX = (float) getMeasuredWidth() / (float) drawable.getIntrinsicWidth();
                         float scaleY = (float) (viewHeight) / (float) drawable.getIntrinsicHeight();
@@ -447,6 +448,16 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
 
     public void setOccupyStatusBar(boolean value) {
         occupyStatusBar = value;
+    }
+
+    /** Allow wallpaper-backed transparent headers to show the wallpaper below system bars. */
+    public void setDrawBackgroundBehindTopBars(boolean value) {
+        if (drawBackgroundBehindTopBars != value) {
+            drawBackgroundBehindTopBars = value;
+            if (backgroundView != null) {
+                backgroundView.invalidate();
+            }
+        }
     }
 
     public void onPause() {
