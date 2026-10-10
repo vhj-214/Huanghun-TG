@@ -23,7 +23,11 @@ jobs:
       - name: Set up Android SDK build tools
         uses: android-actions/setup-android@v4
         with:
-          packages: "build-tools;36.0.0"
+          packages: "build-tools;36.0.0 ndk;27.2.12479018 platforms;android-37.0"
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes nasm
+      - name: Configure Android SDK path
+        run: echo "sdk.dir=${ANDROID_HOME}" >> local.properties
       - name: Restore native build cache
         uses: actions/cache@v4
         with:
@@ -36,22 +40,31 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew :TMessagesProj:assembleDebug -PnativeTarget=arm64-v8a --no-daemon --parallel --build-cache
+        env:
+          NATIVE_TARGET: universal
+        run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify installable APK
         shell: bash
         run: |
           shopt -s nullglob
-          apks=(TMessagesProj/build/outputs/apk/debug/*.apk)
+          apks=(TMessagesProj/build/outputs/apk/staging/*-universal.apk)
           if [ "${#apks[@]}" -ne 1 ]; then
-            echo "Expected exactly one debug APK, found ${#apks[@]}" >&2
+            echo "Expected exactly one universal staging APK, found ${#apks[@]}" >&2
+            find TMessagesProj/build/outputs/apk/staging -type f -name '*.apk' -print >&2
             exit 1
           fi
-          test -s "${apks[0]}"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "${apks[0]}"
-          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "${apks[0]}"
+          apk="${apks[0]}"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          echo "Verified universal APK: $apk"
+          ls -lh "$apk" "$apk.sha256"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: 黄昏-APK
-          path: TMessagesProj/build/outputs/apk/debug/*.apk
+          name: 黄昏-可安装通用APK
+          path: |
+            TMessagesProj/build/outputs/apk/staging/*-universal.apk
+            TMessagesProj/build/outputs/apk/staging/*-universal.apk.sha256
           if-no-files-found: error
