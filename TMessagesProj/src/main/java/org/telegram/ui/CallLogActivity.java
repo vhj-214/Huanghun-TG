@@ -188,7 +188,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		super(args);
 
 		iBlur3SourceColor = new BlurredBackgroundSourceColor();
-		iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundGray));
+		iBlur3SourceColor.setColor(Color.TRANSPARENT);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
 			scrollableViewNoiseSuppressor = new DownscaleScrollableNoiseSuppressor();
 			iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(null);
@@ -759,7 +759,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		otherItem.setOnClickListener(v -> showItemOptions());
 
 		listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
-		listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
+		listView.setBackgroundColor(Color.TRANSPARENT);
 		listView.setSections();
 		listView.adapter.setApplyBackground(false);
 		contentView = new SizeNotifierFrameLayout(context) {
@@ -790,7 +790,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 					if (iBlur3SourceGlassFrosted != null && !iBlur3SourceGlassFrosted.inRecording()) {
 						//if (iBlur3SourceGlassFrosted.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
 						final Canvas c = iBlur3SourceGlassFrosted.beginRecording(width, height);
-						c.drawColor(getThemedColor(Theme.key_windowBackgroundGray));
+						c.drawColor(Color.TRANSPARENT);
 						if (SharedConfig.chatBlurEnabled()) {
 							scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_FROSTED_GLASS);
 						}
@@ -800,7 +800,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 					if (iBlur3SourceGlass != null && !iBlur3SourceGlass.inRecording()) {
 						//if (iBlur3SourceGlass.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
 						final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
-						c.drawColor(getThemedColor(Theme.key_windowBackgroundGray));
+						c.drawColor(Color.TRANSPARENT);
 						if (SharedConfig.chatBlurEnabled()) {
 							scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
 						}
@@ -816,7 +816,10 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			@Override
 			public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
 				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null) {
+					final int oldAlpha = blurScrimPaint.getAlpha();
+					blurScrimPaint.setAlpha(0);
 					canvas.drawRect(rectTmp, blurScrimPaint);
+					blurScrimPaint.setAlpha(oldAlpha);
 					return;
 				}
 
@@ -826,7 +829,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 				canvas.restore();
 
 				final int oldScrimAlpha = blurScrimPaint.getAlpha();
-				blurScrimPaint.setAlpha(ChatActivity.ACTION_BAR_BLUR_ALPHA);
+				blurScrimPaint.setAlpha(0);
 				canvas.drawRect(rectTmp, blurScrimPaint);
 				blurScrimPaint.setAlpha(oldScrimAlpha);
 			}
@@ -842,11 +845,11 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		}));
 
 		fragmentView = contentView;
-		fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+		fragmentView.setBackgroundColor(Color.TRANSPARENT);
 
 		flickerLoadingView = new FlickerLoadingView(context);
 		flickerLoadingView.setViewType(FlickerLoadingView.CALL_LOG_TYPE);
-		flickerLoadingView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+		flickerLoadingView.setBackgroundColor(Color.TRANSPARENT);
 		flickerLoadingView.showDate(false);
 		emptyView = new EmptyTextProgressView(context, flickerLoadingView);
 		contentView.addView(emptyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -1601,7 +1604,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			}
 		};
 
-		themeDescriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
+		// Keep the call log page surface transparent; no opaque background theme description.
 
 //		themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
 		themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_actionBarDefault));
@@ -1644,7 +1647,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 
 		themeDescriptions.add(new ThemeDescription(listView, 0, new Class[]{View.class}, null, new Drawable[]{greenDrawable, greenDrawable2, Theme.calllog_msgCallUpRedDrawable, Theme.calllog_msgCallDownRedDrawable}, null, Theme.key_windowBackgroundWhiteGrayText3));
 		themeDescriptions.add(new ThemeDescription(listView, 0, new Class[]{View.class}, null, new Drawable[]{redDrawable, redDrawable2, Theme.calllog_msgCallUpGreenDrawable, Theme.calllog_msgCallDownGreenDrawable}, null, Theme.key_fill_RedNormal));
-		themeDescriptions.add(new ThemeDescription(flickerLoadingView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
+		// Flicker loading surface remains transparent.
 
 		themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_BACKGROUNDFILTER, new Class[]{ShadowSectionCell.class}, null, null, null, Theme.key_windowBackgroundGrayShadow));
 

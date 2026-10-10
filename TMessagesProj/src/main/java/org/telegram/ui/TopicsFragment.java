@@ -315,7 +315,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         canShowProgress = !getUserConfig().getPreferences().getBoolean("topics_end_reached_" + chatId, false);
 
         iBlur3SourceColor = new BlurredBackgroundSourceColor();
-        iBlur3SourceColor.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        iBlur3SourceColor.setColor(Color.TRANSPARENT);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             scrollableViewNoiseSuppressor = new DownscaleScrollableNoiseSuppressor();
             iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(null);
@@ -599,20 +599,23 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
 
                 super.dispatchDraw(canvas);
                 if (isInPreviewMode()) {
-                    actionBarPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    actionBarPaint.setColor(Color.TRANSPARENT);
                     actionBarPaint.setAlpha((int) (255 * searchAnimationProgress));
                     canvas.drawRect(0, 0, getWidth(), AndroidUtilities.statusBarHeight, actionBarPaint);
                     canvas.drawLine(0, 0, 0, getHeight(), Theme.dividerPaint);
                 }
                 if (parentDialogsActivity == null) {
-                    AndroidUtilities.drawNavigationBarProtection(canvas, this, getThemedColor(Theme.key_windowBackgroundWhite), navigationBarHeight);
+                    AndroidUtilities.drawNavigationBarProtection(canvas, this, Color.TRANSPARENT, navigationBarHeight);
                 }
             }
 
             @Override
             public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null) {
+                    final int oldAlpha = blurScrimPaint.getAlpha();
+                    blurScrimPaint.setAlpha(0);
                     canvas.drawRect(rectTmp, blurScrimPaint);
+                    blurScrimPaint.setAlpha(oldAlpha);
                     return;
                 }
 
@@ -622,13 +625,13 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
                 canvas.restore();
 
                 final int oldScrimAlpha = blurScrimPaint.getAlpha();
-                blurScrimPaint.setAlpha(ChatActivity.ACTION_BAR_BLUR_ALPHA);
+                blurScrimPaint.setAlpha(0);
                 canvas.drawRect(rectTmp, blurScrimPaint);
                 blurScrimPaint.setAlpha(oldScrimAlpha);
             }
         };
 
-        contentView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        contentView.setBackgroundColor(Color.TRANSPARENT);
         actionBar.setAddToContainer(false);
         actionBar.setCastShadows(false);
         actionBar.setClipContent(true);
@@ -1419,7 +1422,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         searchContainer.setVisibility(View.GONE);
         fullscreenView.addView(searchContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL, 0, 44, 0, 0));
 
-        searchContainer.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        searchContainer.setBackgroundColor(Color.TRANSPARENT);
 
         actionBar.setDrawBlurBackground(contentView);
 
@@ -1484,7 +1487,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
             }
         };
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            blurredView.setForeground(new ColorDrawable(ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhite), 100)));
+            blurredView.setForeground(new ColorDrawable(Color.TRANSPARENT));
         }
         blurredView.setFocusable(false);
         blurredView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -1550,12 +1553,12 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         }
         bottomOverlayProgress.setProgressColor(getThemedColor(Theme.key_chat_fieldOverlayText));
         floatingButton.updateColors();
-        bottomOverlayContainer.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
-        actionBar.setActionModeColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        bottomOverlayContainer.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setActionModeColor(Color.TRANSPARENT);
         if (!inPreviewMode) {
-            actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
         }
-        searchContainer.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        searchContainer.setBackgroundColor(Color.TRANSPARENT);
     }
 
     private void openProfile(boolean byAvatar) {
@@ -1706,7 +1709,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
             }
             super.dispatchDraw(canvas);
             if (drawMovingViewsOverlayed()) {
-                paint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                paint.setColor(Color.TRANSPARENT);
                 for (int i = 0; i < getChildCount(); i++) {
                     View view = getChildAt(i);
 
@@ -2134,7 +2137,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         if (searchTabsView == null) {
             searchTabsView = searchContainer.createTabsView(false, 8);
             if (parentDialogsActivity != null) {
-                searchTabsView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                searchTabsView.setBackgroundColor(Color.TRANSPARENT);
             }
             fullscreenView.addView(searchTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 44));
         }
@@ -2195,7 +2198,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         actionBar.setItemsBackgroundColor(ColorUtils.blendARGB(color1, color2, searchAnimationProgress), false);
 
         if (!inPreviewMode) {
-            actionBar.setBackgroundColor(ColorUtils.blendARGB(getThemedColor(Theme.key_actionBarDefault), getThemedColor(Theme.key_windowBackgroundWhite), searchAnimationProgress));
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
         }
         avatarContainer.getTitleTextView().setAlpha(1f - value);
         avatarContainer.getSubtitleTextView().setAlpha(1f - value);
@@ -3117,7 +3120,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
             xOffset = inPreviewMode && checkBox != null ? checkBox.getProgress() * AndroidUtilities.dp(30) : 0;
             canvas.save();
             canvas.translate(xOffset, translateY = -AndroidUtilities.dp(4));
-            canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            canvas.drawColor(Color.TRANSPARENT);
             super.onDraw(canvas);
             canvas.restore();
             canvas.save();
@@ -4165,7 +4168,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
             }
             if (blurredView != null) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    blurredView.setForeground(new ColorDrawable(ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhite), 100)));
+                    blurredView.setForeground(new ColorDrawable(Color.TRANSPARENT));
                 }
             }
             updateColors();
@@ -4173,9 +4176,9 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
 
         ArrayList<ThemeDescription> arrayList = new ArrayList<>();
 
-        arrayList.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
+        // Keep Topics page surface transparent.
         arrayList.add(new ThemeDescription(null, 0, null, null, null, cellDelegate, Theme.key_windowBackgroundWhite));
-        arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
+        // ActionBar glass is transparent and must not be restored by theme refresh.
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_ITEMSCOLOR, null, null, null, null, Theme.key_actionBarDefaultIcon));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_TITLECOLOR, null, null, null, null, Theme.key_actionBarDefaultTitle));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_SELECTORCOLOR, null, null, null, null, Theme.key_actionBarDefaultSelector));
