@@ -55,14 +55,20 @@ public class BlurredBackgroundProviderImpl {
      * 形成一圈"黑边",看起来像一个多余的大方框。
      */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
+        return navigationGlass(resourcesProvider, false);
+    }
+
+    private static BlurredBackgroundProvider navigationGlass(Theme.ResourcesProvider resourcesProvider, boolean huanghun) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.08f : 0.06f;
+                final float alpha = huanghun
+                        ? (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.08f : 0.06f)
+                        : (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.22f : 0.18f);
                 return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
             })
-            .setStrokeColorTop(0x18FFFFFF, 0x0AFFFFFF)
-            .setStrokeColorBottom(0x0CFFFFFF, 0x06FFFFFF)
-            .setShadowColor(0x04000000, 0x00000000)
+            .setStrokeColorTop(huanghun ? 0x18FFFFFF : 0x5CFFFFFF, huanghun ? 0x0AFFFFFF : 0x33FFFFFF)
+            .setStrokeColorBottom(huanghun ? 0x0CFFFFFF : 0x24FFFFFF, huanghun ? 0x06FFFFFF : 0x1AFFFFFF)
+            .setShadowColor(huanghun ? 0x04000000 : 0x0D000000, 0x00000000)
             .setShadowLayer(dpf2(2f), 0, dpf2(0.5f))
             .setStrokeWidth(dpf2(0.5f), dpf2(0.5f))
             .build();
@@ -73,10 +79,15 @@ public class BlurredBackgroundProviderImpl {
     }
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
-        // 分类标签栏和底部导航属于同一层级的悬浮玻璃,统一走透明配方。
-        // 之前这里走的是 topPanel(接近不透明的面板 + 黑色描边投影),结果在标签后面
-        // 多出一个明显的大方框和黑边 —— 这正是要修掉的那处。
         return mainNavigationTransparentGlass(resourcesProvider);
+    }
+
+    public static BlurredBackgroundProvider huanghunMainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return navigationGlass(resourcesProvider, true);
+    }
+
+    public static BlurredBackgroundProvider huanghunMainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return navigationGlass(resourcesProvider, true);
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
