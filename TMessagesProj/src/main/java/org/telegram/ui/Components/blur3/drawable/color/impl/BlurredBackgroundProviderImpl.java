@@ -57,12 +57,12 @@ public class BlurredBackgroundProviderImpl {
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.22f : 0.18f;
+                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.08f : 0.06f;
                 return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
             })
-            .setStrokeColorTop(0x5CFFFFFF, 0x33FFFFFF)
-            .setStrokeColorBottom(0x24FFFFFF, 0x1AFFFFFF)
-            .setShadowColor(0x0D000000, 0x00000000)
+            .setStrokeColorTop(0x18FFFFFF, 0x0AFFFFFF)
+            .setStrokeColorBottom(0x0CFFFFFF, 0x06FFFFFF)
+            .setShadowColor(0x04000000, 0x00000000)
             .setShadowLayer(dpf2(2f), 0, dpf2(0.5f))
             .setStrokeWidth(dpf2(0.5f), dpf2(0.5f))
             .build();

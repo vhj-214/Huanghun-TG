@@ -2789,6 +2789,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
                     hash.add(getThemedColor(Theme.key_windowBackgroundWhite));
                     hash.add(SharedConfig.chatBlurEnabled());
+                    hash.add(shouldUseWallpaperBackedMainGlass());
 
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
@@ -2808,7 +2809,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    // The Huanghun main page already owns the wallpaper surface;
+                    // an opaque white blur source creates a white halo around it.
+                    canvas.drawColor(shouldUseWallpaperBackedMainGlass()
+                            ? Color.TRANSPARENT
+                            : getThemedColor(Theme.key_windowBackgroundWhite));
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
                         if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
@@ -2837,6 +2842,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
                     hash.add(getThemedColor(Theme.key_windowBackgroundWhite));
                     hash.add(SharedConfig.chatBlurEnabled());
+                    hash.add(shouldUseWallpaperBackedMainGlass());
 
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
@@ -2856,7 +2862,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    // The Huanghun main page already owns the wallpaper surface;
+                    // an opaque white blur source creates a white halo around it.
+                    canvas.drawColor(shouldUseWallpaperBackedMainGlass()
+                            ? Color.TRANSPARENT
+                            : getThemedColor(Theme.key_windowBackgroundWhite));
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
                         if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {

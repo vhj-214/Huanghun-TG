@@ -185,7 +185,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    canvas.drawColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    // Let the active Huanghun wallpaper remain visible through the
+                    // navigation glass instead of seeding it with an opaque white layer.
+                    canvas.drawColor(Color.TRANSPARENT);
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
