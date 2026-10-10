@@ -3704,7 +3704,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             } else {
                 actionBar.setTitle(actionBarTitleNax = getString(R.string.SelectChat));
             }
-            actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setOnLongClickListener(v -> {
                 if (NekoConfig.hideAllTab.Bool() && filterTabsView != null && filterTabsView.getDefaultTabId() != filterTabsView.getCurrentTabId()) {
                     filterTabsView.toggleAllTabs(true);
@@ -5741,7 +5741,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             actionBar.addView(avatarContainer, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, 0, 0, 40, 0));
             floatingButton3.imageView.setVisibility(View.INVISIBLE);
             actionBar.setOccupyStatusBar(false);
-            actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
             if (fragmentContextViewWrapper != null) {
                 AndroidUtilities.removeFromParent(fragmentContextViewWrapper);
             }
