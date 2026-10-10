@@ -977,7 +977,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 顶部工具条按 iOS 液态透明毛玻璃处理:视觉主体交给玻璃层本身,
             // scrim 只保留最低限度的对比度,不再在顶部刷出一条接近实心的白边。
             final boolean isThemeLight = resourceProvider != null ? !resourceProvider.isDark() : !Theme.isCurrentThemeDark();
-            final int liquidGlassScrimAlpha = top ? (isThemeLight ? 96 : 72) : 216;
+            final int liquidGlassScrimAlpha = !top ? 216 : shouldUseWallpaperBackedMainGlass()
+                ? (isThemeLight ? 60 : 48)
+                : (isThemeLight ? 96 : 72);
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。
                 final int fallbackAlpha = blurScrimPaint.getAlpha();
@@ -2970,6 +2972,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         observersGroup = getNotificationCenter().createObserversGroup(this);
         globalObserversGroup = NotificationCenter.getGlobalInstance().createObserversGroup(this);
 
+        if (shouldUseWallpaperBackedMainGlass()) {
+            globalObserversGroup.add(NotificationCenter.didSetNewWallpapper);
+        }
+
         if (searchString == null) {
             currentConnectionState = getConnectionsManager().getConnectionState();
 
@@ -3743,6 +3749,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
+        if (shouldUseWallpaperBackedMainGlass()) {
+            // 让 ContentView 绘制的玻璃层和状态栏背景透出壁纸，而不是被 ActionBar 的白底盖住。
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setBackground(null);
+        }
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
@@ -4322,6 +4333,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         ContentView contentView = new ContentView(context);
         fragmentView = contentView;
+        updateWallpaperBackedMainGlass(contentView);
 
         viewPositionWatcher = new ViewPositionWatcher(contentView);
         iBlur3FactoryFrostedLiquidGlass.setSourceRootView(viewPositionWatcher, contentView);
@@ -11061,7 +11073,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
+        if (id == NotificationCenter.didSetNewWallpapper) {
+            if (fragmentView instanceof ContentView) {
+                updateWallpaperBackedMainGlass((ContentView) fragmentView);
+            }
+        } else if (id == NotificationCenter.huanghunSpecialAttentionChanged) {
             specialAttentionFilter = HuanghunSpecialAttentionHelper.getFilter(currentAccount);
             updateSpecialAttentionFilterCell();
             if (viewPages != null && !dialogsListFrozen) {
@@ -14937,6 +14953,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final RectF iBlur3PositionMainTabs = new RectF(); {
         iBlur3Positions.add(iBlur3PositionActionBar);
         iBlur3Positions.add(iBlur3PositionMainTabs);
+    }
+
+    private boolean shouldUseWallpaperBackedMainGlass() {
+        return !onlySelect
+            && hasMainTabs
+            && initialDialogsType == DIALOGS_TYPE_DEFAULT
+            && folderId == 0
+            && communityId == 0;
+    }
+
+    private void updateWallpaperBackedMainGlass(@Nullable ContentView contentView) {
+        if (contentView == null || !shouldUseWallpaperBackedMainGlass()) {
+            return;
+        }
+        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        contentView.setBackgroundColor(Color.TRANSPARENT);
     }
 
     /**

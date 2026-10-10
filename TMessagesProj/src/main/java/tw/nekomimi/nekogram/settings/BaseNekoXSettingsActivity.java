@@ -75,6 +75,7 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     protected HashMap<Integer, String> rowMapReverse = new HashMap<>(20);
     protected HashMap<Integer, ConfigItem> rowConfigMapReverse = new HashMap<>();
     private DynamicVideoWallpaperHelper.Player dynamicVideoWallpaperPlayer;
+    private int settingsBottomInset;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener dynamicVideoWallpaperChangeListener = (account, dialogId) -> {
         if (account == currentAccount && dialogId == 0L) {
             AndroidUtilities.runOnUIThread(this::refreshDynamicVideoWallpaper);
@@ -125,6 +126,8 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
                 return false;
             }
         };
+        // Draw the wallpaper behind the separate ActionBar and transparent status bar.
+        frameLayout.setFitsSystemWindows(true);
         fragmentView = frameLayout;
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         actionBar.setDrawBlurBackground(frameLayout);
@@ -147,6 +150,8 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
 
         listView.setItemAnimator(itemAnimator);
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT));
+        actionBar.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateSettingsListInsets());
+        updateSettingsListInsets();
 
         tooltip = new UndoView(context);
         frameLayout.addView(tooltip, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.LEFT, 8, 0, 8, 8));
@@ -246,11 +251,25 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
 
     @Override
     public void onInsets(int left, int top, int right, int bottom) {
-        listView.setPadding(0, 0, 0, bottom);
-        listView.setClipToPadding(false);
+        settingsBottomInset = bottom;
+        updateSettingsListInsets();
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) tooltip.getLayoutParams();
         layoutParams.setMargins(dp(8), 0, dp(8), dp(8) + bottom);
         tooltip.setLayoutParams(layoutParams);
+    }
+
+    private void updateSettingsListInsets() {
+        if (listView == null || actionBar == null) {
+            return;
+        }
+        int topInset = actionBar.getMeasuredHeight();
+        if (!actionBar.getOccupyStatusBar()) {
+            topInset += AndroidUtilities.statusBarHeight;
+        }
+        if (listView.getPaddingTop() != topInset || listView.getPaddingBottom() != settingsBottomInset) {
+            listView.setPadding(0, topInset, 0, settingsBottomInset);
+            listView.setClipToPadding(false);
+        }
     }
 
     @SuppressLint("NotifyDataSetChanged")

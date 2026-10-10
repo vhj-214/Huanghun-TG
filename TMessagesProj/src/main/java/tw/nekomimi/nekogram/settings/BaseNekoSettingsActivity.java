@@ -91,6 +91,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     protected HashMap<Integer, String> rowMapReverse = new HashMap<>(20);
     private DynamicVideoWallpaperHelper.Player settingsDynamicVideoWallpaperPlayer;
     private boolean settingsDynamicVideoWallpaperPaused;
+    private int settingsBottomInset;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener settingsDynamicVideoWallpaperChangeListener = (account, dialogId) -> {
         if (account == currentAccount && dialogId == 0L && fragmentView != null) {
             AndroidUtilities.runOnUIThread(this::refreshSettingsWallpaper);
@@ -111,6 +112,8 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     public View createView(Context context) {
         fragmentView = new BlurContentView(context);
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
+        // Let the wallpaper root sit behind the separate ActionBar sibling, including the status bar.
+        frameLayout.setFitsSystemWindows(true);
         // 子设置页沿用主设置页的壁纸；无壁纸时保留主题背景，避免露出窗口黑底。
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         DynamicVideoWallpaperHelper.addChangeListener(settingsDynamicVideoWallpaperChangeListener);
@@ -145,6 +148,8 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         listView.setAdapter(listAdapter);
         listView.setOnItemClickListener(this::onItemClick);
         listView.setClipToPadding(false);
+        actionBar.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateSettingsListInsets());
+        updateSettingsListInsets();
         listView.setOnItemLongClickListener((view, position, x, y) -> {
             if (onItemLongClick(view, position, x, y)) {
                 return true;
@@ -420,8 +425,22 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
     @Override
     public void onInsets(int left, int top, int right, int bottom) {
-        listView.setPadding(0, 0, 0, bottom);
-        listView.setClipToPadding(false);
+        settingsBottomInset = bottom;
+        updateSettingsListInsets();
+    }
+
+    private void updateSettingsListInsets() {
+        if (listView == null || actionBar == null) {
+            return;
+        }
+        int topInset = actionBar.getMeasuredHeight();
+        if (!actionBar.getOccupyStatusBar()) {
+            topInset += AndroidUtilities.statusBarHeight;
+        }
+        if (listView.getPaddingTop() != topInset || listView.getPaddingBottom() != settingsBottomInset) {
+            listView.setPadding(0, topInset, 0, settingsBottomInset);
+            listView.setClipToPadding(false);
+        }
     }
 
     private class BlurContentView extends SizeNotifierFrameLayout {
