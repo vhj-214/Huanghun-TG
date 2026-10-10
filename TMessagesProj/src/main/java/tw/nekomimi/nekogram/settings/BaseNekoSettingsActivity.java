@@ -111,14 +111,14 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     public View createView(Context context) {
         fragmentView = new BlurContentView(context);
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
-        // 子设置页沿用主设置页的壁纸；没有视频时直接透出静态壁纸，不再填充实体灰/白色。
+        // 子设置页沿用主设置页的壁纸；无壁纸时保留主题背景，避免露出窗口黑底。
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-        frameLayout.setBackgroundColor(Color.TRANSPARENT);
         DynamicVideoWallpaperHelper.addChangeListener(settingsDynamicVideoWallpaperChangeListener);
         settingsDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
+        updateSettingsWallpaperBackground(frameLayout);
 
         actionBar.setDrawBlurBackground(frameLayout);
 
@@ -192,16 +192,31 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         return fragmentView;
     }
 
+    private boolean hasSettingsWallpaperLayer(SizeNotifierFrameLayout frameLayout) {
+        return settingsDynamicVideoWallpaperPlayer != null || frameLayout.getBackgroundImage() != null;
+    }
+
+    private void updateSettingsWallpaperBackground(SizeNotifierFrameLayout frameLayout) {
+        frameLayout.setBackgroundColor(hasSettingsWallpaperLayer(frameLayout)
+                ? Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
+    }
+
     /** Keep every Huanghun settings page in the same wallpaper-backed glass mode. */
     private void applyHuanghunSettingsActionBarGlass() {
         if (!hasWhiteActionBar() || actionBar == null) {
             return;
         }
-        // Adaptive action-bar colors are opaque theme surfaces and create the white
-        // strip above the first settings card. A translucent color keeps ActionBar
-        // inside the blur/scrim path while allowing the wallpaper through.
-        actionBar.setBackgroundColor(0x20FFFFFF);
-        actionBar.setCastShadows(false);
+        SizeNotifierFrameLayout frameLayout = fragmentView instanceof SizeNotifierFrameLayout
+                ? (SizeNotifierFrameLayout) fragmentView : null;
+        if (frameLayout != null && hasSettingsWallpaperLayer(frameLayout)) {
+            // Adaptive action-bar colors are opaque theme surfaces and create the white
+            // strip above the first settings card. Keep wallpaper pages translucent.
+            actionBar.setBackgroundColor(0x20FFFFFF);
+            actionBar.setCastShadows(false);
+        } else if (listView != null) {
+            actionBar.setAdaptiveBackground(listView);
+        }
     }
 
     private void refreshSettingsWallpaper() {
@@ -211,11 +226,14 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         if (settingsDynamicVideoWallpaperPaused) {
+            updateSettingsWallpaperBackground(frameLayout);
+            applyHuanghunSettingsActionBarGlass();
             return;
         }
         if (settingsDynamicVideoWallpaperPlayer != null
                 && settingsDynamicVideoWallpaperPlayer.matchesCurrentSource(frameLayout.getContext(), currentAccount, 0L)) {
-            frameLayout.setBackgroundColor(Color.TRANSPARENT);
+            updateSettingsWallpaperBackground(frameLayout);
+            applyHuanghunSettingsActionBarGlass();
             settingsDynamicVideoWallpaperPlayer.resume();
             return;
         }
@@ -227,7 +245,8 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
-        frameLayout.setBackgroundColor(Color.TRANSPARENT);
+        updateSettingsWallpaperBackground(frameLayout);
+        applyHuanghunSettingsActionBarGlass();
     }
 
     @SuppressLint("NotifyDataSetChanged")
@@ -420,6 +439,16 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             super(context);
             needBlur = hasWhiteActionBar();
             blurBehindViews.add(this);
+        }
+
+        @Override
+        protected boolean isActionBarVisible() {
+            return !hasSettingsWallpaperLayer(this);
+        }
+
+        @Override
+        protected boolean isStatusBarVisible() {
+            return !hasSettingsWallpaperLayer(this);
         }
 
         @Override

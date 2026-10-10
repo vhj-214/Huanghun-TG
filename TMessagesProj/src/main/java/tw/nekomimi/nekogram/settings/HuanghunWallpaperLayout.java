@@ -35,6 +35,22 @@ final class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
         refreshWallpaper();
     }
 
+    private boolean hasWallpaperLayer() {
+        return player != null || getBackgroundImage() != null;
+    }
+
+    @Override
+    protected boolean isActionBarVisible() {
+        // Draw wallpaper behind the action bar instead of exposing a black window strip.
+        return !hasWallpaperLayer();
+    }
+
+    @Override
+    protected boolean isStatusBarVisible() {
+        // Keep the status-bar area on the same wallpaper-backed surface.
+        return !hasWallpaperLayer();
+    }
+
     @Override
     protected void onDetachedFromWindow() {
         if (listening) {
@@ -65,7 +81,7 @@ final class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
                 player.setFallbackBackgroundColor(Color.TRANSPARENT);
             }
         }
-        setBackgroundColor(player != null || Theme.getCachedWallpaper() != null
+        setBackgroundColor(hasWallpaperLayer()
                 ? Color.TRANSPARENT
                 : Theme.getColor(Theme.key_windowBackgroundGray));
     }

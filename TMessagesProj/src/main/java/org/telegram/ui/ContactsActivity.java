@@ -322,6 +322,11 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         }
     }
 
+    private boolean hasContactsWallpaperLayer() {
+        return contactsDynamicWallpaperPlayer != null
+                || contentView != null && contentView.getBackgroundImage() != null;
+    }
+
     @Override
     public View createView(Context context) {
         searching = false;
@@ -529,6 +534,19 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
         fragmentView = contentView = new SizeNotifierFrameLayout(context) {
             @Override
+            protected boolean isActionBarVisible() {
+                // Draw the wallpaper behind the top action bar instead of starting
+                // below it and exposing the window background as a black strip.
+                return !hasContactsWallpaperLayer();
+            }
+
+            @Override
+            protected boolean isStatusBarVisible() {
+                // The wallpaper must also continue behind the status bar.
+                return !hasContactsWallpaperLayer();
+            }
+
+            @Override
             protected void dispatchDraw(Canvas canvas) {
                 if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                     blur3_InvalidateBlur();
@@ -636,7 +654,11 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         );
         listView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         contentView.setBackgroundImage(hasMainTabs ? Theme.getCachedWallpaper() : null, Theme.isWallpaperMotion());
-        contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
+        // A main-tab root is transparent only while a real wallpaper layer exists;
+        // otherwise restore the themed surface instead of exposing the window black.
+        contentView.setBackgroundColor(hasMainTabs && hasContactsWallpaperLayer()
+                ? android.graphics.Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
         if (hasMainTabs) {
             DynamicVideoWallpaperHelper.addChangeListener(contactsWallpaperChangeListener);
             contactsDynamicWallpaperPlayer = DynamicVideoWallpaperHelper.attach(contentView, context, currentAccount, 0L);
@@ -1070,7 +1092,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         headerShadowView.setShadowVisible(false, false);
         contentView.addView(headerShadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 5, Gravity.TOP));
 
-        if (hasMainTabs) {
+        if (hasMainTabs && hasContactsWallpaperLayer()) {
             // The default adaptive colors are opaque theme surfaces; they cover the wallpaper
             // even though the ActionBar was initially made transparent above.
             applyHuanghunContactsActionBarGlass();
@@ -1366,13 +1388,19 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         if (contactsDynamicWallpaperPlayer != null) {
             contactsDynamicWallpaperPlayer.setFallbackBackgroundColor(android.graphics.Color.TRANSPARENT);
         }
-        contentView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        contentView.setBackgroundColor(hasContactsWallpaperLayer()
+                ? android.graphics.Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
         contentView.invalidate();
     }
     @Override
     public void onResume() {
         super.onResume();
-        applyHuanghunContactsActionBarGlass();
+        if (hasContactsWallpaperLayer()) {
+            applyHuanghunContactsActionBarGlass();
+        } else if (actionBar != null && listView != null) {
+            actionBar.setAdaptiveBackground(listView);
+        }
         if (hasMainTabs && contentView != null && (contactsDynamicWallpaperPlayer == null
                 || !contactsDynamicWallpaperPlayer.matchesCurrentSource(contentView.getContext(), currentAccount, 0L))) {
             refreshContactsWallpaper();
@@ -1596,10 +1624,16 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             }
             if (actionBar != null) {
                 actionBar.updateColors();
-                applyHuanghunContactsActionBarGlass();
+                if (hasContactsWallpaperLayer()) {
+                    applyHuanghunContactsActionBarGlass();
+                } else if (listView != null) {
+                    actionBar.setAdaptiveBackground(listView);
+                }
             }
             if (contentView != null) {
-                contentView.setBackgroundColor(hasMainTabs ? android.graphics.Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundGray));
+                contentView.setBackgroundColor(hasMainTabs && hasContactsWallpaperLayer()
+                        ? android.graphics.Color.TRANSPARENT
+                        : getThemedColor(Theme.key_windowBackgroundGray));
             }
         };
 

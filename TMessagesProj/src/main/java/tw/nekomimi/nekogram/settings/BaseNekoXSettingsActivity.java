@@ -114,16 +114,26 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
             }
         });
 
-        SizeNotifierFrameLayout frameLayout = new SizeNotifierFrameLayout(context);
+        SizeNotifierFrameLayout frameLayout = new SizeNotifierFrameLayout(context) {
+            @Override
+            protected boolean isActionBarVisible() {
+                return !hasSettingsWallpaperLayer(this);
+            }
+
+            @Override
+            protected boolean isStatusBarVisible() {
+                return !hasSettingsWallpaperLayer(this);
+            }
+        };
         fragmentView = frameLayout;
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-        frameLayout.setBackgroundColor(Color.TRANSPARENT);
         actionBar.setDrawBlurBackground(frameLayout);
         DynamicVideoWallpaperHelper.addChangeListener(dynamicVideoWallpaperChangeListener);
         dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
+        updateSettingsWallpaperBackground(frameLayout);
 
         listView = createListView(context);
         listView.setVerticalScrollBarEnabled(false);
@@ -163,9 +173,24 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         return fragmentView;
     }
 
+    private boolean hasSettingsWallpaperLayer(SizeNotifierFrameLayout frameLayout) {
+        return dynamicVideoWallpaperPlayer != null || frameLayout.getBackgroundImage() != null;
+    }
+
+    private void updateSettingsWallpaperBackground(SizeNotifierFrameLayout frameLayout) {
+        frameLayout.setBackgroundColor(hasSettingsWallpaperLayer(frameLayout)
+                ? Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundGray));
+    }
+
     private void applyHuanghunSettingsActionBarGlass() {
-        actionBar.setBackgroundColor(0x20FFFFFF);
-        actionBar.setCastShadows(false);
+        if (fragmentView instanceof SizeNotifierFrameLayout
+                && hasSettingsWallpaperLayer((SizeNotifierFrameLayout) fragmentView)) {
+            actionBar.setBackgroundColor(0x20FFFFFF);
+            actionBar.setCastShadows(false);
+        } else if (listView != null) {
+            actionBar.setAdaptiveBackground(listView);
+        }
     }
 
     private void refreshDynamicVideoWallpaper() {
@@ -174,7 +199,8 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         if (dynamicVideoWallpaperPlayer != null
                 && dynamicVideoWallpaperPlayer.matchesCurrentSource(frameLayout.getContext(), currentAccount, 0L)) {
-            frameLayout.setBackgroundColor(Color.TRANSPARENT);
+            updateSettingsWallpaperBackground(frameLayout);
+            applyHuanghunSettingsActionBarGlass();
             dynamicVideoWallpaperPlayer.resume();
             return;
         }
@@ -186,7 +212,8 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
-        frameLayout.setBackgroundColor(Color.TRANSPARENT);
+        updateSettingsWallpaperBackground(frameLayout);
+        applyHuanghunSettingsActionBarGlass();
     }
 
     @Override
