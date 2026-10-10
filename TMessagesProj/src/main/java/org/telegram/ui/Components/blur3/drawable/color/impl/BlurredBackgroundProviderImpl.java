@@ -55,16 +55,15 @@ public class BlurredBackgroundProviderImpl {
      * 形成一圈"黑边",看起来像一个多余的大方框。
      */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
+        // The glass surface itself must add no white tint on any Android version.
+        // The wallpaper/content below remains the only visible background.
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
-            .setBackgroundColor((r, isDark) -> {
-                final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.08f : 0.06f;
-                return Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite, r), alpha);
-            })
-            .setStrokeColorTop(0x18FFFFFF, 0x0AFFFFFF)
-            .setStrokeColorBottom(0x0CFFFFFF, 0x06FFFFFF)
-            .setShadowColor(0x04000000, 0x00000000)
-            .setShadowLayer(dpf2(2f), 0, dpf2(0.5f))
-            .setStrokeWidth(dpf2(0.5f), dpf2(0.5f))
+            .setBackgroundColor((r, isDark) -> 0x00000000)
+            .setStrokeColorTop(0x00000000, 0x00000000)
+            .setStrokeColorBottom(0x00000000, 0x00000000)
+            .setShadowColor(0x00000000, 0x00000000)
+            .setShadowLayer(0, 0, 0)
+            .setStrokeWidth(0, 0)
             .build();
     }
     public static BlurredBackgroundProvider mainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {

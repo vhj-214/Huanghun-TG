@@ -974,12 +974,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
-            // 顶部工具条按 iOS 液态透明毛玻璃处理:视觉主体交给玻璃层本身,
-            // scrim 只保留最低限度的对比度,不再在顶部刷出一条接近实心的白边。
-            final boolean isThemeLight = resourceProvider != null ? !resourceProvider.isDark() : !Theme.isCurrentThemeDark();
-            // Keep both the top and bottom glass surfaces transparent; only a tiny
-            // theme-aware tint remains for contrast.
-            final int liquidGlassScrimAlpha = isThemeLight ? 16 : 12;
+            // 顶部和底部玻璃只显示底层内容,不再叠加任何白色 scrim。
+            // No white scrim: both top and bottom glass regions are fully transparent.
+            final int liquidGlassScrimAlpha = 0;
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。
                 final int fallbackAlpha = blurScrimPaint.getAlpha();
