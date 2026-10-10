@@ -3794,6 +3794,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
             };
+            if (shouldUseWallpaperBackedMainGlass()) {
+                // The selected folder pill is drawn by FilterTabsView, not by its host
+                // background. Keep only the active text/counter on the wallpaper home.
+                filterTabsView.setSelectedIndicatorAlpha(0);
+            }
             filterTabsView.setVisibility(View.GONE);
             canShowFilterTabsView = false;
             animatorFilterTabsVisible.setValue(false, false);

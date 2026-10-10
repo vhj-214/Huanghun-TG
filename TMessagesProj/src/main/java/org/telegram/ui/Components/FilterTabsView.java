@@ -939,6 +939,7 @@ public class FilterTabsView extends FrameLayout {
 
     private int scrollingToChild = -1;
     private final GradientDrawable selectorDrawable;
+    private int selectedIndicatorAlpha = 31;
 
     private int tabLineColorKey = Theme.key_actionBarTabLine;
     private int activeTextColorKey = Theme.key_actionBarTabActiveText;
@@ -1359,6 +1360,11 @@ public class FilterTabsView extends FrameLayout {
         return selectorDrawable;
     }
 
+    public void setSelectedIndicatorAlpha(int alpha) {
+        selectedIndicatorAlpha = Math.max(0, Math.min(255, alpha));
+        invalidate();
+    }
+
     public RecyclerListView getTabsContainer() {
         return listView;
     }
@@ -1648,7 +1654,7 @@ public class FilterTabsView extends FrameLayout {
             final int y = height / 2 - dp(14);
             float internalPadding = FolderIconHelper.getTabInternalPadding();
             selectorDrawable.setBounds((int) (indicatorX - dp(internalPadding) - add), y, (int) (indicatorX + indicatorWidth + dp(internalPadding) + add), y + dp(28));
-            selectorDrawable.setAlpha(31);
+            selectorDrawable.setAlpha(selectedIndicatorAlpha);
             selectorDrawable.draw(canvas);
             canvas.restore();
         }
