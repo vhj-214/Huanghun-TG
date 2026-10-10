@@ -5491,15 +5491,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            BlurredBackgroundDrawable filterTabsViewBackground = iBlur3FactoryLiquidGlass.create(filterTabsView,
-                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
-            filterTabsViewBackground.setRadius(dp(18));
-            filterTabsViewBackground.setPadding(dp(6.666f));
-            // 水平方向直接对齐标签内容的实际内缩:玻璃正好包住标签,
-            // 不会在左右各多出一圈空边(之前比内容宽出约 4.8dp/边,看起来多了一个方框)。
-            filterTabsViewBackground.setPaddingHorizontal(filterTabsView.getContentPaddingHorizontal());
+            // FilterTabsView spans the full screen width. An empty render-node glass capture
+            // can become a solid black strip when chat blur is disabled. Keep this host
+            // transparent so the home wallpaper remains continuous; the selected-tab pill
+            // is still drawn by FilterTabsView itself.
+            filterTabsView.setBackgroundColor(Color.TRANSPARENT);
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
-            filterTabsView.setBlurredBackground(filterTabsViewBackground);
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
 
