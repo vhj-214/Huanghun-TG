@@ -977,9 +977,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 顶部工具条按 iOS 液态透明毛玻璃处理:视觉主体交给玻璃层本身,
             // scrim 只保留最低限度的对比度,不再在顶部刷出一条接近实心的白边。
             final boolean isThemeLight = resourceProvider != null ? !resourceProvider.isDark() : !Theme.isCurrentThemeDark();
-            final int liquidGlassScrimAlpha = !top ? 216 : shouldUseWallpaperBackedMainGlass()
-                ? (isThemeLight ? 16 : 12)
-                : (isThemeLight ? 96 : 72);
+            final int liquidGlassScrimAlpha = !top ? 216 : (isThemeLight ? 16 : 12);
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。
                 final int fallbackAlpha = blurScrimPaint.getAlpha();
@@ -2789,7 +2787,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
                     hash.add(getThemedColor(Theme.key_windowBackgroundWhite));
                     hash.add(SharedConfig.chatBlurEnabled());
-                    hash.add(shouldUseWallpaperBackedMainGlass());
 
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
@@ -2809,11 +2806,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    // The Huanghun main page already owns the wallpaper surface;
-                    // an opaque white blur source creates a white halo around it.
-                    canvas.drawColor(shouldUseWallpaperBackedMainGlass()
-                            ? Color.TRANSPARENT
-                            : getThemedColor(Theme.key_windowBackgroundWhite));
+                    // Keep the shared glass source transparent so every page can show its underlying surface.
+                    canvas.drawColor(Color.TRANSPARENT);
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
                         if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
@@ -2842,7 +2836,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
                     hash.add(getThemedColor(Theme.key_windowBackgroundWhite));
                     hash.add(SharedConfig.chatBlurEnabled());
-                    hash.add(shouldUseWallpaperBackedMainGlass());
 
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
@@ -2862,11 +2855,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    // The Huanghun main page already owns the wallpaper surface;
-                    // an opaque white blur source creates a white halo around it.
-                    canvas.drawColor(shouldUseWallpaperBackedMainGlass()
-                            ? Color.TRANSPARENT
-                            : getThemedColor(Theme.key_windowBackgroundWhite));
+                    // Keep the shared glass source transparent so every page can show its underlying surface.
+                    canvas.drawColor(Color.TRANSPARENT);
                     if (SharedConfig.chatBlurEnabled()) {
                         TopicsFragment topicsFragment = null;
                         if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
@@ -5504,9 +5494,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         if (filterTabsView != null) {
             BlurredBackgroundDrawable filterTabsViewBackground = iBlur3FactoryLiquidGlass.create(filterTabsView,
-                    shouldUseWallpaperBackedMainGlass()
-                            ? BlurredBackgroundProviderImpl.huanghunMainFoldersTransparent(resourceProvider)
-                            : BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
             filterTabsViewBackground.setRadius(dp(18));
             filterTabsViewBackground.setPadding(dp(6.666f));
             // 水平方向直接对齐标签内容的实际内缩:玻璃正好包住标签,
@@ -5521,9 +5509,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 常驻搜索框与分类标签栏、底部导航同属一层悬浮玻璃,统一走透明配方,
             // 避免它自己在列表上面盖出一块不透明的面板。
             fragmentSearchField.setupBlurredBackground(iBlur3FactoryLiquidGlass.create(fragmentSearchField,
-                    shouldUseWallpaperBackedMainGlass()
-                            ? BlurredBackgroundProviderImpl.huanghunMainFoldersTransparent(resourceProvider)
-                            : BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider)));
+                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider)));
         }
 
         dialogStoriesCell = new DialogStoriesCell(context, this, currentAccount, isArchive() ? DialogStoriesCell.TYPE_ARCHIVE : DialogStoriesCell.TYPE_DIALOGS) {

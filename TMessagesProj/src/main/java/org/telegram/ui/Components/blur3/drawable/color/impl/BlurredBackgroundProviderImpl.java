@@ -55,7 +55,7 @@ public class BlurredBackgroundProviderImpl {
      * 形成一圈"黑边",看起来像一个多余的大方框。
      */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
-        return navigationGlass(resourcesProvider, false);
+        return navigationGlass(resourcesProvider, true);
     }
 
     private static BlurredBackgroundProvider navigationGlass(Theme.ResourcesProvider resourcesProvider, boolean huanghun) {
@@ -80,14 +80,6 @@ public class BlurredBackgroundProviderImpl {
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
         return mainNavigationTransparentGlass(resourcesProvider);
-    }
-
-    public static BlurredBackgroundProvider huanghunMainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
-        return navigationGlass(resourcesProvider, true);
-    }
-
-    public static BlurredBackgroundProvider huanghunMainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
-        return navigationGlass(resourcesProvider, true);
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {

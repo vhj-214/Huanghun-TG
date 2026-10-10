@@ -146,12 +146,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private boolean lastSpecialAttentionEnabled = MainTabsHelper.isSpecialAttentionEnabled();
     private boolean lastSpecialAttentionTabSelected = MainTabsHelper.isSpecialAttentionTabSelected();
 
-    private boolean shouldUseWallpaperBackedGlass() {
-        final BaseFragment fragment = getCurrentVisibleFragment();
-        return fragment instanceof DialogsActivity
-                && ((DialogsActivity) fragment).shouldUseWallpaperBackedMainGlass();
-    }
-
     public MainTabsActivity() {
         super();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -161,7 +155,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 public void renderNodeCalculateHash(IBlur3Hash hash) {
                     hash.add(getThemedColor(Theme.key_windowBackgroundWhite));
                     hash.add(SharedConfig.chatBlurEnabled());
-                    hash.add(shouldUseWallpaperBackedGlass());
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
@@ -193,11 +186,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     final int width = fragmentView.getMeasuredWidth();
                     final int height = fragmentView.getMeasuredHeight();
 
-                    // Let the active Huanghun wallpaper remain visible through the
-                    // navigation glass instead of seeding it with an opaque white layer.
-                    canvas.drawColor(shouldUseWallpaperBackedGlass()
-                            ? Color.TRANSPARENT
-                            : getThemedColor(Theme.key_windowBackgroundWhite));
+                    // All main pages use the transparent glass source. The provider
+                    // supplies only a very light tint so text and icons remain legible.
+                    canvas.drawColor(Color.TRANSPARENT);
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
@@ -442,9 +433,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         iBlur3FactoryGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
 
         tabsViewBackground = iBlur3FactoryGlass.create(tabsView,
-                shouldUseWallpaperBackedGlass()
-                        ? BlurredBackgroundProviderImpl.huanghunMainTabsTransparent(resourceProvider)
-                        : BlurredBackgroundProviderImpl.mainTabsTransparent(resourceProvider));
+                BlurredBackgroundProviderImpl.mainTabsTransparent(resourceProvider));
         tabsViewBackground.setRadius(dp(MainTabsHelper.getMainTabsHeight() / 2f));
         // 玻璃绘制区域与里面的标签使用同一套内缩(与 tabsView 的 padding 一致),
         // 这样框正好包住标签。之前用 margin - 0.334 会让玻璃在四周各多出一圈空边,
