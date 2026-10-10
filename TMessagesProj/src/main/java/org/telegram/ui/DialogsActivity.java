@@ -5491,11 +5491,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            // FilterTabsView spans the full screen width. An empty render-node glass capture
-            // can become a solid black strip when chat blur is disabled. Keep this host
-            // transparent so the home wallpaper remains continuous; the selected-tab pill
-            // is still drawn by FilterTabsView itself.
-            filterTabsView.setBackgroundColor(Color.TRANSPARENT);
+            // The folder strip sits directly over the home wallpaper, not on a glass
+            // surface. Clear both layers: the FilterTabsView host and its RecyclerView.
+            // A transparent ColorDrawable on the host alone does not clear a background
+            // installed on the inner list by theme/RecyclerView initialization.
+            filterTabsView.setBackground(null);
+            filterTabsView.getListView().setBackground(null);
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
