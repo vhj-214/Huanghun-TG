@@ -41,14 +41,14 @@ final class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
 
     @Override
     protected boolean isActionBarVisible() {
-        // Draw wallpaper behind the action bar instead of exposing a black window strip.
-        return !hasWallpaperLayer();
+        // Huanghun pages always own the surface behind the action bar. When there
+        // is no wallpaper, refreshWallpaper() supplies the themed fallback color.
+        return false;
     }
 
     @Override
     protected boolean isStatusBarVisible() {
-        // Keep the status-bar area on the same wallpaper-backed surface.
-        return !hasWallpaperLayer();
+        return false;
     }
 
     @Override

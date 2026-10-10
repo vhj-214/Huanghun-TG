@@ -117,12 +117,12 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         SizeNotifierFrameLayout frameLayout = new SizeNotifierFrameLayout(context) {
             @Override
             protected boolean isActionBarVisible() {
-                return !hasSettingsWallpaperLayer(this);
+                return false;
             }
 
             @Override
             protected boolean isStatusBarVisible() {
-                return !hasSettingsWallpaperLayer(this);
+                return false;
             }
         };
         fragmentView = frameLayout;
@@ -184,13 +184,10 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     }
 
     private void applyHuanghunSettingsActionBarGlass() {
-        if (fragmentView instanceof SizeNotifierFrameLayout
-                && hasSettingsWallpaperLayer((SizeNotifierFrameLayout) fragmentView)) {
-            actionBar.setBackgroundColor(0x20FFFFFF);
-            actionBar.setCastShadows(false);
-        } else if (listView != null) {
-            actionBar.setAdaptiveBackground(listView);
-        }
+        // Do not let the opaque adaptive action-bar recreate a white strip after
+        // a page is resumed or its theme is refreshed.
+        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setCastShadows(false);
     }
 
     private void refreshDynamicVideoWallpaper() {

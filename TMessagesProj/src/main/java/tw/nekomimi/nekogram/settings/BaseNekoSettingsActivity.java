@@ -207,16 +207,10 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         if (!hasWhiteActionBar() || actionBar == null) {
             return;
         }
-        SizeNotifierFrameLayout frameLayout = fragmentView instanceof SizeNotifierFrameLayout
-                ? (SizeNotifierFrameLayout) fragmentView : null;
-        if (frameLayout != null && hasSettingsWallpaperLayer(frameLayout)) {
-            // Adaptive action-bar colors are opaque theme surfaces and create the white
-            // strip above the first settings card. Keep wallpaper pages translucent.
-            actionBar.setBackgroundColor(0x20FFFFFF);
-            actionBar.setCastShadows(false);
-        } else if (listView != null) {
-            actionBar.setAdaptiveBackground(listView);
-        }
+        // Never restore the opaque adaptive action-bar on Huanghun settings pages.
+        // The root owns the complete surface, including the status-bar area.
+        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setCastShadows(false);
     }
 
     private void refreshSettingsWallpaper() {
@@ -443,12 +437,12 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
         @Override
         protected boolean isActionBarVisible() {
-            return !hasSettingsWallpaperLayer(this);
+            return false;
         }
 
         @Override
         protected boolean isStatusBarVisible() {
-            return !hasSettingsWallpaperLayer(this);
+            return false;
         }
 
         @Override
