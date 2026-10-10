@@ -69,7 +69,7 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
 
         favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
         updateBatchPresentation();
-        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         actionBar.setDrawBlurBackground(root);
         actionBar.setBackgroundColor(0x20FFFFFF);
 

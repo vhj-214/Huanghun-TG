@@ -62,7 +62,7 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         actionBar.setDrawBlurBackground(root);
         actionBar.setBackgroundColor(0x20FFFFFF);
         RecyclerListView listView = new RecyclerListView(context);

@@ -81,7 +81,7 @@ public class HuanghunCallVideoLibraryActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         fragmentView = root;
         actionBar.setDrawBlurBackground(root);
         actionBar.setBackgroundColor(0x20FFFFFF);

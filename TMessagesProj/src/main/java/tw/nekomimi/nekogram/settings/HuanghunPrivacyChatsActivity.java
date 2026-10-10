@@ -95,7 +95,7 @@ public class HuanghunPrivacyChatsActivity extends BaseFragment {
 
         reloadDialogs(context);
 
-        FrameLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         actionBar.setDrawBlurBackground(root);
         actionBar.setBackgroundColor(0x20FFFFFF);
 
