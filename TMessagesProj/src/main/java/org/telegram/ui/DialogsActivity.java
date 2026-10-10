@@ -977,7 +977,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 顶部工具条按 iOS 液态透明毛玻璃处理:视觉主体交给玻璃层本身,
             // scrim 只保留最低限度的对比度,不再在顶部刷出一条接近实心的白边。
             final boolean isThemeLight = resourceProvider != null ? !resourceProvider.isDark() : !Theme.isCurrentThemeDark();
-            final int liquidGlassScrimAlpha = !top ? 216 : (isThemeLight ? 16 : 12);
+            // Keep both the top and bottom glass surfaces transparent; only a tiny
+            // theme-aware tint remains for contrast.
+            final int liquidGlassScrimAlpha = isThemeLight ? 16 : 12;
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。
                 final int fallbackAlpha = blurScrimPaint.getAlpha();
@@ -987,7 +989,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 return;
             }
 
-            int blurAlpha = top ? liquidGlassScrimAlpha : (isThemeLight ? 216 : ChatActivity.ACTION_BAR_BLUR_ALPHA);
+            int blurAlpha = liquidGlassScrimAlpha;
             canvas.save();
             canvas.translate(0, -y);
             iBlur3SourceGlassFrosted.draw(canvas, rectTmp.left, rectTmp.top + y, rectTmp.right, rectTmp.bottom + y);
@@ -3749,11 +3751,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        if (shouldUseWallpaperBackedMainGlass()) {
-            // 让 ContentView 绘制的玻璃层和状态栏背景透出壁纸，而不是被 ActionBar 的白底盖住。
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setBackground(null);
-        }
+        // The ActionBar is part of the shared glass surface on every page.
+        // Do not leave the selection/ordinary-page branch with an opaque white bar.
+        actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setBackground(null);
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
@@ -7957,7 +7958,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             setDialogsListFrozen(true);
             viewPages[0].listView.setVerticalScrollBarEnabled(false);
             if (searchViewPager != null) {
-                searchViewPager.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                searchViewPager.setBackgroundColor(Color.TRANSPARENT);
             }
             searchAnimator = new AnimatorSet();
             ArrayList<Animator> animators = new ArrayList<>();
@@ -14957,8 +14958,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         iBlur3Positions.add(iBlur3PositionMainTabs);
     }
 
-    // Package-private so MainTabsActivity can keep its shared tab blur source
-    // transparent only for this wallpaper-backed Huanghun page.
+    // Huanghun main-page wallpaper is installed only for the primary dialogs tab.
     boolean shouldUseWallpaperBackedMainGlass() {
         return !onlySelect
             && hasMainTabs
