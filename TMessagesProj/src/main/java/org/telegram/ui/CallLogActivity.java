@@ -1,5 +1,6 @@
 package org.telegram.ui;
 
+import android.graphics.Color;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.formatString;
 import static org.telegram.messenger.LocaleController.getString;
