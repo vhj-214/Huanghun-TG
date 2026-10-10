@@ -2502,7 +2502,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         return 0;
                     }
                     movingView = (DialogCell) viewHolder.itemView;
-                    movingView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    movingView.setBackgroundColor(Color.TRANSPARENT);
                     swipeFolderBack = false;
                     return makeMovementFlags(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0);
                 } else {
@@ -5040,7 +5040,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         topBubblesFadeView = new DialogsActivityTopBubblesFadeView(context);
-        topBubblesFadeView.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        topBubblesFadeView.setColor(Color.TRANSPARENT);
         contentView.addView(topBubblesFadeView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.TOP));
 
         searchViewPagerIndex = contentView.getChildCount();
@@ -5049,7 +5049,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         searchTabsAndFiltersLayout.setPadding(0, dp(7), 0, dp(7));
         contentView.addView(searchTabsAndFiltersLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, SEARCH_TABS_HEIGHT, Gravity.TOP, 4, 0, 4, 0));
 
-        BlurredBackgroundDrawable searchTabsViewBackground = iBlur3FactoryLiquidGlass.create(searchTabsAndFiltersLayout, BlurredBackgroundProviderImpl.topPanel(resourceProvider));
+        BlurredBackgroundDrawable searchTabsViewBackground = iBlur3FactoryLiquidGlass.create(searchTabsAndFiltersLayout, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
         searchTabsViewBackground.setRadius(dp(18));
         searchTabsViewBackground.setPadding(dp(6.666f));
         searchTabsAndFiltersLayout.setPadding(0, dp(7), 0, dp(7));
@@ -5135,7 +5135,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             BlurredBackgroundDrawable topPanelLayoutBackground = iBlur3FactoryLiquidGlass.create(topPanelLayout)
-                .setColorProvider(BlurredBackgroundProviderImpl.topPanel(resourceProvider))
+                .setColorProvider(BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider))
                 .setPadding(dp(7));
 
             topPanelLayout.setPadding(dp(11), dp(21), dp(11), dp(21));
@@ -12822,7 +12822,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 topPanelLayout.updateColors();
             }
             if (topBubblesFadeView != null) {
-                topBubblesFadeView.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                topBubblesFadeView.setColor(Color.TRANSPARENT);
             }
             if (fragmentContextView != null) {
                 fragmentContextView.updateColors();
@@ -12849,10 +12849,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         ArrayList<ThemeDescription> arrayList = new ArrayList<>();
 
-        arrayList.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
 
         if (movingView != null) {
-            arrayList.add(new ThemeDescription(movingView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
+            // Moving dialog cells keep the page surface transparent.
+            // No background ThemeDescription is registered for movingView.
         }
 
         if (doneItem != null) {
@@ -12860,9 +12860,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (folderId == 0) {
-            if (onlySelect) {
-                arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
-            }
             arrayList.add(new ThemeDescription(fragmentView, 0, null, actionBarDefaultPaint, null, null, Theme.key_windowBackgroundWhite));
             if (searchViewPager != null) {
                 arrayList.add(new ThemeDescription(searchViewPager.searchListView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_windowBackgroundWhite));
@@ -12913,7 +12910,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             if (searchViewPager != null) {
                 ActionBarMenu actionMode = searchViewPager.getActionMode();
                 if (actionMode != null) {
-                    actionMode.setBackgroundColor(getThemedColor(Theme.key_actionBarActionModeDefault));
+                    actionMode.setBackgroundColor(Color.TRANSPARENT);
                 }
                 ActionBarMenuItem speedItem = searchViewPager.getSpeedItem();
                 if (speedItem != null) {
@@ -13720,14 +13717,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         - (communityId != 0 ? h : 0)
                         + (topPanelLayout != null ? (int) topPanelLayout.getAnimatedHeightWithPadding(dp(7)) : 0);
 
-                    gradientDrawable.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.7f));
+                    gradientDrawable.setColor(Color.TRANSPARENT);
                     gradientDrawable.setInsets(0, t, 0, 0);
                     gradientDrawable.setBounds(0, 0, getMeasuredWidth(), t + h);
                     gradientDrawable.draw(canvas);
                 }
 
                 if (navigationBarHeight > dp(32)) {
-                    gradientDrawable2.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.9f));
+                    gradientDrawable2.setColor(Color.TRANSPARENT);
                     gradientDrawable2.setBounds(0, getMeasuredHeight() - navigationBarHeight, getMeasuredWidth(), getMeasuredHeight());
                     gradientDrawable2.draw(canvas);
                 }
