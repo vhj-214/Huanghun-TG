@@ -42,6 +42,7 @@ jobs:
       - name: Build with Gradle
         env:
           NATIVE_TARGET: universal
+          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify installable APK
         shell: bash
