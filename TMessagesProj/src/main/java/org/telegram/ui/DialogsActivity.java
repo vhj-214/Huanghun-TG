@@ -14965,6 +14965,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (contentView == null || !shouldUseWallpaperBackedMainGlass()) {
             return;
         }
+        // This page's ActionBar is transparent, so pattern wallpapers must extend
+        // behind both the status bar and the header instead of exposing the window's black base.
+        contentView.setDrawBackgroundBehindTopBars(true);
         contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
         contentView.setBackgroundColor(Color.TRANSPARENT);
     }
