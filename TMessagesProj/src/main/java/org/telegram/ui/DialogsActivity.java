@@ -14470,9 +14470,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                                 LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, true);
                             }
                             LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, enabled);
-                            Activity activity = getParentActivity();
-                            if (activity != null) {
-                                activity.recreate();
+                            Activity parentActivity = getParentActivity();
+                            if (parentActivity != null) {
+                                parentActivity.recreate();
                             }
                         });
             }
