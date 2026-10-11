@@ -99,7 +99,6 @@ import xyz.nextalone.nagram.helper.LocalProfileOverrideHelper;
 import org.telegram.ui.Components.AnimatedEmojiSpan;
 import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.AvatarDrawable;
-import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.BubbleCounterPath;
 import org.telegram.ui.Components.ButtonBounce;
 import org.telegram.ui.Components.CanvasButton;
@@ -3884,7 +3883,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private int archiveFadeGradientDrawableColor;
     // 仅由登录后的聊天列表显式启用；默认保持官方会话行绘制，避免影响其它复用入口。
     private boolean huanghunLiquidGlass;
-    private BlurredBackgroundDrawable huanghunLiquidGlassDrawable;
     private final Paint huanghunLiquidGlassFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint huanghunLiquidGlassStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -3894,16 +3892,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             invalidate();
         }
     }
-    public void setHuanghunLiquidGlassDrawable(BlurredBackgroundDrawable drawable) {
-        if (huanghunLiquidGlassDrawable != drawable) {
-            huanghunLiquidGlassDrawable = drawable;
-            invalidate();
-        }
-    }
-    public boolean hasHuanghunLiquidGlassDrawable() {
-        return huanghunLiquidGlassDrawable != null;
-    }
-
     @SuppressLint("DrawAllocation")
     @Override
     protected void onDraw(Canvas canvas) {
@@ -4132,13 +4120,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             gtx += translationX;
         }
 
-        if (huanghunLiquidGlass && huanghunLiquidGlassDrawable != null
-                && (parentFragment == null || !parentFragment.isCapturingGlassSource())) {
-            final int inset = dp(2);
-            huanghunLiquidGlassDrawable.setBounds(inset, inset,
-                    getMeasuredWidth() - inset, getMeasuredHeight() - inset);
-            huanghunLiquidGlassDrawable.draw(canvas);
-        } else if (huanghunLiquidGlass) {
+        if (huanghunLiquidGlass) {
             // Each row is an independent glass block rather than one continuous veil.
             // The small gaps let the wallpaper become the separator, like the four
             // distinct liquid-glass buttons in the reference image.

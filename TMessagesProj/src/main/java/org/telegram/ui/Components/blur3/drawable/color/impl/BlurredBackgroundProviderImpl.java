@@ -81,18 +81,6 @@ public class BlurredBackgroundProviderImpl {
         return mainNavigationTransparentGlass(resourcesProvider);
     }
 
-    /** A per-row liquid-glass surface for the wallpaper-backed dialogs list. */
-    public static BlurredBackgroundProvider mainChatRowGlass(Theme.ResourcesProvider resourcesProvider) {
-        return new BlurredBackgroundProviderBuilder(resourcesProvider)
-                .setBackgroundColor((r, isDark) -> 0x00000000)
-                .setStrokeColorTop(0x72FFFFFF, 0x48FFFFFF)
-                .setStrokeColorBottom(0x2CFFFFFF, 0x18000000)
-                .setShadowColor(0x42000000, 0x26000000)
-                .setShadowLayer(dpf2(3.2f), 0, dpf2(1.2f))
-                .setStrokeWidth(dpf2(0.8f), dpf2(0.8f))
-                .build();
-    }
-
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
                 .setBackgroundColor((r, isDark) -> {
