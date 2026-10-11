@@ -4122,21 +4122,32 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
 
         if (huanghunLiquidGlass) {
-            // 单层中性玻璃：不使用蓝紫渐变，也不覆盖文本、头像或滑动操作背景。
-            // 共同群行框体与内容使用同一完整宽高，避免独立 Canvas 路径留下固定空隙或上下越框。
-            rect.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
+            // Each row is an independent glass block rather than one continuous veil.
+            // The small gaps let the wallpaper become the separator, like the four
+            // distinct liquid-glass buttons in the reference image.
+            final float horizontalInset = dp(2);
+            final float verticalInset = dp(2);
+            rect.set(horizontalInset, verticalInset,
+                    getMeasuredWidth() - horizontalInset, getMeasuredHeight() - verticalInset);
             huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
             huanghunLiquidGlassFillPaint.setShader(new LinearGradient(
-                    0, 0, getMeasuredWidth(), getMeasuredHeight(),
-                    new int[] { 0x46FFFFFF, 0x16FFFFFF, 0x2AFFFFFF },
+                    rect.left, rect.top, rect.right, rect.bottom,
+                    new int[] { 0x70FFFFFF, 0x2CFFFFFF, 0x50FFFFFF },
                     new float[] { 0f, 0.48f, 1f },
                     Shader.TileMode.CLAMP));
-            canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassFillPaint);
+            huanghunLiquidGlassFillPaint.setShadowLayer(dp(2), 0, dp(0.7f), 0x30000000);
+            canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassFillPaint);
+            huanghunLiquidGlassFillPaint.clearShadowLayer();
             huanghunLiquidGlassFillPaint.setShader(null);
             huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
-            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(1)));
-            huanghunLiquidGlassStrokePaint.setColor(0x66FFFFFF);
-            canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassStrokePaint);
+            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.9f)));
+            huanghunLiquidGlassStrokePaint.setColor(0x96FFFFFF);
+            canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassStrokePaint);
+            // Inner rim highlight makes the surface read as glass instead of a plain tint.
+            rect.inset(dp(1), dp(1));
+            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.55f)));
+            huanghunLiquidGlassStrokePaint.setColor(0x42FFFFFF);
+            canvas.drawRoundRect(rect, dp(15), dp(15), huanghunLiquidGlassStrokePaint);
         }
 
         float cornersRadius = dp(8) * cornerProgress;
@@ -4920,7 +4931,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             canvas.restore();
         }
 
-        if (useSeparator) {
+        // Card gaps and rims replace Telegram's one-pixel text-aligned divider.
+        if (useSeparator && !huanghunLiquidGlass) {
             int left;
             if (fullSeparator || currentDialogFolderId != 0 && archiveHidden && !fullSeparator2 || fullSeparator2 && !archiveHidden) {
                 left = 0;
