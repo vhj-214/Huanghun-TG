@@ -16,7 +16,9 @@ public class DialogsActivityTopBubblesFadeView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Matrix matrix = new Matrix();
     private Shader shader;
-    private int lastColor;
+    // Color.TRANSPARENT is a valid initial color. Keep a distinct sentinel so
+    // the first setColor(Color.TRANSPARENT) call still initializes the shader.
+    private int lastColor = Integer.MIN_VALUE;
 
     public DialogsActivityTopBubblesFadeView(Context context) {
         super(context);
@@ -58,6 +60,11 @@ public class DialogsActivityTopBubblesFadeView extends View {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
+        // A transparent fade must not fall through to Paint's default black
+        // color when no shader has been initialized yet.
+        if (shader == null || Color.alpha(lastColor) == 0) {
+            return;
+        }
         canvas.drawRect(0, 0, getMeasuredWidth(), fadeStart + fadeHeight, paint);
     }
 }
