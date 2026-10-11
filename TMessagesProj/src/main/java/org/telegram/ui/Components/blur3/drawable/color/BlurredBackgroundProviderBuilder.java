@@ -2,8 +2,11 @@ package org.telegram.ui.Components.blur3.drawable.color;
 
 import static org.telegram.messenger.AndroidUtilities.dpf2;
 
+import android.os.Build;
+
 import androidx.annotation.ColorInt;
 
+import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Stories.DarkThemeResourceProvider;
 
@@ -63,21 +66,42 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
 
     @Override
     public int getShadowColor() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
         return get(shadowColor, 0);
     }
 
     @Override
     public int getBackgroundColor() {
+        if (useLiquidGlassMaterial()) {
+            // The shader must sample the live source directly. An opaque
+            // provider color would hide the refraction and reflection.
+            return 0;
+        }
+        if (useLiquidGlassFallbackMaterial()) {
+            final int color = get(backgroundColor, 0);
+            // Android 12 has the live blur source but not the AGSL refraction
+            // effect. Keep the source visible and add only a milky glass veil.
+            return color != 0 ? Theme.multAlpha(color, 0.24f)
+                : (isDark() ? 0x24000000 : 0x24FFFFFF);
+        }
         return get(backgroundColor, 0);
     }
 
     @Override
     public int getStrokeColorTop() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
         return get(strokeColorTop, 0);
     }
 
     @Override
     public int getStrokeColorBottom() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
         return get(strokeColorBottom, 0);
     }
 
@@ -104,6 +128,16 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
     @Override
     public float getShadowDy() {
         return shadowDy;
+    }
+
+    private static boolean useLiquidGlassMaterial() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+    }
+
+    private static boolean useLiquidGlassFallbackMaterial() {
+        return !useLiquidGlassMaterial()
+            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
     }
 
 

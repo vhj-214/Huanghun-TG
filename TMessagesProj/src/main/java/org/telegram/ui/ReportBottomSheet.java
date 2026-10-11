@@ -87,7 +87,11 @@ public class ReportBottomSheet extends BottomSheet {
         }
         switch (text.trim().toLowerCase(Locale.US)) {
             case "what is wrong with this channel?": return LocaleController.getString(R.string.Report2WhatWrongChannel);
+            case "what is wrong with this message?": return LocaleController.getString(R.string.Report2WhatWrongMessage);
+            case "what is wrong with this user?": return LocaleController.getString(R.string.Report2WhatWrongUser);
+            case "what is wrong with this group?": return LocaleController.getString(R.string.Report2WhatWrongGroup);
             case "i don't like it": return LocaleController.getString(R.string.Report2OptionDislike);
+            case "i do not like it": return LocaleController.getString(R.string.Report2OptionDislike);
             case "child abuse": return LocaleController.getString(R.string.Report2OptionChildAbuse);
             case "violence": return LocaleController.getString(R.string.Report2OptionViolence);
             case "illegal goods and services": return LocaleController.getString(R.string.Report2OptionIllegalGoods);
@@ -98,6 +102,14 @@ public class ReportBottomSheet extends BottomSheet {
             case "spam": return LocaleController.getString(R.string.Report2OptionSpam);
             case "other": return LocaleController.getString(R.string.Report2OptionOther);
             case "it's not illegal, but must be taken down": return LocaleController.getString(R.string.Report2OptionNotIllegal);
+            case "this is not illegal, but must be taken down": return LocaleController.getString(R.string.Report2OptionNotIllegal);
+            case "weapons": return LocaleController.getString(R.string.Report2OptionWeapons);
+            case "drugs": return LocaleController.getString(R.string.Report2OptionDrugs);
+            case "fake documents": return LocaleController.getString(R.string.Report2OptionFakeDocuments);
+            case "counterfeit money": return LocaleController.getString(R.string.Report2OptionCounterfeitMoney);
+            case "hacking tools and malware": return LocaleController.getString(R.string.Report2OptionHackingTools);
+            case "counterfeit merchandise": return LocaleController.getString(R.string.Report2OptionCounterfeitMerchandise);
+            case "other goods and services": return LocaleController.getString(R.string.Report2OptionOtherGoodsServices);
             default: return text;
         }
     }

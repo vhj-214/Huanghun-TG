@@ -14468,26 +14468,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                             presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_NIGHT));
                         });
                     });
-            if (Build.VERSION.SDK_INT >= 33
-                    && (SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_AVERAGE
-                    || BuildVars.DEBUG_PRIVATE_VERSION)) {
-                io.addChecked(
-                        LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS),
-                        R.drawable.msg_theme,
-                        getString(R.string.WaterGlassMode),
-                        () -> {
-                            boolean enabled = !LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
-                            if (enabled && !LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR)) {
-                                // Liquid Glass needs the existing blur pipeline as its source.
-                                LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, true);
-                            }
-                            LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, enabled);
-                            Activity parentActivity = getParentActivity();
-                            if (parentActivity != null) {
-                                parentActivity.recreate();
-                            }
-                        });
-            }
+            io.addChecked(
+                    LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS),
+                    R.drawable.msg_theme,
+                    getString(R.string.WaterGlassMode),
+                    () -> {
+                        boolean enabled = !LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+                        if (enabled && !LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR)) {
+                            // Liquid Glass needs the existing blur pipeline as its source.
+                            LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, true);
+                        }
+                        LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, enabled);
+                        Activity parentActivity = getParentActivity();
+                        if (parentActivity != null) {
+                            parentActivity.recreate();
+                        }
+                    });
             io.addGap();
             if (hideBottomNavigationBar) {
                 io.add(R.drawable.left_status_profile, getString(R.string.MyProfile), () -> {

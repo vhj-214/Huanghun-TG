@@ -7,6 +7,7 @@ import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Outline;
 import android.graphics.Paint;
@@ -39,8 +40,9 @@ import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.blur3.utils.NinePatchBuilder;
 
-import java.lang.ref.WeakReference;
 import java.util.Arrays;
+
+import org.telegram.messenger.LiteMode;
 
 import xyz.nextalone.nagram.NaConfig;
 
@@ -606,9 +608,11 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
 
     private final Paint backgroundBitmapPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint backgroundBitmapFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint liquidGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint liquidGlassRimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Matrix bitmapShaderMatrix = new Matrix();
-    private final WeakReference<Bitmap> bitmapInShader = new WeakReference<>(null);
+    private @Nullable Bitmap bitmapInShader;
     private @Nullable BitmapShader bitmapShader;
 
     {
@@ -656,6 +660,7 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
             boundProps.draw(canvas, backgroundColorPaint);
         }
 
+        drawCrossVersionLiquidGlass(canvas);
         drawStrokeInternalIfNeeded(canvas);
 
         if (needSaveLayer) {
@@ -670,6 +675,7 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
     private void drawSourceColorImpl(Canvas canvas, int sourceColor) {
         final int fillColor = ColorUtils.compositeColors(this.backgroundColor, sourceColor);
         if (Color.alpha(fillColor) == 0 && Color.alpha(shadowColor) == 0) {
+            drawCrossVersionLiquidGlass(canvas);
             return;
         }
 
@@ -682,19 +688,22 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         );
         ninePatchDrawable.setAlpha(alpha);
         ninePatchDrawable.draw(canvas);
+        drawCrossVersionLiquidGlass(canvas);
     }
 
     private void drawSourceBitmap(Canvas canvas, BlurredBackgroundSourceBitmap source) {
         final Bitmap newBitmap = source.getBitmap();
-        final Bitmap oldBitmap = bitmapInShader.get();
+        final Bitmap oldBitmap = bitmapInShader;
 
         if (newBitmap != oldBitmap) {
             if (newBitmap != null && !newBitmap.isRecycled()) {
                 bitmapShader = new BitmapShader(newBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
                 backgroundBitmapPaint.setShader(bitmapShader);
+                bitmapInShader = newBitmap;
             } else {
                 bitmapShader = null;
                 backgroundBitmapPaint.setShader(null);
+                bitmapInShader = null;
             }
         }
 
@@ -724,7 +733,70 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
             boundProps.draw(canvas, backgroundBitmapFill);
         }
 
+        drawCrossVersionLiquidGlass(canvas);
         drawStrokeInternalIfNeeded(canvas);
+    }
+
+    /**
+     * AGSL is only available on Android 13, but the visual material is not
+     * tied to that API. Older devices use the same captured/blurred source and
+     * receive this software-composited glass pass: milky tint, diagonal sheen,
+     * and a two-sided rim for the thick iOS-style edge.
+     */
+    private void drawCrossVersionLiquidGlass(Canvas canvas) {
+        if (!LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) || alpha == 0
+                || boundProps.boundsWithPadding.isEmpty()) {
+            return;
+        }
+
+        final Rect bounds = boundProps.boundsWithPadding;
+        final boolean dark = Theme.isCurrentThemeDark();
+        canvas.save();
+        canvas.clipPath(boundProps.path);
+
+        liquidGlassPaint.setStyle(Paint.Style.FILL);
+        liquidGlassPaint.setShader(new LinearGradient(
+                bounds.left, bounds.top, bounds.right, bounds.bottom,
+                dark
+                        ? new int[] { 0x38FFFFFF, 0x0CFFFFFF, 0x18000000 }
+                        : new int[] { 0x58FFFFFF, 0x14FFFFFF, 0x10000000 },
+                new float[] { 0f, 0.44f, 1f }, Shader.TileMode.CLAMP));
+        canvas.drawPath(boundProps.path, liquidGlassPaint);
+        liquidGlassPaint.setShader(null);
+
+        liquidGlassRimPaint.setStyle(Paint.Style.STROKE);
+        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.7f), 1f));
+        liquidGlassRimPaint.setColor(dark ? 0x58FFFFFF : 0x72FFFFFF);
+        canvas.drawPath(boundProps.path, liquidGlassRimPaint);
+
+        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.55f), 1f));
+        liquidGlassRimPaint.setColor(dark ? 0x28000000 : 0x22000000);
+        canvas.drawPath(boundProps.path, liquidGlassRimPaint);
+        canvas.restore();
+    }
+
+    protected final void drawCrossVersionLiquidGlassRect(Canvas canvas,
+            float left, float top, float right, float bottom, float radius) {
+        if (!LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) || alpha == 0) {
+            return;
+        }
+        final boolean dark = Theme.isCurrentThemeDark();
+        liquidGlassPaint.setStyle(Paint.Style.FILL);
+        liquidGlassPaint.setShader(new LinearGradient(
+                left, top, right, bottom,
+                dark
+                        ? new int[] { 0x38FFFFFF, 0x0CFFFFFF, 0x18000000 }
+                        : new int[] { 0x58FFFFFF, 0x14FFFFFF, 0x10000000 },
+                new float[] { 0f, 0.44f, 1f }, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassPaint);
+        liquidGlassPaint.setShader(null);
+        liquidGlassRimPaint.setStyle(Paint.Style.STROKE);
+        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.7f), 1f));
+        liquidGlassRimPaint.setColor(dark ? 0x58FFFFFF : 0x72FFFFFF);
+        canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassRimPaint);
+        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.55f), 1f));
+        liquidGlassRimPaint.setColor(dark ? 0x28000000 : 0x22000000);
+        canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassRimPaint);
     }
 
     private void drawStrokeInternalIfNeeded(Canvas canvas) {

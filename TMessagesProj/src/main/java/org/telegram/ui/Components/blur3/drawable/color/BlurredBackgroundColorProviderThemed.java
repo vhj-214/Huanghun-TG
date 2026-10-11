@@ -1,5 +1,9 @@
 package org.telegram.ui.Components.blur3.drawable.color;
 
+import android.os.Build;
+
+import android.graphics.Color;
+
 import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
@@ -53,22 +57,50 @@ public class BlurredBackgroundColorProviderThemed implements BlurredBackgroundCo
 
     @Override
     public int getShadowColor() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
         return shadowColor;
     }
 
     @Override
     public int getBackgroundColor() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
+        if (useLiquidGlassFallbackMaterial()) {
+            // Android 12/12L can provide the live blur source, but cannot run
+            // the Android 13 AGSL refraction pass. Preserve that source and
+            // use a light glass veil instead of the old opaque surface.
+            return ColorUtils.setAlphaComponent(backgroundColor,
+                Math.min(Color.alpha(backgroundColor), 0x38));
+        }
         return backgroundColor;
     }
 
     @Override
     public int getStrokeColorTop() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
         return strokeColorTop;
     }
 
     @Override
     public int getStrokeColorBottom() {
+        if (useLiquidGlassMaterial()) {
+            return 0;
+        }
         return strokeColorBottom;
     }
-}
 
+    private static boolean useLiquidGlassMaterial() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+    }
+
+    private static boolean useLiquidGlassFallbackMaterial() {
+        return !useLiquidGlassMaterial()
+            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+    }
+}

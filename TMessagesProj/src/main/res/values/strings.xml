@@ -9146,6 +9146,9 @@
     <string name="Report2CommentInfoChannel">Please help us by telling what is wrong with the channel you have selected.</string>
     <string name="Report2Send">Send Report</string>
     <string name="Report2WhatWrongChannel">What is wrong with this channel?</string>
+    <string name="Report2WhatWrongMessage">What is wrong with this message?</string>
+    <string name="Report2WhatWrongUser">What is wrong with this user?</string>
+    <string name="Report2WhatWrongGroup">What is wrong with this group?</string>
     <string name="Report2OptionDislike">I do not like it</string>
     <string name="Report2OptionChildAbuse">Child abuse</string>
     <string name="Report2OptionViolence">Violence</string>
@@ -9157,6 +9160,13 @@
     <string name="Report2OptionSpam">Spam</string>
     <string name="Report2OptionOther">Other</string>
     <string name="Report2OptionNotIllegal">This is not illegal, but must be taken down</string>
+    <string name="Report2OptionWeapons">Weapons</string>
+    <string name="Report2OptionDrugs">Drugs</string>
+    <string name="Report2OptionFakeDocuments">Fake documents</string>
+    <string name="Report2OptionCounterfeitMoney">Counterfeit money</string>
+    <string name="Report2OptionHackingTools">Hacking tools and malware</string>
+    <string name="Report2OptionCounterfeitMerchandise">Counterfeit merchandise</string>
+    <string name="Report2OptionOtherGoodsServices">Other goods and services</string>
     <string name="Reported2">Telegram moderators will review your report. Thank you!</string>
     <string name="Gift2TransactionRefundedAuctionBid">Refunded Auction Bid</string>
     <string name="Gift2TransactionRefundedSent">Refunded Sent Gift</string>

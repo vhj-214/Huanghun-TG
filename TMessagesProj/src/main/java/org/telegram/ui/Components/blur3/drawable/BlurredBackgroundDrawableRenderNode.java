@@ -15,6 +15,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
+import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.blur3.LiquidGlassEffect;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
@@ -145,7 +146,13 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
             }
         }
         source.draw(c, sL, sT, sR, sB);
-        c.save();
+        if (liquidGlassEffect == null && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            drawCrossVersionLiquidGlassRect(c, 0, 0,
+                    boundProps.boundsWithPadding.width(),
+                    boundProps.boundsWithPadding.height(),
+                    boundProps.radii[0]);
+        }
+        c.restore();
         renderNodeFill.endRecording();
 
 

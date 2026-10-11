@@ -106,7 +106,25 @@
     <string name="VideoPlayerDecoderPreferSW">软解优先</string>
     <string name="VideoPlayerDecoderHardware">仅硬解</string>
     <string name="VideoPlayerDecoderPreferHW">硬解优先</string>
+    <string name="ReportChatSent">举报已发送</string>
+    <string name="ReportAd">举报广告</string>
+    <string name="ReportAdLearnMore">了解更多：[广告政策和指南。](https://ads.telegram.org/guidelines)</string>
+    <string name="AdReported">我们将审核此广告，确保其符合我们的**广告政策和指南。**</string>
+    <string name="AdHidden">您将不再看到 Telegram 的广告。</string>
+    <string name="ReportStory">举报动态</string>
+    <string name="Report2">举报</string>
+    <string name="Report2Comment">添加说明</string>
+    <string name="Report2CommentOptional">添加说明（可选）</string>
+    <string name="Report2CommentInfo">请告诉我们您选择的消息有什么问题，以帮助我们处理举报。</string>
+    <string name="Report2CommentInfoMany">请告诉我们您选择的消息有什么问题，以帮助我们处理举报。</string>
+    <string name="Report2CommentInfoUser">请告诉我们您选择的用户有什么问题，以帮助我们处理举报。</string>
+    <string name="Report2CommentInfoGroup">请告诉我们您选择的群组有什么问题，以帮助我们处理举报。</string>
+    <string name="Report2CommentInfoChannel">请告诉我们您选择的频道有什么问题，以帮助我们处理举报。</string>
+    <string name="Report2Send">发送举报</string>
     <string name="Report2WhatWrongChannel">这个频道有什么问题？</string>
+    <string name="Report2WhatWrongMessage">这条消息有什么问题？</string>
+    <string name="Report2WhatWrongUser">这个用户有什么问题？</string>
+    <string name="Report2WhatWrongGroup">这个群组有什么问题？</string>
     <string name="Report2OptionDislike">我不喜欢</string>
     <string name="Report2OptionChildAbuse">虐待儿童</string>
     <string name="Report2OptionViolence">暴力内容</string>
@@ -118,6 +136,14 @@
     <string name="Report2OptionSpam">垃圾信息</string>
     <string name="Report2OptionOther">其他</string>
     <string name="Report2OptionNotIllegal">虽然不违法，但必须下架</string>
+    <string name="Report2OptionWeapons">武器</string>
+    <string name="Report2OptionDrugs">毒品</string>
+    <string name="Report2OptionFakeDocuments">伪造证件</string>
+    <string name="Report2OptionCounterfeitMoney">假币</string>
+    <string name="Report2OptionHackingTools">黑客工具和恶意软件</string>
+    <string name="Report2OptionCounterfeitMerchandise">假冒商品</string>
+    <string name="Report2OptionOtherGoodsServices">其他商品和服务</string>
+    <string name="Reported2">Telegram 管理员将审核您的举报。感谢您的反馈！</string>
     <string name="AppIconGoogle" translatable="false">Google</string>
     <string name="Nagram" translatable="false">Nagram</string>
     <string name="Pangu" translatable="false">Pangu</string>
