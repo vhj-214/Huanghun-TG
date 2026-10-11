@@ -42,5 +42,22 @@ half4 main(in float2 fragCoord) {
     uv += refract_vec.xy * refract_length * refract_intensity;
   }
 
-  return srcOver(half4(foreground_color_premultiplied), img.eval(uv));
+  half4 background = img.eval(uv);
+
+  // A thin, soft white rim makes a translucent panel read as glass rather than
+  // a flat alpha overlay. Keep it inside the rounded outline for capsules too.
+  half edge = 1.0 - smoothstep(0.0, max(thickness * 1.7, 1.0), abs(sd));
+  half topLight = smoothstep(-size.y, size.y * 0.18, -p.y);
+  half leftLight = smoothstep(-size.x, size.x * 0.20, -p.x);
+  half rimAlpha = edge * (0.07 + 0.10 * topLight * leftLight);
+
+  // A broad diagonal reflection gives the panel a soft Apple-like sheen while
+  // the wallpaper moves underneath it. It stays deliberately subtle.
+  half diagonal = smoothstep(0.86, 0.18,
+      abs((p.x / max(size.x, 1.0)) + (p.y / max(size.y, 1.0)) * 0.72));
+  half sheenAlpha = diagonal * topLight * 0.045;
+  half reflectionAlpha = rimAlpha + sheenAlpha;
+  half4 reflection = half4(reflectionAlpha, reflectionAlpha,
+      reflectionAlpha, reflectionAlpha);
+  return srcOver(reflection, srcOver(half4(foreground_color_premultiplied), background));
 }

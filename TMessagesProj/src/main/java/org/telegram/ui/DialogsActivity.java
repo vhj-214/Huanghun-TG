@@ -14369,6 +14369,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             io.setSelectorColor(getThemedColor(Theme.key_dialogButtonSelector));
         }
         io.setDimAlpha(0x08);
+        // The main menu is the most visible glass surface. Use the same captured
+        // wallpaper/content source as the rest of the liquid-glass UI instead of
+        // the opaque ActionBar popup background.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            io.setBlur(true, true);
+        }
 
         final Activity activity = getParentActivity();
         final LaunchActivity launchActivity;

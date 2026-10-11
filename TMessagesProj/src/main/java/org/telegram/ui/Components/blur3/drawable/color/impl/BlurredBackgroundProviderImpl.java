@@ -17,6 +17,9 @@ import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProvider
 
 public class BlurredBackgroundProviderImpl {
     public static BlurredBackgroundProvider mainTabs(Theme.ResourcesProvider resourcesProvider) {
+        if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            return mainNavigationTransparentGlass(resourcesProvider);
+        }
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
                 final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.85f : 0.76f;
@@ -33,6 +36,9 @@ public class BlurredBackgroundProviderImpl {
     }
 
     public static BlurredBackgroundProvider topPanel(Theme.ResourcesProvider resourcesProvider) {
+        if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            return mainNavigationTransparentGlass(resourcesProvider);
+        }
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
                 final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.85f : 0.76f;
@@ -106,13 +112,16 @@ public class BlurredBackgroundProviderImpl {
 
     public static BlurredBackgroundProvider scrimMenuBackground(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
+            // Keep the captured background visible through the panel. The shader
+            // supplies the refraction and reflection; this tint only establishes
+            // the milky iOS glass body and adapts to dark mode.
             .setBackgroundColor((r, isDark) ->
-                Theme.multAlpha(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), isDark ? 0.85f : 0.76f))
-            .setStrokeColorTop(0xFFFFFFFF, 0)
-            .setStrokeColorBottom(0xFFFFFFFF, 0)
-            .setShadowColor(0x26000000, 0)
-            .setShadowLayer(dpf2(4f), 0, 0)
-            .setStrokeWidth(dpf2(2 / 3f), dpf2(2 / 3f))
+                Theme.multAlpha(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), isDark ? 0.52f : 0.38f))
+            .setStrokeColorTop(0x72FFFFFF, 0x5AFFFFFF)
+            .setStrokeColorBottom(0x22000000, 0x28FFFFFF)
+            .setShadowColor(0x52000000, 0x22000000)
+            .setShadowLayer(dpf2(10f), 0, dpf2(3f))
+            .setStrokeWidth(dpf2(0.8f), dpf2(0.8f))
             .build();
     }
 

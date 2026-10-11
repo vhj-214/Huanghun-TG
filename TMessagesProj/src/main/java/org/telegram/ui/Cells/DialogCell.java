@@ -4126,8 +4126,13 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             // 共同群行框体与内容使用同一完整宽高，避免独立 Canvas 路径留下固定空隙或上下越框。
             rect.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
             huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
-            huanghunLiquidGlassFillPaint.setColor(0x38FFFFFF);
+            huanghunLiquidGlassFillPaint.setShader(new LinearGradient(
+                    0, 0, getMeasuredWidth(), getMeasuredHeight(),
+                    new int[] { 0x46FFFFFF, 0x16FFFFFF, 0x2AFFFFFF },
+                    new float[] { 0f, 0.48f, 1f },
+                    Shader.TileMode.CLAMP));
             canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassFillPaint);
+            huanghunLiquidGlassFillPaint.setShader(null);
             huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
             huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(1)));
             huanghunLiquidGlassStrokePaint.setColor(0x66FFFFFF);
