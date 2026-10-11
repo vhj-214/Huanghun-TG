@@ -3885,6 +3885,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private boolean huanghunLiquidGlass;
     private final Paint huanghunLiquidGlassFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint huanghunLiquidGlassStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private LinearGradient huanghunLiquidGlassShader;
+    private int huanghunLiquidGlassShaderWidth = -1;
+    private int huanghunLiquidGlassShaderHeight = -1;
 
     public void setHuanghunLiquidGlass(boolean enabled) {
         if (huanghunLiquidGlass != enabled) {
@@ -4126,27 +4129,46 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             // distinct liquid-glass buttons in the reference image.
             final float horizontalInset = dp(2);
             final float verticalInset = dp(2);
-            rect.set(horizontalInset, verticalInset,
-                    getMeasuredWidth() - horizontalInset, getMeasuredHeight() - verticalInset);
-            huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
-            huanghunLiquidGlassFillPaint.setShader(new LinearGradient(
-                    rect.left, rect.top, rect.right, rect.bottom,
-                    new int[] { 0x70FFFFFF, 0x2CFFFFFF, 0x50FFFFFF },
-                    new float[] { 0f, 0.48f, 1f },
-                    Shader.TileMode.CLAMP));
-            huanghunLiquidGlassFillPaint.setShadowLayer(dp(2), 0, dp(0.7f), 0x30000000);
-            canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassFillPaint);
-            huanghunLiquidGlassFillPaint.clearShadowLayer();
-            huanghunLiquidGlassFillPaint.setShader(null);
-            huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
-            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.9f)));
-            huanghunLiquidGlassStrokePaint.setColor(0x96FFFFFF);
-            canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassStrokePaint);
-            // Inner rim highlight makes the surface read as glass instead of a plain tint.
-            rect.inset(dp(1), dp(1));
-            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.55f)));
-            huanghunLiquidGlassStrokePaint.setColor(0x42FFFFFF);
-            canvas.drawRoundRect(rect, dp(15), dp(15), huanghunLiquidGlassStrokePaint);
+            final int glassWidth = getMeasuredWidth();
+            final int glassHeight = getMeasuredHeight();
+            if (glassWidth > horizontalInset * 2 && glassHeight > verticalInset * 2) {
+                if (glassWidth != huanghunLiquidGlassShaderWidth || glassHeight != huanghunLiquidGlassShaderHeight) {
+                    huanghunLiquidGlassShaderWidth = glassWidth;
+                    huanghunLiquidGlassShaderHeight = glassHeight;
+                    try {
+                        huanghunLiquidGlassShader = new LinearGradient(
+                                horizontalInset, verticalInset,
+                                glassWidth - horizontalInset, glassHeight - verticalInset,
+                                new int[] { 0x70FFFFFF, 0x2CFFFFFF, 0x50FFFFFF },
+                                new float[] { 0f, 0.48f, 1f },
+                                Shader.TileMode.CLAMP);
+                    } catch (RuntimeException ignored) {
+                        // Keep a translucent glass body if a device rejects a
+                        // degenerate/unsupported gradient during first layout.
+                        huanghunLiquidGlassShader = null;
+                    }
+                }
+
+                rect.set(horizontalInset, verticalInset,
+                        glassWidth - horizontalInset, glassHeight - verticalInset);
+                huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
+                huanghunLiquidGlassFillPaint.setShader(huanghunLiquidGlassShader);
+                huanghunLiquidGlassFillPaint.setColor(huanghunLiquidGlassShader != null ? 0xFFFFFFFF : 0x38FFFFFF);
+                huanghunLiquidGlassFillPaint.setShadowLayer(dp(2), 0, dp(0.7f), 0x30000000);
+                canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassFillPaint);
+                huanghunLiquidGlassFillPaint.clearShadowLayer();
+                huanghunLiquidGlassFillPaint.setShader(null);
+                huanghunLiquidGlassFillPaint.setColor(0xFFFFFFFF);
+                huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
+                huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.9f)));
+                huanghunLiquidGlassStrokePaint.setColor(0x96FFFFFF);
+                canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassStrokePaint);
+                // Inner rim highlight makes the surface read as glass instead of a plain tint.
+                rect.inset(dp(1), dp(1));
+                huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.55f)));
+                huanghunLiquidGlassStrokePaint.setColor(0x42FFFFFF);
+                canvas.drawRoundRect(rect, dp(15), dp(15), huanghunLiquidGlassStrokePaint);
+            }
         }
 
         float cornersRadius = dp(8) * cornerProgress;
