@@ -8146,6 +8146,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private void setSearchAnimationProgress(float progress, boolean full) {
         searchAnimationProgress = progress;
         if (whiteActionBar && actionBar != null) {
+            // Search expands into the wallpaper-backed header.  Re-apply the
+            // transparent surface here because adaptive ActionBar colors can
+            // otherwise restore the theme's opaque (black in dark mode) base.
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setBackground(null);
             int color1 = (folderId != 0 || communityId != 0) ? getThemedColor(Theme.key_actionBarDefaultArchivedIcon) : getThemedColor(Theme.key_actionBarDefaultIcon);
             actionBar.setItemsColor(ColorUtils.blendARGB(color1, getThemedColor(Theme.key_actionBarActionModeDefaultIcon), searchAnimationProgress), false);
             actionBar.setItemsColor(ColorUtils.blendARGB(getThemedColor(Theme.key_actionBarActionModeDefaultIcon), getThemedColor(Theme.key_actionBarActionModeDefaultIcon), searchAnimationProgress), true);
