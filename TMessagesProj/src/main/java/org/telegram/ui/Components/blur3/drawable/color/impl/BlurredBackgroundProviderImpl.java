@@ -61,15 +61,16 @@ public class BlurredBackgroundProviderImpl {
      * 形成一圈"黑边",看起来像一个多余的大方框。
      */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
-        // The glass surface itself must add no white tint on any Android version.
-        // The wallpaper/content below remains the only visible background.
+        // Keep the live source visible, but retain a visible optical rim and shadow.
+        // A completely transparent/no-stroke surface looks disabled even when the
+        // refraction shader is active behind it.
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> 0x00000000)
-            .setStrokeColorTop(0x00000000, 0x00000000)
-            .setStrokeColorBottom(0x00000000, 0x00000000)
-            .setShadowColor(0x00000000, 0x00000000)
-            .setShadowLayer(0, 0, 0)
-            .setStrokeWidth(0, 0)
+            .setStrokeColorTop(0x62FFFFFF, 0x3CFFFFFF)
+            .setStrokeColorBottom(0x26000000, 0x24000000)
+            .setShadowColor(0x30000000, 0x22000000)
+            .setShadowLayer(dpf2(2.4f), 0, dpf2(0.8f))
+            .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
             .build();
     }
     public static BlurredBackgroundProvider mainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
@@ -78,6 +79,18 @@ public class BlurredBackgroundProviderImpl {
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {
         return mainNavigationTransparentGlass(resourcesProvider);
+    }
+
+    /** A per-row liquid-glass surface for the wallpaper-backed dialogs list. */
+    public static BlurredBackgroundProvider mainChatRowGlass(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> 0x00000000)
+                .setStrokeColorTop(0x72FFFFFF, 0x48FFFFFF)
+                .setStrokeColorBottom(0x2CFFFFFF, 0x18000000)
+                .setShadowColor(0x42000000, 0x26000000)
+                .setShadowLayer(dpf2(3.2f), 0, dpf2(1.2f))
+                .setStrokeWidth(dpf2(0.8f), dpf2(0.8f))
+                .build();
     }
 
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {

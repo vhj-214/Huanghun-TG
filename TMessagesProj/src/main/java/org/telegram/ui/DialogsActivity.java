@@ -4346,7 +4346,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         final PointF tmpPoint = new PointF();
         iBlur3Capture = (canvas, position) -> {
-            final int searchViewAlpha = searchViewPager != null ? (int) (searchViewPager.getAlpha() * 255) : 0;
+            capturingGlassSource = true;
+            try {
+                final int searchViewAlpha = searchViewPager != null ? (int) (searchViewPager.getAlpha() * 255) : 0;
 
             for (ViewPage viewPage : viewPages) {
                 if (viewPage != null && viewPage.getVisibility() == View.VISIBLE && viewPage.getAlpha() > 0f) {
@@ -4367,7 +4369,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             if (searchViewPager != null && searchViewPager.getVisibility() == View.VISIBLE && searchViewPager.getAlpha() > 0f) {
-                Blur3Utils.captureRelativeParent(searchViewPager, canvas, position, searchViewPager, contentView, searchViewAlpha);
+                    Blur3Utils.captureRelativeParent(searchViewPager, canvas, position, searchViewPager, contentView, searchViewAlpha);
+                }
+            } finally {
+                capturingGlassSource = false;
             }
         };
 
@@ -4960,10 +4965,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
                     super.onBindViewHolder(holder, position);
                     if (holder.itemView instanceof DialogCell) {
-                        ((DialogCell) holder.itemView).setHuanghunLiquidGlass(
-                                !onlySelect
-                                        && initialDialogsType == DIALOGS_TYPE_DEFAULT
-                                        && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+                        DialogCell dialogCell = (DialogCell) holder.itemView;
+                        final boolean liquidGlass = !onlySelect
+                                && initialDialogsType == DIALOGS_TYPE_DEFAULT
+                                && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+                        dialogCell.setHuanghunLiquidGlass(liquidGlass);
+                        if (liquidGlass && !dialogCell.hasHuanghunLiquidGlassDrawable()) {
+                            dialogCell.setHuanghunLiquidGlassDrawable(iBlur3FactoryLiquidGlass.create(
+                                    dialogCell,
+                                    BlurredBackgroundProviderImpl.mainChatRowGlass(resourceProvider)
+                            ));
+                        } else if (!liquidGlass) {
+                            dialogCell.setHuanghunLiquidGlassDrawable(null);
+                        }
                     }
                 }
 
@@ -14978,9 +14992,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     private final ArrayList<RectF> iBlur3Positions = new ArrayList<>();
     private final RectF iBlur3PositionActionBar = new RectF();
+    private final RectF iBlur3PositionList = new RectF();
     private final RectF iBlur3PositionMainTabs = new RectF(); {
         iBlur3Positions.add(iBlur3PositionActionBar);
+        iBlur3Positions.add(iBlur3PositionList);
         iBlur3Positions.add(iBlur3PositionMainTabs);
+    }
+    private boolean capturingGlassSource;
+
+    public boolean isCapturingGlassSource() {
+        return capturingGlassSource;
     }
 
     // Huanghun main-page wallpaper is installed only for the primary dialogs tab.
@@ -15047,6 +15068,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             + dp(30);
 
         iBlur3PositionActionBar.set(0, -additionalList, fragmentView.getMeasuredWidth(), lerp(actionBarHeight, actionBarHeightSearch, animatorSearchVisible.getFloatValue()) + additionalList );
+        iBlur3PositionList.set(0, actionBarHeight, fragmentView.getMeasuredWidth(),
+                hasMainTabs && !NaConfig.INSTANCE.getHideBottomNavigationBar().Bool() ? mainTabTop : fragmentView.getMeasuredHeight());
 
         boolean hasBottomBlur = false;
         if (hasMainTabs && !NaConfig.INSTANCE.getHideBottomNavigationBar().Bool()) {
@@ -15063,7 +15086,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             hasBottomBlur = true;
         }
 
-        scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, hasBottomBlur ? 2 : 1);
+        scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, hasBottomBlur ? 3 : 2);
         scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
 
         if (iBlur3SourceGlassFrosted != null) {

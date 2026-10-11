@@ -44,6 +44,7 @@ import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
+import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
@@ -58,6 +59,8 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.ChatActionCell;
 import org.telegram.ui.Cells.ChatMessageCell;
 import org.telegram.ui.ChatActivity;
+import org.telegram.ui.DialogsActivity;
+import org.telegram.ui.TopicsFragment;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.ChatScrimPopupContainerLayout;
@@ -77,6 +80,7 @@ import java.util.List;
 
 import kotlin.Unit;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
+import tw.nekomimi.nekogram.helpers.NoForwardsHelper;
 import tw.nekomimi.nekogram.llm.LlmConfig;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.ui.MessageDetailsActivity;
@@ -93,6 +97,7 @@ public class AyuViewDeleted extends NekoDelegateFragment {
     private static final int OPTION_SAVE_TO_GALLERY = 7;
     private static final int OPTION_SAVE_TO_DOWNLOADS = 8;
     private static final int OPTION_TRANSLATE = 9;
+    private static final int OPTION_FORWARD = 10;
     private final long dialogId;
     private final boolean isEncrypted;
     private final ArrayList<DeletedMessageFull> deletedMessages = new ArrayList<>();
@@ -712,6 +717,10 @@ public class AyuViewDeleted extends NekoDelegateFragment {
         icons.add(R.drawable.msg_openin);
         options.add(OPTION_SHOW_IN_CHAT);
 
+        items.add(getString(R.string.Forward));
+        icons.add(R.drawable.msg_forward);
+        options.add(OPTION_FORWARD);
+
         String textToCopy = msg.messageOwner != null ? msg.messageOwner.message : null;
         if (textToCopy != null && !textToCopy.isEmpty()) {
             items.add(getString(R.string.Copy));
@@ -794,6 +803,27 @@ public class AyuViewDeleted extends NekoDelegateFragment {
                     args.putInt("message_id", msg.getId());
                     NotificationCenter.getInstance(getCurrentAccount()).postNotificationName(NotificationCenter.closeChats);
                     presentFragment(new ChatActivity(args), false, false);
+                } else if (option == OPTION_FORWARD) {
+                    ArrayList<MessageObject> messagesToForward = new ArrayList<>(1);
+                    messagesToForward.add(msg);
+                    Bundle forwardArgs = new Bundle();
+                    forwardArgs.putBoolean("onlySelect", true);
+                    forwardArgs.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_FORWARD);
+                    forwardArgs.putInt("messagesCount", 1);
+                    forwardArgs.putBoolean("canSelectTopics", true);
+                    DialogsActivity forwardSelector = new DialogsActivity(forwardArgs);
+                    forwardSelector.setDelegate(new DialogsActivity.DialogsActivityDelegate() {
+                        @Override
+                        public boolean didSelectDialogs(DialogsActivity fragment, ArrayList<MessagesStorage.TopicKey> dids, CharSequence message, boolean param, boolean notify, int scheduleDate, int scheduleRepeatPeriod, TopicsFragment topicsFragment) {
+                            for (MessagesStorage.TopicKey topicKey : dids) {
+                                NoForwardsHelper.forwardOrRepost(getCurrentAccount(), messagesToForward, topicKey.dialogId, false, null);
+                            }
+                            fragment.finishFragment();
+                            BulletinFactory.of(AyuViewDeleted.this).createSimpleBulletin(R.raw.forward, getString(R.string.Forward)).show();
+                            return true;
+                        }
+                    });
+                    presentFragment(forwardSelector);
                 } else if (option == OPTION_DELETE_FROM_DATABASE) {
                     long userId = getUserConfig().getClientUserId();
                     long dialogId = msg.getDialogId();
