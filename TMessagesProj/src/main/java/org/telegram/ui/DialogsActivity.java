@@ -4357,7 +4357,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             final boolean wasCapturingGlassSource = capturingGlassSource;
             capturingGlassSource = true;
             try {
-                contentView.captureWallpaperBackground(canvas, position);
+                // Background-only capture belongs to the Liquid Glass path.
+                // Keep the regular blur path unchanged: invoking drawChild()
+                // during every startup blur pass can re-enter ContentView
+                // before its children have completed layout.
+                if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+                    contentView.captureWallpaperBackground(canvas, position);
+                }
                 final float positionCenterY = (position.top + position.bottom) * 0.5f;
                 if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)
                         && positionCenterY >= iBlur3PositionList.top
