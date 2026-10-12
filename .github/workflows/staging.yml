@@ -30,6 +30,8 @@ jobs:
       CCACHE_MAXSIZE: "10G"
       # Publish one APK containing all supported ABIs for direct installation.
       NATIVE_TARGET: "universal"
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      REQUIRE_RELEASE_SIGNING: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -79,6 +81,8 @@ jobs:
         id: staging_build_step
         env:
           COMMIT_ID: ${{ github.event.head_commit.id }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          REQUIRE_RELEASE_SIGNING: 'true'
         run: |
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           export BUILD_TIMESTAMP=$(date +%s)

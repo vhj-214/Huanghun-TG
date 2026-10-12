@@ -18,6 +18,7 @@ def officialCode = APP_VERSION_CODE
 def keystorePwd = null
 def alias = null
 def pwd = null
+def keystoreBase64 = null
 
 Properties properties
 def base64 = System.getenv('LOCAL_PROPERTIES')
@@ -33,14 +34,21 @@ if (properties != null) {
     keystorePwd = properties.getProperty('KEYSTORE_PASS')
     alias = properties.getProperty('ALIAS_NAME')
     pwd = properties.getProperty('ALIAS_PASS')
+    keystoreBase64 = properties.getProperty('RELEASE_KEYSTORE_BASE64') ?: properties.getProperty('KEYSTORE_BASE64')
 }
 
 keystorePwd = keystorePwd ?: System.getenv('KEYSTORE_PASS')
 alias = alias ?: System.getenv('ALIAS_NAME')
 pwd = pwd ?: System.getenv('ALIAS_PASS')
-def hasReleaseSigning = [keystorePwd, alias, pwd].every { value -> value != null && !value.isBlank() } && project.file('release.keystore').isFile()
-if (!hasReleaseSigning) {
-    println('WARNING: Release signing credentials are unavailable; staging APKs will use the CI debug key and cannot update a release-signed installation.')
+keystoreBase64 = keystoreBase64 ?: System.getenv('RELEASE_KEYSTORE_BASE64')
+def keystoreFile = project.file('release.keystore')
+if (!keystoreFile.isFile() && keystoreBase64 != null && !keystoreBase64.isBlank()) {
+    keystoreFile.bytes = Base64.decoder.decode(keystoreBase64.replaceAll('\\s', ''))
+}
+def hasReleaseSigning = [keystorePwd, alias, pwd].every { value -> value != null && !value.isBlank() } && keystoreFile.isFile()
+def requireReleaseSigning = System.getenv('REQUIRE_RELEASE_SIGNING') == 'true'
+if (!hasReleaseSigning && requireReleaseSigning) {
+    throw new GradleException('Installable staging/release APK requires release signing. Configure RELEASE_KEYSTORE_BASE64, KEYSTORE_PASS, ALIAS_NAME and ALIAS_PASS in CI secrets.')
 }
 
 // CI passes -PnativeTarget=arm64-v8a. Prefer the Gradle property and keep the
@@ -189,8 +197,9 @@ android {
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            String productName = '黄昏'
-            String first = String.format('%s-v%s(%s)', productName, verName, verCode)
+            // Keep the distributable filename ASCII-only for Android download/file managers.
+            String productName = 'Huanghun'
+            String first = String.format('%s-v%s-%s', productName, verName, verCode)
             output.outputFileName.set(
                 output.outputFileName.get()
                     .replace('TMessagesProj', first)
