@@ -125,6 +125,8 @@ public class ReportBottomSheet extends BottomSheet {
             case "hacking tools and malware": return LocaleController.getString(R.string.Report2OptionHackingTools);
             case "counterfeit merchandise": return LocaleController.getString(R.string.Report2OptionCounterfeitMerchandise);
             case "other goods and services": return LocaleController.getString(R.string.Report2OptionOtherGoodsServices);
+            case "promoting illegal content": return LocaleController.getString(R.string.Report2OptionPromotingIllegalContent);
+            case "promoting other content": return LocaleController.getString(R.string.Report2OptionPromotingOtherContent);
             default: return text;
         }
     }

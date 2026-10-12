@@ -158,6 +158,8 @@
     <string name="Report2OptionHackingTools">黑客工具和恶意软件</string>
     <string name="Report2OptionCounterfeitMerchandise">假冒商品</string>
     <string name="Report2OptionOtherGoodsServices">其他商品和服务</string>
+    <string name="Report2OptionPromotingIllegalContent">推广非法内容</string>
+    <string name="Report2OptionPromotingOtherContent">推广其他内容</string>
     <string name="Reported2">Telegram 管理员将审核您的举报。感谢您的反馈！</string>
     <string name="AppIconGoogle" translatable="false">Google</string>
     <string name="Nagram" translatable="false">Nagram</string>

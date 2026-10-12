@@ -9181,6 +9181,8 @@
     <string name="Report2OptionHackingTools">Hacking tools and malware</string>
     <string name="Report2OptionCounterfeitMerchandise">Counterfeit merchandise</string>
     <string name="Report2OptionOtherGoodsServices">Other goods and services</string>
+    <string name="Report2OptionPromotingIllegalContent">Promoting illegal content</string>
+    <string name="Report2OptionPromotingOtherContent">Promoting other content</string>
     <string name="Reported2">Telegram moderators will review your report. Thank you!</string>
     <string name="Gift2TransactionRefundedAuctionBid">Refunded Auction Bid</string>
     <string name="Gift2TransactionRefundedSent">Refunded Sent Gift</string>
