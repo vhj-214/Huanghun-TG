@@ -545,6 +545,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private int undoViewIndex;
     private UndoView[] undoView = new UndoView[2];
     private FilterTabsView filterTabsView;
+    private BlurredBackgroundDrawable filterTabsGlassBackground;
     private boolean askingForPermissions;
     private int searchViewPagerIndex;
     @Nullable
@@ -5531,13 +5532,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         if (filterTabsView != null) {
-            // The folder strip sits directly over the home wallpaper, not on a glass
-            // surface. Clear both layers: the FilterTabsView host and its RecyclerView.
-            // A transparent ColorDrawable on the host alone does not clear a background
-            // installed on the inner list by theme/RecyclerView initialization.
-            filterTabsView.setBackground(null);
+            // The folder strip is one of the highlighted home surfaces. Clear the
+            // RecyclerView's theme background, then attach the same live-source glass
+            // material used by the search field and top panel. Without this binding the
+            // folder tabs remain only transparent text over wallpaper.
+            filterTabsViewGlassBackground = null;
             filterTabsView.getListView().setBackground(null);
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
+            if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+                filterTabsGlassBackground = iBlur3FactoryLiquidGlass.create(
+                        filterTabsView, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+                filterTabsGlassBackground.setRadius(dp(18));
+                filterTabsGlassBackground.setPadding(dp(5));
+                filterTabsView.setBackground(filterTabsGlassBackground);
+            } else {
+                filterTabsView.setBackground(null);
+            }
             contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
         }
 
@@ -12836,6 +12846,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
             if (filterTabsView != null) {
                 filterTabsView.updateColors();
+            }
+            if (filterTabsGlassBackground != null) {
+                filterTabsGlassBackground.updateColors();
+                filterTabsView.invalidate();
             }
             if (filtersView != null) {
                 filtersView.updateColors();
