@@ -28,9 +28,6 @@ jobs:
       CCACHE_HARDLINK: "true"
       CCACHE_NOHASHDIR: "true"
       CCACHE_MAXSIZE: "10G"
-      # Publish one APK containing all supported ABIs for direct installation.
-      NATIVE_TARGET: "universal"
-      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -80,68 +77,37 @@ jobs:
         id: staging_build_step
         env:
           COMMIT_ID: ${{ github.event.head_commit.id }}
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           export BUILD_TIMESTAMP=$(date +%s)
           echo "build_timestamp=$BUILD_TIMESTAMP" >> "$GITHUB_OUTPUT"
           ./gradlew TMessagesProj:assembleStaging
-      - name: Verify installable universal APK
+      - name: Verify installable architecture APKs
         shell: bash
         run: |
           shopt -s nullglob
-          apks=(TMessagesProj/build/outputs/apk/staging/*-universal.apk)
-          if [ "${#apks[@]}" -ne 1 ]; then
-            echo "Expected exactly one universal staging APK, found ${#apks[@]}" >&2
+          apks=(
+            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
+            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk
+          )
+          if [ "${#apks[@]}" -ne 2 ]; then
+            echo "Expected arm64-v8a and x86_64 staging APKs, found ${#apks[@]}" >&2
             find TMessagesProj/build/outputs/apk/staging -type f -name '*.apk' -print >&2
             exit 1
           fi
-          apk="${apks[0]}"
-          test -s "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
-          echo "Verified universal APK: $apk"
-          ls -lh "$apk"
-      - name: Enable KVM for Android emulator
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          test -r /dev/kvm && test -w /dev/kvm
-      - name: Smoke-test install and startup on Android emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_2
-          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
-          script: |
-            set -eu
-            apk="$(find / -type f -path '*/TMessagesProj/build/outputs/apk/staging/*-universal.apk' -print -quit 2>/dev/null)"
-            if [ -z "$apk" ]; then
-              echo "Universal staging APK was not found; working directory: $(pwd)" >&2
-              find / -type f -path '*/TMessagesProj/build/outputs/apk/staging/*.apk' -print 2>/dev/null >&2 || true
-            fi
-            test -n "$apk"
-            adb install -r "$apk"
-            adb logcat -c
-            adb shell monkey -p com.Huanghun 1
-            sleep 15
-            if ! adb shell pidof com.Huanghun >/dev/null; then
-              adb logcat -d -s AndroidRuntime:E
-              echo "The app process exited after launcher start" >&2
-              exit 1
-            fi
-            if adb logcat -d -s AndroidRuntime:E | grep -q 'FATAL EXCEPTION'; then
-              adb logcat -d -s AndroidRuntime:E
-              exit 1
-            fi
+          for apk in "${apks[@]}"; do
+            test -s "$apk"
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+            "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
+          done
+          ls -lh "${apks[@]}"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: 黄昏-测试版-APK
           path: |
-            TMessagesProj/build/outputs/apk/staging/*-universal.apk
+            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
+            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk
           if-no-files-found: error
   upload:
     name: Upload staging

@@ -6,7 +6,6 @@ import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
 
-import org.telegram.messenger.LiteMode;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawableRenderNode;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProvider;
@@ -21,22 +20,6 @@ public class BlurredBackgroundDrawableViewFactory {
 
     public BlurredBackgroundDrawableViewFactory(BlurredBackgroundSource source) {
         this.source = source;
-        // The menu switch is global: every transparent glass surface created by
-        // this factory must use the same iOS-style Liquid Glass effect. Some
-        // factories are created while ApplicationLoader is still initializing,
-        // so reading SharedPreferences must never be allowed to crash startup.
-        isLiquidGlassEffectAllowed = isLiquidGlassEnabledSafely();
-    }
-
-    private static boolean isLiquidGlassEnabledSafely() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return false;
-        }
-        try {
-            return LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
-        } catch (Throwable ignored) {
-            return false;
-        }
     }
 
     public BlurredBackgroundDrawableViewFactory(ViewPositionWatcher watcher, ViewGroup parent, BlurredBackgroundSource source) {
