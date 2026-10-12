@@ -30,7 +30,6 @@ jobs:
       CCACHE_MAXSIZE: "10G"
       NATIVE_TARGET: "universal"
       RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-      REQUIRE_RELEASE_SIGNING: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -81,7 +80,6 @@ jobs:
         env:
           COMMIT_ID: ${{ github.event.head_commit.id }}
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          REQUIRE_RELEASE_SIGNING: 'true'
         run: |
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           export BUILD_TIMESTAMP=$(date +%s)

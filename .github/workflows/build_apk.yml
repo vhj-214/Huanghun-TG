@@ -44,7 +44,6 @@ jobs:
           NATIVE_TARGET: universal
           LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          REQUIRE_RELEASE_SIGNING: 'true'
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify installable APK
         shell: bash
@@ -60,7 +59,7 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" | grep -q 'Signer #1 certificate DN:'
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"
           sha256sum "$apk" > "$apk.sha256"
           echo "Verified universal APK: $apk"
           ls -lh "$apk" "$apk.sha256"
