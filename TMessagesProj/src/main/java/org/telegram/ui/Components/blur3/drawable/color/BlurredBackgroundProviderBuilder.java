@@ -27,6 +27,7 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
     private ColorProvider strokeColorTop;
     private ColorProvider strokeColorBottom;
     private ColorProvider backgroundColor;
+    private ColorProvider liquidGlassTintColor;
     private float strokeWidthTop, strokeWidthBottom, shadowRadius, shadowDx, shadowDy;
 
     public BlurredBackgroundProviderBuilder setShadowColor(@ColorInt int light, @ColorInt int dark) {
@@ -49,6 +50,11 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
         return this;
     }
 
+    public BlurredBackgroundProviderBuilder setLiquidGlassTintColor(ColorProvider colorProvider) {
+        liquidGlassTintColor = colorProvider;
+        return this;
+    }
+
     public BlurredBackgroundProviderBuilder setShadowLayer(float radius, float dx, float dy) {
         shadowRadius = radius;
         shadowDx = dx;
@@ -67,7 +73,7 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
     @Override
     public int getShadowColor() {
         if (useLiquidGlassMaterial()) {
-            return 0;
+            return Theme.multAlpha(get(shadowColor, 0), 0.32f);
         }
         return get(shadowColor, 0);
     }
@@ -75,9 +81,9 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
     @Override
     public int getBackgroundColor() {
         if (useLiquidGlassMaterial()) {
-            // The shader must sample the live source directly. An opaque
-            // provider color would hide the refraction and reflection.
-            return 0;
+            // Pass only an explicitly selected low-alpha tint to the shader;
+            // keep the live source visible instead of covering it with a panel.
+            return get(liquidGlassTintColor, 0);
         }
         if (useLiquidGlassFallbackMaterial()) {
             final int color = get(backgroundColor, 0);

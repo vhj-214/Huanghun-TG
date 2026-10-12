@@ -433,7 +433,9 @@ public class DownscaleScrollableNoiseSuppressor {
             if (isLiquidGlassEnabled) {
                 renderNodesForGlass = new DownscaledRenderNode("glass", 0, true);
                 renderNodesForGlass.setScale(4, 4);
-                renderNodesForGlass.setPrimaryEffectBlur(dpf2(6f), RenderNodeEffects.getSaturationX3RenderEffect());
+                // Liquid glass should preserve wallpaper linework; keep only a
+                // faint optical softness instead of the old heavy frosted blur.
+                renderNodesForGlass.setPrimaryEffectBlur(dpf2(2.4f), RenderNodeEffects.getSaturationX3RenderEffect());
                 renderNodesForBlur = new DownscaledRenderNode("blur", 0);
                 renderNodesForBlur.setScale(8, 8);
                 renderNodesForBlur.setPrimaryEffectBlur(dpf2(40 - 1.66f));
