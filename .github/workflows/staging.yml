@@ -115,7 +115,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           script: |
             set -eu
-            apk="$(find "$GITHUB_WORKSPACE/TMessagesProj/build/outputs/apk/staging" -maxdepth 1 -type f -name '*-universal.apk' -print -quit)"
+            apk="$(find TMessagesProj/build/outputs/apk/staging -maxdepth 1 -type f -name '*-universal.apk' -print -quit)"
             test -n "$apk"
             adb install -r "$apk"
             adb logcat -c
