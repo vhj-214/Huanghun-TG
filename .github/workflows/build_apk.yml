@@ -1,8 +1,10 @@
 name: Build 黄昏 APK
 on:
+  push:
+    branches: [ dev ]
   workflow_dispatch:
 
-# 自动构建由 staging.yml 负责；本工作流仅保留给手动构建使用。
+# dev 分支提交和手动触发都会构建双架构 Staging APK。
 concurrency:
   group: huanghun-android-apk-${{ github.ref }}
   cancel-in-progress: true
