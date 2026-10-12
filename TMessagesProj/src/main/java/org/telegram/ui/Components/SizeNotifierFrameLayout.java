@@ -435,6 +435,13 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
         return backgroundDrawable;
     }
 
+    /** Draw only the wallpaper/background layer into a capture canvas. */
+    protected final void drawBackgroundForCapture(Canvas canvas) {
+        if (backgroundView != null && backgroundView.getVisibility() == View.VISIBLE) {
+            drawChild(canvas, backgroundView, getDrawingTime());
+        }
+    }
+
     public void setDelegate(SizeNotifierFrameLayoutDelegate delegate) {
         this.delegate = delegate;
     }
