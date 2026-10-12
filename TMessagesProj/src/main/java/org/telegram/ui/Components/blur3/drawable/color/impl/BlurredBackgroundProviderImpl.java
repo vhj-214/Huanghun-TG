@@ -54,24 +54,32 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
-    /**
-     * iOS 风格的液态透明玻璃,用于分类标签栏、空闲搜索框和底部主导航。
-     * 关键点:①只做极轻的着色,让壁纸完整透出来;②描边用白色高光而不是黑色轮廓,
-     * ③阴影压到几乎不可见 —— 之前那版用了较重的黑色描边与投影,会在玻璃后面
-     * 形成一圈"黑边",看起来像一个多余的大方框。
-     */
+    /** 液态玻璃主材质：保留壁纸透光，并使用轻微的主题色玻璃体与柔和投影。 */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
-        // Keep the live source visible, but retain a visible optical rim and shadow.
-        // A completely transparent/no-stroke surface looks disabled even when the
-        // refraction shader is active behind it.
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> 0x00000000)
+            .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                    Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.12f : 0.08f))
             .setStrokeColorTop(0x62FFFFFF, 0x3CFFFFFF)
             .setStrokeColorBottom(0x26000000, 0x24000000)
             .setShadowColor(0x30000000, 0x22000000)
             .setShadowLayer(dpf2(2.4f), 0, dpf2(0.8f))
             .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
             .build();
+    }
+
+    /** Separate live-source glass surface for each dialog row. */
+    public static BlurredBackgroundProvider mainChatRowGlass(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> Theme.getColor(Theme.key_windowBackgroundWhite, r))
+                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.13f : 0.09f))
+                .setStrokeColorTop(0x78FFFFFF, 0x58FFFFFF)
+                .setStrokeColorBottom(0x35000000, 0x26FFFFFF)
+                .setShadowColor(0x35000000, 0x46000000)
+                .setShadowLayer(dpf2(3.2f), 0, dpf2(1f))
+                .setStrokeWidth(dpf2(0.75f), dpf2(0.6f))
+                .build();
     }
     public static BlurredBackgroundProvider mainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
         return mainNavigationTransparentGlass(resourcesProvider);

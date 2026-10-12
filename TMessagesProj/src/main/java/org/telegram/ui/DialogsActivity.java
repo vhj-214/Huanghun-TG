@@ -843,6 +843,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         private boolean globalIgnoreLayout;
         private int[] pos = new int[2];
 
+        private void captureWallpaperBackground(Canvas canvas, RectF position) {
+            canvas.save();
+            canvas.clipRect(position);
+            drawBackgroundForCapture(canvas);
+            canvas.restore();
+        }
+
         private boolean prepareForMoving(MotionEvent ev, boolean forward) {
             int id = filterTabsView.getNextPageId(forward);
             if (id < 0) {
@@ -4346,28 +4353,44 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         final PointF tmpPoint = new PointF();
         iBlur3Capture = (canvas, position) -> {
-            final int searchViewAlpha = searchViewPager != null ? (int) (searchViewPager.getAlpha() * 255) : 0;
+            final boolean wasCapturingGlassSource = capturingGlassSource;
+            capturingGlassSource = true;
+            try {
+                contentView.captureWallpaperBackground(canvas, position);
+                final float positionCenterY = (position.top + position.bottom) * 0.5f;
+                if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)
+                        && positionCenterY >= iBlur3PositionList.top
+                        && positionCenterY <= iBlur3PositionList.bottom) {
+                    // Rows are foreground content. Their material samples the
+                    // live wallpaper only, then text/avatars are painted once
+                    // on top instead of appearing as ghosted content in glass.
+                    return;
+                }
+                final int searchViewAlpha = searchViewPager != null ? (int) (searchViewPager.getAlpha() * 255) : 0;
 
-            for (ViewPage viewPage : viewPages) {
-                if (viewPage != null && viewPage.getVisibility() == View.VISIBLE && viewPage.getAlpha() > 0f) {
-                    float rp = getRightSlidingProgress();
-                    if (viewPage.animationSupportListView != null && rp > 0) {
-                        if (!ViewPositionWatcher.computeCoordinatesInParent(viewPage.listView, contentView, tmpPoint)) {
-                            return;
+                for (ViewPage viewPage : viewPages) {
+                    if (viewPage != null && viewPage.getVisibility() == View.VISIBLE && viewPage.getAlpha() > 0f) {
+                        float rp = getRightSlidingProgress();
+                        if (viewPage.animationSupportListView != null && rp > 0) {
+                            if (!ViewPositionWatcher.computeCoordinatesInParent(viewPage.listView, contentView, tmpPoint)) {
+                                return;
+                            }
+
+                            canvas.save();
+                            canvas.clipRect(position);
+                            canvas.translate(tmpPoint.x, tmpPoint.y);
+                            viewPage.listView.dispatchDraw(canvas);
+                            canvas.restore();
+                        } else {
+                            Blur3Utils.captureRelativeParent(viewPage.listView, canvas, position, viewPage.listView, contentView, 255 - searchViewAlpha);
                         }
-
-                        canvas.save();
-                        canvas.clipRect(position);
-                        canvas.translate(tmpPoint.x, tmpPoint.y);
-                        viewPage.listView.dispatchDraw(canvas);
-                        canvas.restore();
-                    } else {
-                        Blur3Utils.captureRelativeParent(viewPage.listView, canvas, position, viewPage.listView, contentView, 255 - searchViewAlpha);
                     }
                 }
-            }
-            if (searchViewPager != null && searchViewPager.getVisibility() == View.VISIBLE && searchViewPager.getAlpha() > 0f) {
-                Blur3Utils.captureRelativeParent(searchViewPager, canvas, position, searchViewPager, contentView, searchViewAlpha);
+                if (searchViewPager != null && searchViewPager.getVisibility() == View.VISIBLE && searchViewPager.getAlpha() > 0f) {
+                    Blur3Utils.captureRelativeParent(searchViewPager, canvas, position, searchViewPager, contentView, searchViewAlpha);
+                }
+            } finally {
+                capturingGlassSource = wasCapturingGlassSource;
             }
         };
 
@@ -4960,10 +4983,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
                     super.onBindViewHolder(holder, position);
                     if (holder.itemView instanceof DialogCell) {
-                        ((DialogCell) holder.itemView).setHuanghunLiquidGlass(
-                                !onlySelect
-                                        && initialDialogsType == DIALOGS_TYPE_DEFAULT
-                                        && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+                        DialogCell dialogCell = (DialogCell) holder.itemView;
+                        final boolean liquidGlass = !onlySelect
+                                && initialDialogsType == DIALOGS_TYPE_DEFAULT
+                                && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+                        dialogCell.setHuanghunLiquidGlass(liquidGlass);
+                        if (liquidGlass && iBlur3FactoryLiquidGlass != null && !dialogCell.hasHuanghunLiquidGlassDrawable()) {
+                            BlurredBackgroundDrawable glassDrawable = iBlur3FactoryLiquidGlass.create(
+                                    dialogCell, BlurredBackgroundProviderImpl.mainChatRowGlass(resourceProvider));
+                            glassDrawable.setRadius(dp(18));
+                            glassDrawable.setIntensity(0.9f);
+                            glassDrawable.setThickness(dp(9));
+                            dialogCell.setHuanghunLiquidGlassDrawable(glassDrawable);
+                        }
+                        if (liquidGlass) {
+                            dialogCell.updateHuanghunLiquidGlassColors();
+                        }
                     }
                 }
 
@@ -12740,7 +12775,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     if (child instanceof ProfileSearchCell) {
                         ((ProfileSearchCell) child).update(0);
                     } else if (child instanceof DialogCell) {
-                        ((DialogCell) child).update(0);
+                        DialogCell dialogCell = (DialogCell) child;
+                        dialogCell.update(0);
+                        dialogCell.updateHuanghunLiquidGlassColors();
                     } else if (child instanceof UserCell) {
                         ((UserCell) child).update(0);
                     }
@@ -14976,11 +15013,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     private IBlur3Capture iBlur3Capture;
 
-    private final ArrayList<RectF> iBlur3Positions = new ArrayList<>();
+    private final ArrayList<RectF> iBlur3Positions = new ArrayList<>(3);
     private final RectF iBlur3PositionActionBar = new RectF();
-    private final RectF iBlur3PositionMainTabs = new RectF(); {
-        iBlur3Positions.add(iBlur3PositionActionBar);
-        iBlur3Positions.add(iBlur3PositionMainTabs);
+    private final RectF iBlur3PositionList = new RectF();
+    private final RectF iBlur3PositionMainTabs = new RectF();
+    private boolean capturingGlassSource;
+
+    public boolean isCapturingGlassSource() {
+        return capturingGlassSource;
     }
 
     // Huanghun main-page wallpaper is installed only for the primary dialogs tab.
@@ -15031,8 +15071,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return;
         }
 
+        // Insets and theme callbacks can arrive before the fragment receives its
+        // first non-zero layout. Do not create/record RenderNodes with 0-sized
+        // bounds; the next layout/insets pass will build the same glass surfaces.
+        final int width = fragmentView.getMeasuredWidth();
+        final int height = fragmentView.getMeasuredHeight();
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+
         final int additionalList = dp(48);
-        final int mainTabBottom = fragmentView.getMeasuredHeight() - navigationBarHeight - dp(MainTabsHelper.getMainTabsMargin());
+        final int mainTabBottom = height - navigationBarHeight - dp(MainTabsHelper.getMainTabsMargin());
         final int mainTabTop = mainTabBottom - dp(MainTabsHelper.getMainTabsHeight());
 
         final int actionBarHeight = actionBar.getMeasuredHeight()
@@ -15046,31 +15095,40 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             + (searchTabsAndFiltersLayout != null ? searchTabsAndFiltersLayout.getMeasuredHeight() : 0)
             + dp(30);
 
-        iBlur3PositionActionBar.set(0, -additionalList, fragmentView.getMeasuredWidth(), lerp(actionBarHeight, actionBarHeightSearch, animatorSearchVisible.getFloatValue()) + additionalList );
+        iBlur3PositionActionBar.set(0, -additionalList, width, lerp(actionBarHeight, actionBarHeightSearch, animatorSearchVisible.getFloatValue()) + additionalList );
         boolean hasBottomBlur = false;
         if (hasMainTabs && !NaConfig.INSTANCE.getHideBottomNavigationBar().Bool()) {
-            iBlur3PositionMainTabs.set(0, mainTabTop, fragmentView.getMeasuredWidth(), mainTabBottom);
+            iBlur3PositionMainTabs.set(0, mainTabTop, width, mainTabBottom);
             iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
 
             hasBottomBlur = true;
         } else if (commentView != null && chatInputViewsContainer != null) {
             iBlur3PositionMainTabs.set(0,
-                fragmentView.getMeasuredHeight() - calculateListViewPaddingBottom(),
-                fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+                height - calculateListViewPaddingBottom(),
+                width, height);
             iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
 
             hasBottomBlur = true;
         }
 
-        scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, hasBottomBlur ? 2 : 1);
-        scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+        iBlur3PositionList.set(0, actionBarHeight, width, hasBottomBlur ? mainTabTop : height);
+        iBlur3Positions.clear();
+        iBlur3Positions.add(iBlur3PositionActionBar);
+        if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            iBlur3Positions.add(iBlur3PositionList);
+        }
+        if (hasBottomBlur) {
+            iBlur3Positions.add(iBlur3PositionMainTabs);
+        }
+        scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, iBlur3Positions.size());
+        scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, width, height);
 
         if (iBlur3SourceGlassFrosted != null) {
-            iBlur3SourceGlassFrosted.setSize(fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+            iBlur3SourceGlassFrosted.setSize(width, height);
             iBlur3SourceGlassFrosted.updateDisplayListIfNeeded();
         }
         if (iBlur3SourceGlass != null) {
-            iBlur3SourceGlass.setSize(fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+            iBlur3SourceGlass.setSize(width, height);
             iBlur3SourceGlass.updateDisplayListIfNeeded();
         }
     }

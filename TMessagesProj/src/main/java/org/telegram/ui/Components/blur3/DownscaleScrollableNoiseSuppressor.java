@@ -161,8 +161,14 @@ public class DownscaleScrollableNoiseSuppressor {
         public void invalidateRenderNodes(RenderNode renderNode) {
             final int originalWidth = renderNode.getWidth();
             final int originalHeight = renderNode.getHeight();
+            if (originalWidth <= 0 || originalHeight <= 0 || scaleX <= 0 || scaleY <= 0) {
+                return;
+            }
             final int downsampledWidth = Math.round((float) originalWidth * k / scaleX);
             final int downsampledHeight = Math.round((float) originalHeight * k / scaleY);
+            if (downsampledWidth <= 0 || downsampledHeight <= 0) {
+                return;
+            }
 
             final float scaleX = (float) downsampledWidth / originalWidth;
             final float scaleY = (float) downsampledHeight / originalHeight;
@@ -297,6 +303,9 @@ public class DownscaleScrollableNoiseSuppressor {
     long lastHash;
 
     private boolean invalidateResultRenderNodes(int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
         boolean ignoreHashCheck = false;
         long hash = 0;
 
@@ -308,6 +317,9 @@ public class DownscaleScrollableNoiseSuppressor {
             hash = MediaDataController.calcHash(hash, renderNode.getUniqueId());
             for (int b = 0; b < rectRenderNodesCount; b++) {
                 final SourcePart sourcePart = rectRenderNodes.get(b);
+                if (sourcePart.position.isEmpty()) {
+                    continue;
+                }
                 final RenderNode rn = getRenderNode(a, b);
 
                 hash = MediaDataController.calcHash(hash, sourcePart.position.left);
@@ -334,6 +346,9 @@ public class DownscaleScrollableNoiseSuppressor {
 
             for (int b = 0; b < rectRenderNodesCount; b++) {
                 final SourcePart sourcePart = rectRenderNodes.get(b);
+                if (sourcePart.position.isEmpty()) {
+                    continue;
+                }
                 canvas.save();
                 canvas.translate(sourcePart.position.left, sourcePart.position.top);
 
@@ -365,10 +380,16 @@ public class DownscaleScrollableNoiseSuppressor {
     private final Blur3HashImpl builder = new Blur3HashImpl();
 
     public boolean invalidateResultRenderNodes(IBlur3Capture capture, int width, int height) {
+        if (capture == null || width <= 0 || height <= 0 || rectRenderNodesCount <= 0) {
+            return false;
+        }
         int updatedCount = 0;
         for (int a = 0; a < rectRenderNodesCount; a++) {
             final SourcePart sourcePart = rectRenderNodes.get(a);
             final Rect position = sourcePart.position;
+            if (position.isEmpty()) {
+                continue;
+            }
             tmpRectF.set(position);
 
             builder.start();
@@ -382,6 +403,9 @@ public class DownscaleScrollableNoiseSuppressor {
             sourcePart.lastHash = hash;
 
             Canvas c = beginRecordingRect(a);
+            if (c == null) {
+                continue;
+            }
             c.save();
             c.translate(-position.left, -position.top);
 
@@ -409,7 +433,9 @@ public class DownscaleScrollableNoiseSuppressor {
             if (isLiquidGlassEnabled) {
                 renderNodesForGlass = new DownscaledRenderNode("glass", 0, true);
                 renderNodesForGlass.setScale(4, 4);
-                renderNodesForGlass.setPrimaryEffectBlur(dpf2(6f), RenderNodeEffects.getSaturationX3RenderEffect());
+                // Liquid glass should preserve wallpaper linework; keep only a
+                // faint optical softness instead of the old heavy frosted blur.
+                renderNodesForGlass.setPrimaryEffectBlur(dpf2(2.4f), RenderNodeEffects.getSaturationX3RenderEffect());
                 renderNodesForBlur = new DownscaledRenderNode("blur", 0);
                 renderNodesForBlur.setScale(8, 8);
                 renderNodesForBlur.setPrimaryEffectBlur(dpf2(40 - 1.66f));
@@ -429,6 +455,11 @@ public class DownscaleScrollableNoiseSuppressor {
 
 
         private void setPosition(RectF position) {
+            if (!isValidPosition(position)) {
+                this.position.setEmpty();
+                lastHash = Long.MIN_VALUE;
+                return;
+            }
             this.position.left = roundDown(position.left, 16);
             this.position.top = roundDown(position.top, 16);
             this.position.right = roundUp(position.right, 16);
@@ -449,6 +480,15 @@ public class DownscaleScrollableNoiseSuppressor {
         return Math.round(value - value % N);
     }
 
+    private static boolean isValidPosition(RectF position) {
+        return position != null
+            && !Float.isNaN(position.left) && !Float.isInfinite(position.left)
+            && !Float.isNaN(position.top) && !Float.isInfinite(position.top)
+            && !Float.isNaN(position.right) && !Float.isInfinite(position.right)
+            && !Float.isNaN(position.bottom) && !Float.isInfinite(position.bottom)
+            && position.right > position.left && position.bottom > position.top;
+    }
+
     public static int roundUp(float value, int N) {
         return Math.round(value + (N - value % N));
     }
@@ -462,7 +502,7 @@ public class DownscaleScrollableNoiseSuppressor {
     }
 
     public void setupRenderNodes(List<RectF> positions, int count) {
-        rectRenderNodesCount = count;
+        rectRenderNodesCount = positions == null ? 0 : Math.max(0, Math.min(count, positions.size()));
 
         while (rectRenderNodesCount > rectRenderNodes.size()) {
             rectRenderNodes.add(new SourcePart());
@@ -476,7 +516,10 @@ public class DownscaleScrollableNoiseSuppressor {
     private int recordingIndex;
     private Rect recordingPos;
 
-    private RecordingCanvas beginRecordingRect(int index) {
+    private @Nullable RecordingCanvas beginRecordingRect(int index) {
+        if (index < 0 || index >= rectRenderNodesCount) {
+            return null;
+        }
         if (recordingPos != null) {
             throw new IllegalStateException();
         }
@@ -484,13 +527,14 @@ public class DownscaleScrollableNoiseSuppressor {
 
         final SourcePart sourcePart = rectRenderNodes.get(index);
         Rect rectF = sourcePart.position;
+        final int width = rectF.width() / k;
+        final int height = rectF.height() / k;
+        if (width <= 0 || height <= 0) {
+            return null;
+        }
 
         recordingPos = rectF;
         recordingIndex = index;
-
-        final int width = rectF.width() / k;
-        final int height = rectF.height() / k;
-
         sourcePart.renderNode.setPosition(0, 0, width, height);
         RecordingCanvas c = sourcePart.renderNode.beginRecording(width, height);
         c.scale(1f / k, 1f / k);

@@ -126,6 +126,7 @@ import org.telegram.ui.Components.TypefaceSpan;
 import org.telegram.ui.Components.URLSpanNoUnderline;
 import org.telegram.ui.Components.URLSpanNoUnderlineBold;
 import org.telegram.ui.Components.VectorAvatarThumbDrawable;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.dialogs.DialogMediaIconsHelper;
 import org.telegram.ui.Components.spoilers.SpoilerEffect;
 import org.telegram.ui.DialogsActivity;
@@ -3883,12 +3884,42 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private int archiveFadeGradientDrawableColor;
     // 仅由登录后的聊天列表显式启用；默认保持官方会话行绘制，避免影响其它复用入口。
     private boolean huanghunLiquidGlass;
+    private BlurredBackgroundDrawable huanghunLiquidGlassDrawable;
     private final Paint huanghunLiquidGlassFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint huanghunLiquidGlassStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final AnimatedFloat huanghunLiquidGlassPressProgress = new AnimatedFloat(this, 145, CubicBezierInterpolator.EASE_OUT_QUINT);
+    private LinearGradient huanghunLiquidGlassShader;
+    private int huanghunLiquidGlassShaderWidth = -1;
+    private int huanghunLiquidGlassShaderHeight = -1;
+    private int huanghunLiquidGlassShaderTheme = -1;
 
     public void setHuanghunLiquidGlass(boolean enabled) {
         if (huanghunLiquidGlass != enabled) {
             huanghunLiquidGlass = enabled;
+            invalidate();
+        }
+    }
+
+    public void setHuanghunLiquidGlassDrawable(BlurredBackgroundDrawable drawable) {
+        if (huanghunLiquidGlassDrawable != drawable) {
+            if (huanghunLiquidGlassDrawable != null) {
+                huanghunLiquidGlassDrawable.setCallback(null);
+            }
+            huanghunLiquidGlassDrawable = drawable;
+            if (huanghunLiquidGlassDrawable != null) {
+                huanghunLiquidGlassDrawable.setCallback(this);
+            }
+            invalidate();
+        }
+    }
+
+    public boolean hasHuanghunLiquidGlassDrawable() {
+        return huanghunLiquidGlassDrawable != null;
+    }
+
+    public void updateHuanghunLiquidGlassColors() {
+        if (huanghunLiquidGlassDrawable != null) {
+            huanghunLiquidGlassDrawable.updateColors();
             invalidate();
         }
     }
@@ -4121,32 +4152,65 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
 
         if (huanghunLiquidGlass) {
-            // Each row is an independent glass block rather than one continuous veil.
-            // The small gaps let the wallpaper become the separator, like the four
-            // distinct liquid-glass buttons in the reference image.
+            final boolean capturingGlassSource = parentFragment instanceof org.telegram.ui.DialogsActivity
+                    && ((org.telegram.ui.DialogsActivity) parentFragment).isCapturingGlassSource();
             final float horizontalInset = dp(2);
             final float verticalInset = dp(2);
-            rect.set(horizontalInset, verticalInset,
-                    getMeasuredWidth() - horizontalInset, getMeasuredHeight() - verticalInset);
-            huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
-            huanghunLiquidGlassFillPaint.setShader(new LinearGradient(
-                    rect.left, rect.top, rect.right, rect.bottom,
-                    new int[] { 0x70FFFFFF, 0x2CFFFFFF, 0x50FFFFFF },
-                    new float[] { 0f, 0.48f, 1f },
-                    Shader.TileMode.CLAMP));
-            huanghunLiquidGlassFillPaint.setShadowLayer(dp(2), 0, dp(0.7f), 0x30000000);
-            canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassFillPaint);
-            huanghunLiquidGlassFillPaint.clearShadowLayer();
-            huanghunLiquidGlassFillPaint.setShader(null);
-            huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
-            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.9f)));
-            huanghunLiquidGlassStrokePaint.setColor(0x96FFFFFF);
-            canvas.drawRoundRect(rect, dp(16), dp(16), huanghunLiquidGlassStrokePaint);
-            // Inner rim highlight makes the surface read as glass instead of a plain tint.
-            rect.inset(dp(1), dp(1));
-            huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.55f)));
-            huanghunLiquidGlassStrokePaint.setColor(0x42FFFFFF);
-            canvas.drawRoundRect(rect, dp(15), dp(15), huanghunLiquidGlassStrokePaint);
+            final int glassWidth = getMeasuredWidth();
+            final int glassHeight = getMeasuredHeight();
+            if (!capturingGlassSource && glassWidth > horizontalInset * 2 && glassHeight > verticalInset * 2) {
+                final float pressProgress = huanghunLiquidGlassPressProgress.set(isPressed());
+                canvas.save();
+                final float pressScale = 1f - 0.014f * pressProgress;
+                canvas.scale(pressScale, pressScale, glassWidth * 0.5f, glassHeight * 0.5f);
+                if (huanghunLiquidGlassDrawable != null) {
+                    huanghunLiquidGlassDrawable.setBounds((int) horizontalInset, (int) verticalInset,
+                            glassWidth - (int) horizontalInset, glassHeight - (int) verticalInset);
+                    huanghunLiquidGlassDrawable.draw(canvas);
+                } else {
+                    // Safe, translucent fallback for devices where the shared
+                    // RenderNode source is unavailable or still being measured.
+                    final int theme = Theme.isCurrentThemeDark() ? 1 : 0;
+                    if (glassWidth != huanghunLiquidGlassShaderWidth
+                            || glassHeight != huanghunLiquidGlassShaderHeight
+                            || theme != huanghunLiquidGlassShaderTheme) {
+                        huanghunLiquidGlassShaderWidth = glassWidth;
+                        huanghunLiquidGlassShaderHeight = glassHeight;
+                        huanghunLiquidGlassShaderTheme = theme;
+                        try {
+                            final int[] colors = theme == 1
+                                    ? new int[] { 0x3CFFFFFF, 0x140B1521, 0x28121E2A }
+                                    : new int[] { 0x48FFFFFF, 0x18FFFFFF, 0x30FFFFFF };
+                            huanghunLiquidGlassShader = new LinearGradient(
+                                    horizontalInset, verticalInset,
+                                    glassWidth - horizontalInset, glassHeight - verticalInset,
+                                    colors, new float[] { 0f, 0.48f, 1f }, Shader.TileMode.CLAMP);
+                        } catch (RuntimeException ignored) {
+                            huanghunLiquidGlassShader = null;
+                        }
+                    }
+
+                    rect.set(horizontalInset, verticalInset,
+                            glassWidth - horizontalInset, glassHeight - verticalInset);
+                    huanghunLiquidGlassFillPaint.setStyle(Paint.Style.FILL);
+                    huanghunLiquidGlassFillPaint.setShader(huanghunLiquidGlassShader);
+                    huanghunLiquidGlassFillPaint.setColor(huanghunLiquidGlassShader != null ? 0xFFFFFFFF : 0x30FFFFFF);
+                    huanghunLiquidGlassFillPaint.setShadowLayer(dp(3), 0, dp(1), theme == 1 ? 0x44000000 : 0x30000000);
+                    canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassFillPaint);
+                    huanghunLiquidGlassFillPaint.clearShadowLayer();
+                    huanghunLiquidGlassFillPaint.setShader(null);
+                    huanghunLiquidGlassFillPaint.setColor(0xFFFFFFFF);
+                    huanghunLiquidGlassStrokePaint.setStyle(Paint.Style.STROKE);
+                    huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.8f)));
+                    huanghunLiquidGlassStrokePaint.setColor(theme == 1 ? 0x68FFFFFF : 0x86FFFFFF);
+                    canvas.drawRoundRect(rect, dp(18), dp(18), huanghunLiquidGlassStrokePaint);
+                    rect.inset(dp(1), dp(1));
+                    huanghunLiquidGlassStrokePaint.setStrokeWidth(Math.max(1f, dp(0.5f)));
+                    huanghunLiquidGlassStrokePaint.setColor(theme == 1 ? 0x2AFFFFFF : 0x3CFFFFFF);
+                    canvas.drawRoundRect(rect, dp(17), dp(17), huanghunLiquidGlassStrokePaint);
+                }
+                canvas.restore();
+            }
         }
 
         float cornersRadius = dp(8) * cornerProgress;
