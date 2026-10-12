@@ -98,9 +98,8 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
-          sha256sum "$apk" > "$apk.sha256"
           echo "Verified universal APK: $apk"
-          ls -lh "$apk" "$apk.sha256"
+          ls -lh "$apk"
       - name: Enable KVM for Android emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -137,7 +136,6 @@ jobs:
           name: 黄昏-测试版-APK
           path: |
             TMessagesProj/build/outputs/apk/staging/*-universal.apk
-            TMessagesProj/build/outputs/apk/staging/*-universal.apk.sha256
           if-no-files-found: error
   upload:
     name: Upload staging
