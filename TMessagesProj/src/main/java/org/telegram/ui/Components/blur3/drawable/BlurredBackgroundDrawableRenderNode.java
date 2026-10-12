@@ -60,16 +60,28 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     public void setLiquidGlassEffectAllowed() {
         try {
             liquidGlassEffect = new LiquidGlassEffect(renderNodeFill);
-        } catch (RuntimeException error) {
+        } catch (Throwable error) {
             disableLiquidGlassEffect(error);
         }
     }
 
-    private void disableLiquidGlassEffect(RuntimeException error) {
+    private void disableLiquidGlassEffect(Throwable error) {
         liquidGlassEffect = null;
         try {
             renderNodeFill.setRenderEffect(null);
         } catch (RuntimeException ignored) {
+        }
+        // A shader can fail during RuntimeShader construction on devices whose
+        // GPU/system implementation does not support this AGSL program. Do not
+        // leave the persisted switch enabled: otherwise every new drawable,
+        // including the first screen after launch, retries the same failure.
+        try {
+            if (LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS)) {
+                LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, false);
+            }
+        } catch (Throwable ignored) {
+            // The visual fallback below must remain available even if settings
+            // are not ready yet during app startup.
         }
         Log.e("BlurredBackground", "Liquid Glass shader unavailable; using translucent glass fallback", error);
     }
@@ -141,7 +153,7 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     boundProps.liquidIndex,
                     backgroundColor
                 );
-            } catch (RuntimeException error) {
+            } catch (Throwable error) {
                 disableLiquidGlassEffect(error);
             }
         }

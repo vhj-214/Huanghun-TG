@@ -147,15 +147,27 @@ public class LiteMode {
     }
 
     public static boolean isEnabled(int flag) {
-        if (flag == FLAG_CHAT_FORUM_TWOCOLUMN && AndroidUtilities.isTablet()) {
-            // always enabled for tablets
-            return true;
+        try {
+            if (flag == FLAG_CHAT_FORUM_TWOCOLUMN && AndroidUtilities.isTablet()) {
+                // always enabled for tablets
+                return true;
+            }
+            return (getValue() & preprocessFlag(flag)) > 0;
+        } catch (Throwable ignored) {
+            // LiteMode is queried by UI objects that can be constructed while
+            // ApplicationLoader is still wiring global preferences. A failed
+            // read must not take down the first activity; callers can safely
+            // use the regular (non-lite) rendering path instead.
+            return false;
         }
-        return (getValue() & preprocessFlag(flag)) > 0;
     }
 
     public static boolean isEnabledSetting(int flag) {
-        return (getValue(true) & flag) > 0;
+        try {
+            return (getValue(true) & flag) > 0;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     public static void toggleFlag(int flag) {
