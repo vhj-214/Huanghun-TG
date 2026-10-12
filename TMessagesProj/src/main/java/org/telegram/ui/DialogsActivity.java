@@ -5536,7 +5536,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // RecyclerView's theme background, then attach the same live-source glass
             // material used by the search field and top panel. Without this binding the
             // folder tabs remain only transparent text over wallpaper.
-            filterTabsViewGlassBackground = null;
+            filterTabsGlassBackground = null;
             filterTabsView.getListView().setBackground(null);
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
             if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
