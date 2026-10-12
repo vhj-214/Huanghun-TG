@@ -437,8 +437,20 @@ public class SizeNotifierFrameLayout extends FrameLayout implements Theme.Colora
 
     /** Draw only the wallpaper/background layer into a capture canvas. */
     protected final void drawBackgroundForCapture(Canvas canvas) {
-        if (backgroundView != null && backgroundView.getVisibility() == View.VISIBLE) {
-            drawChild(canvas, backgroundView, getDrawingTime());
+        if (backgroundView != null
+                && backgroundView.getVisibility() == View.VISIBLE
+                && backgroundView.getWidth() > 0
+                && backgroundView.getHeight() > 0) {
+            // This is called while the parent can already be inside dispatchDraw
+            // (for example, while recording a blur RenderNode). Calling
+            // drawChild() here re-enters the parent's child-drawing path before
+            // all children have completed their first layout on some devices.
+            // The background view has no parent-dependent drawing behavior, so
+            // draw it directly using its laid-out position instead.
+            canvas.save();
+            canvas.translate(backgroundView.getLeft(), backgroundView.getTop());
+            backgroundView.draw(canvas);
+            canvas.restore();
         }
     }
 
