@@ -1,10 +1,8 @@
 name: Build 黄昏 APK
 on:
-  push:
-    branches: [ main, master, dev ]
   workflow_dispatch:
 
-# 同一分支只保留最新一次 Android 构建，避免相同提交的手动和自动任务重复占用队列。
+# 自动构建由 staging.yml 负责；本工作流仅保留给手动构建使用。
 concurrency:
   group: huanghun-android-apk-${{ github.ref }}
   cancel-in-progress: true
@@ -41,33 +39,36 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         env:
-          NATIVE_TARGET: universal
           LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
-      - name: Verify installable APK
+      - name: Verify installable architecture APKs
         shell: bash
         run: |
           shopt -s nullglob
-          apks=(TMessagesProj/build/outputs/apk/staging/*-universal.apk)
-          if [ "${#apks[@]}" -ne 1 ]; then
-            echo "Expected exactly one universal staging APK, found ${#apks[@]}" >&2
+          apks=(
+            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
+            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk
+          )
+          if [ "${#apks[@]}" -ne 2 ]; then
+            echo "Expected arm64-v8a and x86_64 staging APKs, found ${#apks[@]}" >&2
             find TMessagesProj/build/outputs/apk/staging -type f -name '*.apk' -print >&2
             exit 1
           fi
-          apk="${apks[0]}"
-          test -s "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"
-          sha256sum "$apk" > "$apk.sha256"
-          echo "Verified universal APK: $apk"
-          ls -lh "$apk" "$apk.sha256"
+          for apk in "${apks[@]}"; do
+            test -s "$apk"
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+            "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"
+            sha256sum "$apk" > "$apk.sha256"
+          done
+          ls -lh "${apks[@]}"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: 黄昏-可安装通用APK
+          name: 黄昏-可安装双架构APK
           path: |
-            TMessagesProj/build/outputs/apk/staging/*-universal.apk
-            TMessagesProj/build/outputs/apk/staging/*-universal.apk.sha256
+            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
+            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk.sha256
+            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk
+            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk.sha256
           if-no-files-found: error
