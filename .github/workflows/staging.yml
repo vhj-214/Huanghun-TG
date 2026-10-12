@@ -100,6 +100,12 @@ jobs:
             "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
             "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
           done
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
       - name: Smoke-test install and startup on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -109,7 +115,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           script: |
             set -eu
-            apk="$(find TMessagesProj/build/outputs/apk/staging -maxdepth 1 -type f -name '*-x86_64.apk' -print -quit)"
+            apk="$(find "$GITHUB_WORKSPACE/TMessagesProj/build/outputs/apk/staging" -maxdepth 1 -type f -name '*-x86_64.apk' -print -quit)"
             test -n "$apk"
             adb install -r "$apk"
             adb logcat -c
