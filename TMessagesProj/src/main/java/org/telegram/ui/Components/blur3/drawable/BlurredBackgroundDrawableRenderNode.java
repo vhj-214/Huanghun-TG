@@ -145,6 +145,17 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
         glassGeneration = HuanghunGlass.getGeneration();
 
+        final boolean liquidGlassEnabled = LiteMode.isLiquidGlassEnabled();
+        if (liquidGlassEffect == null && liquidGlassEnabled && Build.VERSION.SDK_INT >= 33) {
+            setLiquidGlassEffectAllowed();
+        } else if (liquidGlassEffect != null && !liquidGlassEnabled) {
+            liquidGlassEffect = null;
+            try {
+                renderNodeFill.setRenderEffect(null);
+            } catch (Throwable ignored) {
+            }
+        }
+
         Canvas c;
 
         final float sL = boundProps.boundsWithPadding.left + offsetX;
@@ -181,7 +192,7 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
             }
         }
         source.draw(c, sL, sT, sR, sB);
-        if (liquidGlassEffect == null && LiteMode.isLiquidGlassEnabled()) {
+        if (liquidGlassEffect == null && liquidGlassEnabled) {
             drawCrossVersionLiquidGlassRect(c, 0, 0,
                     boundProps.boundsWithPadding.width(),
                     boundProps.boundsWithPadding.height(),

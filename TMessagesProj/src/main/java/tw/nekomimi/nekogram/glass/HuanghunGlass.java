@@ -389,6 +389,21 @@ public final class HuanghunGlass {
         return enabled ? frost : FROST_DEFAULT;
     }
 
+    public static float resolveFresnel() {
+        ensureLoaded();
+        return enabled ? fresnel : FRESNEL_DEFAULT;
+    }
+
+    public static float resolveReflection() {
+        ensureLoaded();
+        return enabled ? reflection : REFLECTION_DEFAULT;
+    }
+
+    public static float resolveGrain() {
+        ensureLoaded();
+        return enabled ? grain : GRAIN_DEFAULT;
+    }
+
     // ------------------------------------------------------------------ presets
 
     public static final int PRESET_DEFAULT = 0;
