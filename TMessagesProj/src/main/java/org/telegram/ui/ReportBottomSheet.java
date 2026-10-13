@@ -92,15 +92,15 @@ public class ReportBottomSheet extends BottomSheet {
             case "what is wrong with this group?": return LocaleController.getString(R.string.Report2WhatWrongGroup);
             case "i don't like it": return LocaleController.getString(R.string.Report2OptionDislike);
             case "i do not like it": return LocaleController.getString(R.string.Report2OptionDislike);
-            case "child abuse": return LocaleController.getString(R.string.Report2OptionChildAbuse);
+            case "child abuse": return reportChineseFallback(R.string.Report2OptionChildAbuse, "Child abuse", "虐待儿童");
             case "violence": return LocaleController.getString(R.string.Report2OptionViolence);
             case "illegal goods and services": return LocaleController.getString(R.string.Report2OptionIllegalGoods);
-            case "illegal adult content": return LocaleController.getString(R.string.Report2OptionAdultContent);
-            case "personal data": return LocaleController.getString(R.string.Report2OptionPersonalData);
-            case "scam or fraud": return LocaleController.getString(R.string.Report2OptionScam);
+            case "illegal adult content": return reportChineseFallback(R.string.Report2OptionAdultContent, "Illegal adult content", "非法成人内容");
+            case "personal data": return reportChineseFallback(R.string.Report2OptionPersonalData, "Personal data", "个人数据");
+            case "scam or fraud": return reportChineseFallback(R.string.Report2OptionScam, "Scam or fraud", "诈骗或欺诈");
             case "copyright": return LocaleController.getString(R.string.Report2OptionCopyright);
             case "spam": return LocaleController.getString(R.string.Report2OptionSpam);
-            case "other": return LocaleController.getString(R.string.Report2OptionOther);
+            case "other": return reportChineseFallback(R.string.Report2OptionOther, "Other", "其他");
             case "it's not illegal, but must be taken down": return LocaleController.getString(R.string.Report2OptionNotIllegal);
             case "this is not illegal, but must be taken down": return LocaleController.getString(R.string.Report2OptionNotIllegal);
             case "insults or false information": return LocaleController.getString(R.string.Report2OptionInsultsFalseInformation);
@@ -133,6 +133,17 @@ public class ReportBottomSheet extends BottomSheet {
 
     private static CharSequence localizeReportText(CharSequence text) {
         return text == null ? null : localizeReportText(text.toString());
+    }
+
+    /**
+     * Keep report options readable even when a vendor build misses the
+     * optional Chinese resource overlay. Telegram returns these labels from
+     * the server, so the normal resource lookup can otherwise fall back to
+     * English on a simplified-Chinese device.
+     */
+    private static String reportChineseFallback(int resourceId, String english, String chinese) {
+        final String value = LocaleController.getString(resourceId);
+        return english.equalsIgnoreCase(value.trim()) ? chinese : value;
     }
 
     interface Listener {
