@@ -14,6 +14,9 @@
     <string name="HuanghunGlassSpecular">Highlight strength</string>
     <string name="HuanghunGlassDispersion">Edge dispersion</string>
     <string name="HuanghunGlassFrost">Frosted body</string>
+    <string name="HuanghunGlassFresnel">Fresnel edge reflection</string>
+    <string name="HuanghunGlassReflection">Environment reflection</string>
+    <string name="HuanghunGlassGrain">Micro-surface grain</string>
     <string name="HuanghunGlassPresetDefault">Default</string>
     <string name="HuanghunGlassPresetIos">iOS style</string>
     <string name="HuanghunGlassPresetClear">Clear</string>

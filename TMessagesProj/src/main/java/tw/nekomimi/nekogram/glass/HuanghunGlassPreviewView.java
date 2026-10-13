@@ -54,6 +54,9 @@ public class HuanghunGlassPreviewView extends View {
     private float specular = HuanghunGlass.SPECULAR_DEFAULT;
     private float dispersion = HuanghunGlass.DISPERSION_DEFAULT;
     private float frost = HuanghunGlass.FROST_DEFAULT;
+    private float fresnel = HuanghunGlass.FRESNEL_DEFAULT;
+    private float reflection = HuanghunGlass.REFLECTION_DEFAULT;
+    private float grain = HuanghunGlass.GRAIN_DEFAULT;
 
     public HuanghunGlassPreviewView(Context context) {
         super(context);
@@ -66,13 +69,17 @@ public class HuanghunGlassPreviewView extends View {
     }
 
     public void setTuning(float thicknessDp, float intensity, float index,
-                          float specular, float dispersion, float frost) {
+                          float specular, float dispersion, float frost,
+                          float fresnel, float reflection, float grain) {
         this.thicknessDp = thicknessDp;
         this.intensity = intensity;
         this.index = index;
         this.specular = specular;
         this.dispersion = dispersion;
         this.frost = frost;
+        this.fresnel = fresnel;
+        this.reflection = reflection;
+        this.grain = grain;
         invalidate();
     }
 
@@ -207,7 +214,10 @@ public class HuanghunGlassPreviewView extends View {
             0x1CFFFFFF,
             specular,
             dispersion,
-            frost
+            frost,
+            fresnel,
+            reflection,
+            grain
         );
 
         canvas.save();

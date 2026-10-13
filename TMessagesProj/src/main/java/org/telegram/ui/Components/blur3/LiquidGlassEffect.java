@@ -20,6 +20,9 @@ public class LiquidGlassEffect {
     private static final float DEFAULT_SPECULAR_STRENGTH = 1f;
     private static final float DEFAULT_DISPERSION_STRENGTH = 1f;
     private static final float DEFAULT_FROST_AMOUNT = 0f;
+    private static final float DEFAULT_FRESNEL_STRENGTH = 1f;
+    private static final float DEFAULT_REFLECTION_STRENGTH = 1f;
+    private static final float DEFAULT_GRAIN_AMOUNT = 0f;
 
     /**
      * Sentinel used so the very first {@link #update} call always pushes every
@@ -54,6 +57,9 @@ public class LiquidGlassEffect {
     private float specularStrength = UNSET;
     private float dispersionStrength = UNSET;
     private float frostAmount = UNSET;
+    private float fresnelStrength = UNSET;
+    private float reflectionStrength = UNSET;
+    private float grainAmount = UNSET;
 
     public void update(
         float left, float top, float right, float bottom,
@@ -68,13 +74,35 @@ public class LiquidGlassEffect {
             left, top, right, bottom,
             radiusLeftTop, radiusRightTop, radiusRightBottom, radiusLeftBottom,
             thickness, intensity, index, foregroundColor,
-            DEFAULT_SPECULAR_STRENGTH, DEFAULT_DISPERSION_STRENGTH, DEFAULT_FROST_AMOUNT
+            DEFAULT_SPECULAR_STRENGTH, DEFAULT_DISPERSION_STRENGTH, DEFAULT_FROST_AMOUNT,
+            DEFAULT_FRESNEL_STRENGTH, DEFAULT_REFLECTION_STRENGTH, DEFAULT_GRAIN_AMOUNT
+        );
+    }
+
+    public void update(
+        float left, float top, float right, float bottom,
+        float radiusLeftTop, float radiusRightTop, float radiusRightBottom, float radiusLeftBottom,
+        float thickness,
+        float intensity,
+        float index,
+        int foregroundColor,
+        float specularStrength,
+        float dispersionStrength,
+        float frostAmount
+    ) {
+        update(
+            left, top, right, bottom,
+            radiusLeftTop, radiusRightTop, radiusRightBottom, radiusLeftBottom,
+            thickness, intensity, index, foregroundColor,
+            specularStrength, dispersionStrength, frostAmount,
+            DEFAULT_FRESNEL_STRENGTH, DEFAULT_REFLECTION_STRENGTH, DEFAULT_GRAIN_AMOUNT
         );
     }
 
     /**
      * Huanghun: extended variant adding the three user tunable parameters
-     * (highlight strength, edge dispersion, frosted body).
+     * (highlight strength, edge dispersion, frosted body, Fresnel reflection,
+     * environment reflection and micro-surface grain).
      */
     public void update(
         float left, float top, float right, float bottom,
@@ -87,7 +115,10 @@ public class LiquidGlassEffect {
 
         float specularStrength,
         float dispersionStrength,
-        float frostAmount
+        float frostAmount,
+        float fresnelStrength,
+        float reflectionStrength,
+        float grainAmount
     ) {
         float resolutionX = node.getWidth();
         float resolutionY = node.getHeight();
@@ -125,6 +156,9 @@ public class LiquidGlassEffect {
             Math.abs(this.specularStrength - specularStrength) > 0.001f ||
             Math.abs(this.dispersionStrength - dispersionStrength) > 0.001f ||
             Math.abs(this.frostAmount - frostAmount) > 0.001f ||
+            Math.abs(this.fresnelStrength - fresnelStrength) > 0.001f ||
+            Math.abs(this.reflectionStrength - reflectionStrength) > 0.001f ||
+            Math.abs(this.grainAmount - grainAmount) > 0.001f ||
             this.foregroundColor != foregroundColor
         ) {
             this.foregroundColor = foregroundColor;
@@ -145,6 +179,9 @@ public class LiquidGlassEffect {
             shader.setFloatUniform("specular_strength", this.specularStrength = specularStrength);
             shader.setFloatUniform("dispersion_strength", this.dispersionStrength = dispersionStrength);
             shader.setFloatUniform("frost_amount", this.frostAmount = frostAmount);
+            shader.setFloatUniform("fresnel_strength", this.fresnelStrength = fresnelStrength);
+            shader.setFloatUniform("reflection_strength", this.reflectionStrength = reflectionStrength);
+            shader.setFloatUniform("grain_amount", this.grainAmount = grainAmount);
             node.setRenderEffect(effect = RenderEffect.createRuntimeShaderEffect(shader, "img"));
         }
     }

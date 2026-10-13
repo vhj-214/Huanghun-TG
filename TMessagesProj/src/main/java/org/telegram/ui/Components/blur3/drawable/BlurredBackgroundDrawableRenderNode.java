@@ -167,7 +167,10 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     backgroundColor,
                     HuanghunGlass.resolveSpecular(),
                     HuanghunGlass.resolveDispersion(),
-                    HuanghunGlass.resolveFrost()
+                    HuanghunGlass.resolveFrost(),
+                    HuanghunGlass.resolveFresnel(),
+                    HuanghunGlass.resolveReflection(),
+                    HuanghunGlass.resolveGrain()
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);

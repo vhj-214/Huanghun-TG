@@ -14,6 +14,9 @@
     <string name="HuanghunGlassSpecular">高光强度</string>
     <string name="HuanghunGlassDispersion">边缘色散</string>
     <string name="HuanghunGlassFrost">雾面度</string>
+    <string name="HuanghunGlassFresnel">边缘菲涅尔反射</string>
+    <string name="HuanghunGlassReflection">环境反光</string>
+    <string name="HuanghunGlassGrain">微表面颗粒</string>
     <string name="HuanghunGlassPresetDefault">默认</string>
     <string name="HuanghunGlassPresetIos">iOS 标准</string>
     <string name="HuanghunGlassPresetClear">通透</string>

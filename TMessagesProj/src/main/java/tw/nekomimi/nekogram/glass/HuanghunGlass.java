@@ -32,11 +32,11 @@ public final class HuanghunGlass {
 
     public static final float THICKNESS_MIN = 2f;
     public static final float THICKNESS_MAX = 24f;
-    public static final float THICKNESS_DEFAULT = 11f;
+    public static final float THICKNESS_DEFAULT = 14f;
 
     public static final float INTENSITY_MIN = 0f;
     public static final float INTENSITY_MAX = 1.2f;
-    public static final float INTENSITY_DEFAULT = 0.75f;
+    public static final float INTENSITY_DEFAULT = 0.92f;
 
     public static final float INDEX_MIN = 1.05f;
     public static final float INDEX_MAX = 2.2f;
@@ -44,15 +44,24 @@ public final class HuanghunGlass {
 
     public static final float SPECULAR_MIN = 0f;
     public static final float SPECULAR_MAX = 2f;
-    public static final float SPECULAR_DEFAULT = 1f;
+    public static final float SPECULAR_DEFAULT = 1.3f;
 
     public static final float DISPERSION_MIN = 0f;
     public static final float DISPERSION_MAX = 2f;
-    public static final float DISPERSION_DEFAULT = 1f;
+    public static final float DISPERSION_DEFAULT = 0.9f;
 
     public static final float FROST_MIN = 0f;
     public static final float FROST_MAX = 1f;
-    public static final float FROST_DEFAULT = 0f;
+    public static final float FROST_DEFAULT = 0.42f;
+    public static final float FRESNEL_MIN = 0f;
+    public static final float FRESNEL_MAX = 2f;
+    public static final float FRESNEL_DEFAULT = 1.2f;
+    public static final float REFLECTION_MIN = 0f;
+    public static final float REFLECTION_MAX = 2f;
+    public static final float REFLECTION_DEFAULT = 1.15f;
+    public static final float GRAIN_MIN = 0f;
+    public static final float GRAIN_MAX = 1f;
+    public static final float GRAIN_DEFAULT = 0.12f;
 
     /** Preview material opacity is intentionally not exposed. */
     private static final String PREFS_NAME = "huanghun_glass_tuning";
@@ -63,6 +72,9 @@ public final class HuanghunGlass {
     private static final String KEY_SPECULAR = "specular";
     private static final String KEY_DISPERSION = "dispersion";
     private static final String KEY_FROST = "frost";
+    private static final String KEY_FRESNEL = "fresnel";
+    private static final String KEY_REFLECTION = "reflection";
+    private static final String KEY_GRAIN = "grain";
 
     private static boolean loaded;
     private static boolean enabled;
@@ -73,7 +85,11 @@ public final class HuanghunGlass {
     private static float specular = SPECULAR_DEFAULT;
     private static float dispersion = DISPERSION_DEFAULT;
     private static float frost = FROST_DEFAULT;
+    private static float fresnel = FRESNEL_DEFAULT;
+    private static float reflection = REFLECTION_DEFAULT;
+    private static float grain = GRAIN_DEFAULT;
     private static boolean surfaceRebuildPending;
+    private static boolean surfaceRebuildPosted;
 
     /**
      * Bumped on every mutation. The renderer compares it against the value it
@@ -121,6 +137,9 @@ public final class HuanghunGlass {
             specular = clamp(preferences.getFloat(KEY_SPECULAR, SPECULAR_DEFAULT), SPECULAR_MIN, SPECULAR_MAX);
             dispersion = clamp(preferences.getFloat(KEY_DISPERSION, DISPERSION_DEFAULT), DISPERSION_MIN, DISPERSION_MAX);
             frost = clamp(preferences.getFloat(KEY_FROST, FROST_DEFAULT), FROST_MIN, FROST_MAX);
+            fresnel = clamp(preferences.getFloat(KEY_FRESNEL, FRESNEL_DEFAULT), FRESNEL_MIN, FRESNEL_MAX);
+            reflection = clamp(preferences.getFloat(KEY_REFLECTION, REFLECTION_DEFAULT), REFLECTION_MIN, REFLECTION_MAX);
+            grain = clamp(preferences.getFloat(KEY_GRAIN, GRAIN_DEFAULT), GRAIN_MIN, GRAIN_MAX);
         } catch (Throwable ignored) {
         }
     }
@@ -139,6 +158,9 @@ public final class HuanghunGlass {
                 .putFloat(KEY_SPECULAR, specular)
                 .putFloat(KEY_DISPERSION, dispersion)
                 .putFloat(KEY_FROST, frost)
+                .putFloat(KEY_FRESNEL, fresnel)
+                .putFloat(KEY_REFLECTION, reflection)
+                .putFloat(KEY_GRAIN, grain)
                 .apply();
         } catch (Throwable ignored) {
         }
@@ -235,6 +257,42 @@ public final class HuanghunGlass {
         bump();
     }
 
+    public static float getFresnel() {
+        ensureLoaded();
+        return fresnel;
+    }
+
+    public static void setFresnel(float value) {
+        ensureLoaded();
+        fresnel = clamp(value, FRESNEL_MIN, FRESNEL_MAX);
+        persist();
+        bump();
+    }
+
+    public static float getReflection() {
+        ensureLoaded();
+        return reflection;
+    }
+
+    public static void setReflection(float value) {
+        ensureLoaded();
+        reflection = clamp(value, REFLECTION_MIN, REFLECTION_MAX);
+        persist();
+        bump();
+    }
+
+    public static float getGrain() {
+        ensureLoaded();
+        return grain;
+    }
+
+    public static void setGrain(float value) {
+        ensureLoaded();
+        grain = clamp(value, GRAIN_MIN, GRAIN_MAX);
+        persist();
+        bump();
+    }
+
     public static boolean isCustomized() {
         ensureLoaded();
         return Math.abs(thickness - THICKNESS_DEFAULT) > 0.01f
@@ -242,7 +300,10 @@ public final class HuanghunGlass {
             || Math.abs(index - INDEX_DEFAULT) > 0.001f
             || Math.abs(specular - SPECULAR_DEFAULT) > 0.001f
             || Math.abs(dispersion - DISPERSION_DEFAULT) > 0.001f
-            || Math.abs(frost - FROST_DEFAULT) > 0.001f;
+            || Math.abs(frost - FROST_DEFAULT) > 0.001f
+            || Math.abs(fresnel - FRESNEL_DEFAULT) > 0.001f
+            || Math.abs(reflection - REFLECTION_DEFAULT) > 0.001f
+            || Math.abs(grain - GRAIN_DEFAULT) > 0.001f;
     }
 
     /** Restores the reference values without touching the enable switch. */
@@ -254,6 +315,9 @@ public final class HuanghunGlass {
         specular = SPECULAR_DEFAULT;
         dispersion = DISPERSION_DEFAULT;
         frost = FROST_DEFAULT;
+        fresnel = FRESNEL_DEFAULT;
+        reflection = REFLECTION_DEFAULT;
+        grain = GRAIN_DEFAULT;
         persist();
         bump();
     }
@@ -277,7 +341,17 @@ public final class HuanghunGlass {
         if (!enabled) {
             return fallback;
         }
-        return Math.max(1, Math.round(thickness));
+        // The tuning UI is expressed in dp, while RenderNode geometry is in
+        // physical pixels. Keeping this conversion here makes the preview and
+        // the real surfaces use the same material on xxhdpi/xxxhdpi devices.
+        float density = 1f;
+        try {
+            if (ApplicationLoader.applicationContext != null) {
+                density = ApplicationLoader.applicationContext.getResources().getDisplayMetrics().density;
+            }
+        } catch (Throwable ignored) {
+        }
+        return Math.max(1, Math.round(thickness * density));
     }
 
     public static float resolveIntensity(float fallback) {
@@ -326,6 +400,9 @@ public final class HuanghunGlass {
                 specular = 1.25f;
                 dispersion = 1.15f;
                 frost = 0.06f;
+                fresnel = 1.5f;
+                reflection = 1.35f;
+                grain = 0.08f;
                 break;
             case PRESET_CLEAR:
                 thickness = 7f;
@@ -334,6 +411,9 @@ public final class HuanghunGlass {
                 specular = 0.85f;
                 dispersion = 0.7f;
                 frost = 0f;
+                fresnel = 0.75f;
+                reflection = 0.8f;
+                grain = 0.03f;
                 break;
             case PRESET_THICK:
                 thickness = 20f;
@@ -342,6 +422,9 @@ public final class HuanghunGlass {
                 specular = 1.1f;
                 dispersion = 1.2f;
                 frost = 0.25f;
+                fresnel = 1.65f;
+                reflection = 1.4f;
+                grain = 0.1f;
                 break;
             case PRESET_SOFT:
                 thickness = 15f;
@@ -350,6 +433,9 @@ public final class HuanghunGlass {
                 specular = 0.6f;
                 dispersion = 0.5f;
                 frost = 0.55f;
+                fresnel = 0.9f;
+                reflection = 0.7f;
+                grain = 0.16f;
                 break;
             case PRESET_DEFAULT:
             default:
@@ -359,6 +445,9 @@ public final class HuanghunGlass {
                 specular = SPECULAR_DEFAULT;
                 dispersion = DISPERSION_DEFAULT;
                 frost = FROST_DEFAULT;
+                fresnel = FRESNEL_DEFAULT;
+                reflection = REFLECTION_DEFAULT;
+                grain = GRAIN_DEFAULT;
                 break;
         }
         persist();
@@ -379,8 +468,31 @@ public final class HuanghunGlass {
         if (surfaceRebuildPending) {
             surfaceRebuildPending = false;
             try {
-                activity.recreate();
-                return;
+                final View decorView = activity.getWindow() != null
+                    ? activity.getWindow().getDecorView()
+                    : null;
+                // Recreating from inside SeekBarView.onSeekBarDrag can destroy
+                // the view hierarchy while Android is still dispatching the
+                // touch event. On some Android 13/14 devices that races the
+                // RenderNode/AGSL teardown and causes an immediate crash. Post
+                // the recreation until the current input/draw pass completes.
+                if (decorView != null && !activity.isFinishing() && !surfaceRebuildPosted) {
+                    surfaceRebuildPosted = true;
+                    if (decorView.post(() -> {
+                        surfaceRebuildPosted = false;
+                        try {
+                            if (!activity.isFinishing()) {
+                                activity.recreate();
+                            }
+                        } catch (Throwable ignored) {
+                            // The existing translucent fallback remains usable
+                            // if this device refuses a runtime recreation.
+                        }
+                    })) {
+                        return;
+                    }
+                    surfaceRebuildPosted = false;
+                }
             } catch (Throwable ignored) {
             }
         }

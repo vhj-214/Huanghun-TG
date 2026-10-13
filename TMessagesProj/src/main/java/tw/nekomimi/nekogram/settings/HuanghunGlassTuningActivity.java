@@ -168,6 +168,18 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
             HuanghunGlass.FROST_MIN, HuanghunGlass.FROST_MAX, 2, "",
             value -> HuanghunGlass.setFrost(value));
 
+        addSliderRow(context, content, R.string.HuanghunGlassFresnel,
+            HuanghunGlass.FRESNEL_MIN, HuanghunGlass.FRESNEL_MAX, 2, "",
+            value -> HuanghunGlass.setFresnel(value));
+
+        addSliderRow(context, content, R.string.HuanghunGlassReflection,
+            HuanghunGlass.REFLECTION_MIN, HuanghunGlass.REFLECTION_MAX, 2, "",
+            value -> HuanghunGlass.setReflection(value));
+
+        addSliderRow(context, content, R.string.HuanghunGlassGrain,
+            HuanghunGlass.GRAIN_MIN, HuanghunGlass.GRAIN_MAX, 2, "",
+            value -> HuanghunGlass.setGrain(value));
+
         // ------------------------------------------------------------ presets
         content.addView(
             makeSection(context, LocaleController.getString(R.string.HuanghunGlassSectionPresets)),
@@ -372,7 +384,10 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
             HuanghunGlass.getIndex(),
             HuanghunGlass.getSpecular(),
             HuanghunGlass.getDispersion(),
-            HuanghunGlass.getFrost()
+            HuanghunGlass.getFrost(),
+            HuanghunGlass.getFresnel(),
+            HuanghunGlass.getReflection(),
+            HuanghunGlass.getGrain()
         );
     }
 
@@ -406,13 +421,16 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
     }
 
     private void syncAll(boolean notifyHost) {
-        if (sliderRows.size() == 6) {
+        if (sliderRows.size() == 9) {
             sliderRows.get(0).bind(HuanghunGlass.getThickness());
             sliderRows.get(1).bind(HuanghunGlass.getIntensity());
             sliderRows.get(2).bind(HuanghunGlass.getIndex());
             sliderRows.get(3).bind(HuanghunGlass.getSpecular());
             sliderRows.get(4).bind(HuanghunGlass.getDispersion());
             sliderRows.get(5).bind(HuanghunGlass.getFrost());
+            sliderRows.get(6).bind(HuanghunGlass.getFresnel());
+            sliderRows.get(7).bind(HuanghunGlass.getReflection());
+            sliderRows.get(8).bind(HuanghunGlass.getGrain());
         }
         updateEnablePill();
         updatePreview();
