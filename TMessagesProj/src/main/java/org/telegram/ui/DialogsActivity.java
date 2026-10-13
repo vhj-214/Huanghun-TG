@@ -299,7 +299,6 @@ import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
 import tw.nekomimi.nekogram.settings.GhostModeActivity;
-import tw.nekomimi.nekogram.settings.HuanghunGlassTuningActivity;
 import tw.nekomimi.nekogram.settings.HuanghunPrivacyFolderActivity;
 import tw.nekomimi.nekogram.ui.BookmarkManagerActivity;
 import xyz.nextalone.nagram.NaConfig;
@@ -14526,10 +14525,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                             presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_NIGHT));
                         });
                     });
-            // Huanghun: liquid glass tuning entry, placed right below the
-            // night mode switch.
-            io.add(R.drawable.msg_theme, getString(R.string.HuanghunGlassMenu),
-                    () -> presentFragment(new HuanghunGlassTuningActivity()));
             io.addGap();
             if (hideBottomNavigationBar) {
                 io.add(R.drawable.left_status_profile, getString(R.string.MyProfile), () -> {

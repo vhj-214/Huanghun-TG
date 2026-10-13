@@ -18,6 +18,7 @@ import org.telegram.tgnet.TLRPC;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.io.BufferedReader;
+import java.util.HashMap;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
@@ -28,7 +29,13 @@ import java.util.Set;
 /** Local, opt-in message-response automation. It only reacts to an exact outgoing DM trigger. */
 public final class HuanghunComebackHelper extends BaseController implements NotificationCenter.NotificationCenterDelegate {
     private static final String PREFIX = "huanghun_comeback_";
+    private static final String AUTOMATED_MESSAGE_PARAM = "huanghun_comeback_auto";
     private static final String DEFAULT_TRIGGER = "cnm";
+    private static final String DEFAULT_STOP_TRIGGER = "sb";
+    /** Maximum number of messages dispatched in one send round. */
+    public static final int MAX_SEND_SPEED = 10;
+    public static final int SEND_MODE_SEQUENTIAL = 0;
+    public static final int SEND_MODE_RANDOM = 1;
     private static final String FALLBACK_DEFAULT_CORPUS = "先别急，我们把问题说清楚。\n收到，我先确认一下具体情况。";
     private static volatile String defaultCorpusCache;
     private static final int MAX_LINES_PER_TRIGGER = 500;
@@ -36,6 +43,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private final ArrayDeque<QueuedMessage> queue = new ArrayDeque<>();
     private final Set<String> seenTriggers = new LinkedHashSet<>();
     private boolean sending;
+    private int queueGeneration;
 
     public static final class Corpus {
         public final String id;
@@ -55,6 +63,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private HuanghunComebackHelper(int account) {
         super(account);
         NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messageReceivedByServer);
+        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messageWillSend);
     }
 
     public static HuanghunComebackHelper getInstance(int account) {
@@ -68,12 +77,43 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private SharedPreferences prefs() { return MessagesController.getGlobalMainSettings(); }
 
     public boolean isEnabled() { return prefs().getBoolean(key("enabled"), false); }
-    public void setEnabled(boolean enabled) { prefs().edit().putBoolean(key("enabled"), enabled).apply(); }
+    public void setEnabled(boolean enabled) {
+        prefs().edit().putBoolean(key("enabled"), enabled).apply();
+        if (!enabled) stopPendingMessages();
+    }
     public String getTrigger() { return prefs().getString(key("trigger"), DEFAULT_TRIGGER); }
     public boolean setTrigger(String trigger) {
-        if (TextUtils.isEmpty(trigger) || trigger.trim().isEmpty() || trigger.length() > 64) return false;
+        if (TextUtils.isEmpty(trigger) || trigger.trim().isEmpty() || trigger.trim().length() > 64
+                || trigger.trim().equals(getStopTrigger())) return false;
         prefs().edit().putString(key("trigger"), trigger.trim()).apply();
         return true;
+    }
+    public String getStopTrigger() { return prefs().getString(key("stop_trigger"), DEFAULT_STOP_TRIGGER); }
+    public boolean setStopTrigger(String trigger) {
+        if (TextUtils.isEmpty(trigger) || trigger.trim().isEmpty() || trigger.trim().length() > 64
+                || trigger.trim().equals(getTrigger())) return false;
+        prefs().edit().putString(key("stop_trigger"), trigger.trim()).apply();
+        return true;
+    }
+    public int getSendMode() {
+        int mode = prefs().getInt(key("send_mode"), SEND_MODE_SEQUENTIAL);
+        return mode == SEND_MODE_RANDOM ? SEND_MODE_RANDOM : SEND_MODE_SEQUENTIAL;
+    }
+    public void setSendMode(int mode) {
+        prefs().edit().putInt(key("send_mode"), mode == SEND_MODE_RANDOM ? SEND_MODE_RANDOM : SEND_MODE_SEQUENTIAL).apply();
+    }
+    public int getSendSpeed() {
+        return Math.max(1, Math.min(MAX_SEND_SPEED, prefs().getInt(key("send_speed"), 1)));
+    }
+    public void setSendSpeed(int speed) {
+        prefs().edit().putInt(key("send_speed"), Math.max(1, Math.min(MAX_SEND_SPEED, speed))).apply();
+    }
+    private void stopPendingMessages() {
+        synchronized (queue) {
+            queueGeneration++;
+            queue.clear();
+            sending = false;
+        }
     }
     public boolean isDefaultEnabled() { return prefs().getBoolean(key("default_enabled"), true); }
     public void setDefaultEnabled(boolean enabled) { prefs().edit().putBoolean(key("default_enabled"), enabled).apply(); }
@@ -151,28 +191,64 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id != NotificationCenter.messageReceivedByServer || !isEnabled() || args == null || args.length < 3 || !(args[2] instanceof TLRPC.Message)) return;
+        if (!isEnabled() || args == null) return;
+        if (id == NotificationCenter.messageWillSend) {
+            if (args.length < 1 || !(args[0] instanceof SendMessagesHelper.SendMessageParams)) return;
+            SendMessagesHelper.SendMessageParams params = (SendMessagesHelper.SendMessageParams) args[0];
+            if (params.params != null && "1".equals(params.params.get(AUTOMATED_MESSAGE_PARAM))) return;
+            long dialogId = params.peer;
+            long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
+            if (params.scheduleDate == 0 && dialogId > 0 && dialogId != selfId
+                    && !TextUtils.isEmpty(params.message) && params.message.trim().equals(getStopTrigger())) {
+                stopPendingMessages();
+            }
+            return;
+        }
+        if (id != NotificationCenter.messageReceivedByServer || args.length < 3 || !(args[2] instanceof TLRPC.Message)) return;
         TLRPC.Message message = (TLRPC.Message) args[2];
         if (!message.out || message.post || TextUtils.isEmpty(message.message)) return;
+        if (message.params != null && "1".equals(message.params.get(AUTOMATED_MESSAGE_PARAM))) return;
         long dialogId = MessageObject.getDialogId(message);
         long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
         // Positive dialog IDs are private user conversations; groups/channels are excluded.
-        if (dialogId <= 0 || dialogId == selfId || !message.message.trim().equals(getTrigger())) return;
+        if (dialogId <= 0 || dialogId == selfId) return;
+        String sentText = message.message.trim();
+        if (sentText.equals(getStopTrigger())) {
+            stopPendingMessages();
+            return;
+        }
+        if (!sentText.equals(getTrigger())) return;
         String dedupe = dialogId + ":" + message.id;
         synchronized (seenTriggers) {
             if (!seenTriggers.add(dedupe)) return;
             while (seenTriggers.size() > 256) seenTriggers.remove(seenTriggers.iterator().next());
         }
         ArrayList<String> lines = new ArrayList<>();
-        if (isDefaultEnabled()) addLines(lines, getDefaultCorpus());
-        for (Corpus corpus : getCorpora()) if (corpus.enabled) addLines(lines, corpus.text);
+        if (getSendMode() == SEND_MODE_RANDOM) {
+            ArrayList<List<String>> enabledCorpora = new ArrayList<>();
+            if (isDefaultEnabled()) addCorpusLines(enabledCorpora, getDefaultCorpus());
+            for (Corpus corpus : getCorpora()) if (corpus.enabled) addCorpusLines(enabledCorpora, corpus.text);
+            if (enabledCorpora.isEmpty()) return;
+            List<String> selectedCorpus = enabledCorpora.get(RANDOM.nextInt(enabledCorpora.size()));
+            lines.add(selectedCorpus.get(RANDOM.nextInt(selectedCorpus.size())));
+        } else {
+            if (isDefaultEnabled()) addLines(lines, getDefaultCorpus());
+            for (Corpus corpus : getCorpora()) if (corpus.enabled) addLines(lines, corpus.text);
+        }
         if (lines.isEmpty()) return;
+        final int generation;
         synchronized (queue) {
             if (sending) return;
+            generation = ++queueGeneration;
             for (String line : lines) queue.add(new QueuedMessage(dialogId, line));
             sending = true;
         }
-        sendNext();
+        sendNext(generation);
+    }
+    private void addCorpusLines(List<List<String>> into, String text) {
+        ArrayList<String> lines = new ArrayList<>();
+        addLines(lines, text);
+        if (!lines.isEmpty()) into.add(lines);
     }
 
     private void addLines(List<String> into, String text) {
@@ -200,20 +276,56 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         }
     }
 
-    private void sendNext() {
+    private void sendNext(final int generation) {
         if (!isEnabled()) {
-            synchronized (queue) { queue.clear(); sending = false; }
+            stopPendingMessages();
             return;
         }
-        final QueuedMessage next;
+        final int speed = getSendSpeed();
+        final ArrayList<QueuedMessage> batch = new ArrayList<>(speed);
         synchronized (queue) {
-            next = queue.poll();
-            if (next == null) { sending = false; return; }
+            if (generation != queueGeneration) return;
+            for (int i = 0; i < speed; i++) {
+                QueuedMessage next = queue.poll();
+                if (next == null) break;
+                batch.add(next);
+            }
+            if (batch.isEmpty()) { sending = false; return; }
         }
-        SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(next.text, next.dialogId));
-        // Keep a noticeable but responsive pause between replies: 0.32–1.70 seconds.
+        dispatchBatch(batch, speed, 0, generation);
+    }
+    private void dispatchBatch(final ArrayList<QueuedMessage> batch, final int speed, final int index, final int generation) {
+        if (!isEnabled()) {
+            stopPendingMessages();
+            return;
+        }
+        synchronized (queue) {
+            if (generation != queueGeneration) return;
+        }
+        if (index >= batch.size()) {
+            scheduleNextRound(generation);
+            return;
+        }
+        QueuedMessage message = batch.get(index);
+        SendMessagesHelper.SendMessageParams params = SendMessagesHelper.SendMessageParams.of(message.text, message.dialogId);
+        params.params = new HashMap<>();
+        params.params.put(AUTOMATED_MESSAGE_PARAM, "1");
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(params);
+        if (index + 1 < batch.size()) {
+            long stagger = Math.max(30L, Math.min(140L, 320L / Math.max(1, speed)));
+            AndroidUtilities.runOnUIThread(() -> dispatchBatch(batch, speed, index + 1, generation), stagger);
+        } else {
+            scheduleNextRound(generation);
+        }
+    }
+    private void scheduleNextRound(final int generation) {
+        if (!isEnabled()) {
+            stopPendingMessages();
+            return;
+        }
+        // Keep the existing 0.32–1.70 second interval between send rounds.
         long delay = 320L + RANDOM.nextInt(1381);
-        AndroidUtilities.runOnUIThread(this::sendNext, delay);
+        AndroidUtilities.runOnUIThread(() -> sendNext(generation), delay);
     }
 
     private static final class QueuedMessage {

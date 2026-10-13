@@ -4306,6 +4306,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             return;
         }
 
+        getNotificationCenter().postNotificationName(NotificationCenter.messageWillSend, sendMessageParams);
+
         if (replyQuote != null && replyQuote.message != null && replyToMsg != null) {
             replyToMsg = replyQuote.message;
         }

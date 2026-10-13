@@ -7,13 +7,16 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -36,6 +39,9 @@ import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.LayoutHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 import java.io.File;
 import java.util.concurrent.atomic.AtomicBoolean;
 import tw.nekomimi.nekogram.helpers.HuanghunPetHelper;
@@ -46,6 +52,8 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     private static final int ROW_TUTORIAL = 0;
     private static final int ROW_IMPORT = 1;
     private static final int ROW_EMPTY = 2;
+    private static final Random ACCOUNT_DELETE_RANDOM = new Random();
+    private static final Set<String> USED_ACCOUNT_DELETE_QUESTIONS = new HashSet<>();
     private final ArrayList<HuanghunPetHelper.PetInfo> pets = new ArrayList<>();
     private int rowCountStart;
 
@@ -260,12 +268,123 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     }
     public static void showGoodbyeForAccount(Activity activity, int account, Theme.ResourcesProvider provider) {
         if (activity == null) return;
-        new AlertDialog.Builder(activity, provider)
+        AccountDeleteChallenge challenge = createAccountDeleteChallenge();
+        LinearLayout challengeLayout = new LinearLayout(activity);
+        challengeLayout.setOrientation(LinearLayout.VERTICAL);
+        challengeLayout.setPadding(dp(24), dp(2), dp(24), dp(8));
+
+        TextView questionView = new TextView(activity);
+        questionView.setText(challenge.question + " = ?");
+        questionView.setTextSize(18);
+        questionView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        questionView.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        challengeLayout.addView(questionView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, dp(10)));
+
+        EditText answerInput = new EditText(activity);
+        answerInput.setTextSize(17);
+        answerInput.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        answerInput.setHint("请输入题目答案");
+        answerInput.setSingleLine(true);
+        answerInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        answerInput.setGravity(Gravity.CENTER_VERTICAL);
+        answerInput.setPadding(dp(10), dp(4), dp(10), dp(4));
+        GradientDrawable answerBorder = new GradientDrawable();
+        answerBorder.setColor(0x00000000);
+        answerBorder.setCornerRadius(dp(1));
+        answerBorder.setStroke(dp(3), 0xffff7946);
+        answerInput.setBackground(answerBorder);
+        challengeLayout.addView(answerInput, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(48)));
+
+        AlertDialog dialog = new AlertDialog.Builder(activity, provider)
                 .setTitle("离别")
                 .setMessage("这是永久注销账户功能。注销后账号、云端数据、聊天记录和联系人关系可能无法恢复，请确认你已经备份需要保留的内容。")
+                .setView(challengeLayout)
                 .setNegativeButton("返回", null)
-                .setPositiveButton("一键注销账户", (dialog, which) -> showGoodbyeConfirmation(activity, account, provider))
-                .show();
+                .setPositiveButton("一键注销账户", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            View positiveButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
+            if (!(positiveButton instanceof TextView)) return;
+            ((TextView) positiveButton).setOnClickListener(v -> {
+                String answerText = answerInput.getText().toString().trim();
+                boolean correct = false;
+                if (answerText.matches("[0-9]+")) {
+                    try {
+                        correct = Integer.parseInt(answerText) == challenge.answer;
+                    } catch (NumberFormatException ignoredAnswer) {
+                        correct = false;
+                    }
+                }
+                if (!correct) {
+                    new AlertDialog.Builder(activity, provider)
+                            .setMessage("答案参数不符合，请重新回答！！！！")
+                            .setPositiveButton("确定", null)
+                            .show();
+                    answerInput.requestFocus();
+                    return;
+                }
+                dialog.dismiss();
+                showGoodbyeConfirmation(activity, account, provider);
+            });
+        });
+        dialog.show();
+    }
+
+    private static final class AccountDeleteChallenge {
+        final String question;
+        final int answer;
+
+        AccountDeleteChallenge(String question, int answer) {
+            this.question = question;
+            this.answer = answer;
+        }
+    }
+
+    private static AccountDeleteChallenge createAccountDeleteChallenge() {
+        synchronized (USED_ACCOUNT_DELETE_QUESTIONS) {
+            ArrayList<AccountDeleteChallenge> available = new ArrayList<>();
+            // Addition: operands and result are integers from 0 to 100.
+            for (int left = 0; left <= 100; left++) {
+                for (int right = 0; right <= 100 - left; right++) {
+                    addAvailableChallenge(available, left, "+", right, left + right);
+                }
+            }
+            // Subtraction: right never exceeds left, so the result cannot be negative.
+            for (int left = 0; left <= 100; left++) {
+                for (int right = 0; right <= left; right++) {
+                    addAvailableChallenge(available, left, "−", right, left - right);
+                }
+            }
+            // Multiplication: include only operand pairs whose product is at most 100.
+            for (int left = 0; left <= 100; left++) {
+                int maxRight = left == 0 ? 100 : 100 / left;
+                for (int right = 0; right <= maxRight; right++) {
+                    addAvailableChallenge(available, left, "×", right, left * right);
+                }
+            }
+            // Division: divisor is nonzero and each dividend is exactly divisible.
+            for (int right = 1; right <= 100; right++) {
+                for (int answer = 0; answer <= 100 / right; answer++) {
+                    int left = right * answer;
+                    addAvailableChallenge(available, left, "÷", right, answer);
+                }
+            }
+            if (available.isEmpty()) {
+                // All valid questions have been used; start a fresh randomized cycle.
+                USED_ACCOUNT_DELETE_QUESTIONS.clear();
+                return createAccountDeleteChallenge();
+            }
+            AccountDeleteChallenge selected = available.get(ACCOUNT_DELETE_RANDOM.nextInt(available.size()));
+            USED_ACCOUNT_DELETE_QUESTIONS.add(selected.question);
+            return selected;
+        }
+    }
+
+    private static void addAvailableChallenge(ArrayList<AccountDeleteChallenge> available, int left, String symbol, int right, int answer) {
+        String question = left + " " + symbol + " " + right;
+        if (!USED_ACCOUNT_DELETE_QUESTIONS.contains(question)) {
+            available.add(new AccountDeleteChallenge(question, answer));
+        }
     }
     private static void showGoodbyeConfirmation(Activity activity, int account, Theme.ResourcesProvider provider) {
         new AlertDialog.Builder(activity, provider)

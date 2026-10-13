@@ -13,7 +13,6 @@ import androidx.core.math.MathUtils;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
-import tw.nekomimi.nekogram.glass.HuanghunGlass;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -95,6 +94,7 @@ public class LiteMode {
 
     private static int value;
     private static boolean loaded;
+    private static boolean legacyGlassMigrationChecked;
 
     public static int getValue() {
         return getValue(false);
@@ -173,12 +173,27 @@ public class LiteMode {
 
     /** Whether the liquid-glass pipeline should be used by the UI. */
     public static boolean isLiquidGlassEnabled() {
-        try {
-            return isEnabled(FLAG_LIQUID_GLASS) || HuanghunGlass.isEnabled();
-        } catch (Throwable ignored) {
-            // A broken preference/shader path must never prevent the normal
-            // translucent fallback from being constructed.
-            return false;
+        migrateLegacyGlassPreference();
+        return isEnabled(FLAG_LIQUID_GLASS);
+    }
+
+    private static void migrateLegacyGlassPreference() {
+        synchronized (LiteMode.class) {
+            if (legacyGlassMigrationChecked) return;
+            Context context = ApplicationLoader.applicationContext;
+            if (context == null) return;
+            try {
+                SharedPreferences legacyPreferences = context.getSharedPreferences("huanghun_glass_tuning", Context.MODE_PRIVATE);
+                if (legacyPreferences.contains("enabled")) {
+                    if (legacyPreferences.getBoolean("enabled", false)) {
+                        setAllFlags(getValue(true) | FLAG_LIQUID_GLASS);
+                    }
+                    legacyPreferences.edit().remove("enabled").apply();
+                }
+                legacyGlassMigrationChecked = true;
+            } catch (Throwable ignored) {
+                // Retry on the next render query if preferences are not ready yet.
+            }
         }
     }
 
