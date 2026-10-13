@@ -27,10 +27,10 @@ public class BlurredBackgroundProviderImpl {
                 final int colorTarget = Theme.getColor(Theme.key_glass_targetMainTabs, r);
                 return solveSrcColor(colorBg, colorTarget, alpha);
             })
-            .setStrokeColorTop(0x18FFFFFF, 0x18FFFFFF)
-            .setStrokeColorBottom(0x18FFFFFF, 0x18FFFFFF)
-            .setShadowColor(0, 0)
-            .setShadowLayer(0, 0, 0)
+            .setStrokeColorTop(0x11000000, 0x06FFFFFF)
+            .setStrokeColorBottom(0x20000000, 0x11FFFFFF)
+            .setShadowColor(0x20000000, 0x04FFFFFF)
+            .setShadowLayer(dpf2(2.667f), 0, dpf2(0.85f))
             .setStrokeWidth(dpf2(0.4f), dpf2(0.4f))
             .build();
     }
@@ -46,26 +46,40 @@ public class BlurredBackgroundProviderImpl {
                 final int colorTarget = Theme.getColor(Theme.key_glass_targetMainTopPanel, r);
                 return solveSrcColor(colorBg, colorTarget, alpha);
             })
-            .setStrokeColorTop(0x18FFFFFF, 0x18FFFFFF)
-            .setStrokeColorBottom(0x18FFFFFF, 0x18FFFFFF)
-            .setShadowColor(0, 0)
-            .setShadowLayer(0, 0, 0)
+            .setStrokeColorTop(0x11000000, 0x06FFFFFF)
+            .setStrokeColorBottom(0x20000000, 0x11FFFFFF)
+            .setShadowColor(0x20000000, 0x04FFFFFF)
+            .setShadowLayer(dpf2(2.667f), 0, dpf2(0.85f))
             .setStrokeWidth(dpf2(0.4f), dpf2(0.4f))
             .build();
     }
 
-    /** 液态玻璃主材质：保留壁纸透光与轻微主题色玻璃体，不叠加暗色投影。 */
+    /** 通用透明玻璃材质，供非首页的标签栏和顶栏复用。 */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> 0x00000000)
             .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
                     Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.12f : 0.08f))
             .setStrokeColorTop(0x62FFFFFF, 0x3CFFFFFF)
-            .setStrokeColorBottom(0x20FFFFFF, 0x20FFFFFF)
-            .setShadowColor(0, 0)
-            .setShadowLayer(0, 0, 0)
+            .setStrokeColorBottom(0x26000000, 0x24000000)
+            .setShadowColor(0x30000000, 0x22000000)
+            .setShadowLayer(dpf2(2.4f), 0, dpf2(0.8f))
             .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
             .build();
+    }
+
+    /** 透明主界面玻璃：壁纸可透显，不绘制暗色阴影或下沿。 */
+    public static BlurredBackgroundProvider mainHomeTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> 0x00000000)
+                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.12f : 0.08f))
+                .setStrokeColorTop(0x62FFFFFF, 0x3CFFFFFF)
+                .setStrokeColorBottom(0x20FFFFFF, 0x20FFFFFF)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
+                .build();
     }
 
     /** Separate live-source glass surface for each dialog row. */
@@ -82,7 +96,7 @@ public class BlurredBackgroundProviderImpl {
                 .build();
     }
     public static BlurredBackgroundProvider mainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
-        return mainNavigationTransparentGlass(resourcesProvider);
+        return mainHomeTransparent(resourcesProvider);
     }
 
     public static BlurredBackgroundProvider mainFoldersTransparent(Theme.ResourcesProvider resourcesProvider) {

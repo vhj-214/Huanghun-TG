@@ -5091,7 +5091,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         searchTabsAndFiltersLayout.setPadding(0, dp(7), 0, dp(7));
         contentView.addView(searchTabsAndFiltersLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, SEARCH_TABS_HEIGHT, Gravity.TOP, 4, 0, 4, 0));
 
-        BlurredBackgroundDrawable searchTabsViewBackground = iBlur3FactoryLiquidGlass.create(searchTabsAndFiltersLayout, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+        BlurredBackgroundDrawable searchTabsViewBackground = iBlur3FactoryLiquidGlass.create(searchTabsAndFiltersLayout, BlurredBackgroundProviderImpl.mainHomeTransparent(resourceProvider));
         searchTabsViewBackground.setRadius(dp(18));
         searchTabsViewBackground.setPadding(dp(6.666f));
         searchTabsAndFiltersLayout.setPadding(0, dp(7), 0, dp(7));
@@ -5177,7 +5177,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             BlurredBackgroundDrawable topPanelLayoutBackground = iBlur3FactoryLiquidGlass.create(topPanelLayout)
-                .setColorProvider(BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider))
+                .setColorProvider(BlurredBackgroundProviderImpl.mainHomeTransparent(resourceProvider))
                 .setPadding(dp(7));
 
             topPanelLayout.setPadding(dp(11), dp(21), dp(11), dp(21));
@@ -5542,7 +5542,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
             if (LiteMode.isLiquidGlassEnabled()) {
                 filterTabsGlassBackground = iBlur3FactoryLiquidGlass.create(
-                        filterTabsView, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+                        filterTabsView, BlurredBackgroundProviderImpl.mainHomeTransparent(resourceProvider));
                 filterTabsGlassBackground.setRadius(dp(18));
                 filterTabsGlassBackground.setPadding(dp(5));
                 filterTabsView.setBackground(filterTabsGlassBackground);
@@ -5556,7 +5556,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 常驻搜索框与分类标签栏、底部导航同属一层悬浮玻璃,统一走透明配方,
             // 避免它自己在列表上面盖出一块不透明的面板。
             fragmentSearchField.setupBlurredBackground(iBlur3FactoryLiquidGlass.create(fragmentSearchField,
-                    BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider)));
+                    BlurredBackgroundProviderImpl.mainHomeTransparent(resourceProvider)));
         }
 
         dialogStoriesCell = new DialogStoriesCell(context, this, currentAccount, isArchive() ? DialogStoriesCell.TYPE_ARCHIVE : DialogStoriesCell.TYPE_DIALOGS) {
