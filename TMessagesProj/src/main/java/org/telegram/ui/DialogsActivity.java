@@ -1075,17 +1075,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         fragmentSearchField.setTranslationY(scrollYOffset + getSearchFieldAdditionOffset());
                     }
                 }
-                blurBounds.set(0, top, getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
-                if (searchAnimationProgress < 0) {
-                    drawBlurRect(canvas, 0, blurBounds, searchAnimationProgress == 1f ? actionBarSearchPaint : actionBarDefaultPaint, true);
+                if (searchAnimationProgress > 0f) {
+                    actionBarSearchPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    blurBounds.set(0, top, getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
+                    drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
                 }
                 if (searchAnimationProgress > 0 && searchAnimationProgress < 1f) {
-                    actionBarSearchPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                    if (searchIsShowed || !searchWasFullyShowed) {
-                    } else {
-                        blurBounds.set(0, top, getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
-                        drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
-                    }
                     if (fragmentSearchField != null) {
                         fragmentSearchField.setTranslationY(top + actionBarHeight - (actionBar.getHeight() + (filterTabsView != null ? filterTabsView.getMeasuredHeight() : 0)) + getSearchFieldAdditionOffset());
                     }
