@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
@@ -29,6 +30,7 @@ import java.util.Set;
 public final class HuanghunComebackHelper extends BaseController implements NotificationCenter.NotificationCenterDelegate {
     private static final String PREFIX = "huanghun_comeback_";
     private static final String DEFAULT_TRIGGER = "cnm";
+    private static final String DEFAULT_STOP_WORD = "sb";
     private static final String FALLBACK_DEFAULT_CORPUS = "先别急，我们把问题说清楚。\n收到，我先确认一下具体情况。";
     private static volatile String defaultCorpusCache;
     private static final int MAX_LINES_PER_TRIGGER = 500;
@@ -36,6 +38,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private final ArrayDeque<QueuedMessage> queue = new ArrayDeque<>();
     private final Set<String> seenTriggers = new LinkedHashSet<>();
     private boolean sending;
+    private long queueGeneration;
 
     public static final class Corpus {
         public final String id;
@@ -68,15 +71,28 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private SharedPreferences prefs() { return MessagesController.getGlobalMainSettings(); }
 
     public boolean isEnabled() { return prefs().getBoolean(key("enabled"), false); }
-    public void setEnabled(boolean enabled) { prefs().edit().putBoolean(key("enabled"), enabled).apply(); }
+    public void setEnabled(boolean enabled) {
+        prefs().edit().putBoolean(key("enabled"), enabled).apply();
+        if (!enabled) stopPendingQueue();
+    }
     public String getTrigger() { return prefs().getString(key("trigger"), DEFAULT_TRIGGER); }
     public boolean setTrigger(String trigger) {
         if (TextUtils.isEmpty(trigger) || trigger.trim().isEmpty() || trigger.length() > 64) return false;
+        if (trigger.trim().equals(getStopWord())) return false;
         prefs().edit().putString(key("trigger"), trigger.trim()).apply();
+        return true;
+    }
+    public String getStopWord() { return prefs().getString(key("stop_word"), DEFAULT_STOP_WORD); }
+    public boolean setStopWord(String stopWord) {
+        if (TextUtils.isEmpty(stopWord) || stopWord.trim().isEmpty() || stopWord.length() > 64) return false;
+        if (stopWord.trim().equals(getTrigger())) return false;
+        prefs().edit().putString(key("stop_word"), stopWord.trim()).apply();
         return true;
     }
     public boolean isDefaultEnabled() { return prefs().getBoolean(key("default_enabled"), true); }
     public void setDefaultEnabled(boolean enabled) { prefs().edit().putBoolean(key("default_enabled"), enabled).apply(); }
+    public boolean isRandomMode() { return prefs().getBoolean(key("random_mode"), false); }
+    public void setRandomMode(boolean random) { prefs().edit().putBoolean(key("random_mode"), random).apply(); }
 
     public List<Corpus> getCorpora() {
         ArrayList<Corpus> result = new ArrayList<>();
@@ -157,7 +173,13 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         long dialogId = MessageObject.getDialogId(message);
         long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
         // Positive dialog IDs are private user conversations; groups/channels are excluded.
-        if (dialogId <= 0 || dialogId == selfId || !message.message.trim().equals(getTrigger())) return;
+        if (dialogId <= 0 || dialogId == selfId) return;
+        String outgoingText = message.message.trim();
+        if (outgoingText.equals(getStopWord())) {
+            stopPendingQueue();
+            return;
+        }
+        if (!outgoingText.equals(getTrigger())) return;
         String dedupe = dialogId + ":" + message.id;
         synchronized (seenTriggers) {
             if (!seenTriggers.add(dedupe)) return;
@@ -167,12 +189,19 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         if (isDefaultEnabled()) addLines(lines, getDefaultCorpus());
         for (Corpus corpus : getCorpora()) if (corpus.enabled) addLines(lines, corpus.text);
         if (lines.isEmpty()) return;
+        if (isRandomMode()) {
+            ArrayList<String> uniqueLines = new ArrayList<>(new LinkedHashSet<>(lines));
+            lines = uniqueLines;
+            Collections.shuffle(lines, RANDOM);
+        }
+        final long generation;
         synchronized (queue) {
             if (sending) return;
             for (String line : lines) queue.add(new QueuedMessage(dialogId, line));
             sending = true;
+            generation = ++queueGeneration;
         }
-        sendNext();
+        sendNext(generation);
     }
 
     private void addLines(List<String> into, String text) {
@@ -200,20 +229,29 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         }
     }
 
-    private void sendNext() {
+    private void sendNext(long generation) {
         if (!isEnabled()) {
-            synchronized (queue) { queue.clear(); sending = false; }
+            stopPendingQueue();
             return;
         }
         final QueuedMessage next;
         synchronized (queue) {
+            if (generation != queueGeneration) return;
             next = queue.poll();
             if (next == null) { sending = false; return; }
         }
         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(next.text, next.dialogId));
         // Keep a noticeable but responsive pause between replies: 0.32–1.70 seconds.
         long delay = 320L + RANDOM.nextInt(1381);
-        AndroidUtilities.runOnUIThread(this::sendNext, delay);
+        AndroidUtilities.runOnUIThread(() -> sendNext(generation), delay);
+    }
+
+    private void stopPendingQueue() {
+        synchronized (queue) {
+            queue.clear();
+            sending = false;
+            queueGeneration++;
+        }
     }
 
     private static final class QueuedMessage {

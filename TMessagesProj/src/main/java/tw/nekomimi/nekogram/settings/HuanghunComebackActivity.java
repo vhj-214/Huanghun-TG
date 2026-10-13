@@ -36,7 +36,7 @@ import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 /** Settings for the opt-in exact-trigger private-message reply feature. */
 public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
     private static final int REQUEST_CORPUS = 10941;
-    private int headerRow, enabledRow, triggerRow, importRow, selectAllRow, deleteAllRow, noticeRow, corpusHeaderRow, defaultCorpusRow, activeCorpusRow, endRow;
+    private int headerRow, enabledRow, triggerRow, stopWordRow, importRow, selectAllRow, deleteAllRow, noticeRow, corpusHeaderRow, defaultCorpusRow, sendModeRow, activeCorpusRow, endRow;
     private final ArrayList<Integer> useRows = new ArrayList<>();
     private final ArrayList<Integer> deleteRows = new ArrayList<>();
     private List<HuanghunComebackHelper.Corpus> corpora = new ArrayList<>();
@@ -55,6 +55,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         headerRow = addRow();
         enabledRow = addRow();
         triggerRow = addRow();
+        stopWordRow = addRow();
         importRow = addRow();
         selectAllRow = addRow();
         // Both bulk actions share one row: left half enables all, right half deletes all.
@@ -62,6 +63,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         noticeRow = addRow();
         corpusHeaderRow = addRow();
         defaultCorpusRow = addRow();
+        sendModeRow = addRow();
         activeCorpusRow = addRow();
         useRows.clear();
         deleteRows.clear();
@@ -90,6 +92,8 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
             if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(enabled);
         } else if (position == triggerRow) {
             showTriggerDialog();
+        } else if (position == stopWordRow) {
+            showStopWordDialog();
         } else if (position == importRow) {
             chooseCorpora();
         } else if (position == selectAllRow) {
@@ -101,6 +105,9 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
             }
         } else if (position == defaultCorpusRow) {
             helper.setDefaultEnabled(!helper.isDefaultEnabled());
+            refreshRows();
+        } else if (position == sendModeRow) {
+            helper.setRandomMode(!helper.isRandomMode());
             refreshRows();
         } else if (position == activeCorpusRow) {
             showActiveSummary();
@@ -146,7 +153,35 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String trigger = input.getText().toString();
             if (!HuanghunComebackHelper.getInstance(currentAccount).setTrigger(trigger)) {
-                input.setError("触发词不能为空，且不能超过 64 个字符");
+                input.setError("触发词不能为空、不能超过 64 个字符，且不能与关闭词相同");
+                return;
+            }
+            dialog.dismiss();
+            refreshRows();
+        }));
+        showDialog(dialog);
+    }
+
+    private void showStopWordDialog() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor input = new EditTextBoldCursor(context);
+        input.setTextSize(16);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setHint("请输入你要自定义的快捷关闭词语");
+        input.setText(HuanghunComebackHelper.getInstance(currentAccount).getStopWord());
+        input.setSelection(input.length());
+        AlertDialog dialog = new AlertDialog.Builder(context, resourceProvider)
+                .setTitle("自定义快捷关闭词语")
+                .setView(input)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("确定", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String stopWord = input.getText().toString();
+            if (!HuanghunComebackHelper.getInstance(currentAccount).setStopWord(stopWord)) {
+                input.setError("关闭词不能为空、不能超过 64 个字符，且不能与触发词相同");
                 return;
             }
             dialog.dismiss();
@@ -245,7 +280,13 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         HuanghunComebackHelper helper = HuanghunComebackHelper.getInstance(currentAccount);
         if (helper.isDefaultEnabled()) names.add("系统默认词库");
         for (HuanghunComebackHelper.Corpus corpus : helper.getCorpora()) if (corpus.enabled) names.add(corpus.name);
-        showMessage(names.isEmpty() ? "当前没有启用词库。" : "将按列表顺序发送：\n" + android.text.TextUtils.join("\n", names));
+        if (names.isEmpty()) {
+            showMessage("当前没有启用词库。");
+        } else if (helper.isRandomMode()) {
+            showMessage("当前为随机发送模式：从启用词库中随机打乱不同语句发送（重复语句只保留一次）。\n\n启用词库：\n" + android.text.TextUtils.join("\n", names));
+        } else {
+            showMessage("当前为顺序发送模式：按词库列表顺序及文档内行顺序发送。\n\n启用词库：\n" + android.text.TextUtils.join("\n", names));
+        }
     }
 
     private void showMessage(String text) {
@@ -295,7 +336,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     break;
                 case TYPE_INFO_PRIVACY:
                     TextInfoPrivacyCell info = (TextInfoPrivacyCell) holder.itemView;
-                    info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。每行发送一条，间隔 0.32–1.7 秒。建议仅在你确认的对话中使用。关闭总开关会停止尚未发送的内容。");
+                    info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；发送完整关闭词会立即停止尚未发送的内容。不会识别他人消息、群组或频道内容。每行发送一条，间隔 0.32–1.7 秒；始终单条发送，不并行加速。建议仅在你确认的对话中使用。关闭总开关也会停止尚未发送的内容。");
                     break;
                 case TYPE_SHADOW:
                     break;
@@ -303,11 +344,14 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     TextSettingsCell cell = (TextSettingsCell) holder.itemView;
                     cell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
                     if (position == triggerRow) cell.setTextAndValue("当前快捷触发词语", HuanghunComebackHelper.getInstance(currentAccount).getTrigger() + "　自定义", true);
+                    else if (position == stopWordRow) cell.setTextAndValue("当前快捷关闭词语", HuanghunComebackHelper.getInstance(currentAccount).getStopWord() + "　自定义", true);
                     else if (position == importRow) cell.setTextAndValue("自定义词库", "点我选择 .txt 文件", true);
                     else if (position == selectAllRow) {
                         cell.setTextAndValue("全选使用", "全选删除", false);
                     } else if (position == activeCorpusRow) {
                         cell.setTextAndValue("当前使用词库", "查看启用顺序", false);
+                    } else if (position == sendModeRow) {
+                        cell.setTextAndValue("当前发送模式", HuanghunComebackHelper.getInstance(currentAccount).isRandomMode() ? "随机发送" : "顺序发送", true);
                     } else {
                         int index = deleteRows.indexOf(position);
                         cell.setTextColor(Theme.getColor(Theme.key_text_RedRegular));
