@@ -9,6 +9,13 @@ uniform float refract_index;
 uniform float refract_intensity;
 uniform float4 foreground_color_premultiplied;
 
+// Huanghun glass tuning: extra user facing controls.
+// 1.0 / 1.0 / 0.0 keeps the original reference look, so an untouched
+// installation renders exactly like before this feature was added.
+uniform float specular_strength;
+uniform float dispersion_strength;
+uniform float frost_amount;
+
 float sdfRect(float2 p, float4 r) {
   r.xy = (p.x > 0.0) ? r.xy : r.zw;
   r.x = (p.y > 0.0) ? r.x : r.y;
@@ -25,6 +32,27 @@ half4 srcOver(half4 src, half4 dst) {
 float2 clampToScreen(float2 uv) {
   float2 maximum = max(resolution - float2(0.5), float2(0.5));
   return clamp(uv, float2(0.5), maximum);
+}
+
+// Frosted body: a small fixed tap ring keeps the cost bounded and is only
+// evaluated when the user actually asks for a frosted material.
+half4 evalFrosted(float2 uv) {
+  float amt = clamp(frost_amount, 0.0, 1.0);
+  if (amt <= 0.001) {
+    return img.eval(uv);
+  }
+  float r = amt * max(size.x, size.y) * 0.055;
+  float d = r * 0.7071;
+  half4 sum = img.eval(uv);
+  sum = sum + img.eval(clampToScreen(uv + float2(r, 0.0)));
+  sum = sum + img.eval(clampToScreen(uv + float2(-r, 0.0)));
+  sum = sum + img.eval(clampToScreen(uv + float2(0.0, r)));
+  sum = sum + img.eval(clampToScreen(uv + float2(0.0, -r)));
+  sum = sum + img.eval(clampToScreen(uv + float2(d, d)));
+  sum = sum + img.eval(clampToScreen(uv + float2(-d, -d)));
+  sum = sum + img.eval(clampToScreen(uv + float2(d, -d)));
+  sum = sum + img.eval(clampToScreen(uv + float2(-d, d)));
+  return sum * (1.0 / 9.0);
 }
 
 half4 main(float2 fragCoord) {
@@ -55,7 +83,7 @@ half4 main(float2 fragCoord) {
   }
 
   uv = clampToScreen(uv);
-  half4 background = img.eval(uv);
+  half4 background = evalFrosted(uv);
 
   // A tiny edge-only color split mimics real glass dispersion without washing
   // the wallpaper or text behind the panel into a blur.
@@ -65,26 +93,30 @@ half4 main(float2 fragCoord) {
       : (length(normalDelta) > 0.001 ? normalize(normalDelta) : float2(1.0, 0.0));
   float inside = 1.0 - smoothstep(0.0, 1.0, sd);
   float edge = (1.0 - smoothstep(0.0, max(safeThickness * 1.65, 1.0), abs(sd))) * inside;
-  float dispersion = edge * 0.42;
+  float dispersion = edge * 0.42 * clamp(dispersion_strength, 0.0, 2.0);
   half red = img.eval(clampToScreen(uv + dispersionDirection * dispersion)).r;
   half blue = img.eval(clampToScreen(uv - dispersionDirection * dispersion)).b;
   background.rgb = half3(red, background.g, blue);
 
   half4 surface = srcOver(half4(foreground_color_premultiplied), background);
 
+  float specularAmount = clamp(specular_strength, 0.0, 2.0);
   float topLight = 1.0 - smoothstep(-size.y * 0.22, size.y * 0.62, p.y);
   float leftLight = 1.0 - smoothstep(-size.x * 0.18, size.x * 0.58, p.x);
   float fresnel = pow(clamp(1.0 - abs(normal.z), 0.0, 1.0), 1.8);
   float3 lightDirection = normalize(float3(-0.36, -0.52, 0.78));
-  float specular = pow(max(dot(normal, lightDirection), 0.0), 18.0);
+  float specular = pow(max(dot(normal, lightDirection), 0.0), 18.0) * specularAmount;
   float rimAlpha = edge * (0.045 + 0.095 * topLight * leftLight + 0.13 * fresnel + 0.12 * specular);
 
   // Broad, low-opacity reflection gives a suspended glass look while leaving
   // fine wallpaper lines visible through the body of the material.
   float diagonal = 1.0 - smoothstep(0.12, 0.86,
       abs((p.x / max(size.x, 1.0)) + (p.y / max(size.y, 1.0)) * 0.72));
-  float sheenAlpha = diagonal * topLight * inside * (0.018 + fresnel * 0.025);
-  float highlightAlpha = clamp(rimAlpha + sheenAlpha, 0.0, 0.28);
+  float sheenAlpha = diagonal * topLight * inside * (0.018 + fresnel * 0.025) * specularAmount;
+  // The clamp used to be a constant 0.28. Scaling it with the user's highlight
+  // strength keeps specular_strength == 1.0 pixel identical to the old build
+  // while still letting the slider push the rim brighter or softer.
+  float highlightAlpha = clamp(rimAlpha + sheenAlpha, 0.0, 0.28 * max(specularAmount, 0.35));
   half4 reflection = half4(highlightAlpha, highlightAlpha, highlightAlpha, highlightAlpha);
 
   float lowerRim = edge * (1.0 - topLight) * (0.025 + 0.025 * fresnel);

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="HuanghunGlassMenu">玻璃度调节</string>
+    <string name="HuanghunGlassTitle">玻璃度调节</string>
+    <string name="HuanghunGlassEnable">启用自定义玻璃效果</string>
+    <string name="HuanghunGlassOn">已开启</string>
+    <string name="HuanghunGlassOff">已关闭</string>
+    <string name="HuanghunGlassPreviewHint">拖动下面的滑杆,上面的预览会实时变化。</string>
+    <string name="HuanghunGlassSectionParams">参数调节</string>
+    <string name="HuanghunGlassSectionPresets">预设方案</string>
+    <string name="HuanghunGlassThickness">玻璃厚度</string>
+    <string name="HuanghunGlassIntensity">折射强度</string>
+    <string name="HuanghunGlassIndex">折射率</string>
+    <string name="HuanghunGlassSpecular">高光强度</string>
+    <string name="HuanghunGlassDispersion">边缘色散</string>
+    <string name="HuanghunGlassFrost">雾面度</string>
+    <string name="HuanghunGlassPresetDefault">默认</string>
+    <string name="HuanghunGlassPresetIos">iOS 标准</string>
+    <string name="HuanghunGlassPresetClear">通透</string>
+    <string name="HuanghunGlassPresetThick">厚重</string>
+    <string name="HuanghunGlassPresetSoft">柔和</string>
+    <string name="HuanghunGlassReset">恢复默认参数</string>
+    <string name="HuanghunGlassFooter">关闭开关时,所有玻璃界面使用系统原始参数;开启后才会应用你在这里调节的数值。</string>
+</resources>

@@ -20,6 +20,8 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.blur3.LiquidGlassEffect;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
 
+import tw.nekomimi.nekogram.glass.HuanghunGlass;
+
 @RequiresApi(api = Build.VERSION_CODES.Q)
 public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawable {
     private final BlurredBackgroundSource source;
@@ -34,6 +36,14 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     private final Paint paintStrokeBottom = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private boolean renderNodeInvalidated;
+
+    /**
+     * Huanghun: the {@link HuanghunGlass} generation this node was last drawn
+     * with. When the user tunes the material the generation changes and the
+     * display list is rebuilt on the next frame, which is what makes the
+     * sliders apply to already visible glass surfaces.
+     */
+    private int glassGeneration = -1;
 
     public BlurredBackgroundDrawableRenderNode(BlurredBackgroundSource source) {
         this.renderNode = new RenderNode("BlurredNode");
@@ -129,6 +139,8 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
         final float offsetX = sourceOffsetX;
         final float offsetY = sourceOffsetY;
 
+        glassGeneration = HuanghunGlass.getGeneration();
+
         Canvas c;
 
         final float sL = boundProps.boundsWithPadding.left + offsetX;
@@ -141,7 +153,8 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
         c.translate(-sL, -sT);
         if (liquidGlassEffect != null && Build.VERSION.SDK_INT >= 33) {
             final int thickness = Math.max(Math.min(
-                boundProps.liquidThickness <= 0 ? dp(11) : boundProps.liquidThickness,
+                HuanghunGlass.resolveThicknessPx(
+                    boundProps.liquidThickness <= 0 ? dp(11) : boundProps.liquidThickness),
                 Math.min(boundProps.boundsWithPadding.width(), boundProps.boundsWithPadding.height()) / 5), 1);
 
             try {
@@ -149,9 +162,12 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     0, 0, boundProps.boundsWithPadding.width(), boundProps.boundsWithPadding.height(),
                     boundProps.shaderRadii[0], boundProps.shaderRadii[2], boundProps.shaderRadii[4], boundProps.shaderRadii[6],
                     thickness,
-                    boundProps.liquidIntensity,
-                    boundProps.liquidIndex,
-                    backgroundColor
+                    HuanghunGlass.resolveIntensity(boundProps.liquidIntensity),
+                    HuanghunGlass.resolveIndex(boundProps.liquidIndex),
+                    backgroundColor,
+                    HuanghunGlass.resolveSpecular(),
+                    HuanghunGlass.resolveDispersion(),
+                    HuanghunGlass.resolveFrost()
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);
@@ -215,7 +231,7 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
         if (!renderNode.hasDisplayList()) {
             source.dispatchOnDrawablesRelativePositionChange();
             updateDisplayList();
-        } else if (renderNodeInvalidated) {
+        } else if (renderNodeInvalidated || glassGeneration != HuanghunGlass.getGeneration()) {
             updateDisplayList();
         }
         renderNodeInvalidated = false;

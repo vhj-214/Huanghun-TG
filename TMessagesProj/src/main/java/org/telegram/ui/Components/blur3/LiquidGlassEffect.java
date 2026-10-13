@@ -13,6 +13,22 @@ import org.telegram.messenger.R;
 @RequiresApi(api = 33)
 public class LiquidGlassEffect {
 
+    /**
+     * Huanghun: values used when the caller does not supply the extra tuning
+     * knobs. They are the reference values of the original shader.
+     */
+    private static final float DEFAULT_SPECULAR_STRENGTH = 1f;
+    private static final float DEFAULT_DISPERSION_STRENGTH = 1f;
+    private static final float DEFAULT_FROST_AMOUNT = 0f;
+
+    /**
+     * Sentinel used so the very first {@link #update} call always pushes every
+     * uniform into the shader, even when the caller passes the default values.
+     * (An unset float uniform reads as 0 inside AGSL, which would silently
+     * disable the highlights and the dispersion.)
+     */
+    private static final float UNSET = -1000f;
+
     private final RenderNode node;
     private final RuntimeShader shader;
     private RenderEffect effect;
@@ -35,6 +51,9 @@ public class LiquidGlassEffect {
     private float intensity;
     private float index;
     private int foregroundColor;
+    private float specularStrength = UNSET;
+    private float dispersionStrength = UNSET;
+    private float frostAmount = UNSET;
 
     public void update(
         float left, float top, float right, float bottom,
@@ -44,6 +63,31 @@ public class LiquidGlassEffect {
         float intensity,
         float index,
         int foregroundColor
+    ) {
+        update(
+            left, top, right, bottom,
+            radiusLeftTop, radiusRightTop, radiusRightBottom, radiusLeftBottom,
+            thickness, intensity, index, foregroundColor,
+            DEFAULT_SPECULAR_STRENGTH, DEFAULT_DISPERSION_STRENGTH, DEFAULT_FROST_AMOUNT
+        );
+    }
+
+    /**
+     * Huanghun: extended variant adding the three user tunable parameters
+     * (highlight strength, edge dispersion, frosted body).
+     */
+    public void update(
+        float left, float top, float right, float bottom,
+        float radiusLeftTop, float radiusRightTop, float radiusRightBottom, float radiusLeftBottom,
+
+        float thickness,
+        float intensity,
+        float index,
+        int foregroundColor,
+
+        float specularStrength,
+        float dispersionStrength,
+        float frostAmount
     ) {
         float resolutionX = node.getWidth();
         float resolutionY = node.getHeight();
@@ -78,6 +122,9 @@ public class LiquidGlassEffect {
             Math.abs(this.thickness - thickness) > 0.1f ||
             Math.abs(this.intensity - intensity) > 0.1f ||
             Math.abs(this.index - index) > 0.1f ||
+            Math.abs(this.specularStrength - specularStrength) > 0.001f ||
+            Math.abs(this.dispersionStrength - dispersionStrength) > 0.001f ||
+            Math.abs(this.frostAmount - frostAmount) > 0.001f ||
             this.foregroundColor != foregroundColor
         ) {
             this.foregroundColor = foregroundColor;
@@ -95,6 +142,9 @@ public class LiquidGlassEffect {
             shader.setFloatUniform("refract_intensity", this.intensity = intensity);
             shader.setFloatUniform("refract_index", this.index = index);
             shader.setFloatUniform("foreground_color_premultiplied", r, g, b, a);
+            shader.setFloatUniform("specular_strength", this.specularStrength = specularStrength);
+            shader.setFloatUniform("dispersion_strength", this.dispersionStrength = dispersionStrength);
+            shader.setFloatUniform("frost_amount", this.frostAmount = frostAmount);
             node.setRenderEffect(effect = RenderEffect.createRuntimeShaderEffect(shader, "img"));
         }
     }
