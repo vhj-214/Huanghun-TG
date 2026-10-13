@@ -8,6 +8,7 @@ import android.view.View;
 import androidx.annotation.Keep;
 
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.LaunchActivity;
@@ -72,6 +73,7 @@ public final class HuanghunGlass {
     private static float specular = SPECULAR_DEFAULT;
     private static float dispersion = DISPERSION_DEFAULT;
     private static float frost = FROST_DEFAULT;
+    private static boolean surfaceRebuildPending;
 
     /**
      * Bumped on every mutation. The renderer compares it against the value it
@@ -152,7 +154,11 @@ public final class HuanghunGlass {
         if (enabled == value) {
             return;
         }
+        final boolean wasLiquidGlassActive = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) || enabled;
         enabled = value;
+        if (value && !wasLiquidGlassActive) {
+            surfaceRebuildPending = true;
+        }
         persist();
         bump();
     }
@@ -369,6 +375,14 @@ public final class HuanghunGlass {
     public static void refreshVisibleUi(Activity activity) {
         if (activity == null) {
             return;
+        }
+        if (surfaceRebuildPending) {
+            surfaceRebuildPending = false;
+            try {
+                activity.recreate();
+                return;
+            } catch (Throwable ignored) {
+            }
         }
         try {
             final View decorView = activity.getWindow() != null

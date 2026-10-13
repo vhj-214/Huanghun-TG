@@ -192,7 +192,7 @@ public class StarGiftPreviewSheet extends BottomSheetWithRecyclerListView {
             glassSourceRenderNode = new BlurredBackgroundSourceRenderNode(glassSourceFallback);
             glassSourceRenderNode.setOnDrawablesRelativePositionChangeListener(this::invalidateMergedVisibleBlurredPositionsAndSourcesPositions);
             glassFactory = new BlurredBackgroundDrawableViewFactory(glassSourceRenderNode);
-            glassFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            glassFactory.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
         } else {
             scrollableViewNoiseSuppressor = null;
             glassSourceRenderNode = null;
@@ -815,7 +815,7 @@ public class StarGiftPreviewSheet extends BottomSheetWithRecyclerListView {
                 if (glassSourceRenderNode.needUpdateDisplayList(width, height) /*|| glassSourcesInvalidated*/) {
                     final Canvas c = glassSourceRenderNode.beginRecording(width, height);
                     c.drawColor(getThemedColor(Theme.key_dialogBackgroundGray));
-                    scrollableViewNoiseSuppressor.draw(c, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ?
+                    scrollableViewNoiseSuppressor.draw(c, LiteMode.isLiquidGlassEnabled() ?
                         DownscaleScrollableNoiseSuppressor.DRAW_GLASS:
                         DownscaleScrollableNoiseSuppressor.DRAW_FROSTED_GLASS);
                     glassSourceRenderNode.endRecording();
@@ -853,7 +853,7 @@ public class StarGiftPreviewSheet extends BottomSheetWithRecyclerListView {
                 return;
             }
 
-            final int inset = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : dp(48);
+            final int inset = LiteMode.isLiquidGlassEnabled() ? 0 : dp(48);
             tabsRectF.inset(-inset, -inset);
 
             scrollableViewNoiseSuppressor.setupRenderNodes(blurredPositions, 1);

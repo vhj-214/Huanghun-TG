@@ -321,7 +321,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
             iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(null);
             iBlur3SourceGlass = new BlurredBackgroundSourceRenderNode(null);
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
         } else {
             scrollableViewNoiseSuppressor = null;
             iBlur3SourceGlassFrosted = null;
@@ -4254,7 +4254,7 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
 
         iBlur3PositionActionBar.set(0, -additionalList, fragmentView.getMeasuredWidth(), actionBar.getMeasuredHeight() + additionalList + additionalSearch );
         iBlur3PositionMainTabs.set(0, mainTabTop, fragmentView.getMeasuredWidth(), mainTabBottom);
-        iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
+        iBlur3PositionMainTabs.inset(0, LiteMode.isLiquidGlassEnabled() ? 0 : -dp(48));
 
         scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, parentDialogsActivity != null ? 2 : 1);
         scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());

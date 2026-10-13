@@ -744,7 +744,7 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
      * and a two-sided rim for the thick iOS-style edge.
      */
     private void drawCrossVersionLiquidGlass(Canvas canvas) {
-        if (!LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) || alpha == 0
+        if (!LiteMode.isLiquidGlassEnabled() || alpha == 0
                 || boundProps.boundsWithPadding.isEmpty()) {
             return;
         }
@@ -777,7 +777,7 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
 
     protected final void drawCrossVersionLiquidGlassRect(Canvas canvas,
             float left, float top, float right, float bottom, float radius) {
-        if (!LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) || alpha == 0) {
+        if (!LiteMode.isLiquidGlassEnabled() || alpha == 0) {
             return;
         }
         final boolean dark = Theme.isCurrentThemeDark();

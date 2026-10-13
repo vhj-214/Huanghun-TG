@@ -13,6 +13,7 @@ import androidx.core.math.MathUtils;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
+import tw.nekomimi.nekogram.glass.HuanghunGlass;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -168,6 +169,11 @@ public class LiteMode {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    /** Whether the liquid-glass pipeline should be used by the UI. */
+    public static boolean isLiquidGlassEnabled() {
+        return isEnabled(FLAG_LIQUID_GLASS) || HuanghunGlass.isEnabled();
     }
 
     public static void toggleFlag(int flag) {

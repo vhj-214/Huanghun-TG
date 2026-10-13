@@ -361,15 +361,15 @@ public class ChannelAdminLogActivity extends BaseFragment implements Notificatio
             glassBackgroundSourceFrostedRenderNode.setUnderSource(navbarContentSourceWallpaper);
 
             glassBackgroundDrawableFactoryFrosted = new BlurredBackgroundDrawableViewFactory(glassBackgroundSourceFrostedRenderNode);
-            glassBackgroundDrawableFactoryFrosted.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            glassBackgroundDrawableFactoryFrosted.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
 
-            if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            if (LiteMode.isLiquidGlassEnabled()) {
                 glassBackgroundSourceRenderNode = new BlurredBackgroundSourceRenderNode(navbarContentSourceWallpaper);
                 glassBackgroundSourceRenderNode.setOnDrawablesRelativePositionChangeListener(this::invalidateMergedVisibleBlurredPositionsAndSourcesPositions);
                 glassBackgroundSourceRenderNode.setScrollableNoiseSuppressor(scrollableViewNoiseSuppressor, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
                 glassBackgroundSourceRenderNode.setUnderSource(navbarContentSourceWallpaper);
                 glassBackgroundDrawableFactory = new BlurredBackgroundDrawableViewFactory(glassBackgroundSourceRenderNode);
-                glassBackgroundDrawableFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+                glassBackgroundDrawableFactory.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
                 recommendedAdditionalSizeY = 0;
             } else {
                 glassBackgroundSourceRenderNode = null;

@@ -174,7 +174,7 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
             }
         }
         source.draw(c, sL, sT, sR, sB);
-        if (liquidGlassEffect == null && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+        if (liquidGlassEffect == null && LiteMode.isLiquidGlassEnabled()) {
             drawCrossVersionLiquidGlassRect(c, 0, 0,
                     boundProps.boundsWithPadding.width(),
                     boundProps.boundsWithPadding.height(),

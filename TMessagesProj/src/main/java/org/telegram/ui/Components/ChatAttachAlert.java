@@ -1323,9 +1323,9 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
             });
 
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
-            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
         } else {
             scrollableViewNoiseSuppressor = null;
             iBlur3SourceGlassFrosted = null;
@@ -2730,7 +2730,7 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
         };
         bottomFadeDrawable = new BlurredBackgroundWithFadeDrawable(
                 iBlur3FactoryFade.create(bottomFadeView, null));
-        if (!SharedConfig.chatBlurEnabled() || LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+        if (!SharedConfig.chatBlurEnabled() || LiteMode.isLiquidGlassEnabled()) {
             bottomFadeDrawable.setFadeHeight(dp(72), true);
         }
 
@@ -7247,7 +7247,7 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
 
         final int bottomBlurHeight = Math.max(AndroidUtilities.navigationBarHeight, getEmojiPadding()) + dp(180);
         iBlur3PositionMainTabs.set(0, containerView.getMeasuredHeight() - bottomBlurHeight, containerView.getMeasuredWidth(), containerView.getMeasuredHeight());
-        iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
+        iBlur3PositionMainTabs.inset(0, LiteMode.isLiquidGlassEnabled() ? 0 : -dp(48));
 
         boolean hasFastScroll = false;
         if (currentAttachLayout == photoLayout && photoLayout != null && photoLayout.gridView.getFastScroll() != null) {

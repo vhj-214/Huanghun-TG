@@ -35,7 +35,7 @@ public class DownscaleScrollableNoiseSuppressor {
     }
 
     public DownscaleScrollableNoiseSuppressor(boolean simple, boolean allowNoiseSuppress) {
-        isLiquidGlassEnabled = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+        isLiquidGlassEnabled = LiteMode.isLiquidGlassEnabled();
         simpleMode = simple;
         k = isLiquidGlassEnabled || allowNoiseSuppress ? 1 : 8; // 1
 

@@ -154,7 +154,7 @@ public class BookmarkManagerActivity extends BaseFragment {
             tabsBackgroundSourceFrosted.setScrollableNoiseSuppressor(scrollableViewNoiseSuppressor, DownscaleScrollableNoiseSuppressor.DRAW_FROSTED_GLASS);
             tabsBackgroundSourceFrosted.setUnderSource(tabsBackgroundSourceColor);
 
-            if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+            if (LiteMode.isLiquidGlassEnabled()) {
                 tabsBackgroundSourceGlass = new BlurredBackgroundSourceRenderNode(tabsBackgroundSourceColor);
                 tabsBackgroundSourceGlass.setScrollableNoiseSuppressor(scrollableViewNoiseSuppressor, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
                 tabsBackgroundSourceGlass.setUnderSource(tabsBackgroundSourceColor);
@@ -163,7 +163,7 @@ public class BookmarkManagerActivity extends BaseFragment {
                 tabsBackgroundSourceGlass = null;
                 tabsBackgroundDrawableFactory = new BlurredBackgroundDrawableViewFactory(tabsBackgroundSourceFrosted);
             }
-            tabsBackgroundDrawableFactory.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            tabsBackgroundDrawableFactory.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
         } else {
             scrollableViewNoiseSuppressor = null;
             tabsBackgroundSourceFrosted = null;
@@ -912,7 +912,7 @@ public class BookmarkManagerActivity extends BaseFragment {
 
         blur3PositionActionBar.set(0, -additional, width, actionBarHeight + additional);
         blur3PositionTabs.set(0, topContentOffset, width, topContentOffset + tabsHeight);
-        if (!LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
+        if (!LiteMode.isLiquidGlassEnabled()) {
             blur3PositionTabs.bottom += dp(48);
         }
 

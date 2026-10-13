@@ -17,7 +17,7 @@ public class BlurredBackgroundColorProviderThemed implements BlurredBackgroundCo
     private float alpha;
 
     public BlurredBackgroundColorProviderThemed(Theme.ResourcesProvider resourcesProvider, int backgroundColorId) {
-        this(resourcesProvider, backgroundColorId, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.85f : 0.76f);
+        this(resourcesProvider, backgroundColorId, LiteMode.isLiquidGlassEnabled() ? 0.85f : 0.76f);
     }
 
     public BlurredBackgroundColorProviderThemed(Theme.ResourcesProvider resourcesProvider, int backgroundColorId, float alpha) {
@@ -96,11 +96,11 @@ public class BlurredBackgroundColorProviderThemed implements BlurredBackgroundCo
 
     private static boolean useLiquidGlassMaterial() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+            && LiteMode.isLiquidGlassEnabled();
     }
 
     private static boolean useLiquidGlassFallbackMaterial() {
         return !useLiquidGlassMaterial()
-            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+            && LiteMode.isLiquidGlassEnabled();
     }
 }

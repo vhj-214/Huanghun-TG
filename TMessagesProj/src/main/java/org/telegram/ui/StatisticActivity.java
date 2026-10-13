@@ -220,7 +220,7 @@ public class StatisticActivity extends BaseFragment implements NotificationCente
             iBlur3SourceGlassFrosted = new BlurredBackgroundSourceRenderNode(null);
             iBlur3SourceGlass = new BlurredBackgroundSourceRenderNode(null);
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
         } else {
             scrollableViewNoiseSuppressor = null;
             iBlur3SourceGlassFrosted = null;
@@ -3646,7 +3646,7 @@ public class StatisticActivity extends BaseFragment implements NotificationCente
 
         iBlur3PositionActionBar.set(0, -additionalList, fragmentView.getMeasuredWidth(), actionBar.getMeasuredHeight() + additionalList);
         iBlur3PositionMainTabs.set(0, mainTabTop, fragmentView.getMeasuredWidth(), mainTabBottom);
-        iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
+        iBlur3PositionMainTabs.inset(0, LiteMode.isLiquidGlassEnabled() ? 0 : -dp(48));
 
         scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, 2);
         scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
