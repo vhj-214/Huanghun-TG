@@ -138,12 +138,12 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
 
     private static boolean useLiquidGlassMaterial() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            && LiteMode.isLiquidGlassEnabled();
+            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
     }
 
     private static boolean useLiquidGlassFallbackMaterial() {
         return !useLiquidGlassMaterial()
-            && LiteMode.isLiquidGlassEnabled();
+            && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
     }
 
 

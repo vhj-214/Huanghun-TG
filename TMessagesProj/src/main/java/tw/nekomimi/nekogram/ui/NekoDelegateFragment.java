@@ -162,7 +162,7 @@ public abstract class NekoDelegateFragment extends BaseFragment implements Notif
         wallpaperDrawableFactory.setSourceRootView(viewPositionWatcher, container);
         BlurredBackgroundDrawableViewFactory actionBarDrawableFactory = wallpaperDrawableFactory;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SharedConfig.chatBlurEnabled()) {
-            boolean liquidGlassEnabled = LiteMode.isLiquidGlassEnabled();
+            boolean liquidGlassEnabled = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
             BlurredBackgroundSourceRenderNode contentGlassSource = new BlurredBackgroundSourceRenderNode(source);
             DownscaleScrollableNoiseSuppressor contentGlassNoiseSuppressor = new DownscaleScrollableNoiseSuppressor();
             contentGlassSource.setUnderSource(source);

@@ -13,7 +13,6 @@ import androidx.core.math.MathUtils;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
-import tw.nekomimi.nekogram.glass.HuanghunGlass;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -167,17 +166,6 @@ public class LiteMode {
         try {
             return (getValue(true) & flag) > 0;
         } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    /** Whether the liquid-glass pipeline should be used by the UI. */
-    public static boolean isLiquidGlassEnabled() {
-        try {
-            return isEnabled(FLAG_LIQUID_GLASS) || HuanghunGlass.isEnabled();
-        } catch (Throwable ignored) {
-            // A broken preference/shader path must never prevent the normal
-            // translucent fallback from being constructed.
             return false;
         }
     }

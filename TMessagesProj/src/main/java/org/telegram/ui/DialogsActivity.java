@@ -299,7 +299,6 @@ import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.TypefaceHelper;
 import tw.nekomimi.nekogram.helpers.remote.EmojiHelper;
 import tw.nekomimi.nekogram.settings.GhostModeActivity;
-import tw.nekomimi.nekogram.settings.HuanghunGlassTuningActivity;
 import tw.nekomimi.nekogram.settings.HuanghunPrivacyFolderActivity;
 import tw.nekomimi.nekogram.ui.BookmarkManagerActivity;
 import xyz.nextalone.nagram.NaConfig;
@@ -2889,9 +2888,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
 
             iBlur3FactoryFrostedLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
-            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
+            iBlur3FactoryFrostedLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
             iBlur3FactoryLiquidGlass = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlass);
-            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isLiquidGlassEnabled());
+            iBlur3FactoryLiquidGlass.setLiquidGlassEffectAllowed(LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS));
             iBlur3FactoryBlur = new BlurredBackgroundDrawableViewFactory(iBlur3SourceGlassFrosted);
         } else {
             scrollableViewNoiseSuppressor = null;
@@ -4362,11 +4361,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // Keep the regular blur path unchanged: invoking drawChild()
                 // during every startup blur pass can re-enter ContentView
                 // before its children have completed layout.
-                if (LiteMode.isLiquidGlassEnabled()) {
+                if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
                     contentView.captureWallpaperBackground(canvas, position);
                 }
                 final float positionCenterY = (position.top + position.bottom) * 0.5f;
-                if (LiteMode.isLiquidGlassEnabled()
+                if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)
                         && positionCenterY >= iBlur3PositionList.top
                         && positionCenterY <= iBlur3PositionList.bottom) {
                     // Rows are foreground content. Their material samples the
@@ -4994,7 +4993,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         DialogCell dialogCell = (DialogCell) holder.itemView;
                         final boolean liquidGlass = !onlySelect
                                 && initialDialogsType == DIALOGS_TYPE_DEFAULT
-                                && LiteMode.isLiquidGlassEnabled();
+                                && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
                         dialogCell.setHuanghunLiquidGlass(liquidGlass);
                         if (liquidGlass && iBlur3FactoryLiquidGlass != null && !dialogCell.hasHuanghunLiquidGlassDrawable()) {
                             BlurredBackgroundDrawable glassDrawable = iBlur3FactoryLiquidGlass.create(
@@ -5268,7 +5267,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
             BlurredBackgroundWithFadeDrawable fadeDrawable = new BlurredBackgroundWithFadeDrawable(
                     iBlur3FactoryFade.create(chatInputViewsContainer, null));
-            if (!SharedConfig.chatBlurEnabled() || LiteMode.isLiquidGlassEnabled()) {
+            if (!SharedConfig.chatBlurEnabled() || LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
                 fadeDrawable.setFadeHeight(dp(72), true);
             }
 
@@ -5546,7 +5545,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             filterTabsGlassBackground = null;
             filterTabsView.getListView().setBackground(null);
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
-            if (LiteMode.isLiquidGlassEnabled()) {
+            if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
                 filterTabsGlassBackground = iBlur3FactoryLiquidGlass.create(
                         filterTabsView, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
                 filterTabsGlassBackground.setRadius(dp(18));
@@ -14431,7 +14430,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         // wallpaper/content source as the rest of the liquid-glass UI instead of
         // the opaque ActionBar popup background.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                && LiteMode.isLiquidGlassEnabled()) {
+                && LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
             io.setBlur(true, true);
         }
 
@@ -14526,10 +14525,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                             presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_NIGHT));
                         });
                     });
-            // Huanghun: liquid glass tuning entry, placed right below the
-            // night mode switch.
-            io.add(R.drawable.msg_theme, getString(R.string.HuanghunGlassMenu),
-                    () -> presentFragment(new HuanghunGlassTuningActivity()));
             io.addGap();
             if (hideBottomNavigationBar) {
                 io.add(R.drawable.left_status_profile, getString(R.string.MyProfile), () -> {
@@ -15108,14 +15103,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         boolean hasBottomBlur = false;
         if (hasMainTabs && !NaConfig.INSTANCE.getHideBottomNavigationBar().Bool()) {
             iBlur3PositionMainTabs.set(0, mainTabTop, width, mainTabBottom);
-            iBlur3PositionMainTabs.inset(0, LiteMode.isLiquidGlassEnabled() ? 0 : -dp(48));
+            iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
 
             hasBottomBlur = true;
         } else if (commentView != null && chatInputViewsContainer != null) {
             iBlur3PositionMainTabs.set(0,
                 height - calculateListViewPaddingBottom(),
                 width, height);
-            iBlur3PositionMainTabs.inset(0, LiteMode.isLiquidGlassEnabled() ? 0 : -dp(48));
+            iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
 
             hasBottomBlur = true;
         }
@@ -15123,7 +15118,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         iBlur3PositionList.set(0, actionBarHeight, width, hasBottomBlur ? mainTabTop : height);
         iBlur3Positions.clear();
         iBlur3Positions.add(iBlur3PositionActionBar);
-        if (LiteMode.isLiquidGlassEnabled()) {
+        if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
             iBlur3Positions.add(iBlur3PositionList);
         }
         if (hasBottomBlur) {
