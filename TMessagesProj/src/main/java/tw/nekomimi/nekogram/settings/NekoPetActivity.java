@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.text.InputType;
 import android.view.Gravity;
@@ -33,16 +34,19 @@ import org.telegram.ui.HuanghunPetOverlay;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextSettingsCell;
+import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.io.File;
+import java.security.SecureRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import tw.nekomimi.nekogram.helpers.HuanghunPetHelper;
 
 /** Huanghun resource-only desktop pet manager. */
 public class NekoPetActivity extends BaseNekoSettingsActivity {
     private static final int REQUEST_IMPORT_PET = 18831;
+    private static final SecureRandom GOODBYE_CAPTCHA_RANDOM = new SecureRandom();
     private static final int ROW_TUTORIAL = 0;
     private static final int ROW_IMPORT = 1;
     private static final int ROW_EMPTY = 2;
@@ -260,12 +264,103 @@ public class NekoPetActivity extends BaseNekoSettingsActivity {
     }
     public static void showGoodbyeForAccount(Activity activity, int account, Theme.ResourcesProvider provider) {
         if (activity == null) return;
-        new AlertDialog.Builder(activity, provider)
+        ArithmeticChallenge challenge = createGoodbyeChallenge();
+        LinearLayout verificationView = new LinearLayout(activity);
+        verificationView.setOrientation(LinearLayout.VERTICAL);
+        verificationView.setPadding(dp(24), 0, dp(24), dp(8));
+
+        TextView questionView = new TextView(activity);
+        questionView.setText("人机验证：请计算 " + challenge.question);
+        questionView.setTextSize(16);
+        questionView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        LinearLayout.LayoutParams questionParams = new LinearLayout.LayoutParams(-1, -2);
+        questionParams.bottomMargin = dp(8);
+        verificationView.addView(questionView, questionParams);
+
+        EditTextBoldCursor answerInput = new EditTextBoldCursor(activity);
+        answerInput.setSingleLine(true);
+        answerInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        answerInput.setTextSize(16);
+        answerInput.setHint("请输入计算结果");
+        answerInput.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        answerInput.setPadding(dp(10), dp(8), dp(10), dp(8));
+        GradientDrawable answerBackground = new GradientDrawable();
+        answerBackground.setColor(Theme.getColor(Theme.key_dialogBackground));
+        answerBackground.setStroke(dp(2), 0xFFFF7A45);
+        answerInput.setBackground(answerBackground);
+        verificationView.addView(answerInput, new LinearLayout.LayoutParams(-1, dp(48)));
+
+        AlertDialog dialog = new AlertDialog.Builder(activity, provider)
                 .setTitle("离别")
                 .setMessage("这是永久注销账户功能。注销后账号、云端数据、聊天记录和联系人关系可能无法恢复，请确认你已经备份需要保留的内容。")
+                .setView(verificationView)
                 .setNegativeButton("返回", null)
-                .setPositiveButton("一键注销账户", (dialog, which) -> showGoodbyeConfirmation(activity, account, provider))
-                .show();
+                .setPositiveButton("一键注销账户", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String enteredAnswer = answerInput.getText().toString().trim();
+            if (enteredAnswer.isEmpty()) {
+                answerInput.setError("请先填写答案，注销操作已拒绝");
+                return;
+            }
+            try {
+                if (Integer.parseInt(enteredAnswer) != challenge.answer) {
+                    answerInput.setError("答案错误，注销操作已拒绝");
+                    return;
+                }
+            } catch (NumberFormatException error) {
+                answerInput.setError("答案无效，注销操作已拒绝");
+                return;
+            }
+            dialog.dismiss();
+            showGoodbyeConfirmation(activity, account, provider);
+        }));
+        dialog.show();
+    }
+
+    private static ArithmeticChallenge createGoodbyeChallenge() {
+        int operation = GOODBYE_CAPTCHA_RANDOM.nextInt(4);
+        int left;
+        int right;
+        int answer;
+        String symbol;
+        switch (operation) {
+            case 0:
+                left = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(99);
+                right = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(100 - left);
+                answer = left + right;
+                symbol = "+";
+                break;
+            case 1:
+                left = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(100);
+                right = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(left);
+                answer = left - right;
+                symbol = "−";
+                break;
+            case 2:
+                left = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(10);
+                right = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(10);
+                answer = left * right;
+                symbol = "×";
+                break;
+            default:
+                right = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(10);
+                answer = 1 + GOODBYE_CAPTCHA_RANDOM.nextInt(10);
+                left = right * answer;
+                symbol = "÷";
+                break;
+        }
+        return new ArithmeticChallenge(left + " " + symbol + " " + right + " = ?", answer);
+    }
+
+    private static final class ArithmeticChallenge {
+        final String question;
+        final int answer;
+
+        ArithmeticChallenge(String question, int answer) {
+            this.question = question;
+            this.answer = answer;
+        }
     }
     private static void showGoodbyeConfirmation(Activity activity, int account, Theme.ResourcesProvider provider) {
         new AlertDialog.Builder(activity, provider)
