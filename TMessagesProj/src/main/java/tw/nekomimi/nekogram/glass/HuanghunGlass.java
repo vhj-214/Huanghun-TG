@@ -89,7 +89,6 @@ public final class HuanghunGlass {
     private static float reflection = REFLECTION_DEFAULT;
     private static float grain = GRAIN_DEFAULT;
     private static boolean surfaceRebuildPending;
-    private static boolean surfaceRebuildPosted;
 
     /**
      * Bumped on every mutation. The renderer compares it against the value it
@@ -183,6 +182,17 @@ public final class HuanghunGlass {
         }
         persist();
         bump();
+    }
+
+    /** Disables the custom shader after a device reports it cannot render it. */
+    public static void disableForIncompatibleDevice() {
+        ensureLoaded();
+        surfaceRebuildPending = false;
+        if (enabled) {
+            enabled = false;
+            persist();
+            bump();
+        }
     }
 
     public static float getThickness() {
@@ -467,34 +477,9 @@ public final class HuanghunGlass {
         }
         if (surfaceRebuildPending) {
             surfaceRebuildPending = false;
-            try {
-                final View decorView = activity.getWindow() != null
-                    ? activity.getWindow().getDecorView()
-                    : null;
-                // Recreating from inside SeekBarView.onSeekBarDrag can destroy
-                // the view hierarchy while Android is still dispatching the
-                // touch event. On some Android 13/14 devices that races the
-                // RenderNode/AGSL teardown and causes an immediate crash. Post
-                // the recreation until the current input/draw pass completes.
-                if (decorView != null && !activity.isFinishing() && !surfaceRebuildPosted) {
-                    surfaceRebuildPosted = true;
-                    if (decorView.post(() -> {
-                        surfaceRebuildPosted = false;
-                        try {
-                            if (!activity.isFinishing()) {
-                                activity.recreate();
-                            }
-                        } catch (Throwable ignored) {
-                            // The existing translucent fallback remains usable
-                            // if this device refuses a runtime recreation.
-                        }
-                    })) {
-                        return;
-                    }
-                    surfaceRebuildPosted = false;
-                }
-            } catch (Throwable ignored) {
-            }
+            // Do not recreate the Activity from a slider callback. Existing
+            // surfaces refresh only when they already have a glass pipeline;
+            // newly created surfaces pick up the saved values naturally.
         }
         try {
             final View decorView = activity.getWindow() != null

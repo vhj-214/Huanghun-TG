@@ -173,7 +173,13 @@ public class LiteMode {
 
     /** Whether the liquid-glass pipeline should be used by the UI. */
     public static boolean isLiquidGlassEnabled() {
-        return isEnabled(FLAG_LIQUID_GLASS) || HuanghunGlass.isEnabled();
+        try {
+            return isEnabled(FLAG_LIQUID_GLASS) || HuanghunGlass.isEnabled();
+        } catch (Throwable ignored) {
+            // A broken preference/shader path must never prevent the normal
+            // translucent fallback from being constructed.
+            return false;
+        }
     }
 
     public static void toggleFlag(int flag) {

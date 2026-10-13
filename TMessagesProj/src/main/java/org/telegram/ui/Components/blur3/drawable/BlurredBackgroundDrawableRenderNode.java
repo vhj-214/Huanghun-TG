@@ -78,6 +78,10 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     private void disableLiquidGlassEffect(Throwable error) {
         liquidGlassEffect = null;
         try {
+            HuanghunGlass.disableForIncompatibleDevice();
+        } catch (Throwable ignored) {
+        }
+        try {
             renderNodeFill.setRenderEffect(null);
         } catch (RuntimeException ignored) {
         }
