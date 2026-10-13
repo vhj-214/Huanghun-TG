@@ -19,6 +19,7 @@ import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.blur3.LiquidGlassEffect;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
+import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
 
 import tw.nekomimi.nekogram.glass.HuanghunGlass;
 
@@ -44,6 +45,14 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
      * sliders apply to already visible glass surfaces.
      */
     private int glassGeneration = -1;
+
+    /**
+     * Huanghun: display-list rebuilds must never be re-entered. While a shared
+     * glass source is recording, its drawables are drawn on a recording canvas;
+     * rebuilding them from there would sample a display list that is still
+     * being written.
+     */
+    private boolean updatingDisplayList;
 
     public BlurredBackgroundDrawableRenderNode(BlurredBackgroundSource source) {
         this.renderNode = new RenderNode("BlurredNode");
@@ -140,6 +149,54 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     }
 
     private void updateDisplayList() {
+        if (updatingDisplayList) {
+            return;
+        }
+        updatingDisplayList = true;
+        try {
+            rebuildDisplayList();
+        } catch (Throwable error) {
+            // One bad frame must never close the app. Mark the generation as
+            // handled so the renderer does not retry the same failure on every
+            // frame, drop the custom shader for this surface and keep drawing
+            // the translucent material instead.
+            // A node left in the "recording" state would refuse every later
+            // rebuild, so try to close whatever was still open.
+            try {
+                renderNodeFill.endRecording();
+            } catch (Throwable ignored) {
+            }
+            try {
+                renderNode.endRecording();
+            } catch (Throwable ignored) {
+            }
+            glassGeneration = HuanghunGlass.getGeneration();
+            liquidGlassEffect = null;
+            try {
+                renderNodeFill.setRenderEffect(null);
+            } catch (Throwable ignored) {
+            }
+            Log.e("BlurredBackground", "Liquid Glass display list rebuild failed; using translucent glass fallback", error);
+        } finally {
+            updatingDisplayList = false;
+        }
+    }
+
+    /**
+     * @return whether the display list can be rebuilt right now. A shared source
+     * that is currently recording (see {@link BlurredBackgroundSourceRenderNode})
+     * throws if it is drawn again, so the refresh has to wait for the next frame.
+     */
+    private boolean canRebuildDisplayList() {
+        if (updatingDisplayList) {
+            return false;
+        }
+        final BlurredBackgroundSource drawSource = source;
+        return !(drawSource instanceof BlurredBackgroundSourceRenderNode)
+            || !((BlurredBackgroundSourceRenderNode) drawSource).inRecording();
+    }
+
+    private void rebuildDisplayList() {
         final float offsetX = sourceOffsetX;
         final float offsetY = sourceOffsetY;
 
@@ -248,11 +305,22 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
         if (!renderNode.hasDisplayList()) {
             source.dispatchOnDrawablesRelativePositionChange();
-            updateDisplayList();
+            if (canRebuildDisplayList()) {
+                updateDisplayList();
+                renderNodeInvalidated = false;
+            }
         } else if (renderNodeInvalidated || glassGeneration != HuanghunGlass.getGeneration()) {
-            updateDisplayList();
+            if (canRebuildDisplayList()) {
+                updateDisplayList();
+                renderNodeInvalidated = false;
+            } else {
+                // Deferred: keep both flags set so the refresh happens on the
+                // next frame, once the shared source has finished recording.
+                renderNodeInvalidated = true;
+            }
+        } else {
+            renderNodeInvalidated = false;
         }
-        renderNodeInvalidated = false;
 
         int color = Theme.multAlpha(shadowColor, renderNode.getAlpha() * shadowAlpha);
         if (Color.alpha(color) != 0) {

@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.graphics.RenderEffect;
 import android.graphics.RenderNode;
 import android.graphics.RuntimeShader;
+import android.util.Log;
 
 import androidx.annotation.RequiresApi;
 
@@ -60,6 +61,9 @@ public class LiquidGlassEffect {
     private float fresnelStrength = UNSET;
     private float reflectionStrength = UNSET;
     private float grainAmount = UNSET;
+
+    /** Set once the shader/driver has refused the optional tuning uniforms. */
+    private boolean extendedUniformsUnsupported;
 
     public void update(
         float left, float top, float right, float bottom,
@@ -176,12 +180,29 @@ public class LiquidGlassEffect {
             shader.setFloatUniform("refract_intensity", this.intensity = intensity);
             shader.setFloatUniform("refract_index", this.index = index);
             shader.setFloatUniform("foreground_color_premultiplied", r, g, b, a);
-            shader.setFloatUniform("specular_strength", this.specularStrength = specularStrength);
-            shader.setFloatUniform("dispersion_strength", this.dispersionStrength = dispersionStrength);
-            shader.setFloatUniform("frost_amount", this.frostAmount = frostAmount);
-            shader.setFloatUniform("fresnel_strength", this.fresnelStrength = fresnelStrength);
-            shader.setFloatUniform("reflection_strength", this.reflectionStrength = reflectionStrength);
-            shader.setFloatUniform("grain_amount", this.grainAmount = grainAmount);
+            this.specularStrength = specularStrength;
+            this.dispersionStrength = dispersionStrength;
+            this.frostAmount = frostAmount;
+            this.fresnelStrength = fresnelStrength;
+            this.reflectionStrength = reflectionStrength;
+            this.grainAmount = grainAmount;
+            // Huanghun: the six tuning knobs are optional. A shader revision
+            // that does not declare one of them (or a driver that refuses the
+            // program) must not take the whole frame down: keep the reference
+            // material and simply stop pushing the extended set.
+            if (!extendedUniformsUnsupported) {
+                try {
+                    shader.setFloatUniform("specular_strength", specularStrength);
+                    shader.setFloatUniform("dispersion_strength", dispersionStrength);
+                    shader.setFloatUniform("frost_amount", frostAmount);
+                    shader.setFloatUniform("fresnel_strength", fresnelStrength);
+                    shader.setFloatUniform("reflection_strength", reflectionStrength);
+                    shader.setFloatUniform("grain_amount", grainAmount);
+                } catch (RuntimeException error) {
+                    extendedUniformsUnsupported = true;
+                    Log.e("LiquidGlassEffect", "Tuning uniforms unavailable; keeping the reference material", error);
+                }
+            }
             node.setRenderEffect(effect = RenderEffect.createRuntimeShaderEffect(shader, "img"));
         }
     }

@@ -47,6 +47,7 @@ public class HuanghunGlassPreviewView extends View {
     private int nodeWidth;
     private int nodeHeight;
     private boolean shaderUnavailable;
+    private boolean backdropUnavailable;
 
     private float thicknessDp = HuanghunGlass.THICKNESS_DEFAULT;
     private float intensity = HuanghunGlass.INTENSITY_DEFAULT;
@@ -88,6 +89,7 @@ public class HuanghunGlassPreviewView extends View {
         backdrop = null;
         backdropWidth = 0;
         backdropHeight = 0;
+        backdropUnavailable = false;
         invalidate();
     }
 
@@ -173,13 +175,29 @@ public class HuanghunGlassPreviewView extends View {
         if (width <= 0 || height <= 0) {
             return;
         }
-        ensureBackdrop(width, height);
-        backdropDst.set(0, 0, width, height);
-        canvas.drawBitmap(backdrop, null, backdropDst, backdropPaint);
+        // The preview is best effort by design: it sits right next to the real
+        // shader pipeline, so neither the captured wallpaper nor the glass pass
+        // is allowed to take the screen down. Every failure degrades to the flat
+        // translucent panel below instead of propagating out of onDraw.
+        if (!backdropUnavailable) {
+            try {
+                ensureBackdrop(width, height);
+                if (backdrop == null) {
+                    backdropUnavailable = true;
+                } else {
+                    backdropDst.set(0, 0, width, height);
+                    canvas.drawBitmap(backdrop, null, backdropDst, backdropPaint);
+                }
+            } catch (Throwable error) {
+                backdropUnavailable = true;
+                backdrop = null;
+            }
+        }
 
         updatePanelGeometry(width, height);
 
-        if (!shaderUnavailable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (!shaderUnavailable && !backdropUnavailable
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             try {
                 drawGlass(canvas, width, height);
                 canvas.drawPath(panelPath, rimPaint);
@@ -188,7 +206,10 @@ public class HuanghunGlassPreviewView extends View {
                 shaderUnavailable = true;
             }
         }
-        drawFallback(canvas);
+        try {
+            drawFallback(canvas);
+        } catch (Throwable ignored) {
+        }
     }
 
     private void drawGlass(Canvas canvas, int width, int height) {
@@ -227,6 +248,9 @@ public class HuanghunGlassPreviewView extends View {
     }
 
     private void drawFallback(Canvas canvas) {
+        if (backdrop == null) {
+            canvas.drawColor(0xFF11131C);
+        }
         fallbackPaint.setColor(Color.argb(
             (int) (24 + 52 * Math.min(1f, thicknessDp / HuanghunGlass.THICKNESS_MAX)),
             255, 255, 255));

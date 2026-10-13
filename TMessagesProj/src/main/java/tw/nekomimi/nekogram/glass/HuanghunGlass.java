@@ -7,6 +7,7 @@ import android.view.View;
 
 import androidx.annotation.Keep;
 
+import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -336,6 +337,31 @@ public final class HuanghunGlass {
         generation++;
     }
 
+    /**
+     * Applies a whole set of tunable values in one shot: one preference write,
+     * one generation bump. The tuning screen commits through this so that a
+     * finished drag costs a single refresh of the visible glass surfaces
+     * instead of one per parameter.
+     */
+    public static void setAll(
+        float thicknessValue, float intensityValue, float indexValue,
+        float specularValue, float dispersionValue, float frostValue,
+        float fresnelValue, float reflectionValue, float grainValue
+    ) {
+        ensureLoaded();
+        thickness = clamp(thicknessValue, THICKNESS_MIN, THICKNESS_MAX);
+        intensity = clamp(intensityValue, INTENSITY_MIN, INTENSITY_MAX);
+        index = clamp(indexValue, INDEX_MIN, INDEX_MAX);
+        specular = clamp(specularValue, SPECULAR_MIN, SPECULAR_MAX);
+        dispersion = clamp(dispersionValue, DISPERSION_MIN, DISPERSION_MAX);
+        frost = clamp(frostValue, FROST_MIN, FROST_MAX);
+        fresnel = clamp(fresnelValue, FRESNEL_MIN, FRESNEL_MAX);
+        reflection = clamp(reflectionValue, REFLECTION_MIN, REFLECTION_MAX);
+        grain = clamp(grainValue, GRAIN_MIN, GRAIN_MAX);
+        persist();
+        bump();
+    }
+
     public static int getGeneration() {
         return generation;
     }
@@ -481,12 +507,34 @@ public final class HuanghunGlass {
 
     // ------------------------------------------------------------------ refresh
 
+    private static boolean refreshPosted;
+
     /**
      * Best effort refresh of everything currently on screen. The renderers also
      * pick the new values up through {@link #getGeneration()}, this only makes
      * the change immediate instead of waiting for the next redraw.
+     *
+     * <p>The actual work is always posted to the next frame: the callers are a
+     * seek bar callback and fragment teardown, and rebuilding every glass
+     * display list while Android is still dispatching that callback is what
+     * used to bring the process down.</p>
      */
-    public static void refreshVisibleUi(Activity activity) {
+    public static void refreshVisibleUi(final Activity activity) {
+        if (activity == null || refreshPosted) {
+            return;
+        }
+        refreshPosted = true;
+        try {
+            AndroidUtilities.runOnUIThread(() -> {
+                refreshPosted = false;
+                refreshVisibleUiNow(activity);
+            });
+        } catch (Throwable ignored) {
+            refreshPosted = false;
+        }
+    }
+
+    private static void refreshVisibleUiNow(Activity activity) {
         if (activity == null) {
             return;
         }

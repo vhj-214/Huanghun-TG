@@ -34,9 +34,13 @@ import tw.nekomimi.nekogram.glass.HuanghunGlassPreviewView;
  *
  * <p>Reached from the drawer entry placed right below "Night mode". The preview
  * at the top is a real glass panel rendered with the same shader as the app, so
- * every slider move can be judged before leaving the screen. Touching any
- * control implicitly switches the custom parameters on, which keeps the flow
- * from "I found something I like" to "it is applied" as short as possible.</p>
+ * every slider move can be judged before leaving the screen.</p>
+ *
+ * <p>Moving a slider only drives that preview. The value is committed (one
+ * preference write, one refresh of the visible glass surfaces) when the drag
+ * ends, and the custom parameters switch on with it. Committing on every move
+ * used to invalidate every liquid-glass surface in the app mid-frame, which the
+ * shared blur capture cannot survive.</p>
  */
 public class HuanghunGlassTuningActivity extends BaseFragment {
 
@@ -47,6 +51,9 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
     private HuanghunGlassPreviewView preview;
     private TextView enablePill;
     private final ArrayList<SliderRow> sliderRows = new ArrayList<>();
+
+    /** True while a drag has produced values that are not committed yet. */
+    private boolean dragPending;
 
     @Override
     public boolean onFragmentCreate() {
@@ -63,8 +70,16 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
 
     @Override
     public void onFragmentDestroy() {
+        // A cancelled gesture never delivers the "drag ended" callback, so flush
+        // whatever the preview is already showing before the screen goes away.
+        if (dragPending) {
+            flushPendingValues();
+        }
         super.onFragmentDestroy();
-        HuanghunGlass.refreshVisibleUi(getParentActivity());
+        try {
+            HuanghunGlass.refreshVisibleUi(getParentActivity());
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
@@ -313,7 +328,14 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
         seekBar.setDelegate(new SeekBarView.SeekBarViewDelegate() {
             @Override
             public void onSeekBarDrag(boolean stop, float progress) {
-                row.applyProgress(progress, true);
+                // Dragging only drives the local preview. Committing on every
+                // move used to bump the global generation dozens of times per
+                // second, which forced every liquid-glass surface in the app to
+                // rebuild its display list mid-frame.
+                row.onDragged(progress);
+                if (stop) {
+                    commitRow(row);
+                }
             }
 
             @Override
@@ -338,6 +360,9 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
         final String suffix;
         final ValueCallback callback;
 
+        /** Value currently shown by the row; only written to the store on commit. */
+        float pending;
+
         SliderRow(String name, TextView label, SeekBarView seekBar,
                   float min, float max, int decimals, String suffix, ValueCallback callback) {
             this.name = name;
@@ -354,18 +379,23 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
             return max > min ? (value - min) / (max - min) : 0f;
         }
 
+        /** Mirrors a stored value into the row without arming a commit. */
         void bind(float value) {
-            applyProgress(toProgress(value), false);
+            pending = value;
+            label.setText(name + "   " + format(value));
+            seekBar.setProgress(toProgress(value));
         }
 
-        void applyProgress(float progress, boolean notify) {
+        /** Live drag: updates this row and the preview only. */
+        void onDragged(float progress) {
             final float clamped = Math.max(0f, Math.min(1f, progress));
-            final float value = min + clamped * (max - min);
-            label.setText(name + "   " + format(value));
+            pending = min + clamped * (max - min);
+            label.setText(name + "   " + format(pending));
             seekBar.setProgress(clamped);
-            if (notify) {
-                callback.onValue(value);
-                onValueChanged();
+            dragPending = true;
+            updatePreview();
+            if (!HuanghunGlass.isEnabled()) {
+                applyEnablePill(true);
             }
         }
 
@@ -376,6 +406,20 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
 
     private void updatePreview() {
         if (preview == null) {
+            return;
+        }
+        if (sliderRows.size() == 9) {
+            preview.setTuning(
+                sliderRows.get(0).pending,
+                sliderRows.get(1).pending,
+                sliderRows.get(2).pending,
+                sliderRows.get(3).pending,
+                sliderRows.get(4).pending,
+                sliderRows.get(5).pending,
+                sliderRows.get(6).pending,
+                sliderRows.get(7).pending,
+                sliderRows.get(8).pending
+            );
             return;
         }
         preview.setTuning(
@@ -391,21 +435,63 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
         );
     }
 
-    /** Called on every slider move: keeps the preview and the host UI honest. */
-    private void onValueChanged() {
-        if (!HuanghunGlass.isEnabled()) {
-            HuanghunGlass.setEnabled(true);
+    /**
+     * Commits the row the user just released: a single preference write and a
+     * single generation bump for a whole gesture, followed by one refresh of the
+     * visible glass surfaces.
+     */
+    private void commitRow(SliderRow row) {
+        dragPending = false;
+        try {
+            row.callback.onValue(row.pending);
+            if (!HuanghunGlass.isEnabled()) {
+                HuanghunGlass.setEnabled(true);
+            }
             updateEnablePill();
+            HuanghunGlass.refreshVisibleUi(getParentActivity());
+        } catch (Throwable ignored) {
+            // A preference or render failure must never close the screen.
         }
-        updatePreview();
-        HuanghunGlass.refreshVisibleUi(getParentActivity());
+    }
+
+    /**
+     * Flushes every row in one write. Used when the screen is left while a
+     * gesture was still in flight, or after a preset was applied.
+     */
+    private void flushPendingValues() {
+        if (sliderRows.size() != 9) {
+            return;
+        }
+        dragPending = false;
+        try {
+            HuanghunGlass.setAll(
+                sliderRows.get(0).pending,
+                sliderRows.get(1).pending,
+                sliderRows.get(2).pending,
+                sliderRows.get(3).pending,
+                sliderRows.get(4).pending,
+                sliderRows.get(5).pending,
+                sliderRows.get(6).pending,
+                sliderRows.get(7).pending,
+                sliderRows.get(8).pending
+            );
+            if (!HuanghunGlass.isEnabled()) {
+                HuanghunGlass.setEnabled(true);
+            }
+            updateEnablePill();
+            HuanghunGlass.refreshVisibleUi(getParentActivity());
+        } catch (Throwable ignored) {
+        }
     }
 
     private void updateEnablePill() {
+        applyEnablePill(HuanghunGlass.isEnabled());
+    }
+
+    private void applyEnablePill(boolean enabled) {
         if (enablePill == null) {
             return;
         }
-        final boolean enabled = HuanghunGlass.isEnabled();
         enablePill.setText(LocaleController.getString(
             enabled ? R.string.HuanghunGlassOn : R.string.HuanghunGlassOff));
         if (enabled) {
@@ -421,6 +507,7 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
     }
 
     private void syncAll(boolean notifyHost) {
+        dragPending = false;
         if (sliderRows.size() == 9) {
             sliderRows.get(0).bind(HuanghunGlass.getThickness());
             sliderRows.get(1).bind(HuanghunGlass.getIntensity());
@@ -435,7 +522,10 @@ public class HuanghunGlassTuningActivity extends BaseFragment {
         updateEnablePill();
         updatePreview();
         if (notifyHost) {
-            HuanghunGlass.refreshVisibleUi(getParentActivity());
+            try {
+                HuanghunGlass.refreshVisibleUi(getParentActivity());
+            } catch (Throwable ignored) {
+            }
         }
     }
 
