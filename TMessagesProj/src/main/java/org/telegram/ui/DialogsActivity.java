@@ -781,7 +781,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     private AnimationNotificationsLocker notificationsLocker = new AnimationNotificationsLocker();
     private boolean searchIsShowed;
-    private boolean searchWasFullyShowed;
     public boolean whiteActionBar;
     private boolean searchFiltersWasShowed;
     private float progressToActionMode;
@@ -8063,7 +8062,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         if (dialogStoriesCell != null) {
                             dialogStoriesCell.setVisibility(View.GONE);
                         }
-                        searchWasFullyShowed = true;
                         AndroidUtilities.requestAdjustResize(getParentActivity(), classGuid);
                         searchItem.setVisibility(View.GONE);
                         if (rightSlidingDialogContainer != null) {
@@ -8083,7 +8081,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                             searchViewPager.clear();
                         }
                         viewPages[0].listView.show();
-                        searchWasFullyShowed = false;
                         if (rightSlidingDialogContainer != null) {
                             rightSlidingDialogContainer.setVisibility(View.VISIBLE);
                         }
