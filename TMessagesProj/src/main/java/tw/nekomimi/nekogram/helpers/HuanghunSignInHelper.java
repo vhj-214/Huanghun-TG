@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 
 /** Local, account-scoped recurring message tasks used by Huanghun's sign-in page. */
 public final class HuanghunSignInHelper {
-    private static final String PREFS = "huanghun_sign_in";
+    public static final String PREFERENCES_NAME = "huanghun_sign_in";
     private static final String KEY_ENABLED = "enabled_";
     private static final String KEY_TASKS = "tasks_";
     private static final TimeZone BEIJING = TimeZone.getTimeZone("Asia/Shanghai");
@@ -49,7 +49,7 @@ public final class HuanghunSignInHelper {
     }
 
     private static android.content.SharedPreferences prefs() {
-        return ApplicationLoader.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return ApplicationLoader.applicationContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
 
     public static boolean isEnabled(int account) { return prefs().getBoolean(KEY_ENABLED + account, false); }

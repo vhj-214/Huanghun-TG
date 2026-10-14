@@ -23,6 +23,7 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.PushListenerController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.UserConfig;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.CheckBoxCell;
@@ -136,6 +137,18 @@ public final class SettingsBackupHelper {
         spToJSON("mainconfig", configJson, mainconfig::contains);
         if (!isCloud) spToJSON("themeconfig", configJson, null);
         spToJSON("nkmrcfg", configJson, null, includeApiKeys);
+        // nkmrcfg contains the local virtual-gift records under LocalProfileGiftHelper.KEY_PREFIX;
+        // importing that preference is already allowed by the nkmrcfg prefix allowlist below.
+        spToJSON(HuanghunSignInHelper.PREFERENCES_NAME, configJson, null, includeApiKeys);
+        // Special-attention preferences are stored per Telegram user ID (or account slot before
+        // login), outside nkmrcfg. Export only slots that actually contain data.
+        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+            String preferencesName = HuanghunSpecialAttentionHelper.getPreferencesName(account);
+            SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences(preferencesName, Activity.MODE_PRIVATE);
+            if (!preferences.getAll().isEmpty()) {
+                spToJSON(preferencesName, configJson, null, includeApiKeys);
+            }
+        }
         // Preserve the selected-video order for same-device restore. On another device, helpers
         // validate each path and silently omit entries whose private media file is not present.
         spToJSON(HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS, configJson, null, includeApiKeys);

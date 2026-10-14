@@ -21,10 +21,14 @@ public final class HuanghunSpecialAttentionHelper {
     private HuanghunSpecialAttentionHelper() {
     }
 
-    private static android.content.SharedPreferences preferences(int account) {
+    public static String getPreferencesName(int account) {
         long userId = UserConfig.getInstance(account).getClientUserId();
         String accountKey = userId != 0 ? String.valueOf(userId) : String.valueOf(account);
-        return ApplicationLoader.applicationContext.getSharedPreferences("huanghun_special_attention_" + accountKey, Context.MODE_PRIVATE);
+        return "huanghun_special_attention_" + accountKey;
+    }
+
+    private static android.content.SharedPreferences preferences(int account) {
+        return ApplicationLoader.applicationContext.getSharedPreferences(getPreferencesName(account), Context.MODE_PRIVATE);
     }
 
     public static Set<Long> getDialogs(int account) {
