@@ -993,6 +993,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 canvas.translate(0, -y);
                 captureWallpaperBackground(canvas, new RectF(rectTmp));
                 canvas.restore();
+                // The frosted RenderNode below is recorded from the content layer
+                // and deliberately does not contain the wallpaper. Drawing it
+                // after the wallpaper would replace this area with the window's
+                // black base again. The expanded home search header must remain
+                // a wallpaper-backed transparent surface; the child search field
+                // still draws its own glass material on top.
+                if (top && searchIsShowed) {
+                    return;
+                }
             }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。
