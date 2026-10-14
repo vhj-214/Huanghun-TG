@@ -1962,7 +1962,7 @@ public class EmojiView extends FrameLayout implements
         }
 
         final int emojiTabsColor = getThemedColor(Theme.key_chat_emojiPanelBackground);
-        if (Color.alpha(emojiTabsColor) >= 0xFF) {
+        if (shouldDrawBackground && Color.alpha(emojiTabsColor) >= 0xFF) {
             emojiTabs.setBackgroundColor(emojiTabsColor);
         }
         emojiAdapter.processEmoji(true);
@@ -2135,7 +2135,9 @@ public class EmojiView extends FrameLayout implements
                 gifTabs.setUnderlineHeight(AndroidUtilities.getShadowHeight());
                 gifTabs.setIndicatorColor(getThemedColor(Theme.key_chat_emojiPanelStickerPackSelectorLine));
                 gifTabs.setUnderlineColor(getThemedColor(Theme.key_chat_emojiPanelShadowLine));
-                gifTabs.setBackgroundColor(getThemedColor(Theme.key_chat_emojiPanelBackground));
+                if (shouldDrawBackground) {
+                    gifTabs.setBackgroundColor(getThemedColor(Theme.key_chat_emojiPanelBackground));
+                }
 //                gifContainer.addView(gifTabs, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, StickerTabView.SMALL_HEIGHT, Gravity.LEFT | Gravity.TOP));
                 updateGifTabs();
 

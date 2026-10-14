@@ -5242,7 +5242,10 @@ public class ChatActivity extends BaseFragment implements
                 BlurredBackgroundProviderImpl.chatEmojiPanelTransparent(themeDelegate)));
         // 整条输入岛与键盘承接面板始终使用低透明液态玻璃；不依赖动态、静态或默认壁纸状态。
         chatInputViewsContainer.setInputBubbleBaseAlpha(0x2A);
-        chatInputViewsContainer.setUnderKeyboardBaseAlpha(0x2A);
+        // The EmojiView draws over the wallpaper directly. Keep the in-app keyboard
+        // carrier fully transparent; a non-zero carrier alpha hides the wallpaper
+        // behind the emoji panel on devices where the frosted source is unavailable.
+        chatInputViewsContainer.setUnderKeyboardBaseAlpha(0x00);
 
 
         chatInputBubbleContainer = chatInputViewsContainer.getInputIslandBubbleContainer();
