@@ -5261,8 +5261,6 @@
     <string name="SharedMediaFastScrollHint">You can hold and move this bar for faster scrolling</string>
     <string name="SettingsSwitchToNightMode">Switch to Night Mode</string>
     <string name="SettingsSwitchToDayMode">Switch to Day Mode</string>
-    <string name="IosMode">iOS Mode</string>
-    <string name="IosModeApply">Apply</string>
     <string name="SettingsBrowseThemes">Browse Themes</string>
     <string name="BrowseThemes">Browse Themes</string>
     <string name="BuildMyOwnTheme">Build my own theme</string>

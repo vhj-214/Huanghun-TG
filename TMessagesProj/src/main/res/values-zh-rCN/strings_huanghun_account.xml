@@ -9,6 +9,4 @@
     <string name="RestoreHiddenAccount">恢复隐藏账号</string>
     <string name="RestoreHiddenAccountTitle">选择要恢复显示的账号</string>
     <string name="HiddenAccount">隐藏账号</string>
-    <string name="IosMode">iOS 模式</string>
-    <string name="IosModeApply">应用</string>
 </resources>

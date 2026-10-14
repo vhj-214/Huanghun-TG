@@ -290,7 +290,6 @@ import me.vkryl.android.util.ClickHelper;
 
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
-import tw.nekomimi.nekogram.helpers.AppRestartHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
@@ -14528,24 +14527,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                             presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_NIGHT));
                         });
                     });
-            io.addChecked(LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS), getString(R.string.IosMode), () -> {
-                LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, !LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS));
-                BulletinFactory.of(this).createSimpleBulletin(
-                        R.raw.info,
-                        getString(R.string.RestartAppToTakeEffect),
-                        getString(R.string.IosModeApply),
-                        () -> {
-                            if (!LiteMode.savePreferenceSynchronously()) {
-                                BulletinFactory.of(this).createErrorBulletin(getString(R.string.UnknownError)).show();
-                                return;
-                            }
-                            Activity parent = getParentActivity();
-                            if (parent != null) {
-                                AppRestartHelper.triggerRebirth(parent, new Intent(parent, LaunchActivity.class));
-                            }
-                        }
-                ).show();
-            });
             io.addGap();
             if (hideBottomNavigationBar) {
                 io.add(R.drawable.left_status_profile, getString(R.string.MyProfile), () -> {

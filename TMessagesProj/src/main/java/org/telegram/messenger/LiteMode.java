@@ -328,13 +328,6 @@ public class LiteMode {
         MessagesController.getGlobalMainSettings().edit().putInt("lite_mode6", value).putInt("lite_mode_battery_level", powerSaverLevel).apply();
     }
 
-    public static boolean savePreferenceSynchronously() {
-        return MessagesController.getGlobalMainSettings().edit()
-                .putInt("lite_mode6", value)
-                .putInt("lite_mode_battery_level", powerSaverLevel)
-                .commit();
-    }
-
     public static int getPowerSaverLevel() {
         if (!loaded) {
             loadPreference();
