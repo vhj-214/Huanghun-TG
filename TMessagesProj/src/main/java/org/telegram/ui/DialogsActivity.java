@@ -100,7 +100,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
 
 import com.radolyn.ayugram.utils.LastSeenHelper;
-
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.AnimationNotificationsLocker;
@@ -291,6 +290,7 @@ import me.vkryl.android.util.ClickHelper;
 
 import tw.nekomimi.nekogram.BackButtonMenuRecent;
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.helpers.AppRestartHelper;
 import tw.nekomimi.nekogram.helpers.MainTabsHelper;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
@@ -8196,12 +8196,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     private void setSearchAnimationProgress(float progress, boolean full) {
         searchAnimationProgress = progress;
-        if (whiteActionBar && actionBar != null) {
-            // Search expands into the wallpaper-backed header.  Re-apply the
-            // transparent surface here because adaptive ActionBar colors can
-            // otherwise restore the theme's opaque (black in dark mode) base.
+        if (actionBar != null && (progress > 0f || whiteActionBar)) {
+            // Search expands into the wallpaper-backed header. Re-apply the
+            // transparent surface in every search mode because adaptive
+            // ActionBar colors can otherwise restore the theme's opaque
+            // (black in dark mode) base behind the search field.
             actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackground(null);
+        }
+        if (whiteActionBar && actionBar != null) {
             int color1 = (folderId != 0 || communityId != 0) ? getThemedColor(Theme.key_actionBarDefaultArchivedIcon) : getThemedColor(Theme.key_actionBarDefaultIcon);
             actionBar.setItemsColor(ColorUtils.blendARGB(color1, getThemedColor(Theme.key_actionBarActionModeDefaultIcon), searchAnimationProgress), false);
             actionBar.setItemsColor(ColorUtils.blendARGB(getThemedColor(Theme.key_actionBarActionModeDefaultIcon), getThemedColor(Theme.key_actionBarActionModeDefaultIcon), searchAnimationProgress), true);
@@ -14525,6 +14528,24 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                             presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_NIGHT));
                         });
                     });
+            io.addChecked(LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS), getString(R.string.IosMode), () -> {
+                LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, !LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS));
+                BulletinFactory.of(this).createSimpleBulletin(
+                        R.raw.info,
+                        getString(R.string.RestartAppToTakeEffect),
+                        getString(R.string.IosModeApply),
+                        () -> {
+                            if (!LiteMode.savePreferenceSynchronously()) {
+                                BulletinFactory.of(this).createErrorBulletin(getString(R.string.UnknownError)).show();
+                                return;
+                            }
+                            Activity parent = getParentActivity();
+                            if (parent != null) {
+                                AppRestartHelper.triggerRebirth(parent, new Intent(parent, LaunchActivity.class));
+                            }
+                        }
+                ).show();
+            });
             io.addGap();
             if (hideBottomNavigationBar) {
                 io.add(R.drawable.left_status_profile, getString(R.string.MyProfile), () -> {
