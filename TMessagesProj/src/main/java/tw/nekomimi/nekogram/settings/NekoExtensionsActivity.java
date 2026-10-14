@@ -35,7 +35,11 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
+import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -59,7 +63,9 @@ import java.util.List;
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunActiveZoneHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunExtensionHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunSettingsBackupCodec;
 import tw.nekomimi.nekogram.helpers.HuanghunSignInHelper;
+import tw.nekomimi.nekogram.helpers.HuanghunSpecialAttentionHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import xyz.nextalone.nagram.helper.LocalMessageReactionHelper;
 import xyz.nextalone.nagram.helper.LocalProfileGiftHelper;
@@ -156,19 +162,19 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         comebackNoticeRow = addRow();
         comebackEndRow = addRow();
         specialAttentionHeaderRow = addRow();
-        specialAttentionEnabledRow = addRow();
+        specialAttentionEnabledRow = addBackupRow("special_attention");
         specialAttentionNoticeRow = addRow();
         specialAttentionEndRow = addRow();
         signInHeaderRow = addRow();
-        signInEnabledRow = addRow();
-        signInFunctionRow = addRow();
+        signInEnabledRow = addBackupRow("sign_in_enabled");
+        signInFunctionRow = addBackupRow("sign_in");
         signInNoticeRow = addRow();
         signInEndRow = addRow();
         activeHeaderRow = addRow();
-        activeEnabledRow = addRow();
-        activeDirectionRow = addRow();
-        activeTargetRow = addRow();
-        activeEmojiRow = addRow();
+        activeEnabledRow = addBackupRow("active_zone");
+        activeDirectionRow = addBackupRow("active_direction");
+        activeTargetRow = addBackupRow("active_target");
+        activeEmojiRow = addBackupRow("active_emoji");
         activeNoticeRow = addRow();
         activeEndRow = addRow();
 
@@ -179,7 +185,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         localEditBioRow = addRow();
         localStarsRow = addRow();
         localGramRow = addRow();
-        localClearGiftsRow = addRow();
+        localClearGiftsRow = addBackupRow("local_profile_gifts");
         localNoticeRow = addRow();
         localEndRow = addRow();
 
@@ -225,6 +231,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         blockEndRow = addRow();
     }
 
+    private int addBackupRow(String stableKey) {
+        return addRow(stableKey, String.valueOf(rowCount));
+    }
+
     @Override
     public boolean onFragmentCreate() {
         final boolean result = super.onFragmentCreate();
@@ -266,7 +276,27 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
     @Override
     protected String getBackupValue(int position) {
-        if (position == activeEnabledRow) return Boolean.toString(NekoConfig.huanghunActiveZoneEnabled.Bool());
+        try {
+            if (position == specialAttentionEnabledRow) {
+                return HuanghunSettingsBackupCodec.encode(HuanghunSpecialAttentionHelper.createBackupSnapshot(currentAccount));
+            }
+            if (position == signInEnabledRow || position == signInFunctionRow) {
+                return HuanghunSettingsBackupCodec.encode(HuanghunSignInHelper.createBackupSnapshot(currentAccount));
+            }
+            if (position == activeEnabledRow || position == activeDirectionRow || position == activeTargetRow || position == activeEmojiRow) {
+                return createActiveZoneBackupValue();
+            }
+            if (position == localClearGiftsRow) {
+                String gifts = LocalProfileGiftHelper.exportBackupData(currentAccount);
+                if (gifts == null) return null;
+                JSONObject snapshot = createBackupSnapshot("local_profile_gifts");
+                snapshot.put("gifts", new JSONArray(gifts));
+                return HuanghunSettingsBackupCodec.encode(snapshot);
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return null;
+        }
         if (position == localEditMessageRow) return Boolean.toString(NekoConfig.huanghunLocalEditMessage.Bool());
         if (position == localEditTimeRow) return Boolean.toString(NekoConfig.huanghunLocalEditTime.Bool());
         if (position == localEditAvatarRow) return Boolean.toString(NekoConfig.huanghunLocalEditAvatar.Bool());
@@ -286,8 +316,36 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     @Override
     protected boolean applyBackupValue(int position, String value) {
         try {
+            if (position == specialAttentionEnabledRow) {
+                JSONObject snapshot = decodeBackupSnapshot(value, "special_attention");
+                boolean restored = HuanghunSpecialAttentionHelper.restoreBackupSnapshot(currentAccount, snapshot);
+                if (restored && listAdapter != null) listAdapter.notifyDataSetChanged();
+                return restored;
+            }
+            if (position == signInEnabledRow || position == signInFunctionRow) {
+                JSONObject snapshot = decodeBackupSnapshot(value, "sign_in");
+                boolean restored = HuanghunSignInHelper.restoreBackupSnapshot(currentAccount, snapshot);
+                if (restored && listAdapter != null) listAdapter.notifyDataSetChanged();
+                return restored;
+            }
+            if (position == localClearGiftsRow) {
+                JSONObject snapshot = decodeBackupSnapshot(value, "local_profile_gifts");
+                JSONArray gifts = snapshot == null ? null : snapshot.optJSONArray("gifts");
+                if (gifts == null || !LocalProfileGiftHelper.importBackupData(currentAccount, gifts.toString())) return false;
+                long userId = UserConfig.getInstance(currentAccount).getClientUserId();
+                LocalProfileGiftHelper.notifyProfileGiftChanged(currentAccount, userId);
+                if (listAdapter != null) listAdapter.notifyDataSetChanged();
+                return true;
+            }
+            if ((position == activeEnabledRow || position == activeDirectionRow || position == activeTargetRow || position == activeEmojiRow)
+                    && HuanghunSettingsBackupCodec.isEncoded(value)) {
+                return restoreActiveZoneBackup(decodeBackupSnapshot(value, "active_zone"));
+            }
             boolean enabled = Boolean.parseBoolean(value);
-            if (position == activeEnabledRow) NekoConfig.huanghunActiveZoneEnabled.setConfigBool(enabled);
+            if (position == activeEnabledRow || position == activeDirectionRow || position == activeTargetRow || position == activeEmojiRow) {
+                if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) return false;
+                NekoConfig.huanghunActiveZoneEnabled.setConfigBool(enabled);
+            }
             else if (position == localEditMessageRow) NekoConfig.huanghunLocalEditMessage.setConfigBool(enabled);
             else if (position == localEditTimeRow) NekoConfig.huanghunLocalEditTime.setConfigBool(enabled);
             else if (position == localEditAvatarRow) NekoConfig.huanghunLocalEditAvatar.setConfigBool(enabled);
@@ -308,6 +366,52 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         } catch (Throwable ignore) {
             return false;
         }
+    }
+
+    private JSONObject createBackupSnapshot(String type) throws JSONException {
+        JSONObject snapshot = new JSONObject();
+        snapshot.put("type", type);
+        snapshot.put("version", 1);
+        return snapshot;
+    }
+
+    private JSONObject decodeBackupSnapshot(String value, String type) {
+        JSONObject snapshot = HuanghunSettingsBackupCodec.decode(value);
+        return snapshot != null && snapshot.optInt("version", -1) == 1 && type.equals(snapshot.optString("type"))
+                ? snapshot : null;
+    }
+
+    private String createActiveZoneBackupValue() throws JSONException {
+        JSONObject snapshot = createBackupSnapshot("active_zone");
+        snapshot.put("enabled", NekoConfig.huanghunActiveZoneEnabled.Bool());
+        snapshot.put("direction", NekoConfig.huanghunActiveZoneDirection.Int());
+        snapshot.put("targetMode", NekoConfig.huanghunActiveZoneTargetMode.Int());
+        snapshot.put("targetUsers", NekoConfig.huanghunActiveZoneTargetUsers.String());
+        snapshot.put("peerScope", NekoConfig.huanghunActiveZonePeerScope.Int());
+        snapshot.put("emoji", NekoConfig.huanghunActiveZoneEmoji.String());
+        return HuanghunSettingsBackupCodec.encode(snapshot);
+    }
+
+    private boolean restoreActiveZoneBackup(JSONObject snapshot) {
+        if (snapshot == null) return false;
+        int direction = snapshot.optInt("direction", -1);
+        int targetMode = snapshot.optInt("targetMode", -1);
+        int peerScope = snapshot.optInt("peerScope", -1);
+        String targetUsers = snapshot.optString("targetUsers", "");
+        String emoji = snapshot.optString("emoji", "");
+        if (direction < HuanghunActiveZoneHelper.DIRECTION_OTHER || direction > HuanghunActiveZoneHelper.DIRECTION_BOTH
+                || targetMode < HuanghunActiveZoneHelper.TARGET_ALL || targetMode > HuanghunActiveZoneHelper.TARGET_SELECTED
+                || peerScope < HuanghunActiveZoneHelper.SCOPE_ALL || peerScope > 4
+                || targetUsers.length() > 100000 || emoji.length() > 1024) return false;
+        NekoConfig.huanghunActiveZoneEnabled.setConfigBool(snapshot.optBoolean("enabled", false));
+        NekoConfig.huanghunActiveZoneDirection.setConfigInt(direction);
+        NekoConfig.huanghunActiveZoneTargetMode.setConfigInt(targetMode);
+        NekoConfig.huanghunActiveZoneTargetUsers.setConfigString(targetUsers);
+        NekoConfig.huanghunActiveZonePeerScope.setConfigInt(peerScope);
+        NekoConfig.huanghunActiveZoneEmoji.setConfigString(emoji);
+        notifyActiveRows();
+        if (listAdapter != null) listAdapter.notifyDataSetChanged();
+        return true;
     }
 
     @Override

@@ -1,12 +1,16 @@
 package tw.nekomimi.nekogram.helpers;
 
 import android.content.Context;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.UserConfig;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import tw.nekomimi.nekogram.NekoConfig;
 
 /** Local-only special-attention chats and the type filter shown on their page. */
 public final class HuanghunSpecialAttentionHelper {
@@ -77,6 +81,45 @@ public final class HuanghunSpecialAttentionHelper {
         preferences(account).edit().putInt("filter", safeFilter).apply();
         NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.huanghunSpecialAttentionChanged);
         NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.dialogsNeedReload);
+    }
+
+    public static JSONObject createBackupSnapshot(int account) throws JSONException {
+        JSONObject snapshot = new JSONObject();
+        snapshot.put("type", "special_attention");
+        snapshot.put("version", 1);
+        snapshot.put("enabled", NekoConfig.huanghunSpecialAttentionEnabled.Bool());
+        snapshot.put("filter", getFilter(account));
+        JSONArray dialogs = new JSONArray();
+        for (long dialogId : getDialogs(account)) dialogs.put(dialogId);
+        snapshot.put("dialogs", dialogs);
+        return snapshot;
+    }
+
+    public static boolean restoreBackupSnapshot(int account, JSONObject snapshot) {
+        if (snapshot == null || snapshot.optInt("version", -1) != 1) return false;
+        JSONArray dialogs = snapshot.optJSONArray("dialogs");
+        if (dialogs == null || dialogs.length() > 20000) return false;
+        int filter = snapshot.optInt("filter", FILTER_ALL);
+        if ((filter & ~FILTER_ALL_TYPES) != 0) return false;
+        LinkedHashSet<Long> restored = new LinkedHashSet<>();
+        try {
+            for (int i = 0; i < dialogs.length(); i++) {
+                long dialogId = dialogs.getLong(i);
+                if (dialogId != 0) restored.add(dialogId);
+            }
+        } catch (JSONException e) {
+            return false;
+        }
+        StringBuilder encoded = new StringBuilder();
+        for (long dialogId : restored) {
+            if (encoded.length() > 0) encoded.append(',');
+            encoded.append(dialogId);
+        }
+        NekoConfig.huanghunSpecialAttentionEnabled.setConfigBool(snapshot.optBoolean("enabled", false));
+        preferences(account).edit().putString("dialogs", encoded.toString()).putInt("filter", filter).apply();
+        NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.huanghunSpecialAttentionChanged);
+        NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.dialogsNeedReload);
+        return true;
     }
 
     public static String getFilterTitle(int filter) {
