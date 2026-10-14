@@ -250,13 +250,16 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
+    /**
+     * Search results live above the chat wallpaper.  Do not paint a white/grey
+     * scrim here: the search list must use the same transparent glass surface
+     * as the rest of the chat chrome, including on devices without blur.
+     */
     public static BlurredBackgroundProvider topPanelChatActivitySearchListBg(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
-                .setBackgroundColor((r, isDark) -> {
-                    final float alpha = 0.7f;
-                    final int colorBg = Theme.getColor(Theme.key_windowBackgroundWhite, r);
-                    return Theme.multAlpha(colorBg, alpha);
-                })
+                .setBackgroundColor((r, isDark) -> 0x00000000)
+                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.08f : 0.06f))
                 .setStrokeColorTop(0, 0)
                 .setStrokeColorBottom(0, 0)
                 .setShadowColor(0, 0)
