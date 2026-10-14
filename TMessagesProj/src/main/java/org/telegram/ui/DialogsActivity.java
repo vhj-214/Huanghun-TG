@@ -1085,6 +1085,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
                 blurBounds.set(0, top, getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
+                if (searchIsShowed && shouldUseWallpaperBackedMainGlass() && searchAnimationProgress == 1f) {
+                    // The home list fades out underneath the expanded search UI. Keep the same
+                    // wallpaper behind the transparent status/action bar instead of exposing
+                    // the window's black base; drawBlurRect also preserves the existing glass path.
+                    drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
+                }
                 if (searchAnimationProgress < 0) {
                     drawBlurRect(canvas, 0, blurBounds, searchAnimationProgress == 1f ? actionBarSearchPaint : actionBarDefaultPaint, true);
                 }

@@ -43,6 +43,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private final ArrayDeque<QueuedMessage> queue = new ArrayDeque<>();
     private final Set<String> seenTriggers = new LinkedHashSet<>();
     private boolean sending;
+    private long activeRandomDialogId;
+    private int lastRandomCorpusIndex = -1;
     private int queueGeneration;
 
     public static final class Corpus {
@@ -113,6 +115,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             queueGeneration++;
             queue.clear();
             sending = false;
+            activeRandomDialogId = 0;
+            lastRandomCorpusIndex = -1;
         }
     }
     public boolean isDefaultEnabled() { return prefs().getBoolean(key("default_enabled"), true); }
@@ -223,32 +227,55 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             if (!seenTriggers.add(dedupe)) return;
             while (seenTriggers.size() > 256) seenTriggers.remove(seenTriggers.iterator().next());
         }
+        final boolean randomMode = getSendMode() == SEND_MODE_RANDOM;
         ArrayList<String> lines = new ArrayList<>();
-        if (getSendMode() == SEND_MODE_RANDOM) {
-            ArrayList<List<String>> enabledCorpora = new ArrayList<>();
-            if (isDefaultEnabled()) addCorpusLines(enabledCorpora, getDefaultCorpus());
-            for (Corpus corpus : getCorpora()) if (corpus.enabled) addCorpusLines(enabledCorpora, corpus.text);
-            if (enabledCorpora.isEmpty()) return;
-            List<String> selectedCorpus = enabledCorpora.get(RANDOM.nextInt(enabledCorpora.size()));
-            lines.add(selectedCorpus.get(RANDOM.nextInt(selectedCorpus.size())));
+        if (randomMode) {
+            if (getEnabledCorpusLines().isEmpty()) return;
         } else {
             if (isDefaultEnabled()) addLines(lines, getDefaultCorpus());
             for (Corpus corpus : getCorpora()) if (corpus.enabled) addLines(lines, corpus.text);
         }
-        if (lines.isEmpty()) return;
+        if (!randomMode && lines.isEmpty()) return;
         final int generation;
         synchronized (queue) {
             if (sending) return;
             generation = ++queueGeneration;
+            activeRandomDialogId = randomMode ? dialogId : 0;
+            lastRandomCorpusIndex = -1;
             for (String line : lines) queue.add(new QueuedMessage(dialogId, line));
             sending = true;
         }
         sendNext(generation);
     }
+
+    private ArrayList<List<String>> getEnabledCorpusLines() {
+        ArrayList<List<String>> enabledCorpora = new ArrayList<>();
+        if (isDefaultEnabled()) addCorpusLines(enabledCorpora, getDefaultCorpus());
+        for (Corpus corpus : getCorpora()) {
+            if (corpus.enabled) addCorpusLines(enabledCorpora, corpus.text);
+        }
+        return enabledCorpora;
+    }
+
     private void addCorpusLines(List<List<String>> into, String text) {
         ArrayList<String> lines = new ArrayList<>();
         addLines(lines, text);
         if (!lines.isEmpty()) into.add(lines);
+    }
+
+    private String getRandomEnabledLine() {
+        ArrayList<List<String>> enabledCorpora = getEnabledCorpusLines();
+        if (enabledCorpora.isEmpty()) return null;
+        int corpusIndex;
+        if (enabledCorpora.size() == 1 || lastRandomCorpusIndex < 0 || lastRandomCorpusIndex >= enabledCorpora.size()) {
+            corpusIndex = RANDOM.nextInt(enabledCorpora.size());
+        } else {
+            corpusIndex = RANDOM.nextInt(enabledCorpora.size() - 1);
+            if (corpusIndex >= lastRandomCorpusIndex) corpusIndex++;
+        }
+        lastRandomCorpusIndex = corpusIndex;
+        List<String> selectedCorpus = enabledCorpora.get(corpusIndex);
+        return selectedCorpus.get(RANDOM.nextInt(selectedCorpus.size()));
     }
 
     private void addLines(List<String> into, String text) {
@@ -285,12 +312,25 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         final ArrayList<QueuedMessage> batch = new ArrayList<>(speed);
         synchronized (queue) {
             if (generation != queueGeneration) return;
+            if (queue.isEmpty() && getSendMode() == SEND_MODE_RANDOM && activeRandomDialogId > 0) {
+                // Refill each random send round from the currently enabled corpora.
+                // Random mode is a loop; it ends only when stopped or no usable corpus remains.
+                for (int i = 0; i < speed; i++) {
+                    String text = getRandomEnabledLine();
+                    if (TextUtils.isEmpty(text)) break;
+                    queue.add(new QueuedMessage(activeRandomDialogId, text));
+                }
+            }
             for (int i = 0; i < speed; i++) {
                 QueuedMessage next = queue.poll();
                 if (next == null) break;
                 batch.add(next);
             }
-            if (batch.isEmpty()) { sending = false; return; }
+            if (batch.isEmpty()) {
+                sending = false;
+                activeRandomDialogId = 0;
+                return;
+            }
         }
         dispatchBatch(batch, speed, 0, generation);
     }
