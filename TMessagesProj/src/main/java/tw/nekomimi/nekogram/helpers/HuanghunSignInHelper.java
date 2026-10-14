@@ -98,6 +98,78 @@ public final class HuanghunSignInHelper {
         HuanghunSignInScheduler.schedule(account);
     }
 
+    public static JSONObject createBackupSnapshot(int account) throws org.json.JSONException {
+        JSONObject snapshot = new JSONObject();
+        snapshot.put("type", "sign_in");
+        snapshot.put("version", 1);
+        snapshot.put("enabled", isEnabled(account));
+        JSONArray taskArray = new JSONArray();
+        for (Task task : getTasks(account)) {
+            JSONObject object = new JSONObject();
+            object.put("id", task.id);
+            object.put("dialogId", task.dialogId);
+            object.put("target", task.target);
+            object.put("content", task.content);
+            object.put("time", normalizeTime(task.time));
+            object.put("lastRunDay", task.lastRunDay);
+            object.put("retryDay", task.retryDay);
+            taskArray.put(object);
+        }
+        snapshot.put("tasks", taskArray);
+        return snapshot;
+    }
+
+    public static boolean restoreBackupSnapshot(int account, JSONObject snapshot) {
+        if (snapshot == null || snapshot.optInt("version", -1) != 1) return false;
+        JSONArray taskArray = snapshot.optJSONArray("tasks");
+        if (taskArray == null || taskArray.length() > 500) return false;
+        ArrayList<Task> restored = new ArrayList<>();
+        try {
+            for (int i = 0; i < taskArray.length(); i++) {
+                JSONObject object = taskArray.getJSONObject(i);
+                Task task = new Task();
+                task.id = object.optLong("id", System.nanoTime());
+                task.dialogId = object.optLong("dialogId", 0L);
+                task.target = object.optString("target", "");
+                task.content = object.optString("content", "");
+                task.time = normalizeTime(object.optString("time", ""));
+                task.lastRunDay = object.optLong("lastRunDay", 0L);
+                task.retryDay = object.optLong("retryDay", 0L);
+                task.pendingMessageId = 0;
+                task.status = "已从备份恢复";
+                String[] parts = task.time.split(":");
+                if (task.id == 0 || task.dialogId == 0 || TextUtils.isEmpty(task.content)
+                        || parts.length != 2 || !INPUT_TIME.matcher(task.time).matches()
+                        || Integer.parseInt(parts[0]) > 23) return false;
+                restored.add(task);
+            }
+        } catch (Throwable e) {
+            return false;
+        }
+        JSONArray persisted = new JSONArray();
+        try {
+            for (Task task : restored) {
+                JSONObject object = new JSONObject();
+                object.put("id", task.id);
+                object.put("dialogId", task.dialogId);
+                object.put("target", task.target);
+                object.put("content", task.content);
+                object.put("time", task.time);
+                object.put("status", task.status);
+                object.put("lastRunDay", task.lastRunDay);
+                object.put("retryDay", task.retryDay);
+                object.put("pendingMessageId", 0);
+                persisted.put(object);
+            }
+        } catch (org.json.JSONException e) {
+            return false;
+        }
+        boolean enabled = snapshot.optBoolean("enabled", false);
+        prefs().edit().putString(KEY_TASKS + account, persisted.toString()).putBoolean(KEY_ENABLED + account, enabled).commit();
+        HuanghunSignInScheduler.schedule(account);
+        return true;
+    }
+
     public static String normalizeTime(String value) {
         if (value == null) return "";
         String candidate = value.trim();

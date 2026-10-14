@@ -5,6 +5,7 @@ import static org.telegram.messenger.LocaleController.getString;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.net.Uri;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -165,7 +166,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
                 showDialog(new AlertDialog.Builder(context).setItems(items, (dialogInterface, i) -> {
                     String link = HUANGHUN_SETTINGS_LINK_PREFIX + getKey() + "?r=" + keyValue;
                     if (i == 1) {
-                        link += "&v=" + backupValue;
+                        link += "&v=" + Uri.encode(backupValue);
                     }
                     AndroidUtilities.addToClipboard(link);
                     BulletinFactory.of(BaseNekoSettingsActivity.this).createCopyLinkBulletin().show();

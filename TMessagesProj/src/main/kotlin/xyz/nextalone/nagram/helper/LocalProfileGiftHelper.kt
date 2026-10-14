@@ -297,6 +297,40 @@ object LocalProfileGiftHelper {
         NaConfig.getPreferences().edit { remove(KEY_PREFIX + userId) }
     }
 
+    @JvmStatic
+    fun exportBackupData(account: Int): String? {
+        val userId = UserConfig.getInstance(account).clientUserId
+        if (userId == 0L || !isLocalUser(userId)) return null
+        initForUser(userId)
+        return gson.toJson(dataMap[userId] ?: arrayListOf())
+    }
+
+    @JvmStatic
+    fun importBackupData(account: Int, encoded: String): Boolean {
+        val userId = UserConfig.getInstance(account).clientUserId
+        if (userId == 0L || !isLocalUser(userId)) return false
+        return try {
+            val restored = gson.fromJson<ArrayList<LocalProfileGiftData>>(encoded, listType) ?: return false
+            if (restored.size > 1000 || restored.any { it.collectibleId == 0L }) return false
+            // Older gift records may not contain fields introduced in later versions.
+            restored.forEach { gift ->
+                gift.title = gift.title.orEmpty()
+                gift.slug = gift.slug.orEmpty()
+                gift.senderName = gift.senderName.orEmpty()
+                gift.modelName = gift.modelName.orEmpty()
+                gift.patternName = gift.patternName.orEmpty()
+                gift.backdropName = gift.backdropName.orEmpty()
+                gift.valueCurrency = gift.valueCurrency.orEmpty()
+                gift.originalMessage = gift.originalMessage.orEmpty()
+                gift.patternDocumentData = gift.patternDocumentData.orEmpty()
+            }
+            saveData(userId, restored)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun nextLocalGiftId(current: List<LocalProfileGiftData>): Long {
         var candidate = System.currentTimeMillis()
         while (current.any { it.collectibleId == candidate }) {
