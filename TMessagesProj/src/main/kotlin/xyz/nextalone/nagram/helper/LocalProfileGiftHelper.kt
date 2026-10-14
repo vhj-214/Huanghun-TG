@@ -302,7 +302,7 @@ object LocalProfileGiftHelper {
         val userId = UserConfig.getInstance(account).clientUserId
         if (userId == 0L || !isLocalUser(userId)) return null
         initForUser(userId)
-        return gson.toJson(dataMap[userId] ?: arrayListOf())
+        return gson.toJson(dataMap[userId] ?: arrayListOf<LocalProfileGiftData>())
     }
 
     @JvmStatic
