@@ -197,7 +197,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         }
         showDialog(new AlertDialog.Builder(context, resourceProvider)
                 .setTitle("当前发送进程")
-                .setMessage("1x 为每个发送周期发送 1 条；Nx 会在一个发送周期内最多连续发送 N 条。速度越快越容易受到 Telegram 限制，请谨慎设置。")
+                .setMessage("1x 为每个发送周期发送 1 条；Nx 会在一个发送周期内最多连续发送 N 条。触发后会持续循环发送，直到你或对方在该私聊发送停止词，或你关闭回怼总开关。速度越快越容易受到 Telegram 限制，请谨慎设置。")
                 .setItems(items, (dialog, which) -> {
                     helper.setSendSpeed(which + 1);
                     dialog.dismiss();
@@ -299,8 +299,8 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         for (HuanghunComebackHelper.Corpus corpus : helper.getCorpora()) if (corpus.enabled) names.add(corpus.name);
         String mode = helper.getSendMode() == HuanghunComebackHelper.SEND_MODE_RANDOM ? "随机发送" : "顺序发送";
         if (names.isEmpty()) showMessage("当前没有启用词库。");
-        else if (helper.getSendMode() == HuanghunComebackHelper.SEND_MODE_RANDOM) showMessage("当前模式：" + mode + "\n随机从已启用词库中选择一个词库，再随机发送其中一条：\n" + android.text.TextUtils.join("\n", names));
-        else showMessage("当前模式：" + mode + "\n将按此顺序发送词库中的内容：\n" + android.text.TextUtils.join("\n", names));
+        else if (helper.getSendMode() == HuanghunComebackHelper.SEND_MODE_RANDOM) showMessage("当前模式：" + mode + "\n触发后会持续发送；每条都从已启用词库中随机选择，直到停止词或关闭总开关：\n" + android.text.TextUtils.join("\n", names));
+        else showMessage("当前模式：" + mode + "\n触发后会按词库及文本行顺序持续循环；发送到末尾后从头继续，直到停止词或关闭总开关：\n" + android.text.TextUtils.join("\n", names));
     }
 
     private void showMessage(String text) {
@@ -351,9 +351,9 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                 case TYPE_INFO_PRIVACY:
                     TextInfoPrivacyCell info = (TextInfoPrivacyCell) holder.itemView;
                     if (position == speedNoticeRow) {
-                        info.setText("发送进程速度越快，越容易受到 Telegram 限制；建议从 1x 开始，仅在确认对话中谨慎使用。");
+                        info.setText("每轮按倍率发送 1–10 条，并持续轮播到停止词；速度越快越容易受到 Telegram 限制，建议从 1x 开始，仅在确认对话中谨慎使用。");
                     } else {
-                        info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。关闭词语会清空尚未发送的队列。顺序模式按词库及文本行顺序发送，随机模式每次从已启用词库随机选择一条。发送周期为 0.32–1.7 秒。关闭总开关也会停止尚未发送的内容。");
+                        info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发，不会在群组或频道触发。触发后持续发送：顺序模式循环发送词库文本行，随机模式每条都从已启用词库随机抽取；当前账号或对方在该私聊发送完整停止词即可停止，关闭总开关也会立即停止。每轮间隔 0.32–1.7 秒，倍率控制每轮条数。");
                     }
                     break;
                 case TYPE_SHADOW:

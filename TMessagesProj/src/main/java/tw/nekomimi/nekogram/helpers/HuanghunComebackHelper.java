@@ -38,11 +38,11 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     public static final int SEND_MODE_RANDOM = 1;
     private static final String FALLBACK_DEFAULT_CORPUS = "先别急，我们把问题说清楚。\n收到，我先确认一下具体情况。";
     private static volatile String defaultCorpusCache;
-    private static final int MAX_LINES_PER_TRIGGER = 500;
+    private static final int MAX_LINES_PER_SESSION = 500;
     private static final Random RANDOM = new Random();
     private final ArrayDeque<QueuedMessage> queue = new ArrayDeque<>();
     private final Set<String> seenTriggers = new LinkedHashSet<>();
-    private boolean sending;
+    private ActiveSession activeSession;
     private int queueGeneration;
 
     public static final class Corpus {
@@ -64,6 +64,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         super(account);
         NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messageReceivedByServer);
         NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.messageWillSend);
+        NotificationCenter.getInstance(account).addObserver(this, NotificationCenter.didReceiveNewMessages);
     }
 
     public static HuanghunComebackHelper getInstance(int account) {
@@ -112,7 +113,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         synchronized (queue) {
             queueGeneration++;
             queue.clear();
-            sending = false;
+            activeSession = null;
         }
     }
     public boolean isDefaultEnabled() { return prefs().getBoolean(key("default_enabled"), true); }
@@ -191,7 +192,29 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (!isEnabled() || args == null) return;
+        if (args == null) return;
+        if (id == NotificationCenter.didReceiveNewMessages) {
+            if (!isEnabled() || args.length < 2 || !(args[0] instanceof Number) || !(args[1] instanceof List)) return;
+            long dialogId = ((Number) args[0]).longValue();
+            ActiveSession session;
+            synchronized (queue) {
+                session = activeSession;
+                if (session == null || session.dialogId != dialogId) return;
+            }
+            for (Object item : (List<?>) args[1]) {
+                if (!(item instanceof MessageObject)) continue;
+                MessageObject received = (MessageObject) item;
+                if (received.messageOwner == null || received.messageOwner.out || TextUtils.isEmpty(received.messageOwner.message)) continue;
+                if (received.messageOwner.id <= session.triggerMessageId || received.messageOwner.date < session.startDate) continue;
+                if (received.messageOwner.message.trim().equals(getStopTrigger())) {
+                    if (!isCurrentSession(session)) return;
+                    stopPendingMessages();
+                    return;
+                }
+            }
+            return;
+        }
+        if (!isEnabled()) return;
         if (id == NotificationCenter.messageWillSend) {
             if (args.length < 1 || !(args[0] instanceof SendMessagesHelper.SendMessageParams)) return;
             SendMessagesHelper.SendMessageParams params = (SendMessagesHelper.SendMessageParams) args[0];
@@ -199,7 +222,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             long dialogId = params.peer;
             long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
             if (params.scheduleDate == 0 && dialogId > 0 && dialogId != selfId
-                    && !TextUtils.isEmpty(params.message) && params.message.trim().equals(getStopTrigger())) {
+                    && !TextUtils.isEmpty(params.message) && params.message.trim().equals(getStopTrigger())
+                    && isActiveDialog(dialogId)) {
                 stopPendingMessages();
             }
             return;
@@ -214,7 +238,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         if (dialogId <= 0 || dialogId == selfId) return;
         String sentText = message.message.trim();
         if (sentText.equals(getStopTrigger())) {
-            stopPendingMessages();
+            if (isActiveDialog(dialogId)) stopPendingMessages();
             return;
         }
         if (!sentText.equals(getTrigger())) return;
@@ -223,27 +247,44 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             if (!seenTriggers.add(dedupe)) return;
             while (seenTriggers.size() > 256) seenTriggers.remove(seenTriggers.iterator().next());
         }
-        ArrayList<String> lines = new ArrayList<>();
-        if (getSendMode() == SEND_MODE_RANDOM) {
-            ArrayList<List<String>> enabledCorpora = new ArrayList<>();
-            if (isDefaultEnabled()) addCorpusLines(enabledCorpora, getDefaultCorpus());
-            for (Corpus corpus : getCorpora()) if (corpus.enabled) addCorpusLines(enabledCorpora, corpus.text);
-            if (enabledCorpora.isEmpty()) return;
-            List<String> selectedCorpus = enabledCorpora.get(RANDOM.nextInt(enabledCorpora.size()));
-            lines.add(selectedCorpus.get(RANDOM.nextInt(selectedCorpus.size())));
-        } else {
-            if (isDefaultEnabled()) addLines(lines, getDefaultCorpus());
-            for (Corpus corpus : getCorpora()) if (corpus.enabled) addLines(lines, corpus.text);
-        }
-        if (lines.isEmpty()) return;
+        ActiveSession session = createActiveSession(dialogId, message.id, message.date);
+        if (session == null) return;
         final int generation;
         synchronized (queue) {
-            if (sending) return;
             generation = ++queueGeneration;
-            for (String line : lines) queue.add(new QueuedMessage(dialogId, line));
-            sending = true;
+            queue.clear();
+            activeSession = session;
         }
         sendNext(generation);
+    }
+
+    private boolean isActiveDialog(long dialogId) {
+        synchronized (queue) {
+            return activeSession != null && activeSession.dialogId == dialogId;
+        }
+    }
+
+    private boolean isCurrentSession(ActiveSession session) {
+        synchronized (queue) {
+            return activeSession == session;
+        }
+    }
+
+    private ActiveSession createActiveSession(long dialogId, int triggerMessageId, int startDate) {
+        boolean random = getSendMode() == SEND_MODE_RANDOM;
+        ArrayList<String> sequentialLines = new ArrayList<>();
+        ArrayList<List<String>> randomCorpora = new ArrayList<>();
+        if (isDefaultEnabled()) {
+            if (random) addCorpusLines(randomCorpora, getDefaultCorpus());
+            else addLines(sequentialLines, getDefaultCorpus());
+        }
+        for (Corpus corpus : getCorpora()) {
+            if (!corpus.enabled) continue;
+            if (random) addCorpusLines(randomCorpora, corpus.text);
+            else addLines(sequentialLines, corpus.text);
+        }
+        if (random ? randomCorpora.isEmpty() : sequentialLines.isEmpty()) return null;
+        return new ActiveSession(dialogId, triggerMessageId, startDate, random, sequentialLines, randomCorpora);
     }
     private void addCorpusLines(List<List<String>> into, String text) {
         ArrayList<String> lines = new ArrayList<>();
@@ -254,7 +295,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private void addLines(List<String> into, String text) {
         for (String line : text.split("\\R")) {
             String value = line.trim();
-            if (!value.isEmpty() && into.size() < MAX_LINES_PER_TRIGGER) into.add(value);
+            if (!value.isEmpty() && into.size() < MAX_LINES_PER_SESSION) into.add(value);
         }
     }
 
@@ -285,12 +326,18 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         final ArrayList<QueuedMessage> batch = new ArrayList<>(speed);
         synchronized (queue) {
             if (generation != queueGeneration) return;
+            if (queue.isEmpty()) {
+                if (activeSession == null) return;
+                for (int i = 0; i < speed; i++) {
+                    queue.add(new QueuedMessage(activeSession.dialogId, activeSession.nextText()));
+                }
+            }
             for (int i = 0; i < speed; i++) {
                 QueuedMessage next = queue.poll();
                 if (next == null) break;
                 batch.add(next);
             }
-            if (batch.isEmpty()) { sending = false; return; }
+            if (batch.isEmpty()) return;
         }
         dispatchBatch(batch, speed, 0, generation);
     }
@@ -332,5 +379,34 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         final long dialogId;
         final String text;
         QueuedMessage(long dialogId, String text) { this.dialogId = dialogId; this.text = text; }
+    }
+
+    private static final class ActiveSession {
+        final long dialogId;
+        final int triggerMessageId;
+        final int startDate;
+        final boolean random;
+        final List<String> sequentialLines;
+        final List<List<String>> randomCorpora;
+        int nextIndex;
+
+        ActiveSession(long dialogId, int triggerMessageId, int startDate, boolean random, List<String> sequentialLines, List<List<String>> randomCorpora) {
+            this.dialogId = dialogId;
+            this.triggerMessageId = triggerMessageId;
+            this.startDate = startDate;
+            this.random = random;
+            this.sequentialLines = sequentialLines;
+            this.randomCorpora = randomCorpora;
+        }
+
+        String nextText() {
+            if (random) {
+                List<String> corpus = randomCorpora.get(RANDOM.nextInt(randomCorpora.size()));
+                return corpus.get(RANDOM.nextInt(corpus.size()));
+            }
+            String text = sequentialLines.get(nextIndex);
+            nextIndex = (nextIndex + 1) % sequentialLines.size();
+            return text;
+        }
     }
 }
