@@ -43,6 +43,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private final ArrayDeque<QueuedMessage> queue = new ArrayDeque<>();
     private final Set<String> seenTriggers = new LinkedHashSet<>();
     private boolean sending;
+    private boolean randomLoopActive;
+    private long randomLoopDialogId;
     private int queueGeneration;
 
     public static final class Corpus {
@@ -113,6 +115,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             queueGeneration++;
             queue.clear();
             sending = false;
+            randomLoopActive = false;
+            randomLoopDialogId = 0;
         }
     }
     public boolean isDefaultEnabled() { return prefs().getBoolean(key("default_enabled"), true); }
@@ -224,13 +228,12 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             while (seenTriggers.size() > 256) seenTriggers.remove(seenTriggers.iterator().next());
         }
         ArrayList<String> lines = new ArrayList<>();
-        if (getSendMode() == SEND_MODE_RANDOM) {
-            ArrayList<List<String>> enabledCorpora = new ArrayList<>();
-            if (isDefaultEnabled()) addCorpusLines(enabledCorpora, getDefaultCorpus());
-            for (Corpus corpus : getCorpora()) if (corpus.enabled) addCorpusLines(enabledCorpora, corpus.text);
-            if (enabledCorpora.isEmpty()) return;
-            List<String> selectedCorpus = enabledCorpora.get(RANDOM.nextInt(enabledCorpora.size()));
-            lines.add(selectedCorpus.get(RANDOM.nextInt(selectedCorpus.size())));
+        final boolean randomMode = getSendMode() == SEND_MODE_RANDOM;
+        if (randomMode) {
+            for (int i = 0; i < getSendSpeed(); i++) {
+                QueuedMessage randomMessage = getRandomMessage(dialogId);
+                if (randomMessage != null) lines.add(randomMessage.text);
+            }
         } else {
             if (isDefaultEnabled()) addLines(lines, getDefaultCorpus());
             for (Corpus corpus : getCorpora()) if (corpus.enabled) addLines(lines, corpus.text);
@@ -242,6 +245,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             generation = ++queueGeneration;
             for (String line : lines) queue.add(new QueuedMessage(dialogId, line));
             sending = true;
+            randomLoopActive = randomMode;
+            randomLoopDialogId = randomMode ? dialogId : 0;
         }
         sendNext(generation);
     }
@@ -249,6 +254,15 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         ArrayList<String> lines = new ArrayList<>();
         addLines(lines, text);
         if (!lines.isEmpty()) into.add(lines);
+    }
+
+    private QueuedMessage getRandomMessage(long dialogId) {
+        ArrayList<List<String>> enabledCorpora = new ArrayList<>();
+        if (isDefaultEnabled()) addCorpusLines(enabledCorpora, getDefaultCorpus());
+        for (Corpus corpus : getCorpora()) if (corpus.enabled) addCorpusLines(enabledCorpora, corpus.text);
+        if (enabledCorpora.isEmpty()) return null;
+        List<String> selectedCorpus = enabledCorpora.get(RANDOM.nextInt(enabledCorpora.size()));
+        return new QueuedMessage(dialogId, selectedCorpus.get(RANDOM.nextInt(selectedCorpus.size())));
     }
 
     private void addLines(List<String> into, String text) {
@@ -322,6 +336,33 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         if (!isEnabled()) {
             stopPendingMessages();
             return;
+        }
+        long dialogId = 0;
+        int messagesToQueue = 0;
+        synchronized (queue) {
+            if (generation != queueGeneration) return;
+            if (randomLoopActive) {
+                dialogId = randomLoopDialogId;
+                messagesToQueue = Math.max(0, getSendSpeed() - queue.size());
+            }
+        }
+        if (dialogId != 0 && messagesToQueue > 0) {
+            ArrayList<QueuedMessage> nextMessages = new ArrayList<>(messagesToQueue);
+            for (int i = 0; i < messagesToQueue; i++) {
+                QueuedMessage randomMessage = getRandomMessage(dialogId);
+                if (randomMessage != null) nextMessages.add(randomMessage);
+            }
+            synchronized (queue) {
+                if (generation != queueGeneration || !randomLoopActive) return;
+                if (nextMessages.isEmpty()) {
+                    queue.clear();
+                    sending = false;
+                    randomLoopActive = false;
+                    randomLoopDialogId = 0;
+                    return;
+                }
+                queue.addAll(nextMessages);
+            }
         }
         // Keep the existing 0.32–1.70 second interval between send rounds.
         long delay = 320L + RANDOM.nextInt(1381);

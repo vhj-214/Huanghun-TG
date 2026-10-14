@@ -299,7 +299,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         for (HuanghunComebackHelper.Corpus corpus : helper.getCorpora()) if (corpus.enabled) names.add(corpus.name);
         String mode = helper.getSendMode() == HuanghunComebackHelper.SEND_MODE_RANDOM ? "随机发送" : "顺序发送";
         if (names.isEmpty()) showMessage("当前没有启用词库。");
-        else if (helper.getSendMode() == HuanghunComebackHelper.SEND_MODE_RANDOM) showMessage("当前模式：" + mode + "\n随机从已启用词库中选择一个词库，再随机发送其中一条：\n" + android.text.TextUtils.join("\n", names));
+        else if (helper.getSendMode() == HuanghunComebackHelper.SEND_MODE_RANDOM) showMessage("当前模式：" + mode + "\n持续从已启用词库中随机抽取内容发送，直到发送关闭词语：\n" + android.text.TextUtils.join("\n", names));
         else showMessage("当前模式：" + mode + "\n将按此顺序发送词库中的内容：\n" + android.text.TextUtils.join("\n", names));
     }
 
@@ -353,7 +353,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     if (position == speedNoticeRow) {
                         info.setText("发送进程速度越快，越容易受到 Telegram 限制；建议从 1x 开始，仅在确认对话中谨慎使用。");
                     } else {
-                        info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。关闭词语会清空尚未发送的队列。顺序模式按词库及文本行顺序发送，随机模式每次从已启用词库随机选择一条。发送周期为 0.32–1.7 秒。关闭总开关也会停止尚未发送的内容。");
+                        info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。关闭词语会清空尚未发送的队列。顺序模式按词库及文本行顺序发送；随机模式会持续随机抽取已启用词库内容发送，直到发送关闭词语。发送周期为 0.32–1.7 秒。关闭总开关也会停止尚未发送的内容。");
                     }
                     break;
                 case TYPE_SHADOW:
