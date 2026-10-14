@@ -54,7 +54,7 @@ public class BlurredBackgroundProviderImpl {
             .build();
     }
 
-    /** 液态玻璃主材质：保留壁纸透光，并使用轻微的主题色玻璃体与柔和投影。 */
+    /** 液态玻璃主材质：保留壁纸透光，并使用轻微的主题色玻璃体。 */
     private static BlurredBackgroundProvider mainNavigationTransparentGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> 0x00000000)
@@ -62,8 +62,10 @@ public class BlurredBackgroundProviderImpl {
                     Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.12f : 0.08f))
             .setStrokeColorTop(0x62FFFFFF, 0x3CFFFFFF)
             .setStrokeColorBottom(0x26000000, 0x24000000)
-            .setShadowColor(0x30000000, 0x22000000)
-            .setShadowLayer(dpf2(2.4f), 0, dpf2(0.8f))
+            // These transparent overlays should not cast a panel-like shadow
+            // over the wallpaper; the edge strokes still separate the surfaces.
+            .setShadowColor(0, 0)
+            .setShadowLayer(0, 0, 0)
             .setStrokeWidth(dpf2(0.7f), dpf2(0.7f))
             .build();
     }
