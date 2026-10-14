@@ -91,6 +91,20 @@ public class BlurredBackgroundProviderImpl {
         return mainNavigationTransparentGlass(resourcesProvider);
     }
 
+    /** Transparent glass for the in-app emoji/sticker panel. */
+    public static BlurredBackgroundProvider chatEmojiPanelTransparent(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> 0x00000000)
+                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.08f : 0.06f))
+                .setStrokeColorTop(0x36FFFFFF, 0x24FFFFFF)
+                .setStrokeColorBottom(0x18000000, 0x18000000)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(dpf2(0.5f), dpf2(0.5f))
+                .build();
+    }
+
     public static BlurredBackgroundProvider emojiViewButton(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
                 .setBackgroundColor((r, isDark) -> {
