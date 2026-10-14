@@ -984,6 +984,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 顶部和底部玻璃只显示底层内容,不再叠加任何白色 scrim。
             // No white scrim: both top and bottom glass regions are fully transparent.
             final int liquidGlassScrimAlpha = 0;
+            // The search/action-bar glass is drawn before the dialogs page. Its
+            // RenderNode source intentionally excludes the wallpaper, so a
+            // transparent source would expose the window's black base. Paint the
+            // same home wallpaper into this pass before compositing the glass.
+            if (shouldUseWallpaperBackedMainGlass() && getBackgroundImage() != null) {
+                canvas.save();
+                canvas.translate(0, -y);
+                captureWallpaperBackground(canvas, new RectF(rectTmp));
+                canvas.restore();
+            }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。
                 final int fallbackAlpha = blurScrimPaint.getAlpha();
