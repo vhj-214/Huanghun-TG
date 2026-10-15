@@ -5243,10 +5243,11 @@ public class ChatActivity extends BaseFragment implements
         // Keep the input controls themselves, but never paint an opaque or tinted
         // glass layer over the wallpaper behind them.
         chatInputViewsContainer.setInputBubbleBaseAlpha(0);
-        // Keep the wallpaper visible through a real frosted-glass surface; the subtle
-        // theme tint also prevents a black fallback when the wallpaper source is missing.
-        // The emoji panel owns its own controls; do not add a second opaque layer behind it.
-        chatInputViewsContainer.setUnderKeyboardBaseAlpha(0);
+        // Keep the wallpaper visible through a very low-alpha frosted-glass carrier.
+        // The previous 0xB8 value made the fallback tint appear as a black/opaque panel;
+        // zero disabled the liquid-glass material completely. 0x18 preserves only a
+        // subtle iOS-style material without hiding the wallpaper.
+        chatInputViewsContainer.setUnderKeyboardBaseAlpha(0x18);
 
 
         chatInputBubbleContainer = chatInputViewsContainer.getInputIslandBubbleContainer();
