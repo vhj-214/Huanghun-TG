@@ -94,10 +94,10 @@ public class BlurredBackgroundProviderImpl {
     /** Transparent glass for the in-app emoji/sticker panel. */
     public static BlurredBackgroundProvider chatEmojiPanelTransparent(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                // Pure transparent glass. Do not tint the wallpaper white or
+                // black; the visible color must come from the chat underneath.
                 .setBackgroundColor((r, isDark) -> 0x00000000)
-                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
-                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.08f : 0.06f))
-                .setStrokeColorTop(0x36FFFFFF, 0x24FFFFFF)
+                .setStrokeColorTop(0x2AFFFFFF, 0x18FFFFFF)
                 .setStrokeColorBottom(0x18000000, 0x18000000)
                 .setShadowColor(0, 0)
                 .setShadowLayer(0, 0, 0)
@@ -257,9 +257,9 @@ public class BlurredBackgroundProviderImpl {
      */
     public static BlurredBackgroundProvider topPanelChatActivitySearchListBg(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                // No black/white tint: the surface must inherit the actual
+                // wallpaper/chat colors underneath the blur.
                 .setBackgroundColor((r, isDark) -> 0x00000000)
-                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
-                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.08f : 0.06f))
                 .setStrokeColorTop(0, 0)
                 .setStrokeColorBottom(0, 0)
                 .setShadowColor(0, 0)
