@@ -42,6 +42,8 @@ jobs:
       - name: Build with Gradle
         env:
           LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          REQUIRE_RELEASE_SIGNING: 'true'
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify installable architecture APKs
         shell: bash
@@ -60,7 +62,12 @@ jobs:
             test -s "$apk"
             "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
             "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
-            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"
+            certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
+            printf '%s\n' "$certs"
+            if grep -q 'CN=Android Debug' <<< "$certs"; then
+              echo "Refusing to publish a debug-signed installable APK: $apk" >&2
+              exit 1
+            fi
             sha256sum "$apk" > "$apk.sha256"
           done
           ls -lh "${apks[@]}"
