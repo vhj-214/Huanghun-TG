@@ -5238,12 +5238,13 @@ public class ChatActivity extends BaseFragment implements
         chatInputViewsContainer.setInputIslandBubbleDrawable(
             glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
-            glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer,
+            glassBackgroundDrawableFactory.create(chatInputViewsContainer,
                 BlurredBackgroundProviderImpl.chatEmojiPanelGlass(themeDelegate)));
         // Keep the input controls themselves, but never paint an opaque or tinted
         // glass layer over the wallpaper behind them.
         chatInputViewsContainer.setInputBubbleBaseAlpha(0);
-        // Keep the wallpaper visible through a very low-alpha frosted-glass carrier.
+        // Use the existing Liquid Glass source/render-node path for the emoji panel,
+        // but keep its carrier alpha low so the wallpaper remains clearly visible.
         // The previous 0xB8 value made the fallback tint appear as a black/opaque panel;
         // zero disabled the liquid-glass material completely. 0x18 preserves only a
         // subtle iOS-style material without hiding the wallpaper.
