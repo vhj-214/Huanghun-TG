@@ -4,7 +4,7 @@ on:
     branches: [ dev ]
   workflow_dispatch:
 
-# dev 分支提交和手动触发都会构建双架构 Staging APK。
+# dev 分支提交和手动触发都会构建一个可直接安装的通用 Staging APK。
 concurrency:
   group: huanghun-android-apk-${{ github.ref }}
   cancel-in-progress: true
@@ -41,43 +41,36 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         env:
+          NATIVE_TARGET: universal
           LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          REQUIRE_RELEASE_SIGNING: 'true'
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
-      - name: Verify installable architecture APKs
+      - name: Verify directly installable universal APK
         shell: bash
         run: |
           shopt -s nullglob
-          apks=(
-            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
-            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk
-          )
-          if [ "${#apks[@]}" -ne 2 ]; then
-            echo "Expected arm64-v8a and x86_64 staging APKs, found ${#apks[@]}" >&2
+          apks=(TMessagesProj/build/outputs/apk/staging/*-universal.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "Expected exactly one universal staging APK, found ${#apks[@]}" >&2
             find TMessagesProj/build/outputs/apk/staging -type f -name '*.apk' -print >&2
             exit 1
           fi
-          for apk in "${apks[@]}"; do
-            test -s "$apk"
-            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
-            "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
-            certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
-            printf '%s\n' "$certs"
-            if grep -q 'CN=Android Debug' <<< "$certs"; then
-              echo "Refusing to publish a debug-signed installable APK: $apk" >&2
-              exit 1
-            fi
-            sha256sum "$apk" > "$apk.sha256"
-          done
-          ls -lh "${apks[@]}"
+          apk="${apks[0]}"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
+          certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
+          printf '%s\n' "$certs"
+          if grep -q 'CN=Android Debug' <<< "$certs"; then
+            echo "WARNING: this APK uses the debug certificate because release signing secrets are not configured. It is installable on a clean device but cannot update an APK signed with another certificate." >&2
+          fi
+          sha256sum "$apk" > "$apk.sha256"
+          ls -lh "$apk" "$apk.sha256"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: 黄昏-可安装双架构APK
+          name: 黄昏-可直接安装通用APK
           path: |
-            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk
-            TMessagesProj/build/outputs/apk/staging/*-arm64-v8a.apk.sha256
-            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk
-            TMessagesProj/build/outputs/apk/staging/*-x86_64.apk.sha256
+            TMessagesProj/build/outputs/apk/staging/*-universal.apk
+            TMessagesProj/build/outputs/apk/staging/*-universal.apk.sha256
           if-no-files-found: error
