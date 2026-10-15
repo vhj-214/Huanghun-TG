@@ -984,24 +984,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 顶部和底部玻璃只显示底层内容,不再叠加任何白色 scrim。
             // No white scrim: both top and bottom glass regions are fully transparent.
             final int liquidGlassScrimAlpha = 0;
-            // The search/action-bar glass is drawn before the dialogs page. Its
-            // RenderNode source intentionally excludes the wallpaper, so a
-            // transparent source would expose the window's black base. Paint the
-            // same home wallpaper into this pass before compositing the glass.
-            if (shouldUseWallpaperBackedMainGlass() && getBackgroundImage() != null) {
-                canvas.save();
-                canvas.translate(0, -y);
-                captureWallpaperBackground(canvas, new RectF(rectTmp));
-                canvas.restore();
-                // The frosted RenderNode below is recorded from the content layer
-                // and deliberately does not contain the wallpaper. Drawing it
-                // after the wallpaper would replace this area with the window's
-                // black base again. The expanded home search header must remain
-                // a wallpaper-backed transparent surface; the child search field
-                // still draws its own glass material on top.
-                if (top && searchIsShowed) {
-                    return;
+            // The top glass RenderNode is recorded from the content layer and
+            // intentionally excludes the wallpaper. Drawing that snapshot over
+            // a transparent home header replaces the underlying wallpaper with
+            // the window's black base. Keep the whole main-page top surface
+            // transparent instead; the search field and tabs draw their own
+            // glass materials, while static/live wallpapers remain visible below.
+            if (shouldUseWallpaperBackedMainGlass() && top) {
+                if (getBackgroundImage() != null) {
+                    canvas.save();
+                    canvas.translate(0, -y);
+                    captureWallpaperBackground(canvas, new RectF(rectTmp));
+                    canvas.restore();
                 }
+                return;
             }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
                 // 模糊不可用时也必须保持透明:否则这里会退回一整块不透明底色(白边来源之一)。

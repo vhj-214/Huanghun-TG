@@ -805,6 +805,7 @@ public class ChatActivityEnterView extends FrameLayout implements
     private boolean wasSendTyping;
     protected boolean shouldAnimateEditTextWithBounds;
     private int animatingContentType = -1;
+    private boolean emojiViewCloseAnimationRunning;
 
     private boolean clearBotButtonsOnKeyboardOpen;
     private boolean expandStickersWithKeyboard;
@@ -13939,6 +13940,24 @@ public class ChatActivityEnterView extends FrameLayout implements
                 samePannelWasVisible = emojiViewVisible && emojiView.getVisibility() == View.VISIBLE;
                 emojiView.setVisibility(VISIBLE);
                 emojiViewVisible = true;
+                if (emojiViewCloseAnimationRunning) {
+                    // A stale close animation must not slide the panel away after it was reopened.
+                    emojiViewCloseAnimationRunning = false;
+                    animationEndRunnable = null;
+                    AndroidUtilities.cancelRunOnUIThread(runEmojiPanelAnimation);
+                    if (panelAnimation != null && animatingContentType == 0) {
+                        AnimatorSet closingAnimation = panelAnimation;
+                        boolean wasStarted = closingAnimation.isStarted();
+                        panelAnimation = null;
+                        closingAnimation.cancel();
+                        if (!wasStarted) {
+                            notificationsLocker.unlock();
+                        }
+                    }
+                    if (windowInsetsInAppController == null) {
+                        emojiView.setTranslationY(0);
+                    }
+                }
                 if (botKeyboardView != null && botKeyboardView.getVisibility() != GONE) {
                     botKeyboardView.setVisibility(GONE);
                     botKeyboardViewVisible = false;
@@ -14045,11 +14064,21 @@ public class ChatActivityEnterView extends FrameLayout implements
             if (emojiView != null) {
                 if (show != 2 || AndroidUtilities.usingHardwareInput || AndroidUtilities.isInMultiwindow) {
                     if (smoothKeyboard && !keyboardVisible && !stickersExpanded) {
-                        if (emojiViewVisible = true) {
+                        if (emojiViewVisible) {
                             animatingContentType = 0;
                         }
+                        emojiViewCloseAnimationRunning = true;
                         emojiView.setShowing(false);
                         Runnable animationEndRunnable = () -> {
+                            if (emojiViewVisible) {
+                                // The panel was reopened before this old close callback completed.
+                                emojiViewCloseAnimationRunning = false;
+                                if (emojiView != null && windowInsetsInAppController == null) {
+                                    emojiView.setTranslationY(0);
+                                }
+                                return;
+                            }
+                            emojiViewCloseAnimationRunning = false;
                             if (show == 0) {
                                 emojiPadding = 0;
                             }
@@ -14095,6 +14124,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                         AndroidUtilities.runOnUIThread(runEmojiPanelAnimation, 50);
                         requestLayout();
                     } else {
+                        emojiViewCloseAnimationRunning = false;
                         if (delegate != null) {
                             delegate.bottomPanelTranslationYChanged(0);
                         }
@@ -14104,6 +14134,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                         emojiView.setShowing(false);
                     }
                 } else {
+                    emojiViewCloseAnimationRunning = false;
                     removeEmojiViewAfterAnimation = false;
                     if (delegate != null) {
                         delegate.bottomPanelTranslationYChanged(0);
