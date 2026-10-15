@@ -97,8 +97,8 @@ public class BlurredBackgroundProviderImpl {
                 // Pure transparent glass. Do not tint the wallpaper white or
                 // black; the visible color must come from the chat underneath.
                 .setBackgroundColor((r, isDark) -> 0x00000000)
-                .setStrokeColorTop(0x2AFFFFFF, 0x18FFFFFF)
-                .setStrokeColorBottom(0x18000000, 0x18000000)
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
                 .setShadowColor(0, 0)
                 .setShadowLayer(0, 0, 0)
                 .setStrokeWidth(dpf2(0.5f), dpf2(0.5f))
