@@ -51320,8 +51320,16 @@ public class ChatActivity extends BaseFragment implements
         final int bottomClip = (int) Math.max(0,
             windowInsetsStateHolder.getAnimatedImeBottomInset() * windowInsetsStateHolder.getAnimatedKeyboardVisibility() - dp(29));
 
+        // The in-app emoji/sticker panel is drawn inside contentView and is
+        // intentionally transparent. Do not clip the wallpaper at the IME
+        // edge in this mode, otherwise the panel reveals the window's black
+        // base instead of the chat wallpaper. Keep the chat list clip below;
+        // messages must still stop at the keyboard boundary.
+        final boolean inAppEmojiPanelVisible = chatActivityEnterView != null && chatActivityEnterView.isPopupShowing();
+
         if (contentView.backgroundView != null) {
-            clipBoundsTmp.set(0, topClip, contentView.getMeasuredWidth(), contentView.getMeasuredHeight() - bottomClip);
+            final int backgroundBottomClip = inAppEmojiPanelVisible ? 0 : bottomClip;
+            clipBoundsTmp.set(0, topClip, contentView.getMeasuredWidth(), contentView.getMeasuredHeight() - backgroundBottomClip);
             contentView.backgroundView.setClipBounds(clipBoundsTmp);
         }
         if (chatListView != null) {
