@@ -5240,8 +5240,9 @@ public class ChatActivity extends BaseFragment implements
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
             glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer,
                 BlurredBackgroundProviderImpl.chatEmojiPanelGlass(themeDelegate)));
-        // 整条输入岛与键盘承接面板始终使用低透明液态玻璃；不依赖动态、静态或默认壁纸状态。
-        chatInputViewsContainer.setInputBubbleBaseAlpha(0x2A);
+        // Keep the input controls themselves, but never paint an opaque or tinted
+        // glass layer over the wallpaper behind them.
+        chatInputViewsContainer.setInputBubbleBaseAlpha(0);
         // Keep the wallpaper visible through a real frosted-glass surface; the subtle
         // theme tint also prevents a black fallback when the wallpaper source is missing.
         // The emoji panel owns its own controls; do not add a second opaque layer behind it.
