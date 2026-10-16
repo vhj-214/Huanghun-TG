@@ -15053,10 +15053,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         return capturingGlassSource;
     }
 
-    // Huanghun main-page wallpaper is installed only for the primary dialogs tab.
+    // The wallpaper-backed transparent header belongs to the primary dialogs list,
+    // whether it was opened by MainTabsActivity or another normal home entry path.
     boolean shouldUseWallpaperBackedMainGlass() {
         return !onlySelect
-            && hasMainTabs
             && initialDialogsType == DIALOGS_TYPE_DEFAULT
             && folderId == 0
             && communityId == 0;
