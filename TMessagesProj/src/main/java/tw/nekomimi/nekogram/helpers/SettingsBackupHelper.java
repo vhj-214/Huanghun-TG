@@ -23,6 +23,7 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.PushListenerController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.UserConfig;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.CheckBoxCell;
@@ -55,6 +56,7 @@ public final class SettingsBackupHelper {
     // themselves remain on the device and are never embedded in a settings JSON export.
     private static final String HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS = "huanghun_builtin_video_library";
     private static final String HUANGHUN_CALL_VIDEO_LIBRARY_PREFS = "huanghun_call_virtual_video_library";
+    private static final String HUANGHUN_SIGN_IN_PREFS = "huanghun_sign_in";
 
     public static String backupSettingsJson(boolean isCloud, int indentSpaces) throws JSONException {
         return backupSettingsJson(isCloud, indentSpaces, true);
@@ -135,7 +137,14 @@ public final class SettingsBackupHelper {
 
         spToJSON("mainconfig", configJson, mainconfig::contains);
         if (!isCloud) spToJSON("themeconfig", configJson, null);
+        // NaConfig shares nkmrcfg; localProfileGift_ records are included here and retained by the import prefix allowlist.
         spToJSON("nkmrcfg", configJson, null, includeApiKeys);
+        // Auto sign-in tasks and their enable/status state live outside nkmrcfg.
+        spToJSON(HUANGHUN_SIGN_IN_PREFS, configJson, null, includeApiKeys);
+        // Special-attention selections use one stable, user-scoped preferences file per account.
+        for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+            spToJSON(HuanghunSpecialAttentionHelper.getPreferencesName(account), configJson, null, includeApiKeys);
+        }
         // Preserve the selected-video order for same-device restore. On another device, helpers
         // validate each path and silently omit entries whose private media file is not present.
         spToJSON(HUANGHUN_BUILTIN_VIDEO_LIBRARY_PREFS, configJson, null, includeApiKeys);
@@ -278,6 +287,8 @@ public final class SettingsBackupHelper {
             editor.commit();
         }
         PushListenerController.reconcilePushRegistration();
+        // Recreate AlarmManager entries from the restored automatic sign-in preferences.
+        HuanghunSignInScheduler.scheduleAll();
     }
 
     private static boolean isCompatibleConfigValue(String key, JsonPrimitive value, int type) {
