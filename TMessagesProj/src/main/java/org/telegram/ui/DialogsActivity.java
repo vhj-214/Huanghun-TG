@@ -990,13 +990,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // the window's black base. Keep the whole main-page top surface
             // transparent instead; the search field and tabs draw their own
             // glass materials, while static/live wallpapers remain visible below.
-            if (shouldUseWallpaperBackedMainGlass() && top) {
-                if (getBackgroundImage() != null) {
-                    canvas.save();
-                    canvas.translate(0, -y);
-                    captureWallpaperBackground(canvas, new RectF(rectTmp));
-                    canvas.restore();
-                }
+            if (shouldUseWallpaperBackedMainGlass() && top && getBackgroundImage() != null) {
+                canvas.save();
+                canvas.translate(0, -y);
+                captureWallpaperBackground(canvas, new RectF(rectTmp));
+                canvas.restore();
                 return;
             }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
@@ -3541,6 +3539,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             @Override
             public void onSearchExpand() {
                 searching = true;
+                // The wallpaper can finish loading after this fragment's view was
+                // created. Rebind it when search first exposes the transparent
+                // status/action-bar area, otherwise that area reveals the window's
+                // black base while the rest of the dialogs page still has wallpaper.
+                if (shouldUseWallpaperBackedMainGlass() && fragmentView instanceof ContentView) {
+                    updateWallpaperBackedMainGlass((ContentView) fragmentView);
+                    actionBar.setBackgroundColor(Color.TRANSPARENT);
+                    actionBar.setBackground(null);
+                    fragmentView.invalidate();
+                }
                 if (switchItem != null) {
                     switchItem.setVisibility(View.GONE);
                 }
@@ -15069,7 +15077,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         // This page's ActionBar is transparent, so pattern wallpapers must extend
         // behind both the status bar and the header instead of exposing the window's black base.
         contentView.setDrawBackgroundBehindTopBars(true);
-        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        Drawable wallpaper = Theme.getCachedWallpaper();
+        if (wallpaper != null) {
+            contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
+        }
         contentView.setBackgroundColor(Color.TRANSPARENT);
     }
 
