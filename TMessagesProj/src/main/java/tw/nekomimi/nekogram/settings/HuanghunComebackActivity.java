@@ -33,10 +33,10 @@ import java.util.List;
 import tw.nekomimi.nekogram.helpers.HuanghunComebackHelper;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
-/** Settings for the opt-in exact-trigger private-message reply feature. */
+/** Settings for the opt-in exact-trigger reply feature and optional group/channel mode. */
 public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
     private static final int REQUEST_CORPUS = 10941;
-    private int headerRow, enabledRow, triggerRow, stopTriggerRow, importRow, selectAllRow, deleteAllRow, noticeRow, corpusHeaderRow, defaultCorpusRow, sendModeRow, speedRow, speedNoticeRow, activeCorpusRow, endRow;
+    private int headerRow, enabledRow, triggerRow, stopTriggerRow, importRow, selectAllRow, deleteAllRow, noticeRow, corpusHeaderRow, defaultCorpusRow, sendModeRow, speedRow, speedNoticeRow, groupBombRow, groupBombNoticeRow, activeCorpusRow, endRow;
     private final ArrayList<Integer> useRows = new ArrayList<>();
     private final ArrayList<Integer> deleteRows = new ArrayList<>();
     private List<HuanghunComebackHelper.Corpus> corpora = new ArrayList<>();
@@ -66,6 +66,8 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         sendModeRow = addRow();
         speedRow = addRow();
         speedNoticeRow = addRow();
+        groupBombRow = addRow();
+        groupBombNoticeRow = addRow();
         activeCorpusRow = addRow();
         useRows.clear();
         deleteRows.clear();
@@ -100,6 +102,11 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
             showSendModeDialog();
         } else if (position == speedRow) {
             showSpeedDialog();
+        } else if (position == groupBombRow) {
+            boolean enabled = !helper.isGroupBombEnabled();
+            helper.setGroupBombEnabled(enabled);
+            if (view instanceof TextCheckCell) ((TextCheckCell) view).setChecked(enabled);
+            refreshRows();
         } else if (position == importRow) {
             chooseCorpora();
         } else if (position == selectAllRow) {
@@ -244,28 +251,63 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         final int account = currentAccount;
         Utilities.globalQueue.postRunnable(() -> {
             int imported = 0;
+            int skipped = 0;
+            int failed = 0;
+            int truncated = 0;
             for (Uri uri : uris) {
                 try {
                     String name = getDisplayName(uri);
-                    if (name == null || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".txt")) continue;
+                    String mimeType = ApplicationLoader.applicationContext.getContentResolver().getType(uri);
+                    boolean hasTxtExtension = name != null && name.toLowerCase(java.util.Locale.ROOT).endsWith(".txt");
+                    boolean isPlainText = mimeType != null && mimeType.toLowerCase(java.util.Locale.ROOT).startsWith("text/plain");
+                    if (!hasTxtExtension && !isPlainText) {
+                        skipped++;
+                        continue;
+                    }
                     StringBuilder text = new StringBuilder();
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri), StandardCharsets.UTF_8))) {
+                    java.io.InputStream stream = ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri);
+                    if (stream == null) {
+                        failed++;
+                        continue;
+                    }
+                    boolean wasTruncated = false;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                         String line;
                         int lines = 0;
-                        while ((line = reader.readLine()) != null && lines++ < 500) {
-                            if (text.length() + line.length() > 200000) break;
+                        while ((line = reader.readLine()) != null) {
+                            if (lines >= 500 || text.length() + line.length() + 1 > 200000) {
+                                wasTruncated = true;
+                                break;
+                            }
                             text.append(line).append('\n');
+                            lines++;
                         }
                     }
-                    if (text.toString().trim().isEmpty()) continue;
+                    if (text.toString().trim().isEmpty()) {
+                        skipped++;
+                        continue;
+                    }
                     HuanghunComebackHelper.getInstance(account).addCorpus(name, text.toString());
                     imported++;
-                } catch (Throwable error) { FileLog.e(error); }
+                    if (wasTruncated) truncated++;
+                } catch (Throwable error) {
+                    failed++;
+                    FileLog.e(error);
+                }
             }
             final int count = imported;
+            final int skippedCount = skipped;
+            final int failedCount = failed;
+            final int truncatedCount = truncated;
             AndroidUtilities.runOnUIThread(() -> {
+                Activity activity = getParentActivity();
+                if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
                 rebuildRows();
-                showMessage(count == 0 ? "没有导入有效的 .txt 词库。" : "已导入 " + count + " 个词库；每一行会作为一条消息。 ");
+                String message = count == 0 ? "没有导入有效的文本词库。" : "已导入 " + count + " 个词库；每一行会作为一条消息。";
+                if (skippedCount > 0) message += " 跳过 " + skippedCount + " 个不支持或为空的文件。";
+                if (failedCount > 0) message += " 有 " + failedCount + " 个文件读取失败。";
+                if (truncatedCount > 0) message += " 有 " + truncatedCount + " 个文件达到每个词库 500 行或 20 万字符的导入上限。";
+                showMessage(message);
             });
         });
     }
@@ -328,8 +370,8 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
         Adapter(Context context) { super(context); }
         @Override public int getItemViewType(int position) {
             if (position == headerRow || position == corpusHeaderRow) return TYPE_HEADER;
-            if (position == enabledRow || position == defaultCorpusRow || useRows.contains(position)) return TYPE_CHECK;
-            if (position == noticeRow || position == speedNoticeRow) return TYPE_INFO_PRIVACY;
+            if (position == enabledRow || position == defaultCorpusRow || position == groupBombRow || useRows.contains(position)) return TYPE_CHECK;
+            if (position == noticeRow || position == speedNoticeRow || position == groupBombNoticeRow) return TYPE_INFO_PRIVACY;
             if (position == endRow) return TYPE_SHADOW;
             return TYPE_SETTINGS;
         }
@@ -342,6 +384,7 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     TextCheckCell check = (TextCheckCell) holder.itemView;
                     if (position == enabledRow) check.setTextAndCheck("开启回怼系统", HuanghunComebackHelper.getInstance(currentAccount).isEnabled(), true);
                     else if (position == defaultCorpusRow) check.setTextAndCheck("系统默认词库", HuanghunComebackHelper.getInstance(currentAccount).isDefaultEnabled(), corpora.isEmpty());
+                    else if (position == groupBombRow) check.setTextAndCheck("群/频道轰炸", HuanghunComebackHelper.getInstance(currentAccount).isGroupBombEnabled(), true);
                     else {
                         int index = useRows.indexOf(position);
                         HuanghunComebackHelper.Corpus corpus = corpora.get(index);
@@ -352,8 +395,12 @@ public class HuanghunComebackActivity extends BaseNekoSettingsActivity {
                     TextInfoPrivacyCell info = (TextInfoPrivacyCell) holder.itemView;
                     if (position == speedNoticeRow) {
                         info.setText("发送进程速度越快，越容易受到 Telegram 限制；建议从 1x 开始，仅在确认对话中谨慎使用。");
+                    } else if (position == groupBombNoticeRow) {
+                        info.setText("开启后，在群组或频道中发送完整触发词也会触发发送（默认关闭）。\n\n注：在群中轰炸极易违规，请注意使用。");
                     } else {
-                        info.setText("仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。关闭词语会立即清空尚未发送的队列。顺序模式按词库及文本行顺序发送一轮；随机模式持续按发送周期从已启用词库中随机抽取语句发送，直到检测到快捷关闭词语。发送周期为 0.32–1.7 秒。关闭总开关也会立即停止发送。");
+                        info.setText(HuanghunComebackHelper.getInstance(currentAccount).isGroupBombEnabled()
+                                ? "仅当当前账号本人发送完整触发词时才会触发；默认只在私聊生效，群/频道轰炸已开启时群组与频道也会生效。关闭词语会立即清空尚未发送的队列。顺序模式按词库及文本行顺序发送一轮；随机模式持续按发送周期从已启用词库中随机抽取语句发送，直到检测到快捷关闭词语。发送周期为 0.32–1.7 秒。关闭总开关也会立即停止发送。"
+                                : "仅当当前账号本人在私聊中发送完整触发词时才会触发；不会识别他人消息、群组或频道内容。关闭词语会立即清空尚未发送的队列。顺序模式按词库及文本行顺序发送一轮；随机模式持续按发送周期从已启用词库中随机抽取语句发送，直到检测到快捷关闭词语。发送周期为 0.32–1.7 秒。关闭总开关也会立即停止发送。");
                     }
                     break;
                 case TYPE_SHADOW:

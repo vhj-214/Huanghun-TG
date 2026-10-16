@@ -394,6 +394,12 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
             return;
         }
 
+        final int account = intent.getIntExtra("account", UserConfig.selectedAccount);
+        if (!UserConfig.isAccountIndexValid(account)) {
+            FileLog.e("VoIPPreNotification.show(): invalid account " + account);
+            return;
+        }
+
         if (pendingCall != null && pendingCall.id == call.id) {
             return;
         }
@@ -403,7 +409,6 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
         pendingVoIP = intent;
         pendingCall = call;
 
-        final int account = intent.getIntExtra("account", UserConfig.selectedAccount);
         final long user_id = intent.getLongExtra("user_id", 0);
         final boolean video = call != null && call.video;
 
@@ -474,6 +479,11 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
         }
         if (pendingVoIP == null || pendingCall == null) return false;
         final int account = pendingVoIP.getIntExtra("account", UserConfig.selectedAccount);
+        if (!UserConfig.isAccountIndexValid(account)) {
+            FileLog.e("VoIPPreNotification.open(): invalid account " + account);
+            dismiss(context, false);
+            return false;
+        }
         pendingVoIP.putExtra("openFragment", true);
         pendingVoIP.putExtra("accept", false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -496,8 +506,13 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
             FileLog.d("VoIPPreNotification.answer(): pending intent is not found");
             return;
         }
-        currentState = null;
         final int account = pendingVoIP.getIntExtra("account", UserConfig.selectedAccount);
+        if (!UserConfig.isAccountIndexValid(account)) {
+            FileLog.e("VoIPPreNotification.answer(): invalid account " + account);
+            dismiss(context, false);
+            return;
+        }
+        currentState = null;
         if (VoIPService.getSharedInstance() != null) {
             VoIPService.getSharedInstance().acceptIncomingCall();
         } else {
@@ -532,6 +547,11 @@ public class VoIPPreNotificationService { // } extends Service implements AudioM
             return;
         }
         final int account = pendingVoIP.getIntExtra("account", UserConfig.selectedAccount);
+        if (!UserConfig.isAccountIndexValid(account)) {
+            FileLog.e("VoIPPreNotification.decline(): invalid account " + account);
+            dismiss(context, false);
+            return;
+        }
         final TL_phone.discardCall req = new TL_phone.discardCall();
         req.peer = new TLRPC.TL_inputPhoneCall();
         req.peer.access_hash = pendingCall.access_hash;

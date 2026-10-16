@@ -266,8 +266,12 @@ public class UserConfig extends BaseController {
         });
     }
 
+    public static boolean isAccountIndexValid(int num) {
+        return num >= 0 && num < UserConfig.MAX_ACCOUNT_COUNT;
+    }
+
     public static boolean isValidAccount(int num) {
-        return num >= 0 && num < UserConfig.MAX_ACCOUNT_COUNT && getInstance(num).isClientActivated();
+        return isAccountIndexValid(num) && getInstance(num).isClientActivated();
     }
 
     public boolean isClientActivated() {
@@ -331,7 +335,21 @@ public class UserConfig extends BaseController {
             }
             SharedPreferences preferences = getPreferences();
             if (currentAccount == 0) {
-                selectedAccount = preferences.getInt("selectedAccount", 0);
+                boolean repairedSelectedAccount = false;
+                try {
+                    selectedAccount = preferences.getInt("selectedAccount", 0);
+                } catch (ClassCastException error) {
+                    selectedAccount = 0;
+                    repairedSelectedAccount = true;
+                    FileLog.e(error);
+                }
+                if (selectedAccount < 0 || selectedAccount >= MAX_ACCOUNT_COUNT) {
+                    selectedAccount = 0;
+                    repairedSelectedAccount = true;
+                }
+                if (repairedSelectedAccount) {
+                    preferences.edit().putInt("selectedAccount", selectedAccount).apply();
+                }
             }
             registeredForPush = preferences.getBoolean("registeredForPush", false);
             lastSendMessageId = preferences.getInt("lastSendMessageId", -210000);

@@ -5585,6 +5585,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 避免它自己在列表上面盖出一块不透明的面板。
             fragmentSearchField.setupBlurredBackground(iBlur3FactoryLiquidGlass.create(fragmentSearchField,
                     BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider)));
+            // Keep the search field's own rounded background clear as well; otherwise
+            // its default theme drawable paints a dark strip above the transparent tabs.
+            fragmentSearchField.setGlassBackground(new ColorDrawable(Color.TRANSPARENT));
         }
 
         dialogStoriesCell = new DialogStoriesCell(context, this, currentAccount, isArchive() ? DialogStoriesCell.TYPE_ARCHIVE : DialogStoriesCell.TYPE_DIALOGS) {

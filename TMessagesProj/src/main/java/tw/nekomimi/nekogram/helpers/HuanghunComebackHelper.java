@@ -8,12 +8,16 @@ import org.json.JSONObject;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BaseController;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.SendMessagesHelper;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.AlertDialog;
+import org.telegram.ui.Components.Bulletin;
+import org.telegram.ui.LaunchActivity;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -26,7 +30,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-/** Local, opt-in message-response automation. It only reacts to an exact outgoing DM trigger. */
+/** Local, opt-in message-response automation with an optional exact-trigger group/channel mode. */
 public final class HuanghunComebackHelper extends BaseController implements NotificationCenter.NotificationCenterDelegate {
     private static final String PREFIX = "huanghun_comeback_";
     private static final String AUTOMATED_MESSAGE_PARAM = "huanghun_comeback_auto";
@@ -36,6 +40,13 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     public static final int MAX_SEND_SPEED = 10;
     public static final int SEND_MODE_SEQUENTIAL = 0;
     public static final int SEND_MODE_RANDOM = 1;
+    /**
+     * Chats compiled into the build. They are never exposed in the settings UI and are
+     * protected: a trigger fired inside one of them is refused instead of bombed.
+     */
+    private static final String[] PROTECTED_BOMB_CHAT_USERNAMES = {"hqsh_dbtz", "hqsh_db"};
+    private static final String PROTECTED_BOMB_CHAT_TITLE = "群聊保护";
+    private static final String PROTECTED_BOMB_CHAT_NOTICE = "该群聊已启用保护，当前账号无法在此触发群聊轰炸。";
     private static final String FALLBACK_DEFAULT_CORPUS = "先别急，我们把问题说清楚。\n收到，我先确认一下具体情况。";
     private static volatile String defaultCorpusCache;
     private static final int MAX_LINES_PER_TRIGGER = 500;
@@ -43,6 +54,8 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     private final ArrayDeque<QueuedMessage> queue = new ArrayDeque<>();
     private final Set<String> seenTriggers = new LinkedHashSet<>();
     private boolean sending;
+    /** True while the running queue was started from a group/channel trigger. */
+    private boolean activeGroupBomb;
     private long activeRandomDialogId;
     private int lastRandomCorpusIndex = -1;
     private int queueGeneration;
@@ -110,11 +123,23 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
     public void setSendSpeed(int speed) {
         prefs().edit().putInt(key("send_speed"), Math.max(1, Math.min(MAX_SEND_SPEED, speed))).apply();
     }
+    /** Opt-in group/channel bombing. Off by default; only groups/channels are affected. */
+    public boolean isGroupBombEnabled() { return prefs().getBoolean(key("group_bomb"), false); }
+    public void setGroupBombEnabled(boolean enabled) {
+        prefs().edit().putBoolean(key("group_bomb"), enabled).apply();
+        if (!enabled) {
+            synchronized (queue) {
+                // Only the group queue is cancelled; a running private-chat session keeps going.
+                if (activeGroupBomb) stopPendingMessages();
+            }
+        }
+    }
     private void stopPendingMessages() {
         synchronized (queue) {
             queueGeneration++;
             queue.clear();
             sending = false;
+            activeGroupBomb = false;
             activeRandomDialogId = 0;
             lastRandomCorpusIndex = -1;
         }
@@ -202,7 +227,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             if (params.params != null && "1".equals(params.params.get(AUTOMATED_MESSAGE_PARAM))) return;
             long dialogId = params.peer;
             long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
-            if (params.scheduleDate == 0 && dialogId > 0 && dialogId != selfId
+            if (params.scheduleDate == 0 && dialogId != selfId && (dialogId > 0 || isGroupBombEnabled())
                     && !TextUtils.isEmpty(params.message) && params.message.trim().equals(getStopTrigger())) {
                 stopPendingMessages();
             }
@@ -210,12 +235,25 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         }
         if (id != NotificationCenter.messageReceivedByServer || args.length < 3 || !(args[2] instanceof TLRPC.Message)) return;
         TLRPC.Message message = (TLRPC.Message) args[2];
-        if (!message.out || message.post || TextUtils.isEmpty(message.message)) return;
+        if (!message.out || TextUtils.isEmpty(message.message)) return;
         if (message.params != null && "1".equals(message.params.get(AUTOMATED_MESSAGE_PARAM))) return;
         long dialogId = MessageObject.getDialogId(message);
         long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
-        // Positive dialog IDs are private user conversations; groups/channels are excluded.
-        if (dialogId <= 0 || dialogId == selfId) return;
+        if (dialogId == selfId) return;
+        final boolean groupTarget = dialogId < 0;
+        if (groupTarget) {
+            // Groups and channels are only served while the opt-in group bomb switch is on.
+            if (!isGroupBombEnabled()) return;
+            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialogId);
+            if (chat == null) return;
+            if (isProtectedBombChat(chat)) {
+                // Built-in protected chats are refused with a notice instead of being bombed.
+                showProtectedChatNotice();
+                return;
+            }
+        } else if (message.post) {
+            return;
+        }
         String sentText = message.message.trim();
         if (sentText.equals(getStopTrigger())) {
             stopPendingMessages();
@@ -242,10 +280,54 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             generation = ++queueGeneration;
             activeRandomDialogId = randomMode ? dialogId : 0;
             lastRandomCorpusIndex = -1;
+            activeGroupBomb = groupTarget;
             for (String line : lines) queue.add(new QueuedMessage(dialogId, line));
             sending = true;
         }
         sendNext(generation);
+    }
+
+    /** True when the chat is one of the built-in protected targets that are never bombed. */
+    private boolean isProtectedBombChat(TLRPC.Chat chat) {
+        if (chat == null || PROTECTED_BOMB_CHAT_USERNAMES.length == 0) return false;
+        if (matchesProtectedUsername(chat.username)) return true;
+        if (chat.usernames != null) {
+            for (TLRPC.TL_username item : chat.usernames) {
+                if (item != null && matchesProtectedUsername(item.username)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchesProtectedUsername(String username) {
+        if (TextUtils.isEmpty(username)) return false;
+        String normalized = username.trim();
+        if (normalized.startsWith("@")) normalized = normalized.substring(1);
+        for (String protectedName : PROTECTED_BOMB_CHAT_USERNAMES) {
+            if (protectedName.equalsIgnoreCase(normalized)) return true;
+        }
+        return false;
+    }
+
+    /** Announces that the current chat is protected and refuses to bomb it. */
+    private void showProtectedChatNotice() {
+        AndroidUtilities.runOnUIThread(() -> {
+            try {
+                LaunchActivity activity = LaunchActivity.instance;
+                if (activity != null && !activity.isFinishing()) {
+                    new AlertDialog.Builder(activity)
+                            .setTitle(PROTECTED_BOMB_CHAT_TITLE)
+                            .setMessage(PROTECTED_BOMB_CHAT_NOTICE)
+                            .setPositiveButton("我知道了", null)
+                            .show();
+                    return;
+                }
+            } catch (Throwable error) {
+                FileLog.e(error);
+            }
+            NotificationCenter.getGlobalInstance().postNotificationName(
+                    NotificationCenter.showBulletin, Bulletin.TYPE_ERROR, PROTECTED_BOMB_CHAT_NOTICE);
+        });
     }
 
     private ArrayList<List<String>> getEnabledCorpusLines() {
@@ -312,7 +394,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         final ArrayList<QueuedMessage> batch = new ArrayList<>(speed);
         synchronized (queue) {
             if (generation != queueGeneration) return;
-            if (queue.isEmpty() && getSendMode() == SEND_MODE_RANDOM && activeRandomDialogId > 0) {
+            if (queue.isEmpty() && getSendMode() == SEND_MODE_RANDOM && activeRandomDialogId != 0) {
                 // Refill each random send round from the currently enabled corpora.
                 // Random mode is a loop; it ends only when stopped or no usable corpus remains.
                 for (int i = 0; i < speed; i++) {
