@@ -1081,6 +1081,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             rightSlidingDialogContainer.setCurrentTop(top + actionBarHeight);
             float storiesAlpha = 1f;
+            // onSearchExpand() sets `searching` before showSearch() is conditionally
+            // called. With no recent searches / few dialogs, whiteActionBar and
+            // searchIsShowed can still be false while the search header is visible.
+            // Keep the wallpaper behind the transparent header for that state too.
+            if (!inPreviewMode && progressToActionMode == 0 && shouldUseWallpaperBackedMainGlass()
+                    && (searching || searchAnimationProgress > 0f)) {
+                blurBounds.set(0, Math.max(0, top), getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
+                drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
+            }
             if (whiteActionBar) {
                 if (searchAnimationProgress == 1f) {
                     actionBarSearchPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
@@ -1090,12 +1099,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
                 blurBounds.set(0, top, getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
-                if (searchIsShowed && shouldUseWallpaperBackedMainGlass() && searchAnimationProgress == 1f) {
-                    // The home list fades out underneath the expanded search UI. Keep the same
-                    // wallpaper behind the transparent status/action bar instead of exposing
-                    // the window's black base; drawBlurRect also preserves the existing glass path.
-                    drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
-                }
                 if (searchAnimationProgress < 0) {
                     drawBlurRect(canvas, 0, blurBounds, searchAnimationProgress == 1f ? actionBarSearchPaint : actionBarDefaultPaint, true);
                 }
