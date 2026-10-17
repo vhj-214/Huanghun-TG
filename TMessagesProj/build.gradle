@@ -10,7 +10,7 @@ plugins {
 def buildTimestamp = System.getenv('BUILD_TIMESTAMP') ?: '0'
 def commitId = System.getenv('COMMIT_ID')
 def verName = "${APP_VERSION_NAME}${commitId?.take(7) ? "-${commitId.take(7)}" : ''}"
-def verCode = 1258
+def verCode = 1261
 
 def officialVer = APP_VERSION_NAME
 def officialCode = APP_VERSION_CODE
@@ -50,8 +50,8 @@ def requireReleaseSigning = System.getenv('REQUIRE_RELEASE_SIGNING') == 'true'
 if (!hasReleaseSigning && requireReleaseSigning) {
     throw new GradleException('Installable staging/release APK requires release signing. Configure RELEASE_KEYSTORE_BASE64, KEYSTORE_PASS, ALIAS_NAME and ALIAS_PASS in CI secrets.')
 }
-if (!hasReleaseSigning) {
-    println('WARNING: release.keystore is unavailable; staging APK will use the debug signing key and cannot update an existing release-signed installation.')
+if (!hasReleaseSigning && !(System.getenv('DEBUG_BUILD') ?: '').equalsIgnoreCase('true')) {
+    throw new GradleException('Staging/release APK requires release signing. Configure KEYSTORE_PASS, ALIAS_NAME and ALIAS_PASS in LOCAL_PROPERTIES and provide TMessagesProj/release.keystore.')
 }
 
 // CI passes -PnativeTarget=arm64-v8a. Prefer the Gradle property and keep the
@@ -170,7 +170,7 @@ android {
         staging {
             debuggable = false
             jniDebuggable = false
-            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            signingConfig = signingConfigs.release
             minifyEnabled = true
             shrinkResources = true
             multiDexEnabled = true
