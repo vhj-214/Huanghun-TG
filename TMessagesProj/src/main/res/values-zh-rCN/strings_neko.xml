@@ -56,6 +56,7 @@
     <string name="NoQuoteForward">无引用转发</string>
     <string name="Repeat">复读</string>
     <string name="AddToSavedMessages">保存消息</string>
+    <string name="ViewArchivedChats">查看归档聊天</string>
     <string name="CreateMention">创建\@</string>
     <string name="ActionBarDecoration">标题栏装饰</string>
     <string name="DependsOnDate">基于日期</string>

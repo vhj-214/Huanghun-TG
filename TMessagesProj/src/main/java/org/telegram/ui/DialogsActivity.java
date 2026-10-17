@@ -14578,6 +14578,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     channelPrefs.edit().putBoolean("channel_intro", true).apply();
                 }
             });
+            io.add(R.drawable.msg_archive, getString(R.string.ViewArchivedChats), () -> {
+                Bundle args = new Bundle();
+                args.putInt("folderId", 1);
+                presentFragment(new DialogsActivity(args));
+            });
             if (hideBottomNavigationBar || MainTabsHelper.isContactsTabHidden()) {
                 io.add(R.drawable.msg_contacts, getString(R.string.Contacts), () -> {
                     Bundle args = new Bundle();
@@ -14590,13 +14595,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 io.add(R.drawable.menu_recent, getString(R.string.RecentChats), () -> {
                     io.dismiss();
                     BackButtonMenuRecent.show(currentAccount, this, optionsItem);
-                });
-            }
-            if (hideBottomNavigationBar && NaConfig.INSTANCE.getHideArchive().Bool()) {
-                io.add(R.drawable.msg_archive, getString(R.string.ArchivedChats), () -> {
-                    Bundle args = new Bundle();
-                    args.putInt("folderId", 1);
-                    presentFragment(new DialogsActivity(args));
                 });
             }
             io.add(R.drawable.outline_saved_24, getString(R.string.SavedMessages), () -> {

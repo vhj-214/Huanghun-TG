@@ -1604,6 +1604,45 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         return handleIntent(intent, isNew, restore, fromPassword, null, true, false);
     }
 
+    /**
+     * Some file managers put a shared file only in ClipData instead of EXTRA_STREAM.
+     * Keep both forms working, especially for APKs shared with a content:// URI.
+     */
+    private static Uri getSharedFileUri(Intent intent) {
+        if (intent == null) {
+            return null;
+        }
+        try {
+            Bundle extras = intent.getExtras();
+            if (extras != null) {
+                Object stream = extras.get(Intent.EXTRA_STREAM);
+                if (stream instanceof Uri) {
+                    return (Uri) stream;
+                } else if (stream instanceof Parcelable) {
+                    return Uri.parse(stream.toString());
+                }
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        try {
+            android.content.ClipData clipData = intent.getClipData();
+            if (clipData != null && clipData.getItemCount() > 0) {
+                Uri uri = clipData.getItemAt(0).getUri();
+                if (uri != null) {
+                    return uri;
+                }
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        Uri data = intent.getData();
+        if (data != null && ("content".equalsIgnoreCase(data.getScheme()) || "file".equalsIgnoreCase(data.getScheme()))) {
+            return data;
+        }
+        return null;
+    }
+
     @SuppressLint("Range")
     private boolean handleIntent(Intent intent, boolean isNew, boolean restore, boolean fromPassword, Browser.Progress progress, boolean rebuildFragments, boolean openedTelegram) {
         if (GiftInfoBottomSheet.handleIntent(intent, progress)) {
@@ -1796,20 +1835,27 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                             sendingText = subject;
                         }
 
-                        Parcelable parcelable = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                        if (parcelable != null) {
+                        Uri uri = getSharedFileUri(intent);
+                        if (uri != null) {
                             String path;
-                            if (!(parcelable instanceof Uri)) {
-                                parcelable = Uri.parse(parcelable.toString());
+                            String fileType = type;
+                            if (TextUtils.isEmpty(fileType) || "*/*".equals(fileType) || "application/octet-stream".equals(fileType)) {
+                                try {
+                                    String resolvedType = getContentResolver().getType(uri);
+                                    if (!TextUtils.isEmpty(resolvedType)) {
+                                        fileType = resolvedType;
+                                    }
+                                } catch (Exception e) {
+                                    FileLog.e(e);
+                                }
                             }
-                            Uri uri = (Uri) parcelable;
                             /*if (uri != null) {
                                 if (AndroidUtilities.isInternalUri(uri)) {
                                     error = true;
                                 }
                             }*/
                             if (!error && uri != null) {
-                                if (type != null && type.startsWith("image/") || uri.toString().toLowerCase().endsWith(".jpg")) {
+                                if (fileType != null && fileType.startsWith("image/") || uri.toString().toLowerCase().endsWith(".jpg")) {
                                     if (photoPathsArray == null) {
                                         photoPathsArray = new ArrayList<>();
                                     }
@@ -1850,9 +1896,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                             if (path.startsWith("file:")) {
                                                 path = path.replace("file://", "");
                                             }
-                                            if (type != null && type.startsWith("video/")) {
+                                            if (fileType != null && fileType.startsWith("video/")) {
                                                 videoPath = path;
-                                            } else if (type != null && type.startsWith("audio/ogg") && type.contains("codecs=opus") && MediaController.isOpusFile(path) == 1) {
+                                            } else if (fileType != null && fileType.startsWith("audio/ogg") && fileType.contains("codecs=opus") && MediaController.isOpusFile(path) == 1) {
                                                 voicePath = path;
                                             } else {
                                                 if (documentsPathsArray == null) {
@@ -1867,7 +1913,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                                 documentsUrisArray = new ArrayList<>();
                                             }
                                             documentsUrisArray.add(uri);
-                                            documentsMimeType = type;
+                                            documentsMimeType = fileType;
                                         }
                                     }
                                 }
@@ -1894,6 +1940,18 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     boolean error = false;
                     try {
                         ArrayList<Parcelable> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+                        if (uris == null) {
+                            android.content.ClipData clipData = intent.getClipData();
+                            if (clipData != null && clipData.getItemCount() > 0) {
+                                uris = new ArrayList<>();
+                                for (int a = 0; a < clipData.getItemCount(); a++) {
+                                    Uri uri = clipData.getItemAt(a).getUri();
+                                    if (uri != null) {
+                                        uris.add(uri);
+                                    }
+                                }
+                            }
+                        }
                         String type = intent.getType();
                         if (uris != null) {
                             for (int a = 0; a < uris.size(); a++) {
