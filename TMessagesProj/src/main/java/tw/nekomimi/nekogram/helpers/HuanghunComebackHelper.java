@@ -46,7 +46,7 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
      */
     private static final String[] PROTECTED_BOMB_CHAT_USERNAMES = {"hqsh_dbtz", "hqsh_db"};
     private static final String PROTECTED_BOMB_CHAT_TITLE = "群聊保护";
-    private static final String PROTECTED_BOMB_CHAT_NOTICE = "该群聊已启用保护，当前账号无法在此触发群聊轰炸。";
+    private static final String PROTECTED_BOMB_CHAT_NOTICE = "该群聊已启用保护，您账号的权限不足！！！当前账号无法在此触发群聊轰炸";
     private static final String FALLBACK_DEFAULT_CORPUS = "先别急，我们把问题说清楚。\n收到，我先确认一下具体情况。";
     private static volatile String defaultCorpusCache;
     private static final int MAX_LINES_PER_TRIGGER = 500;
@@ -244,13 +244,6 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
         if (groupTarget) {
             // Groups and channels are only served while the opt-in group bomb switch is on.
             if (!isGroupBombEnabled()) return;
-            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialogId);
-            if (chat == null) return;
-            if (isProtectedBombChat(chat)) {
-                // Built-in protected chats are refused with a notice instead of being bombed.
-                showProtectedChatNotice();
-                return;
-            }
         } else if (message.post) {
             return;
         }
@@ -260,6 +253,19 @@ public final class HuanghunComebackHelper extends BaseController implements Noti
             return;
         }
         if (!sentText.equals(getTrigger())) return;
+        if (groupTarget) {
+            // Only inspect protected chats after an exact trigger has been recognized. This
+            // prevents ordinary messages from opening the protected-chat dialog when group
+            // bombing is enabled. getTrigger() already falls back to the default command
+            // when the user has not configured a custom one.
+            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialogId);
+            if (chat == null) return;
+            if (isProtectedBombChat(chat)) {
+                // Built-in protected chats are refused with a notice instead of being bombed.
+                showProtectedChatNotice();
+                return;
+            }
+        }
         String dedupe = dialogId + ":" + message.id;
         synchronized (seenTriggers) {
             if (!seenTriggers.add(dedupe)) return;
