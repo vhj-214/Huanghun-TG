@@ -46,12 +46,8 @@ if (!keystoreFile.isFile() && keystoreBase64 != null && !keystoreBase64.isBlank(
     keystoreFile.bytes = Base64.decoder.decode(keystoreBase64.replaceAll('\\s', ''))
 }
 def hasReleaseSigning = [keystorePwd, alias, pwd].every { value -> value != null && !value.isBlank() } && keystoreFile.isFile()
-def requireReleaseSigning = System.getenv('REQUIRE_RELEASE_SIGNING') == 'true'
-if (!hasReleaseSigning && requireReleaseSigning) {
-    throw new GradleException('Installable staging/release APK requires release signing. Configure RELEASE_KEYSTORE_BASE64, KEYSTORE_PASS, ALIAS_NAME and ALIAS_PASS in CI secrets.')
-}
 if (!hasReleaseSigning) {
-    println('WARNING: release signing is not configured; staging APK will use the standard debug signing key and remains directly installable on a clean device.')
+    throw new GradleException('Installable staging/release APK requires release signing. Configure RELEASE_KEYSTORE_BASE64, KEYSTORE_PASS, ALIAS_NAME and ALIAS_PASS in CI secrets.')
 }
 
 // CI passes -PnativeTarget=arm64-v8a. Prefer the Gradle property and keep the
@@ -170,7 +166,7 @@ android {
         staging {
             debuggable = false
             jniDebuggable = false
-            signingConfig = hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            signingConfig = signingConfigs.release
             minifyEnabled = true
             shrinkResources = true
             multiDexEnabled = true
