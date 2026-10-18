@@ -984,23 +984,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // 顶部和底部玻璃只显示底层内容,不再叠加任何白色 scrim。
             // No white scrim: both top and bottom glass regions are fully transparent.
             final int liquidGlassScrimAlpha = 0;
-            // The top glass RenderNode is recorded from the content layer and
-            // intentionally excludes live video. Do not draw a static wallpaper
-            // snapshot over an active video layer; when no video is active, keep
-            // the configured static wallpaper, with a themed fallback if none exists.
             if (shouldUseWallpaperBackedMainGlass() && top) {
-                if (dialogsDynamicVideoWallpaperPlayer != null) {
-                    // Leave the surface transparent so the live video below it
-                    // remains visible through the expanded search header.
-                } else if (getBackgroundImage() != null) {
-                    canvas.save();
-                    canvas.translate(0, -y);
-                    captureWallpaperBackground(canvas, new RectF(rectTmp));
-                    canvas.restore();
-                } else {
-                    actionBarSearchPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                    canvas.drawRect(rectTmp, actionBarSearchPaint);
+                // ContentView already draws the wallpaper below this surface.
+                // Keep the glass surface empty only when a static or live
+                // wallpaper really exists; with no wallpaper, restore the
+                // themed page background instead of exposing the window base.
+                if (getBackgroundImage() != null || dialogsDynamicVideoWallpaperPlayer != null) {
+                    return;
                 }
+                int oldColor = blurScrimPaint.getColor();
+                blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                canvas.drawRect(rectTmp, blurScrimPaint);
+                blurScrimPaint.setColor(oldColor);
                 return;
             }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
@@ -3289,6 +3284,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (dialogsDynamicVideoWallpaperPlayer != null) {
             dialogsDynamicVideoWallpaperPlayer.release();
             dialogsDynamicVideoWallpaperPlayer = null;
+            if (fragmentView instanceof ContentView) {
+                updateWallpaperBackedMainGlass((ContentView) fragmentView);
+            }
         }
         if (dialogsDynamicVideoWallpaperPaused || !canShowDialogsDynamicVideoWallpaper() || !(fragmentView instanceof ViewGroup)) {
             return;
@@ -3305,6 +3303,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // 首帧解码前继续显示稳定的透明玻璃与页面内容，避免黑色闪屏。
                 player.setFallbackBackgroundColor(0x00000000);
                 dialogsDynamicVideoWallpaperPlayer = player;
+                if (fragmentView instanceof ContentView) {
+                    ((ContentView) fragmentView).setBackgroundColor(Color.TRANSPARENT);
+                }
             } else if (player != null) {
                 player.release();
             }
@@ -15082,8 +15083,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         // This page's ActionBar is transparent, so pattern wallpapers must extend
         // behind both the status bar and the header instead of exposing the window's black base.
         contentView.setDrawBackgroundBehindTopBars(true);
-        contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-        contentView.setBackgroundColor(Color.TRANSPARENT);
+        Drawable wallpaper = Theme.getCachedWallpaper();
+        // Always assign, including null, so removing a wallpaper cannot leave a
+        // stale drawable from the previous theme behind the search header.
+        contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
+        contentView.setBackgroundColor(wallpaper != null || dialogsDynamicVideoWallpaperPlayer != null
+                ? Color.TRANSPARENT
+                : getThemedColor(Theme.key_windowBackgroundWhite));
     }
 
     /**

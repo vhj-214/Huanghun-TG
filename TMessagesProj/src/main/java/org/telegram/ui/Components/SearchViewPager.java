@@ -173,6 +173,11 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         parent = fragment;
         this.chatPreviewDelegate = chatPreviewDelegate;
 
+        // Search is rendered above the wallpaper-backed DialogsActivity. Keep
+        // the pager itself transparent so child lists cannot restore a white
+        // surface over the wallpaper.
+        setBackgroundColor(Color.TRANSPARENT);
+
         itemAnimator = new DefaultItemAnimator();
         itemAnimator.setAddDuration(150);
         itemAnimator.setMoveDuration(350);
@@ -377,12 +382,16 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         emptyView.showProgress(true, false);
 
         searchContainer = new FrameLayout(context);
+        searchContainer.setBackgroundColor(Color.TRANSPARENT);
         searchContainer.addView(emptyView);
         searchContainer.addView(searchListView);
         searchContainer.addView(noMediaFiltersSearchView);
         searchListView.setEmptyView(emptyView);
+        searchListView.setBackgroundColor(Color.TRANSPARENT);
+        emptyView.setBackgroundColor(Color.TRANSPARENT);
 
         channelsSearchContainer = new FrameLayout(context);
+        channelsSearchContainer.setBackgroundColor(Color.TRANSPARENT);
 
         channelsItemAnimator = new DefaultItemAnimator() {
             @Override
@@ -397,6 +406,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         channelsItemAnimator.setDurations(350);
 
         channelsSearchListView = new RecyclerListView(context);
+        channelsSearchListView.setBackgroundColor(Color.TRANSPARENT);
         channelsSearchListView.setItemAnimator(channelsItemAnimator);
         channelsSearchListView.setPivotY(0);
         channelsSearchListView.setVerticalScrollBarEnabled(true);
@@ -423,6 +433,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         channelsEmptyView.setVisibility(View.GONE);
         channelsEmptyView.addView(loadingView, 0);
         channelsEmptyView.showProgress(true, false);
+        channelsEmptyView.setBackgroundColor(Color.TRANSPARENT);
         channelsSearchContainer.addView(channelsEmptyView);
         channelsSearchContainer.addView(channelsSearchListView);
         channelsSearchListView.setEmptyView(channelsEmptyView);
@@ -463,6 +474,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
 
 
         botsSearchContainer = new FrameLayout(context);
+        botsSearchContainer.setBackgroundColor(Color.TRANSPARENT);
 
         botsItemAnimator = new DefaultItemAnimator() {
             @Override
@@ -477,6 +489,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         botsItemAnimator.setDurations(350);
 
         botsSearchListView = new RecyclerListView(context);
+        botsSearchListView.setBackgroundColor(Color.TRANSPARENT);
         botsSearchListView.setItemAnimator(botsItemAnimator);
         botsSearchListView.setPivotY(0);
         botsSearchListView.setClipToPadding(false);
@@ -503,6 +516,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         botsEmptyView.setVisibility(View.GONE);
         botsEmptyView.addView(loadingView, 0);
         botsEmptyView.showProgress(true, false);
+        botsEmptyView.setBackgroundColor(Color.TRANSPARENT);
         botsSearchContainer.addView(botsEmptyView);
         botsSearchContainer.addView(botsSearchListView);
         botsSearchListView.setEmptyView(botsEmptyView);
@@ -536,6 +550,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         botsSearchListView.addEdgeEffectListener(this::invalidateBlur);
 
         hashtagSearchContainer = new FrameLayout(context);
+        hashtagSearchContainer.setBackgroundColor(Color.TRANSPARENT);
 
         hashtagItemAnimator = new DefaultItemAnimator() {
             @Override
@@ -550,6 +565,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         hashtagItemAnimator.setDurations(350);
 
         hashtagSearchListView = new RecyclerListView(context);
+        hashtagSearchListView.setBackgroundColor(Color.TRANSPARENT);
         hashtagSearchListView.setItemAnimator(hashtagItemAnimator);
         hashtagSearchListView.setPivotY(0);
         hashtagSearchListView.setVerticalScrollBarEnabled(true);
@@ -576,6 +592,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         hashtagEmptyView.setVisibility(View.GONE);
         hashtagEmptyView.addView(loadingView, 0);
         hashtagEmptyView.showProgress(true, false);
+        hashtagEmptyView.setBackgroundColor(Color.TRANSPARENT);
         hashtagSearchContainer.addView(hashtagEmptyView);
         hashtagSearchContainer.addView(hashtagSearchListView);
         hashtagSearchListView.setEmptyView(hashtagEmptyView);
