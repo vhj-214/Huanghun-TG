@@ -8,7 +8,6 @@ import com.google.gson.JsonObject;
 
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
-import org.telegram.messenger.MessagesController;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -44,7 +43,7 @@ public final class HuanghunDefaultSettings {
         }
 
         SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (bootstrap.getBoolean(KEY_APPLIED, false) || !isFreshInstall(context)) {
+        if (readBooleanPreference(bootstrap, KEY_APPLIED, false) || !isFreshInstall(context)) {
             return;
         }
 
@@ -84,7 +83,7 @@ public final class HuanghunDefaultSettings {
             return;
         }
         SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (bootstrap.getBoolean(KEY_TRANSLATION_PROVIDERS_APPLIED, false)) {
+        if (readBooleanPreference(bootstrap, KEY_TRANSLATION_PROVIDERS_APPLIED, false)) {
             return;
         }
         try {
@@ -120,10 +119,10 @@ public final class HuanghunDefaultSettings {
             return false;
         }
         SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String language = MessagesController.getGlobalMainSettings().getString("language", null);
-        return bootstrap.getBoolean(KEY_CHINESE_PREFERENCE_SEEDED, false)
+        String language = readLanguagePreference(getLanguagePreferences(context));
+        return readBooleanPreference(bootstrap, KEY_CHINESE_PREFERENCE_SEEDED, false)
                 && OFFICIAL_SIMPLIFIED_CHINESE.equals(language)
-                && !bootstrap.getBoolean(KEY_DEFAULT_LANGUAGE_APPLIED, false);
+                && !readBooleanPreference(bootstrap, KEY_DEFAULT_LANGUAGE_APPLIED, false);
     }
 
     /** Marks the bundled language preference as resolved without changing any later user choice. */
@@ -139,11 +138,11 @@ public final class HuanghunDefaultSettings {
 
     private static void seedOfficialChinesePreference(Context context, boolean force) {
         SharedPreferences bootstrap = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (bootstrap.getBoolean(KEY_CHINESE_PREFERENCE_SEEDED, false)) {
+        if (readBooleanPreference(bootstrap, KEY_CHINESE_PREFERENCE_SEEDED, false)) {
             return;
         }
-        SharedPreferences languagePreferences = MessagesController.getGlobalMainSettings();
-        String currentLanguage = languagePreferences.getString("language", null);
+        SharedPreferences languagePreferences = getLanguagePreferences(context);
+        String currentLanguage = readLanguagePreference(languagePreferences);
         boolean isPreviousHuanghunDefault = currentLanguage == null
                 || "en".equalsIgnoreCase(currentLanguage)
                 || "zhcncc".equalsIgnoreCase(currentLanguage)
@@ -153,6 +152,32 @@ public final class HuanghunDefaultSettings {
         }
         languagePreferences.edit().putString("language", OFFICIAL_SIMPLIFIED_CHINESE).apply();
         bootstrap.edit().putBoolean(KEY_CHINESE_PREFERENCE_SEEDED, true).apply();
+    }
+
+    private static SharedPreferences getLanguagePreferences(Context context) {
+        // Match MessagesController's global account-0 preferences without forcing its large
+        // constructor (and all of its typed preference reads) during early startup.
+        return context.getSharedPreferences("mainconfig", Context.MODE_PRIVATE);
+    }
+
+    private static String readLanguagePreference(SharedPreferences preferences) {
+        try {
+            return preferences.getString("language", null);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed mainconfig.language preference", error);
+            preferences.edit().remove("language").apply();
+            return null;
+        }
+    }
+
+    private static boolean readBooleanPreference(SharedPreferences preferences, String key, boolean defaultValue) {
+        try {
+            return preferences.getBoolean(key, defaultValue);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed " + PREFS_NAME + "." + key + " preference", error);
+            preferences.edit().remove(key).apply();
+            return defaultValue;
+        }
     }
 
     /** Disable account-region language recommendation dialogs; manual language selection remains available. */

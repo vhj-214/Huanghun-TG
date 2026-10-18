@@ -136,6 +136,11 @@ public final class HuanghunPetOverlay extends View {
     private float downPetX;
     private float downPetY;
     private long downTime;
+    private final Runnable resumeReloadRunnable = () -> {
+        if (hostResumed) {
+            reloadFromPreferences();
+        }
+    };
 
     public HuanghunPetOverlay(Context context) {
         super(context);
@@ -162,6 +167,7 @@ public final class HuanghunPetOverlay extends View {
 
     public void onHostPause() {
         hostResumed = false;
+        removeCallbacks(resumeReloadRunnable);
         removeCallbacks(tickRunnable);
         onlineSinceElapsed = 0L;
         lastCareElapsed = 0L;
@@ -170,10 +176,15 @@ public final class HuanghunPetOverlay extends View {
     public void onHostResume() {
         hostResumed = true;
         if (onlineSinceElapsed == 0L) onlineSinceElapsed = android.os.SystemClock.elapsedRealtime();
-        reloadFromPreferences();
+        removeCallbacks(resumeReloadRunnable);
+        // Let the chat surface draw before reading a user-installed pet package and
+        // decoding its first frame on the UI thread.
+        postDelayed(resumeReloadRunnable, 500L);
     }
 
     public void destroy() {
+        hostResumed = false;
+        removeCallbacks(resumeReloadRunnable);
         removeCallbacks(tickRunnable);
         recycleCurrentBitmap();
         if (currentOverlay != null && currentOverlay.get() == this) {

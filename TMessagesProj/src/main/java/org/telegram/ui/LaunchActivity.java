@@ -255,6 +255,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -545,7 +546,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
         frameLayout.addView(drawerLayoutContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        tw.nekomimi.nekogram.helpers.HuanghunPetHelper.ensureBundledDefault(this);
         huanghunPetOverlay = new HuanghunPetOverlay(this);
         frameLayout.addView(huanghunPetOverlay, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
@@ -2150,7 +2150,13 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                     return false;
                                 case "http":
                                 case "https": {
-                                    String host = data.getHost().toLowerCase();
+                                    String rawHost = data.getHost();
+                                    if (TextUtils.isEmpty(rawHost)) {
+                                        FileLog.e("Ignoring ACTION_VIEW URL without a host: " + data);
+                                        intent.setAction(null);
+                                        return false;
+                                    }
+                                    String host = rawHost.toLowerCase(Locale.ROOT);
                                     Matcher prefixMatcher = PREFIX_T_ME_PATTERN.matcher(host);
                                     boolean isPrefix = prefixMatcher.find();
                                     if (host.equals("telegram.me") || host.equals("t.me") || host.equals("telegram.dog") || isPrefix) {
@@ -7168,7 +7174,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.startAllHeavyOperations, 4096);
         MediaController.getInstance().setFeedbackView(feedbackView = actionBarLayout.getView(), true);
         ApplicationLoader.mainInterfacePaused = false;
-        MessagesController.getInstance(currentAccount).sortDialogs(null);
+        final int resumedAccount = currentAccount;
+        AndroidUtilities.runOnUIThread(() -> {
+            if (!isFinishing() && !isDestroyed() && resumedAccount == currentAccount) {
+                MessagesController.getInstance(resumedAccount).sortDialogs(null);
+            }
+        }, 250);
         showLanguageAlert(false);
         Utilities.stageQueue.postRunnable(() -> {
             ApplicationLoader.mainInterfacePausedStageQueue = false;
@@ -7221,7 +7232,11 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 MediaController.getInstance().seekToProgress(messageObject, messageObject.audioProgress);
             }
         }
-        com.Huanghun.HuanghunAccountDeduplicator.collapseDuplicateLocalAccounts(UserConfig.selectedAccount);
+        AndroidUtilities.runOnUIThread(() -> {
+            if (!isFinishing() && !isDestroyed() && resumedAccount == UserConfig.selectedAccount) {
+                com.Huanghun.HuanghunAccountDeduplicator.collapseDuplicateLocalAccounts(resumedAccount);
+            }
+        }, 1000);
         com.Huanghun.HuanghunDefaultTheme.applyAfterFirstLoginIfNeeded(UserConfig.selectedAccount);
         if (UserConfig.getInstance(UserConfig.selectedAccount).unacceptedTermsOfService != null) {
             showTosActivity(UserConfig.selectedAccount, UserConfig.getInstance(UserConfig.selectedAccount).unacceptedTermsOfService);

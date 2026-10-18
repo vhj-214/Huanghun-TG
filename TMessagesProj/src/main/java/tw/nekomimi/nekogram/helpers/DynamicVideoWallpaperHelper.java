@@ -68,19 +68,47 @@ public final class DynamicVideoWallpaperHelper {
     private DynamicVideoWallpaperHelper() {
     }
 
+    private static boolean safeBoolean(SharedPreferences preferences, String key, boolean fallback) {
+        try {
+            return preferences.getBoolean(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed dynamic-wallpaper preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
+    private static int safeInt(SharedPreferences preferences, String key, int fallback) {
+        try {
+            return preferences.getInt(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed dynamic-wallpaper preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
+    private static String safeString(SharedPreferences preferences, String key, String fallback) {
+        try {
+            return preferences.getString(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed dynamic-wallpaper preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
     private static String key(int account, long dialogId) {
         return account + "_" + dialogId;
     }
 
     /** 是否将动态壁纸应用到本设备上的所有账号，默认关闭。 */
     public static boolean isGlobalSharingEnabled(Context context) {
-        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-                .getBoolean(GLOBAL_ENABLED, false);
+        return safeBoolean(context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE), GLOBAL_ENABLED, false);
     }
 
     public static boolean requiresGlobalWallpaperReset(Context context) {
-        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-                .getBoolean(GLOBAL_RESET_REQUIRED, false);
+        return safeBoolean(context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE), GLOBAL_RESET_REQUIRED, false);
     }
 
     public static void clearGlobalResetRequired(Context context) {
@@ -92,7 +120,7 @@ public final class DynamicVideoWallpaperHelper {
     public static void setGlobalSharingEnabled(Context context, int account, boolean enabled) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         if (!enabled) {
-            String oldGlobalPath = preferences.getString(GLOBAL_VIDEO, null);
+            String oldGlobalPath = safeString(preferences, GLOBAL_VIDEO, null);
             preferences.edit().putBoolean(GLOBAL_ENABLED, false)
                     .putBoolean(GLOBAL_RESET_REQUIRED, true)
                     .remove(GLOBAL_VIDEO).commit();
@@ -102,8 +130,8 @@ public final class DynamicVideoWallpaperHelper {
             return;
         }
         preferences.edit().putBoolean(GLOBAL_RESET_REQUIRED, false).commit();
-        String currentPath = preferences.getString(key(account, 0L), null);
-        if (currentPath != null && new File(currentPath).isFile()) {
+        String currentPath = safeString(preferences, key(account, 0L), null);
+        if (currentPath != null && new File(currentPath).isFile() && new File(currentPath).length() > 0) {
             MultiDynamicVideoWallpaperHelper.clearGlobal(context);
             preferences.edit().putString(GLOBAL_VIDEO, currentPath).putBoolean(GLOBAL_ENABLED, true).commit();
         } else if (MultiDynamicVideoWallpaperHelper.isEnabledForAccount(context, account)) {
@@ -126,7 +154,7 @@ public final class DynamicVideoWallpaperHelper {
     /** 清理设备级单视频，供设备级多视频设置成功后替换。 */
     public static void clearGlobalSingle(Context context) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
-        String path = preferences.getString(GLOBAL_VIDEO, null);
+        String path = safeString(preferences, GLOBAL_VIDEO, null);
         preferences.edit().remove(GLOBAL_VIDEO).commit();
         if (path != null) {
             deleteIfUnreferenced(context, path);
@@ -266,9 +294,9 @@ public final class DynamicVideoWallpaperHelper {
 
     public static void saveVideo(Context context, int account, long dialogId, String path) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
-        String oldPath = preferences.getString(key(account, dialogId), null);
+        String oldPath = safeString(preferences, key(account, dialogId), null);
         if (isGlobalSharingEnabled(context)) {
-            String oldGlobalPath = preferences.getString(GLOBAL_VIDEO, null);
+            String oldGlobalPath = safeString(preferences, GLOBAL_VIDEO, null);
             MultiDynamicVideoWallpaperHelper.clearGlobal(context);
             preferences.edit().putBoolean(GLOBAL_RESET_REQUIRED, false).putString(GLOBAL_VIDEO, path).commit();
             notifyAllAccountsWallpaperChanged();
@@ -329,9 +357,12 @@ public final class DynamicVideoWallpaperHelper {
             return null;
         }
         if (isGlobalSharingEnabled(context)) {
-            String globalPath = preferences.getString(GLOBAL_VIDEO, null);
-            if (globalPath != null && new File(globalPath).isFile()) {
+            String globalPath = safeString(preferences, GLOBAL_VIDEO, null);
+            if (globalPath != null && new File(globalPath).isFile() && new File(globalPath).length() > 0) {
                 return globalPath;
+            }
+            if (globalPath != null) {
+                preferences.edit().remove(GLOBAL_VIDEO).apply();
             }
             if (MultiDynamicVideoWallpaperHelper.isEnabledGlobal(context)) {
                 return null;
@@ -339,23 +370,23 @@ public final class DynamicVideoWallpaperHelper {
         }
         String selectedKey = key(account, dialogId);
         // 本会话改用静态壁纸后，不能再回退显示全局默认动态视频。
-        if (preferences.getBoolean(disabledKey(account, dialogId), false)) {
+        if (safeBoolean(preferences, disabledKey(account, dialogId), false)) {
             return null;
         }
         if (MultiDynamicVideoWallpaperHelper.isAnyEnabled(context, account)) {
             return null;
         }
-        String path = preferences.getString(selectedKey, null);
+        String path = safeString(preferences, selectedKey, null);
         // 聊天设置页保存的全局默认视频使用 dialogId = 0。具体聊天没有单独设置时，
         // 一律回退到该默认视频，因此切换 Telegram 主题不会影响本地动态背景。
         if (path == null && dialogId != 0L) {
             selectedKey = key(account, 0L);
-            path = preferences.getString(selectedKey, null);
+            path = safeString(preferences, selectedKey, null);
         }
         if (path == null) {
             return null;
         }
-        if (!new File(path).isFile()) {
+        if (!new File(path).isFile() || new File(path).length() <= 0) {
             preferences.edit().remove(selectedKey).apply();
             return null;
         }
@@ -374,7 +405,7 @@ public final class DynamicVideoWallpaperHelper {
     public static void clearVideo(Context context, int account, long dialogId) {
         SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         if (isGlobalSharingEnabled(context)) {
-            String path = preferences.getString(GLOBAL_VIDEO, null);
+            String path = safeString(preferences, GLOBAL_VIDEO, null);
             preferences.edit().remove(GLOBAL_VIDEO).commit();
             notifyAllAccountsWallpaperChanged();
             if (path != null) {
@@ -382,7 +413,7 @@ public final class DynamicVideoWallpaperHelper {
             }
             return;
         }
-        String path = preferences.getString(key(account, dialogId), null);
+        String path = safeString(preferences, key(account, dialogId), null);
         preferences.edit()
                 .remove(key(account, dialogId))
                 .remove(disabledKey(account, dialogId))
@@ -582,7 +613,7 @@ public final class DynamicVideoWallpaperHelper {
                 return;
             }
             cancelPlaybackRecovery();
-            if (path == null || !new File(path).isFile()) {
+            if (path == null || !new File(path).isFile() || new File(path).length() <= 0) {
                 if (playlistMode) {
                     playNextVideo();
                 } else {
@@ -822,7 +853,7 @@ public final class DynamicVideoWallpaperHelper {
                     nextIndex = (nextIndex + 1) % playlist.size();
                 }
                 String candidate = playlist.get(nextIndex);
-                if (candidate != null && new File(candidate).isFile()) {
+                if (candidate != null && new File(candidate).isFile() && new File(candidate).length() > 0) {
                     nextPath = candidate;
                     break;
                 }
@@ -878,9 +909,14 @@ public final class DynamicVideoWallpaperHelper {
                     }
                     mediaPlayer = null;
                 }
-                if (playbackErrorCount > 3 && playlistMode) {
-                    playbackErrorCount = 0;
-                    playNextVideo();
+                if (playbackErrorCount > 3) {
+                    if (playlistMode) {
+                        playbackErrorCount = 0;
+                        playNextVideo();
+                    } else {
+                        FileLog.e("Stopping repeated recovery for an unreadable dynamic wallpaper: " + path);
+                        release();
+                    }
                 } else {
                     resumePositionMs = 0;
                     prepare(surfaceTexture);
@@ -938,12 +974,12 @@ public final class DynamicVideoWallpaperHelper {
             try {
                 SharedPreferences preferences = textureView.getContext()
                         .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
-                String storedPath = preferences.getString(playbackPreferenceKey("path"), null);
+                String storedPath = safeString(preferences, playbackPreferenceKey("path"), null);
                 if (storedPath == null) return null;
                 return new PlaybackState(
                         storedPath,
-                        preferences.getInt(playbackPreferenceKey("playlist_index"), 0),
-                        preferences.getInt(playbackPreferenceKey("position"), 0)
+                        safeInt(preferences, playbackPreferenceKey("playlist_index"), 0),
+                        safeInt(preferences, playbackPreferenceKey("position"), 0)
                 );
             } catch (Throwable e) {
                 FileLog.e(e);

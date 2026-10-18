@@ -972,7 +972,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean giftAuctionUpdateWasRecently() {
-        final long t = mainPreferences != null ? mainPreferences.getLong("lastGiftAuctionTimeUpdate", 0) : 0;
+        final long t = mainPreferences != null ? safePreferenceLong(mainPreferences, "lastGiftAuctionTimeUpdate", 0) : 0;
         return System.currentTimeMillis() - t < 86400 * 1000;
     }
 
@@ -1615,6 +1615,73 @@ public class MessagesController extends BaseController implements NotificationCe
         return getInstance(0).emojiPreferences;
     }
 
+    private static boolean safePreferenceBoolean(SharedPreferences preferences, String key, boolean fallback) {
+        try {
+            return preferences.getBoolean(key, fallback);
+        } catch (ClassCastException error) {
+            discardMalformedPreference(preferences, key, "Boolean");
+            return fallback;
+        }
+    }
+
+    private static int safePreferenceInt(SharedPreferences preferences, String key, int fallback) {
+        try {
+            return preferences.getInt(key, fallback);
+        } catch (ClassCastException error) {
+            discardMalformedPreference(preferences, key, "Integer");
+            return fallback;
+        }
+    }
+
+    private static long safePreferenceLong(SharedPreferences preferences, String key, long fallback) {
+        try {
+            return preferences.getLong(key, fallback);
+        } catch (ClassCastException error) {
+            discardMalformedPreference(preferences, key, "Long");
+            return fallback;
+        }
+    }
+
+    private static float safePreferenceFloat(SharedPreferences preferences, String key, float fallback) {
+        try {
+            return preferences.getFloat(key, fallback);
+        } catch (ClassCastException error) {
+            discardMalformedPreference(preferences, key, "Float");
+            return fallback;
+        }
+    }
+
+    private static String safePreferenceString(SharedPreferences preferences, String key, String fallback) {
+        try {
+            return preferences.getString(key, fallback);
+        } catch (ClassCastException error) {
+            discardMalformedPreference(preferences, key, "String");
+            return fallback;
+        }
+    }
+
+    private static java.util.Set<String> safePreferenceStringSet(SharedPreferences preferences, String key, java.util.Set<String> fallback) {
+        try {
+            java.util.Set<String> values = preferences.getStringSet(key, fallback);
+            if (values != null) {
+                for (Object item : values) {
+                    if (!(item instanceof String)) {
+                        throw new ClassCastException("Set contains a non-string value");
+                    }
+                }
+            }
+            return values;
+        } catch (ClassCastException error) {
+            discardMalformedPreference(preferences, key, "Set<String>");
+            return fallback;
+        }
+    }
+
+    private static void discardMalformedPreference(SharedPreferences preferences, String key, String expected) {
+        FileLog.e("Ignoring malformed MessagesController preference " + key + " (expected " + expected + ")");
+        preferences.edit().remove(key).apply();
+    }
+
     public MessagesController(int num) {
         super(num);
         ImageLoader.getInstance();
@@ -1642,240 +1709,240 @@ public class MessagesController extends BaseController implements NotificationCe
         }
         long time = System.currentTimeMillis();
 
-        remoteConfigLoaded = mainPreferences.getBoolean("remoteConfigLoaded", false);
-        secretWebpagePreview = mainPreferences.getInt("secretWebpage2", 2);
-        maxGroupCount = mainPreferences.getInt("maxGroupCount", 200);
-        maxMegagroupCount = mainPreferences.getInt("maxMegagroupCount", 10000);
-        maxRecentGifsCount = mainPreferences.getInt("maxRecentGifsCount", 200);
-        maxRecentStickersCount = mainPreferences.getInt("maxRecentStickersCount", 30);
-        maxFaveStickersCount = mainPreferences.getInt("maxFaveStickersCount", 5);
-        maxEditTime = mainPreferences.getInt("maxEditTime", 3600);
-        ratingDecay = mainPreferences.getInt("ratingDecay", 2419200);
-        linkPrefix = mainPreferences.getString("linkPrefix", "t.me");
-        callReceiveTimeout = mainPreferences.getInt("callReceiveTimeout", 20000);
-        callRingTimeout = mainPreferences.getInt("callRingTimeout", 90000);
-        callConnectTimeout = mainPreferences.getInt("callConnectTimeout", 30000);
-        callPacketTimeout = mainPreferences.getInt("callPacketTimeout", 10000);
-        updateCheckDelay = mainPreferences.getInt("updateCheckDelay", 24 * 60 * 60);
-        maxFolderPinnedDialogsCountDefault = mainPreferences.getInt("maxFolderPinnedDialogsCountDefault", 100);
-        maxFolderPinnedDialogsCountPremium = mainPreferences.getInt("maxFolderPinnedDialogsCountPremium", 100);
-        maxMessageLength = mainPreferences.getInt("maxMessageLength", 4096);
-        maxCaptionLength = mainPreferences.getInt("maxCaptionLength", 1024);
-        mapProvider = mainPreferences.getInt("mapProvider", 0);
-        availableMapProviders = mainPreferences.getInt("availableMapProviders", 3);
-        mapKey = mainPreferences.getString("pk", null);
-        installReferer = mainPreferences.getString("installReferer", null);
-        revokeTimeLimit = mainPreferences.getInt("revokeTimeLimit", 2147483647);
-        revokeTimePmLimit = mainPreferences.getInt("revokeTimePmLimit", 2147483647);
-        canRevokePmInbox = mainPreferences.getBoolean("canRevokePmInbox", canRevokePmInbox);
-        preloadFeaturedStickers = mainPreferences.getBoolean("preloadFeaturedStickers", false);
-        youtubePipType = mainPreferences.getString("youtubePipType", "disabled");
+        remoteConfigLoaded = safePreferenceBoolean(mainPreferences, "remoteConfigLoaded", false);
+        secretWebpagePreview = safePreferenceInt(mainPreferences, "secretWebpage2", 2);
+        maxGroupCount = safePreferenceInt(mainPreferences, "maxGroupCount", 200);
+        maxMegagroupCount = safePreferenceInt(mainPreferences, "maxMegagroupCount", 10000);
+        maxRecentGifsCount = safePreferenceInt(mainPreferences, "maxRecentGifsCount", 200);
+        maxRecentStickersCount = safePreferenceInt(mainPreferences, "maxRecentStickersCount", 30);
+        maxFaveStickersCount = safePreferenceInt(mainPreferences, "maxFaveStickersCount", 5);
+        maxEditTime = safePreferenceInt(mainPreferences, "maxEditTime", 3600);
+        ratingDecay = safePreferenceInt(mainPreferences, "ratingDecay", 2419200);
+        linkPrefix = safePreferenceString(mainPreferences, "linkPrefix", "t.me");
+        callReceiveTimeout = safePreferenceInt(mainPreferences, "callReceiveTimeout", 20000);
+        callRingTimeout = safePreferenceInt(mainPreferences, "callRingTimeout", 90000);
+        callConnectTimeout = safePreferenceInt(mainPreferences, "callConnectTimeout", 30000);
+        callPacketTimeout = safePreferenceInt(mainPreferences, "callPacketTimeout", 10000);
+        updateCheckDelay = safePreferenceInt(mainPreferences, "updateCheckDelay", 24 * 60 * 60);
+        maxFolderPinnedDialogsCountDefault = safePreferenceInt(mainPreferences, "maxFolderPinnedDialogsCountDefault", 100);
+        maxFolderPinnedDialogsCountPremium = safePreferenceInt(mainPreferences, "maxFolderPinnedDialogsCountPremium", 100);
+        maxMessageLength = safePreferenceInt(mainPreferences, "maxMessageLength", 4096);
+        maxCaptionLength = safePreferenceInt(mainPreferences, "maxCaptionLength", 1024);
+        mapProvider = safePreferenceInt(mainPreferences, "mapProvider", 0);
+        availableMapProviders = safePreferenceInt(mainPreferences, "availableMapProviders", 3);
+        mapKey = safePreferenceString(mainPreferences, "pk", null);
+        installReferer = safePreferenceString(mainPreferences, "installReferer", null);
+        revokeTimeLimit = safePreferenceInt(mainPreferences, "revokeTimeLimit", 2147483647);
+        revokeTimePmLimit = safePreferenceInt(mainPreferences, "revokeTimePmLimit", 2147483647);
+        canRevokePmInbox = safePreferenceBoolean(mainPreferences, "canRevokePmInbox", canRevokePmInbox);
+        preloadFeaturedStickers = safePreferenceBoolean(mainPreferences, "preloadFeaturedStickers", false);
+        youtubePipType = safePreferenceString(mainPreferences, "youtubePipType", "disabled");
         // Huanghun keeps notification networking alive by default on fresh installs.
         // Existing user choices remain unchanged because persisted values take precedence.
-        keepAliveService = mainPreferences.getBoolean("keepAliveService", true);
-        backgroundConnection = mainPreferences.getBoolean("backgroundConnection", true);
-        promoDialogId = mainPreferences.getLong("proxy_dialog", 0);
-        nextPromoInfoCheckTime = mainPreferences.getInt("nextPromoInfoCheckTime", 0);
-        promoDialogType = mainPreferences.getInt("promo_dialog_type", 0);
-        promoPsaMessage = mainPreferences.getString("promo_psa_message", null);
-        promoPsaType = mainPreferences.getString("promo_psa_type", null);
-        proxyDialogAddress = mainPreferences.getString("proxyDialogAddress", null);
-        venueSearchBot = mainPreferences.getString("venueSearchBot", "foursquare");
-        storyVenueSearchBot = mainPreferences.getString("storyVenueSearchBot", "foursquare");
-        gifSearchBot = mainPreferences.getString("gifSearchBot", "gif");
-        imageSearchBot = mainPreferences.getString("imageSearchBot", "pic");
-        blockedCountry = mainPreferences.getBoolean("blockedCountry", false);
-        suggestedLangCode = mainPreferences.getString("suggestedLangCode", "en");
-        animatedEmojisZoom = mainPreferences.getFloat("animatedEmojisZoom", 0.625f);
-        qrLoginCamera = mainPreferences.getBoolean("qrLoginCamera", true);
-        saveGifsWithStickers = mainPreferences.getBoolean("saveGifsWithStickers", false);
-        filtersEnabled = mainPreferences.getBoolean("filtersEnabled", false);
-        getfileExperimentalParams = mainPreferences.getBoolean("getfileExperimentalParams", false);
-        smsjobsStickyNotificationEnabled = mainPreferences.getBoolean("smsjobsStickyNotificationEnabled", false);
-        showFiltersTooltip = mainPreferences.getBoolean("showFiltersTooltip", false);
-        autoarchiveAvailable = mainPreferences.getBoolean("autoarchiveAvailable", false);
-        groupCallVideoMaxParticipants = mainPreferences.getInt("groipCallVideoMaxParticipants", 30);
-        chatReadMarkSizeThreshold = mainPreferences.getInt("chatReadMarkSizeThreshold", 100);
-        chatReadMarkExpirePeriod = mainPreferences.getInt("chatReadMarkExpirePeriod", 7 * 86400);
-        ringtoneDurationMax = mainPreferences.getInt("ringtoneDurationMax", 5);
-        ringtoneSizeMax = mainPreferences.getInt("ringtoneSizeMax", 1024_00);
-        pmReadDateExpirePeriod = mainPreferences.getInt("pmReadDateExpirePeriod", 7 * 86400);
-        suggestStickersApiOnly = mainPreferences.getBoolean("suggestStickersApiOnly", false);
-        roundVideoSize = mainPreferences.getInt("roundVideoSize", 384);
-        roundVideoBitrate = mainPreferences.getInt("roundVideoBitrate", 1000);
-        roundAudioBitrate = mainPreferences.getInt("roundAudioBitrate", 64);
-        pendingSuggestions = mainPreferences.getStringSet("pendingSuggestions", null);
-        dismissedSuggestions = mainPreferences.getStringSet("dismissedSuggestions", null);
-        channelsLimitDefault = mainPreferences.getInt("channelsLimitDefault", 500);
-        channelsLimitPremium = mainPreferences.getInt("channelsLimitPremium", 2 * channelsLimitDefault);
-        savedGifsLimitDefault = mainPreferences.getInt("savedGifsLimitDefault", 200);
-        savedGifsLimitPremium = mainPreferences.getInt("savedGifsLimitPremium", 400);
-        stickersFavedLimitDefault = mainPreferences.getInt("stickersFavedLimitDefault", 5);
-        stickersFavedLimitPremium = mainPreferences.getInt("stickersFavedLimitPremium", 200);
-        maxPinnedDialogsCountDefault = mainPreferences.getInt("maxPinnedDialogsCountDefault", 5);
-        maxPinnedDialogsCountPremium = mainPreferences.getInt("maxPinnedDialogsCountPremium", 5);
-        maxPinnedDialogsCountDefault = mainPreferences.getInt("maxPinnedDialogsCountDefault", 5);
-        maxPinnedDialogsCountPremium = mainPreferences.getInt("maxPinnedDialogsCountPremium", 5);
-        dialogFiltersLimitDefault = mainPreferences.getInt("dialogFiltersLimitDefault", 10);
-        dialogFiltersLimitPremium = mainPreferences.getInt("dialogFiltersLimitPremium", 20);
-        dialogFiltersChatsLimitDefault = mainPreferences.getInt("dialogFiltersChatsLimitDefault", 100);
-        dialogFiltersChatsLimitPremium = mainPreferences.getInt("dialogFiltersChatsLimitPremium", 200);
-        dialogFiltersPinnedLimitDefault = mainPreferences.getInt("dialogFiltersPinnedLimitDefault", 5);
-        dialogFiltersPinnedLimitPremium = mainPreferences.getInt("dialogFiltersPinnedLimitPremium", 10);
-        publicLinksLimitDefault = mainPreferences.getInt("publicLinksLimitDefault", 10);
-        publicLinksLimitPremium = mainPreferences.getInt("publicLinksLimitPremium", 20);
-        captionLengthLimitDefault = mainPreferences.getInt("captionLengthLimitDefault", 1024);
-        captionLengthLimitPremium = mainPreferences.getInt("captionLengthLimitPremium", 4096);
-        storyCaptionLengthLimitDefault = mainPreferences.getInt("storyCaptionLengthLimit", 200);
-        storyCaptionLengthLimitPremium = mainPreferences.getInt("storyCaptionLengthLimitPremium", 2048);
-        aboutLengthLimitDefault = mainPreferences.getInt("aboutLengthLimitDefault", 70);
-        aboutLengthLimitPremium = mainPreferences.getInt("aboutLengthLimitPremium", 140);
-        reactionsUserMaxDefault = mainPreferences.getInt("reactionsUserMaxDefault", 1);
-        reactionsUserMaxPremium = mainPreferences.getInt("reactionsUserMaxPremium", 3);
-        reactionsInChatMax = mainPreferences.getInt("reactionsInChatMax", 3);
-        uploadMaxFileParts = mainPreferences.getInt("uploadMaxFileParts", (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / 1024L / 512L));
-        uploadMaxFilePartsPremium = mainPreferences.getInt("uploadMaxFilePartsPremium", uploadMaxFileParts * 2);
-        premiumInvoiceSlug = mainPreferences.getString("premiumInvoiceSlug", null);
-        verifyAgeBotUsername = mainPreferences.getString("verifyAgeBotUsername", null);
-        verifyAgeCountry = mainPreferences.getString("verifyAgeCountry", "GB");
-        verifyAgeMin = mainPreferences.getInt("verifyAgeMin", 18);
-        premiumBotUsername = mainPreferences.getString("premiumBotUsername", null);
-        premiumLocked = mainPreferences.getBoolean("premiumLocked", false);
-        starsLocked = mainPreferences.getBoolean("starsLocked", true);
-        transcribeButtonPressed = mainPreferences.getInt("transcribeButtonPressed", 0);
-        forumUpgradeParticipantsMin = mainPreferences.getInt("forumUpgradeParticipantsMin", 200);
-        topicsPinnedLimit = mainPreferences.getInt("topicsPinnedLimit", 3);
-        telegramAntispamUserId = mainPreferences.getLong("telegramAntispamUserId", -1);
-        telegramAntispamGroupSizeMin = mainPreferences.getInt("telegramAntispamGroupSizeMin", 100);
-        hiddenMembersGroupSizeMin = mainPreferences.getInt("hiddenMembersGroupSizeMin", 100);
-        chatlistUpdatePeriod = mainPreferences.getInt("chatlistUpdatePeriod", 3600);
-        uploadMarkupVideo = mainPreferences.getBoolean("uploadMarkupVideo", true);
-        giftAttachMenuIcon = mainPreferences.getBoolean("giftAttachMenuIcon", false);
-        giftTextFieldIcon = mainPreferences.getBoolean("giftTextFieldIcon", false);
-        checkResetLangpack = mainPreferences.getInt("checkResetLangpack", 0);
-        smallQueueMaxActiveOperations = mainPreferences.getInt("smallQueueMaxActiveOperations", 5);
-        largeQueueMaxActiveOperations = mainPreferences.getInt("largeQueueMaxActiveOperations", 2);
-        stealthModeFuture = mainPreferences.getInt("stories_stealth_future_period", 25 * 60);
-        storiesChangelogUserId = mainPreferences.getLong("stories_changelog_user_id", 777000);
-        giveawayAddPeersMax = mainPreferences.getLong("giveaway_add_peers_max", 10);
-        giveawayCountriesMax = mainPreferences.getLong("giveaway_countries_max", 10);
-        giveawayBoostsPerPremium = mainPreferences.getLong("giveaway_boosts_per_premium", 4);
-        boostsPerSentGift = mainPreferences.getLong("boosts_per_sent_gift", 3);
-        giveawayPeriodMax = mainPreferences.getLong("giveaway_period_max", 7);
-        stealthModePast = mainPreferences.getInt("stories_stealth_past_period", 5 * 60);
-        stealthModeCooldown = mainPreferences.getInt("stories_stealth_cooldown_period", 60 * 60);
+        keepAliveService = safePreferenceBoolean(mainPreferences, "keepAliveService", true);
+        backgroundConnection = safePreferenceBoolean(mainPreferences, "backgroundConnection", true);
+        promoDialogId = safePreferenceLong(mainPreferences, "proxy_dialog", 0);
+        nextPromoInfoCheckTime = safePreferenceInt(mainPreferences, "nextPromoInfoCheckTime", 0);
+        promoDialogType = safePreferenceInt(mainPreferences, "promo_dialog_type", 0);
+        promoPsaMessage = safePreferenceString(mainPreferences, "promo_psa_message", null);
+        promoPsaType = safePreferenceString(mainPreferences, "promo_psa_type", null);
+        proxyDialogAddress = safePreferenceString(mainPreferences, "proxyDialogAddress", null);
+        venueSearchBot = safePreferenceString(mainPreferences, "venueSearchBot", "foursquare");
+        storyVenueSearchBot = safePreferenceString(mainPreferences, "storyVenueSearchBot", "foursquare");
+        gifSearchBot = safePreferenceString(mainPreferences, "gifSearchBot", "gif");
+        imageSearchBot = safePreferenceString(mainPreferences, "imageSearchBot", "pic");
+        blockedCountry = safePreferenceBoolean(mainPreferences, "blockedCountry", false);
+        suggestedLangCode = safePreferenceString(mainPreferences, "suggestedLangCode", "en");
+        animatedEmojisZoom = safePreferenceFloat(mainPreferences, "animatedEmojisZoom", 0.625f);
+        qrLoginCamera = safePreferenceBoolean(mainPreferences, "qrLoginCamera", true);
+        saveGifsWithStickers = safePreferenceBoolean(mainPreferences, "saveGifsWithStickers", false);
+        filtersEnabled = safePreferenceBoolean(mainPreferences, "filtersEnabled", false);
+        getfileExperimentalParams = safePreferenceBoolean(mainPreferences, "getfileExperimentalParams", false);
+        smsjobsStickyNotificationEnabled = safePreferenceBoolean(mainPreferences, "smsjobsStickyNotificationEnabled", false);
+        showFiltersTooltip = safePreferenceBoolean(mainPreferences, "showFiltersTooltip", false);
+        autoarchiveAvailable = safePreferenceBoolean(mainPreferences, "autoarchiveAvailable", false);
+        groupCallVideoMaxParticipants = safePreferenceInt(mainPreferences, "groipCallVideoMaxParticipants", 30);
+        chatReadMarkSizeThreshold = safePreferenceInt(mainPreferences, "chatReadMarkSizeThreshold", 100);
+        chatReadMarkExpirePeriod = safePreferenceInt(mainPreferences, "chatReadMarkExpirePeriod", 7 * 86400);
+        ringtoneDurationMax = safePreferenceInt(mainPreferences, "ringtoneDurationMax", 5);
+        ringtoneSizeMax = safePreferenceInt(mainPreferences, "ringtoneSizeMax", 1024_00);
+        pmReadDateExpirePeriod = safePreferenceInt(mainPreferences, "pmReadDateExpirePeriod", 7 * 86400);
+        suggestStickersApiOnly = safePreferenceBoolean(mainPreferences, "suggestStickersApiOnly", false);
+        roundVideoSize = safePreferenceInt(mainPreferences, "roundVideoSize", 384);
+        roundVideoBitrate = safePreferenceInt(mainPreferences, "roundVideoBitrate", 1000);
+        roundAudioBitrate = safePreferenceInt(mainPreferences, "roundAudioBitrate", 64);
+        pendingSuggestions = safePreferenceStringSet(mainPreferences, "pendingSuggestions", null);
+        dismissedSuggestions = safePreferenceStringSet(mainPreferences, "dismissedSuggestions", null);
+        channelsLimitDefault = safePreferenceInt(mainPreferences, "channelsLimitDefault", 500);
+        channelsLimitPremium = safePreferenceInt(mainPreferences, "channelsLimitPremium", 2 * channelsLimitDefault);
+        savedGifsLimitDefault = safePreferenceInt(mainPreferences, "savedGifsLimitDefault", 200);
+        savedGifsLimitPremium = safePreferenceInt(mainPreferences, "savedGifsLimitPremium", 400);
+        stickersFavedLimitDefault = safePreferenceInt(mainPreferences, "stickersFavedLimitDefault", 5);
+        stickersFavedLimitPremium = safePreferenceInt(mainPreferences, "stickersFavedLimitPremium", 200);
+        maxPinnedDialogsCountDefault = safePreferenceInt(mainPreferences, "maxPinnedDialogsCountDefault", 5);
+        maxPinnedDialogsCountPremium = safePreferenceInt(mainPreferences, "maxPinnedDialogsCountPremium", 5);
+        maxPinnedDialogsCountDefault = safePreferenceInt(mainPreferences, "maxPinnedDialogsCountDefault", 5);
+        maxPinnedDialogsCountPremium = safePreferenceInt(mainPreferences, "maxPinnedDialogsCountPremium", 5);
+        dialogFiltersLimitDefault = safePreferenceInt(mainPreferences, "dialogFiltersLimitDefault", 10);
+        dialogFiltersLimitPremium = safePreferenceInt(mainPreferences, "dialogFiltersLimitPremium", 20);
+        dialogFiltersChatsLimitDefault = safePreferenceInt(mainPreferences, "dialogFiltersChatsLimitDefault", 100);
+        dialogFiltersChatsLimitPremium = safePreferenceInt(mainPreferences, "dialogFiltersChatsLimitPremium", 200);
+        dialogFiltersPinnedLimitDefault = safePreferenceInt(mainPreferences, "dialogFiltersPinnedLimitDefault", 5);
+        dialogFiltersPinnedLimitPremium = safePreferenceInt(mainPreferences, "dialogFiltersPinnedLimitPremium", 10);
+        publicLinksLimitDefault = safePreferenceInt(mainPreferences, "publicLinksLimitDefault", 10);
+        publicLinksLimitPremium = safePreferenceInt(mainPreferences, "publicLinksLimitPremium", 20);
+        captionLengthLimitDefault = safePreferenceInt(mainPreferences, "captionLengthLimitDefault", 1024);
+        captionLengthLimitPremium = safePreferenceInt(mainPreferences, "captionLengthLimitPremium", 4096);
+        storyCaptionLengthLimitDefault = safePreferenceInt(mainPreferences, "storyCaptionLengthLimit", 200);
+        storyCaptionLengthLimitPremium = safePreferenceInt(mainPreferences, "storyCaptionLengthLimitPremium", 2048);
+        aboutLengthLimitDefault = safePreferenceInt(mainPreferences, "aboutLengthLimitDefault", 70);
+        aboutLengthLimitPremium = safePreferenceInt(mainPreferences, "aboutLengthLimitPremium", 140);
+        reactionsUserMaxDefault = safePreferenceInt(mainPreferences, "reactionsUserMaxDefault", 1);
+        reactionsUserMaxPremium = safePreferenceInt(mainPreferences, "reactionsUserMaxPremium", 3);
+        reactionsInChatMax = safePreferenceInt(mainPreferences, "reactionsInChatMax", 3);
+        uploadMaxFileParts = safePreferenceInt(mainPreferences, "uploadMaxFileParts", (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / 1024L / 512L));
+        uploadMaxFilePartsPremium = safePreferenceInt(mainPreferences, "uploadMaxFilePartsPremium", uploadMaxFileParts * 2);
+        premiumInvoiceSlug = safePreferenceString(mainPreferences, "premiumInvoiceSlug", null);
+        verifyAgeBotUsername = safePreferenceString(mainPreferences, "verifyAgeBotUsername", null);
+        verifyAgeCountry = safePreferenceString(mainPreferences, "verifyAgeCountry", "GB");
+        verifyAgeMin = safePreferenceInt(mainPreferences, "verifyAgeMin", 18);
+        premiumBotUsername = safePreferenceString(mainPreferences, "premiumBotUsername", null);
+        premiumLocked = safePreferenceBoolean(mainPreferences, "premiumLocked", false);
+        starsLocked = safePreferenceBoolean(mainPreferences, "starsLocked", true);
+        transcribeButtonPressed = safePreferenceInt(mainPreferences, "transcribeButtonPressed", 0);
+        forumUpgradeParticipantsMin = safePreferenceInt(mainPreferences, "forumUpgradeParticipantsMin", 200);
+        topicsPinnedLimit = safePreferenceInt(mainPreferences, "topicsPinnedLimit", 3);
+        telegramAntispamUserId = safePreferenceLong(mainPreferences, "telegramAntispamUserId", -1);
+        telegramAntispamGroupSizeMin = safePreferenceInt(mainPreferences, "telegramAntispamGroupSizeMin", 100);
+        hiddenMembersGroupSizeMin = safePreferenceInt(mainPreferences, "hiddenMembersGroupSizeMin", 100);
+        chatlistUpdatePeriod = safePreferenceInt(mainPreferences, "chatlistUpdatePeriod", 3600);
+        uploadMarkupVideo = safePreferenceBoolean(mainPreferences, "uploadMarkupVideo", true);
+        giftAttachMenuIcon = safePreferenceBoolean(mainPreferences, "giftAttachMenuIcon", false);
+        giftTextFieldIcon = safePreferenceBoolean(mainPreferences, "giftTextFieldIcon", false);
+        checkResetLangpack = safePreferenceInt(mainPreferences, "checkResetLangpack", 0);
+        smallQueueMaxActiveOperations = safePreferenceInt(mainPreferences, "smallQueueMaxActiveOperations", 5);
+        largeQueueMaxActiveOperations = safePreferenceInt(mainPreferences, "largeQueueMaxActiveOperations", 2);
+        stealthModeFuture = safePreferenceInt(mainPreferences, "stories_stealth_future_period", 25 * 60);
+        storiesChangelogUserId = safePreferenceLong(mainPreferences, "stories_changelog_user_id", 777000);
+        giveawayAddPeersMax = safePreferenceLong(mainPreferences, "giveaway_add_peers_max", 10);
+        giveawayCountriesMax = safePreferenceLong(mainPreferences, "giveaway_countries_max", 10);
+        giveawayBoostsPerPremium = safePreferenceLong(mainPreferences, "giveaway_boosts_per_premium", 4);
+        boostsPerSentGift = safePreferenceLong(mainPreferences, "boosts_per_sent_gift", 3);
+        giveawayPeriodMax = safePreferenceLong(mainPreferences, "giveaway_period_max", 7);
+        stealthModePast = safePreferenceInt(mainPreferences, "stories_stealth_past_period", 5 * 60);
+        stealthModeCooldown = safePreferenceInt(mainPreferences, "stories_stealth_cooldown_period", 60 * 60);
         boolean isTest = ConnectionsManager.native_isTestBackend(currentAccount) != 0;
-        chatlistInvitesLimitDefault = mainPreferences.getInt("chatlistInvitesLimitDefault", 3);
-        storyExpiringLimitDefault = mainPreferences.getInt("storyExpiringLimitDefault", 50);
-        storyExpiringLimitPremium = mainPreferences.getInt("storyExpiringLimitPremium", 100);
-        storiesSentWeeklyLimitDefault = mainPreferences.getInt("storiesSentWeeklyLimitDefault", 7);
-        storiesSuggestedReactionsLimitDefault = mainPreferences.getInt("storiesSuggestedReactionsLimitDefault", 1);
-        storiesSuggestedReactionsLimitPremium = mainPreferences.getInt("storiesSuggestedReactionsLimitPremium", 5);
-        storiesSentWeeklyLimitPremium = mainPreferences.getInt("storiesSentWeeklyLimitPremium", 70);
-        storiesSentMonthlyLimitDefault = mainPreferences.getInt("storiesSentMonthlyLimitDefault", 30);
-        storiesSentMonthlyLimitPremium = mainPreferences.getInt("storiesSentMonthlyLimitPremium", 300);
-        channelBgIconLevelMin = mainPreferences.getInt("channelBgIconLevelMin", 1);
-        channelProfileIconLevelMin = mainPreferences.getInt("channelProfileIconLevelMin", 1);
-        channelEmojiStatusLevelMin = mainPreferences.getInt("channelEmojiStatusLevelMin", 1);
-        groupProfileBgIconLevelMin = mainPreferences.getInt("groupProfileBgIconLevelMin", 1);
-        groupEmojiStatusLevelMin = mainPreferences.getInt("groupEmojiStatusLevelMin", 1);
-        groupEmojiStickersLevelMin = mainPreferences.getInt("groupEmojiStickersLevelMin", 1);
-        groupWallpaperLevelMin = mainPreferences.getInt("groupWallpaperLevelMin", 1);
-        groupCustomWallpaperLevelMin = mainPreferences.getInt("groupCustomWallpaperLevelMin", 1);
-        groupTranscribeLevelMin = mainPreferences.getInt("groupTranscribeLevelMin", 1);
-        quickRepliesLimit = mainPreferences.getInt("quickRepliesLimit", 10);
-        quickReplyMessagesLimit = mainPreferences.getInt("quickReplyMessagesLimit", 20);
-        channelWallpaperLevelMin = mainPreferences.getInt("channelWallpaperLevelMin", 1);
-        channelCustomWallpaperLevelMin = mainPreferences.getInt("channelCustomWallpaperLevelMin", 1);
-        chatlistInvitesLimitPremium = mainPreferences.getInt("chatlistInvitesLimitPremium",  isTest ? 5 : 20);
-        chatlistJoinedLimitDefault = mainPreferences.getInt("chatlistJoinedLimitDefault", 2);
-        chatlistJoinedLimitPremium = mainPreferences.getInt("chatlistJoinedLimitPremium",  isTest ? 5 : 20);
-        stargiftsMessageLengthMax = mainPreferences.getInt("stargiftsMessageLengthMax", 255);
-        stargiftsConvertPeriodMax = mainPreferences.getInt("stargiftsConvertPeriodMax", isTest ? 300 : 90 * 86400);
-        videoIgnoreAltDocuments = mainPreferences.getBoolean("videoIgnoreAltDocuments", false);
-        disableBotFullscreenBlur = mainPreferences.getBoolean("disableBotFullscreenBlur", false);
-        tonBlockchainExplorerUrl = mainPreferences.getString("tonBlockchainExplorerUrl", "https://tonviewer.com/");
-        starsPaidMessageAmountMax = mainPreferences.getLong("starsPaidMessageAmountMax", 10_000L);
-        starsPaidMessageCommissionPermille = mainPreferences.getInt("starsPaidMessageCommissionPermille", 850);
-        stargiftsPinnedToTopLimit = mainPreferences.getInt("stargiftsPinnedToTopLimit", 6);
-        starsPaidMessagesAvailable = mainPreferences.getBoolean("starsPaidMessagesAvailable", true);
-        freezeSinceDate = mainPreferences.getLong("freezeSinceDate", 0L);
-        freezeUntilDate = mainPreferences.getLong("freezeUntilDate", 0L);
-        conferenceCallSizeLimit = mainPreferences.getInt("conferenceCallSizeLimit", isTest ? 5 : 100);
-        callRequestsDisabled = mainPreferences.getBoolean("callRequestsDisabled", false);
-        todoItemsMax = mainPreferences.getInt("todoItemsMax", isTest ? 10 : 30);
-        todoTitleLengthMax = mainPreferences.getInt("todoTitleLengthMax", 32);
-        todoItemLengthMax = mainPreferences.getInt("todoItemLengthMax", 64);
-        translationsManualEnabled = mainPreferences.getString("translationsManualEnabled", "enabled");
-        translationsAutoEnabled = mainPreferences.getString("translationsAutoEnabled", "enabled");
-        whitelistedBots = mainPreferences.getStringSet("whitelistedBots", new HashSet<>()).stream().map(s -> tryParseLong(s, 0)).collect(Collectors.toCollection(HashSet::new));
-        starsGroupcallMessageAmountMax = mainPreferences.getInt("starsGroupcallMessageAmountMax", 10_000);
-        starsGroupcallMessageLimits = parseTiersString(mainPreferences.getString("starsGroupcallMessageLimits", null));
-        freezeAppealUrl = mainPreferences.getString("freezeAppealUrl", "t.me/spambot");
-        enableGiftsInProfile = mainPreferences.getBoolean("enableGiftsInProfile", true);
-        storiesPosting = mainPreferences.getString("storiesPosting", "enabled");
-        storiesEntities = mainPreferences.getString("storiesEntities", "premium");
-        storiesExportNopublicLink = mainPreferences.getBoolean("storiesExportNopublicLink", false);
-        authorizationAutoconfirmPeriod = mainPreferences.getInt("authorization_autoconfirm_period", 604800);
-        quoteLengthMax = mainPreferences.getInt("quoteLengthMax", 1024);
-        giveawayGiftsPurchaseAvailable = mainPreferences.getBoolean("giveawayGiftsPurchaseAvailable", false);
-        peerColors = PeerColors.fromString(PeerColors.TYPE_NAME, mainPreferences.getString("peerColors", ""));
-        profilePeerColors = PeerColors.fromString(PeerColors.TYPE_PROFILE, mainPreferences.getString("profilePeerColors", ""));
-        transcribeAudioTrialWeeklyNumber = mainPreferences.getInt("transcribeAudioTrialWeeklyNumber", BuildVars.DEBUG_PRIVATE_VERSION ? 2 : 0);
-        transcribeAudioTrialCurrentNumber = mainPreferences.getInt("transcribeAudioTrialCurrentNumber", transcribeAudioTrialWeeklyNumber);
-        transcribeAudioTrialDurationMax = mainPreferences.getInt("transcribeAudioTrialDurationMax", 300);
-        transcribeAudioTrialCooldownUntil = mainPreferences.getInt("transcribeAudioTrialCooldownUntil", 0);
-        recommendedChannelsLimitDefault = mainPreferences.getInt("recommendedChannelsLimitDefault", 10);
-        recommendedChannelsLimitPremium = mainPreferences.getInt("recommendedChannelsLimitPremium", 100);
-        boostsChannelLevelMax = mainPreferences.getInt("boostsChannelLevelMax", 100);
-        channelRestrictSponsoredLevelMin = mainPreferences.getInt("channelRestrictSponsoredLevelMin", 30);
-        channelAutotranslationLevelMin = mainPreferences.getInt("channelAutotranslationLevelMin", 3);
-        savedDialogsPinnedLimitDefault = mainPreferences.getInt("savedDialogsPinnedLimitDefault", 4);
-        savedDialogsPinnedLimitPremium = mainPreferences.getInt("savedDialogsPinnedLimitPremium", 6);
-        storyQualityFull = mainPreferences.getBoolean("storyQualityFull", true);
-        savedViewAsChats = mainPreferences.getBoolean("savedViewAsChats", false);
-        folderTags = mainPreferences.getBoolean("folderTags", false);
-        uploadPremiumSpeedupUpload = mainPreferences.getFloat("uploadPremiumSpeedupUpload", 10.0f);
-        uploadPremiumSpeedupDownload = mainPreferences.getFloat("uploadPremiumSpeedupDownload", 10.0f);
-        uploadPremiumSpeedupNotifyPeriod = mainPreferences.getInt("uploadPremiumSpeedupNotifyPeriod2", 3600);
-        introTitleLengthLimit = mainPreferences.getInt("introTitleLengthLimit", 32);
-        introDescriptionLengthLimit = mainPreferences.getInt("introDescriptionLengthLimit", 72);
-        businessChatLinksLimit = mainPreferences.getInt("businessChatLinksLimit", 100);
-        channelRevenueWithdrawalEnabled = mainPreferences.getBoolean("channelRevenueWithdrawalEnabled", false);
-        newNoncontactPeersRequirePremiumWithoutOwnpremium = mainPreferences.getBoolean("newNoncontactPeersRequirePremiumWithoutOwnpremium", false);
-        reactionsUniqMax = mainPreferences.getInt("reactionsUniqMax", 11);
-        premiumManageSubscriptionUrl = mainPreferences.getString("premiumManageSubscriptionUrl", ApplicationLoader.isStandaloneBuild() ? "https://t.me/premiumbot?start=status" : "https://play.google.com/store/account/subscriptions?sku=telegram_premium&package=org.telegram.messenger");
-        androidDisableRoundCamera2 = mainPreferences.getBoolean("androidDisableRoundCamera2", true);
-        storiesPinnedToTopCountMax = mainPreferences.getInt("storiesPinnedToTopCountMax", 3);
-        showAnnualPerMonth = mainPreferences.getBoolean("showAnnualPerMonth", false);
-        canEditFactcheck = mainPreferences.getBoolean("canEditFactcheck", false);
-        factcheckLengthLimit = mainPreferences.getInt("factcheckLengthLimit", 1024);
-        starsRevenueWithdrawalMin = mainPreferences.getLong("starsRevenueWithdrawalMin", 1000);
-        starsPaidPostAmountMax = mainPreferences.getLong("starsPaidPostAmountMax", 10_000);
-        botPreviewMediasMax = mainPreferences.getInt("botPreviewMediasMax", 10);
-        webAppAllowedProtocols = mainPreferences.getStringSet("webAppAllowedProtocols", new HashSet<>(Arrays.asList("http", "https")));
-        ignoreRestrictionReasons = mainPreferences.getStringSet("ignoreRestrictionReasons", new HashSet<>(Arrays.asList()));
-        tonProxyAddress = mainPreferences.getString("tonProxyAddress", "magic.org");
-        weatherSearchUsername = mainPreferences.getString("weatherSearchUsername", "izweatherbot");
-        storyWeatherPreload = mainPreferences.getBoolean("storyWeatherPreload", true);
-        starsGiftsEnabled = mainPreferences.getBoolean("starsGiftsEnabled", true);
-        stargiftsBlocked = mainPreferences.getBoolean("stargiftsBlocked", true); // !BuildVars.DEBUG_VERSION);
-        starsPaidReactionAmountMax = mainPreferences.getLong("starsPaidReactionAmountMax", 10_000L);
-        starsSubscriptionAmountMax = mainPreferences.getLong("starsSubscriptionAmountMax", 2500L);
-        starsUsdSellRate1000 = mainPreferences.getFloat("starsUsdSellRate1000", 2000);
-        starsUsdWithdrawRate1000 = mainPreferences.getFloat("starsUsdWithdrawRate1000", 1200);
-        sponsoredLinksInappAllow = mainPreferences.getBoolean("sponsoredLinksInappAllow", false);
-        starrefProgramAllowed = mainPreferences.getBoolean("starrefProgramAllowed", false);
-        starrefConnectAllowed = mainPreferences.getBoolean("starrefConnectAllowed", false);
-        starrefStartParamPrefixes = mainPreferences.getStringSet("starrefStartParamPrefixes", new HashSet<>(Arrays.asList("_tgr_")));
-        starrefMinCommissionPermille = mainPreferences.getInt("starrefMinCommissionPermille", 1);
-        starrefMaxCommissionPermille = mainPreferences.getInt("starrefMaxCommissionPermille", 400);
-        botVerificationDescriptionLengthLimit = mainPreferences.getInt("botVerificationDescriptionLengthLimit", 70);
-        paidReactionsPrivacyTime = mainPreferences.getLong("paidReactionsAnonymousTime", 0);
-        tonStakeddiceStakeAmountMin = mainPreferences.getLong("tonStakeddiceStakeAmountMin", 100000000L);
-        tonStakeddiceStakeAmountMax = mainPreferences.getLong("tonStakeddiceStakeAmountMax", 50000000000L);
-        tonStakediceStakeSuggestedAmounts = Arrays.stream(mainPreferences.getString("tonStakediceStakeSuggestedAmounts", "100000000,1000000000,2000000000,5000000000,10000000000,20000000000").split(",")).mapToLong(Long::parseLong).toArray();
-        stargiftsCraftAttributesPermilles = Arrays.stream(mainPreferences.getString("stargiftsCraftAttributesPermilles", "90,,80,200,,70,190,460,,60,180,450,1000").split(",,"))
+        chatlistInvitesLimitDefault = safePreferenceInt(mainPreferences, "chatlistInvitesLimitDefault", 3);
+        storyExpiringLimitDefault = safePreferenceInt(mainPreferences, "storyExpiringLimitDefault", 50);
+        storyExpiringLimitPremium = safePreferenceInt(mainPreferences, "storyExpiringLimitPremium", 100);
+        storiesSentWeeklyLimitDefault = safePreferenceInt(mainPreferences, "storiesSentWeeklyLimitDefault", 7);
+        storiesSuggestedReactionsLimitDefault = safePreferenceInt(mainPreferences, "storiesSuggestedReactionsLimitDefault", 1);
+        storiesSuggestedReactionsLimitPremium = safePreferenceInt(mainPreferences, "storiesSuggestedReactionsLimitPremium", 5);
+        storiesSentWeeklyLimitPremium = safePreferenceInt(mainPreferences, "storiesSentWeeklyLimitPremium", 70);
+        storiesSentMonthlyLimitDefault = safePreferenceInt(mainPreferences, "storiesSentMonthlyLimitDefault", 30);
+        storiesSentMonthlyLimitPremium = safePreferenceInt(mainPreferences, "storiesSentMonthlyLimitPremium", 300);
+        channelBgIconLevelMin = safePreferenceInt(mainPreferences, "channelBgIconLevelMin", 1);
+        channelProfileIconLevelMin = safePreferenceInt(mainPreferences, "channelProfileIconLevelMin", 1);
+        channelEmojiStatusLevelMin = safePreferenceInt(mainPreferences, "channelEmojiStatusLevelMin", 1);
+        groupProfileBgIconLevelMin = safePreferenceInt(mainPreferences, "groupProfileBgIconLevelMin", 1);
+        groupEmojiStatusLevelMin = safePreferenceInt(mainPreferences, "groupEmojiStatusLevelMin", 1);
+        groupEmojiStickersLevelMin = safePreferenceInt(mainPreferences, "groupEmojiStickersLevelMin", 1);
+        groupWallpaperLevelMin = safePreferenceInt(mainPreferences, "groupWallpaperLevelMin", 1);
+        groupCustomWallpaperLevelMin = safePreferenceInt(mainPreferences, "groupCustomWallpaperLevelMin", 1);
+        groupTranscribeLevelMin = safePreferenceInt(mainPreferences, "groupTranscribeLevelMin", 1);
+        quickRepliesLimit = safePreferenceInt(mainPreferences, "quickRepliesLimit", 10);
+        quickReplyMessagesLimit = safePreferenceInt(mainPreferences, "quickReplyMessagesLimit", 20);
+        channelWallpaperLevelMin = safePreferenceInt(mainPreferences, "channelWallpaperLevelMin", 1);
+        channelCustomWallpaperLevelMin = safePreferenceInt(mainPreferences, "channelCustomWallpaperLevelMin", 1);
+        chatlistInvitesLimitPremium = safePreferenceInt(mainPreferences, "chatlistInvitesLimitPremium",  isTest ? 5 : 20);
+        chatlistJoinedLimitDefault = safePreferenceInt(mainPreferences, "chatlistJoinedLimitDefault", 2);
+        chatlistJoinedLimitPremium = safePreferenceInt(mainPreferences, "chatlistJoinedLimitPremium",  isTest ? 5 : 20);
+        stargiftsMessageLengthMax = safePreferenceInt(mainPreferences, "stargiftsMessageLengthMax", 255);
+        stargiftsConvertPeriodMax = safePreferenceInt(mainPreferences, "stargiftsConvertPeriodMax", isTest ? 300 : 90 * 86400);
+        videoIgnoreAltDocuments = safePreferenceBoolean(mainPreferences, "videoIgnoreAltDocuments", false);
+        disableBotFullscreenBlur = safePreferenceBoolean(mainPreferences, "disableBotFullscreenBlur", false);
+        tonBlockchainExplorerUrl = safePreferenceString(mainPreferences, "tonBlockchainExplorerUrl", "https://tonviewer.com/");
+        starsPaidMessageAmountMax = safePreferenceLong(mainPreferences, "starsPaidMessageAmountMax", 10_000L);
+        starsPaidMessageCommissionPermille = safePreferenceInt(mainPreferences, "starsPaidMessageCommissionPermille", 850);
+        stargiftsPinnedToTopLimit = safePreferenceInt(mainPreferences, "stargiftsPinnedToTopLimit", 6);
+        starsPaidMessagesAvailable = safePreferenceBoolean(mainPreferences, "starsPaidMessagesAvailable", true);
+        freezeSinceDate = safePreferenceLong(mainPreferences, "freezeSinceDate", 0L);
+        freezeUntilDate = safePreferenceLong(mainPreferences, "freezeUntilDate", 0L);
+        conferenceCallSizeLimit = safePreferenceInt(mainPreferences, "conferenceCallSizeLimit", isTest ? 5 : 100);
+        callRequestsDisabled = safePreferenceBoolean(mainPreferences, "callRequestsDisabled", false);
+        todoItemsMax = safePreferenceInt(mainPreferences, "todoItemsMax", isTest ? 10 : 30);
+        todoTitleLengthMax = safePreferenceInt(mainPreferences, "todoTitleLengthMax", 32);
+        todoItemLengthMax = safePreferenceInt(mainPreferences, "todoItemLengthMax", 64);
+        translationsManualEnabled = safePreferenceString(mainPreferences, "translationsManualEnabled", "enabled");
+        translationsAutoEnabled = safePreferenceString(mainPreferences, "translationsAutoEnabled", "enabled");
+        whitelistedBots = safePreferenceStringSet(mainPreferences, "whitelistedBots", new HashSet<>()).stream().map(s -> tryParseLong(s, 0)).collect(Collectors.toCollection(HashSet::new));
+        starsGroupcallMessageAmountMax = safePreferenceInt(mainPreferences, "starsGroupcallMessageAmountMax", 10_000);
+        starsGroupcallMessageLimits = parseTiersString(safePreferenceString(mainPreferences, "starsGroupcallMessageLimits", null));
+        freezeAppealUrl = safePreferenceString(mainPreferences, "freezeAppealUrl", "t.me/spambot");
+        enableGiftsInProfile = safePreferenceBoolean(mainPreferences, "enableGiftsInProfile", true);
+        storiesPosting = safePreferenceString(mainPreferences, "storiesPosting", "enabled");
+        storiesEntities = safePreferenceString(mainPreferences, "storiesEntities", "premium");
+        storiesExportNopublicLink = safePreferenceBoolean(mainPreferences, "storiesExportNopublicLink", false);
+        authorizationAutoconfirmPeriod = safePreferenceInt(mainPreferences, "authorization_autoconfirm_period", 604800);
+        quoteLengthMax = safePreferenceInt(mainPreferences, "quoteLengthMax", 1024);
+        giveawayGiftsPurchaseAvailable = safePreferenceBoolean(mainPreferences, "giveawayGiftsPurchaseAvailable", false);
+        peerColors = PeerColors.fromString(PeerColors.TYPE_NAME, safePreferenceString(mainPreferences, "peerColors", ""));
+        profilePeerColors = PeerColors.fromString(PeerColors.TYPE_PROFILE, safePreferenceString(mainPreferences, "profilePeerColors", ""));
+        transcribeAudioTrialWeeklyNumber = safePreferenceInt(mainPreferences, "transcribeAudioTrialWeeklyNumber", BuildVars.DEBUG_PRIVATE_VERSION ? 2 : 0);
+        transcribeAudioTrialCurrentNumber = safePreferenceInt(mainPreferences, "transcribeAudioTrialCurrentNumber", transcribeAudioTrialWeeklyNumber);
+        transcribeAudioTrialDurationMax = safePreferenceInt(mainPreferences, "transcribeAudioTrialDurationMax", 300);
+        transcribeAudioTrialCooldownUntil = safePreferenceInt(mainPreferences, "transcribeAudioTrialCooldownUntil", 0);
+        recommendedChannelsLimitDefault = safePreferenceInt(mainPreferences, "recommendedChannelsLimitDefault", 10);
+        recommendedChannelsLimitPremium = safePreferenceInt(mainPreferences, "recommendedChannelsLimitPremium", 100);
+        boostsChannelLevelMax = safePreferenceInt(mainPreferences, "boostsChannelLevelMax", 100);
+        channelRestrictSponsoredLevelMin = safePreferenceInt(mainPreferences, "channelRestrictSponsoredLevelMin", 30);
+        channelAutotranslationLevelMin = safePreferenceInt(mainPreferences, "channelAutotranslationLevelMin", 3);
+        savedDialogsPinnedLimitDefault = safePreferenceInt(mainPreferences, "savedDialogsPinnedLimitDefault", 4);
+        savedDialogsPinnedLimitPremium = safePreferenceInt(mainPreferences, "savedDialogsPinnedLimitPremium", 6);
+        storyQualityFull = safePreferenceBoolean(mainPreferences, "storyQualityFull", true);
+        savedViewAsChats = safePreferenceBoolean(mainPreferences, "savedViewAsChats", false);
+        folderTags = safePreferenceBoolean(mainPreferences, "folderTags", false);
+        uploadPremiumSpeedupUpload = safePreferenceFloat(mainPreferences, "uploadPremiumSpeedupUpload", 10.0f);
+        uploadPremiumSpeedupDownload = safePreferenceFloat(mainPreferences, "uploadPremiumSpeedupDownload", 10.0f);
+        uploadPremiumSpeedupNotifyPeriod = safePreferenceInt(mainPreferences, "uploadPremiumSpeedupNotifyPeriod2", 3600);
+        introTitleLengthLimit = safePreferenceInt(mainPreferences, "introTitleLengthLimit", 32);
+        introDescriptionLengthLimit = safePreferenceInt(mainPreferences, "introDescriptionLengthLimit", 72);
+        businessChatLinksLimit = safePreferenceInt(mainPreferences, "businessChatLinksLimit", 100);
+        channelRevenueWithdrawalEnabled = safePreferenceBoolean(mainPreferences, "channelRevenueWithdrawalEnabled", false);
+        newNoncontactPeersRequirePremiumWithoutOwnpremium = safePreferenceBoolean(mainPreferences, "newNoncontactPeersRequirePremiumWithoutOwnpremium", false);
+        reactionsUniqMax = safePreferenceInt(mainPreferences, "reactionsUniqMax", 11);
+        premiumManageSubscriptionUrl = safePreferenceString(mainPreferences, "premiumManageSubscriptionUrl", ApplicationLoader.isStandaloneBuild() ? "https://t.me/premiumbot?start=status" : "https://play.google.com/store/account/subscriptions?sku=telegram_premium&package=org.telegram.messenger");
+        androidDisableRoundCamera2 = safePreferenceBoolean(mainPreferences, "androidDisableRoundCamera2", true);
+        storiesPinnedToTopCountMax = safePreferenceInt(mainPreferences, "storiesPinnedToTopCountMax", 3);
+        showAnnualPerMonth = safePreferenceBoolean(mainPreferences, "showAnnualPerMonth", false);
+        canEditFactcheck = safePreferenceBoolean(mainPreferences, "canEditFactcheck", false);
+        factcheckLengthLimit = safePreferenceInt(mainPreferences, "factcheckLengthLimit", 1024);
+        starsRevenueWithdrawalMin = safePreferenceLong(mainPreferences, "starsRevenueWithdrawalMin", 1000);
+        starsPaidPostAmountMax = safePreferenceLong(mainPreferences, "starsPaidPostAmountMax", 10_000);
+        botPreviewMediasMax = safePreferenceInt(mainPreferences, "botPreviewMediasMax", 10);
+        webAppAllowedProtocols = safePreferenceStringSet(mainPreferences, "webAppAllowedProtocols", new HashSet<>(Arrays.asList("http", "https")));
+        ignoreRestrictionReasons = safePreferenceStringSet(mainPreferences, "ignoreRestrictionReasons", new HashSet<>(Arrays.asList()));
+        tonProxyAddress = safePreferenceString(mainPreferences, "tonProxyAddress", "magic.org");
+        weatherSearchUsername = safePreferenceString(mainPreferences, "weatherSearchUsername", "izweatherbot");
+        storyWeatherPreload = safePreferenceBoolean(mainPreferences, "storyWeatherPreload", true);
+        starsGiftsEnabled = safePreferenceBoolean(mainPreferences, "starsGiftsEnabled", true);
+        stargiftsBlocked = safePreferenceBoolean(mainPreferences, "stargiftsBlocked", true); // !BuildVars.DEBUG_VERSION);
+        starsPaidReactionAmountMax = safePreferenceLong(mainPreferences, "starsPaidReactionAmountMax", 10_000L);
+        starsSubscriptionAmountMax = safePreferenceLong(mainPreferences, "starsSubscriptionAmountMax", 2500L);
+        starsUsdSellRate1000 = safePreferenceFloat(mainPreferences, "starsUsdSellRate1000", 2000);
+        starsUsdWithdrawRate1000 = safePreferenceFloat(mainPreferences, "starsUsdWithdrawRate1000", 1200);
+        sponsoredLinksInappAllow = safePreferenceBoolean(mainPreferences, "sponsoredLinksInappAllow", false);
+        starrefProgramAllowed = safePreferenceBoolean(mainPreferences, "starrefProgramAllowed", false);
+        starrefConnectAllowed = safePreferenceBoolean(mainPreferences, "starrefConnectAllowed", false);
+        starrefStartParamPrefixes = safePreferenceStringSet(mainPreferences, "starrefStartParamPrefixes", new HashSet<>(Arrays.asList("_tgr_")));
+        starrefMinCommissionPermille = safePreferenceInt(mainPreferences, "starrefMinCommissionPermille", 1);
+        starrefMaxCommissionPermille = safePreferenceInt(mainPreferences, "starrefMaxCommissionPermille", 400);
+        botVerificationDescriptionLengthLimit = safePreferenceInt(mainPreferences, "botVerificationDescriptionLengthLimit", 70);
+        paidReactionsPrivacyTime = safePreferenceLong(mainPreferences, "paidReactionsAnonymousTime", 0);
+        tonStakeddiceStakeAmountMin = safePreferenceLong(mainPreferences, "tonStakeddiceStakeAmountMin", 100000000L);
+        tonStakeddiceStakeAmountMax = safePreferenceLong(mainPreferences, "tonStakeddiceStakeAmountMax", 50000000000L);
+        tonStakediceStakeSuggestedAmounts = Arrays.stream(safePreferenceString(mainPreferences, "tonStakediceStakeSuggestedAmounts", "100000000,1000000000,2000000000,5000000000,10000000000,20000000000").split(",")).mapToLong(Long::parseLong).toArray();
+        stargiftsCraftAttributesPermilles = Arrays.stream(safePreferenceString(mainPreferences, "stargiftsCraftAttributesPermilles", "90,,80,200,,70,190,460,,60,180,450,1000").split(",,"))
                 .map(r -> Arrays.stream(r.split(","))
                     .mapToInt(Integer::parseInt)
                     .toArray())
@@ -1886,32 +1953,32 @@ public class MessagesController extends BaseController implements NotificationCe
         paidReactionsPrivacy = null;
         if ((System.currentTimeMillis() - paidReactionsPrivacyTime) < 1000 * 60 * 60 * 2) {
             if (mainPreferences.contains("paidReactionsDialogId")) {
-                paidReactionsPrivacy = mainPreferences.getLong("paidReactionsDialogId", 0);
+                paidReactionsPrivacy = safePreferenceLong(mainPreferences, "paidReactionsDialogId", 0);
             } else {
-                paidReactionsPrivacy = mainPreferences.getBoolean("paidReactionsAnonymous", false) ? UserObject.ANONYMOUS : 0;
+                paidReactionsPrivacy = safePreferenceBoolean(mainPreferences, "paidReactionsAnonymous", false) ? UserObject.ANONYMOUS : 0;
             }
         }
         scheduleTranscriptionUpdate();
-        BuildVars.GOOGLE_AUTH_CLIENT_ID = mainPreferences.getString("googleAuthClientId", BuildVars.GOOGLE_AUTH_CLIENT_ID);
+        BuildVars.GOOGLE_AUTH_CLIENT_ID = safePreferenceString(mainPreferences, "googleAuthClientId", BuildVars.GOOGLE_AUTH_CLIENT_ID);
         if (mainPreferences.contains("dcDomainName2")) {
-            dcDomainName = mainPreferences.getString("dcDomainName2", "apv3.stel.com");
+            dcDomainName = safePreferenceString(mainPreferences, "dcDomainName2", "apv3.stel.com");
         } else {
             dcDomainName = isTest ? "tapv3.stel.com" : "apv3.stel.com";
         }
         if (mainPreferences.contains("webFileDatacenterId")) {
-            webFileDatacenterId = mainPreferences.getInt("webFileDatacenterId", 4);
+            webFileDatacenterId = safePreferenceInt(mainPreferences, "webFileDatacenterId", 4);
         } else {
             webFileDatacenterId = isTest ? 2 : 4;
         }
 
-        Set<String> currencySet = mainPreferences.getStringSet("directPaymentsCurrency", null);
+        Set<String> currencySet = safePreferenceStringSet(mainPreferences, "directPaymentsCurrency", null);
         if (currencySet != null) {
             directPaymentsCurrency.clear();
             directPaymentsCurrency.addAll(currencySet);
         }
 
-        loadPremiumFeaturesPreviewOrder(premiumFeaturesTypesToPosition, mainPreferences.getString("premiumFeaturesTypesToPosition", null));
-        loadPremiumFeaturesPreviewOrder(businessFeaturesTypesToPosition, mainPreferences.getString("businessFeaturesTypesToPosition", null));
+        loadPremiumFeaturesPreviewOrder(premiumFeaturesTypesToPosition, safePreferenceString(mainPreferences, "premiumFeaturesTypesToPosition", null));
+        loadPremiumFeaturesPreviewOrder(businessFeaturesTypesToPosition, safePreferenceString(mainPreferences, "businessFeaturesTypesToPosition", null));
         if (pendingSuggestions != null) {
             pendingSuggestions = new HashSet<>(pendingSuggestions);
         } else {
@@ -1923,7 +1990,7 @@ public class MessagesController extends BaseController implements NotificationCe
             dismissedSuggestions = new HashSet<>();
         }
 
-        exportUri = mainPreferences.getStringSet("exportUri2", null);
+        exportUri = safePreferenceStringSet(mainPreferences, "exportUri2", null);
         if (exportUri != null) {
             exportUri = new HashSet<>(exportUri);
         } else {
@@ -1935,7 +2002,7 @@ public class MessagesController extends BaseController implements NotificationCe
             exportUri.add(".*WhatsApp.*\\.zip$");
         }
 
-        exportGroupUri = mainPreferences.getStringSet("exportGroupUri", null);
+        exportGroupUri = safePreferenceStringSet(mainPreferences, "exportGroupUri", null);
         if (exportGroupUri != null) {
             exportGroupUri = new HashSet<>(exportGroupUri);
         } else {
@@ -1943,7 +2010,7 @@ public class MessagesController extends BaseController implements NotificationCe
             exportGroupUri.add("@g.us/");
         }
 
-        exportPrivateUri = mainPreferences.getStringSet("exportPrivateUri", null);
+        exportPrivateUri = safePreferenceStringSet(mainPreferences, "exportPrivateUri", null);
         if (exportPrivateUri != null) {
             exportPrivateUri = new HashSet<>(exportPrivateUri);
         } else {
@@ -1951,23 +2018,23 @@ public class MessagesController extends BaseController implements NotificationCe
             exportPrivateUri.add("@s.whatsapp.net/");
         }
 
-        autologinDomains = mainPreferences.getStringSet("autologinDomains", null);
+        autologinDomains = safePreferenceStringSet(mainPreferences, "autologinDomains", null);
         if (autologinDomains != null) {
             autologinDomains = new HashSet<>(autologinDomains);
         } else {
             autologinDomains = new HashSet<>();
         }
 
-        authDomains = mainPreferences.getStringSet("authDomains", null);
+        authDomains = safePreferenceStringSet(mainPreferences, "authDomains", null);
         if (authDomains != null) {
             authDomains = new HashSet<>(authDomains);
         } else {
             authDomains = new HashSet<>();
         }
 
-        autologinToken = mainPreferences.getString("autologinToken", null);
+        autologinToken = safePreferenceString(mainPreferences, "autologinToken", null);
 
-        Set<String> emojies = mainPreferences.getStringSet("diceEmojies", null);
+        Set<String> emojies = safePreferenceStringSet(mainPreferences, "diceEmojies", null);
         if (emojies == null) {
             diceEmojies = new HashSet<>();
             diceEmojies.add("\uD83C\uDFB2");
@@ -1975,7 +2042,7 @@ public class MessagesController extends BaseController implements NotificationCe
         } else {
             diceEmojies = new HashSet<>(emojies);
         }
-        String text = mainPreferences.getString("diceSuccess", null);
+        String text = safePreferenceString(mainPreferences, "diceSuccess", null);
         if (text == null) {
             diceSuccess.put("\uD83C\uDFAF", new DiceFrameSuccess(62, 6));
         } else {
@@ -1994,7 +2061,7 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
 
-        text = mainPreferences.getString("emojiSounds", null);
+        text = safePreferenceString(mainPreferences, "emojiSounds", null);
         if (text != null) {
             try {
                 byte[] bytes = Base64.decode(text, Base64.DEFAULT);
@@ -2011,7 +2078,7 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
 
-        text = mainPreferences.getString("gifSearchEmojies", null);
+        text = safePreferenceString(mainPreferences, "gifSearchEmojies", null);
         if (text == null) {
             gifSearchEmojies.add("👍");
             gifSearchEmojies.add("👎");
@@ -2047,8 +2114,8 @@ public class MessagesController extends BaseController implements NotificationCe
         translateController = new TranslateController(this);
 
         Utilities.globalQueue.postRunnable(() -> {
-            enableJoined = notificationsPreferences.getBoolean("EnableContactJoined", true);
-            nextTosCheckTime = notificationsPreferences.getInt("nextTosCheckTime", 0);
+            enableJoined = safePreferenceBoolean(notificationsPreferences, "EnableContactJoined", true);
+            nextTosCheckTime = safePreferenceInt(notificationsPreferences, "nextTosCheckTime", 0);
         });
     }
 
@@ -2731,14 +2798,14 @@ public class MessagesController extends BaseController implements NotificationCe
         if (filter == null || mainPreferences == null) {
             return false;
         }
-        return mainPreferences.getStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()).contains(String.valueOf(filter.id));
+        return safePreferenceStringSet(mainPreferences, HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()).contains(String.valueOf(filter.id));
     }
 
     public void markHuanghunLocalOnlyFilter(DialogFilter filter) {
         if (filter == null || mainPreferences == null) {
             return;
         }
-        HashSet<String> ids = new HashSet<>(mainPreferences.getStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()));
+        HashSet<String> ids = new HashSet<>(safePreferenceStringSet(mainPreferences, HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()));
         ids.add(String.valueOf(filter.id));
         filter.localOnly = true;
         mainPreferences.edit().putStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, ids).apply();
@@ -2748,7 +2815,7 @@ public class MessagesController extends BaseController implements NotificationCe
         if (filter == null || mainPreferences == null) {
             return;
         }
-        HashSet<String> ids = new HashSet<>(mainPreferences.getStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()));
+        HashSet<String> ids = new HashSet<>(safePreferenceStringSet(mainPreferences, HUANGHUN_LOCAL_FILTER_IDS_KEY, Collections.emptySet()));
         if (ids.remove(String.valueOf(filter.id))) {
             mainPreferences.edit().putStringSet(HUANGHUN_LOCAL_FILTER_IDS_KEY, ids).apply();
         }
@@ -5760,11 +5827,11 @@ public class MessagesController extends BaseController implements NotificationCe
         boolean changed;
         if (stringBuilder.length() > 0) {
             String string = stringBuilder.toString();
-            changed = !string.equals(mainPreferences.getString(key, null));
+            changed = !string.equals(safePreferenceString(mainPreferences, key, null));
             editor.putString(key, string);
         } else {
             editor.remove(key);
-            changed = mainPreferences.getString(key, null) != null;
+            changed = safePreferenceString(mainPreferences, key, null) != null;
         }
         return changed;
     }
@@ -8247,7 +8314,7 @@ public class MessagesController extends BaseController implements NotificationCe
             editor.remove("dialog_botid" + dialogId).remove("dialog_boturl" + dialogId).remove("dialog_botflags" + dialogId);
         }
         editor.putLong("dialog_bar_paying_" + dialogId, settings.charge_paid_message_stars);
-        if (notificationsPreferences.getInt("dialog_bar_vis3" + dialogId, 0) == 3) {
+        if (safePreferenceInt(notificationsPreferences, "dialog_bar_vis3" + dialogId, 0) == 3) {
             editor.apply();
             getNotificationCenter().postNotificationName(NotificationCenter.peerSettingsDidLoad, dialogId);
             return;
@@ -8268,7 +8335,7 @@ public class MessagesController extends BaseController implements NotificationCe
         editor.putString("dialog_bar_chat_with_admin_title" + dialogId, settings.request_chat_title);
         editor.putBoolean("dialog_bar_chat_with_channel" + dialogId, settings.request_chat_broadcast);
         editor.putInt("dialog_bar_chat_with_date" + dialogId, settings.request_chat_date);
-        if (notificationsPreferences.getInt("dialog_bar_distance" + dialogId, -1) != -2) {
+        if (safePreferenceInt(notificationsPreferences, "dialog_bar_distance" + dialogId, -1) != -2) {
             if ((settings.flags & 64) != 0) {
                 editor.putInt("dialog_bar_distance" + dialogId, settings.geo_distance);
             } else {
@@ -8311,7 +8378,7 @@ public class MessagesController extends BaseController implements NotificationCe
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("request spam button for " + dialogId);
         }
-        int vis = notificationsPreferences.getInt("dialog_bar_vis3" + dialogId, 0);
+        int vis = safePreferenceInt(notificationsPreferences, "dialog_bar_vis3" + dialogId, 0);
         if (!force && (vis == 1 || vis == 3)) {
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("dialog bar already hidden for " + dialogId);
@@ -20488,7 +20555,7 @@ public class MessagesController extends BaseController implements NotificationCe
                                     }*/
                                 }
                                 if ((update.notify_settings.flags & 4) != 0) {
-                                    if (notificationsPreferences.getInt("EnableGroup2", 0) != update.notify_settings.mute_until) {
+                                    if (safePreferenceInt(notificationsPreferences, "EnableGroup2", 0) != update.notify_settings.mute_until) {
                                         editor.putInt("EnableGroup2", update.notify_settings.mute_until);
                                         editor.putBoolean("overwrite_group", true);
                                         AndroidUtilities.runOnUIThread(() -> getNotificationsController().deleteNotificationChannelGlobal(NotificationsController.TYPE_GROUP));
@@ -20508,11 +20575,11 @@ public class MessagesController extends BaseController implements NotificationCe
                                 }
                                 Boolean storiesEnabled = null;
                                 if (notificationsPreferences.contains("EnableAllStories")) {
-                                    storiesEnabled = notificationsPreferences.getBoolean("EnableAllStories", true);
+                                    storiesEnabled = safePreferenceBoolean(notificationsPreferences, "EnableAllStories", true);
                                 }
                                 Boolean storiesSendersHide = null;
                                 if (notificationsPreferences.contains("EnableHideStoriesSenders")) {
-                                    storiesSendersHide = notificationsPreferences.getBoolean("EnableHideStoriesSenders", true);
+                                    storiesSendersHide = safePreferenceBoolean(notificationsPreferences, "EnableHideStoriesSenders", true);
                                 }
                                 Boolean newStoriesEnabled = null;
                                 if ((update.notify_settings.flags & 64) != 0) {
@@ -20528,7 +20595,7 @@ public class MessagesController extends BaseController implements NotificationCe
                                 }
                                 getNotificationsController().getNotificationsSettingsFacade().applySoundSettings(update.notify_settings.android_sound, editor, 0, 0, TYPE_PRIVATE, false);
                                 if ((update.notify_settings.flags & 4) != 0) {
-                                    if (notificationsPreferences.getInt("EnableAll2", 0) != update.notify_settings.mute_until) {
+                                    if (safePreferenceInt(notificationsPreferences, "EnableAll2", 0) != update.notify_settings.mute_until) {
                                         editor.putInt("EnableAll2", update.notify_settings.mute_until);
                                         editor.putBoolean("overwrite_private", true);
                                         AndroidUtilities.runOnUIThread(() -> getNotificationsController().deleteNotificationChannelGlobal(TYPE_PRIVATE));
@@ -20546,7 +20613,7 @@ public class MessagesController extends BaseController implements NotificationCe
                                     }*/
                                 }
                                 if ((update.notify_settings.flags & 4) != 0) {
-                                    if (notificationsPreferences.getInt("EnableChannel2", 0) != update.notify_settings.mute_until) {
+                                    if (safePreferenceInt(notificationsPreferences, "EnableChannel2", 0) != update.notify_settings.mute_until) {
                                         editor.putInt("EnableChannel2", update.notify_settings.mute_until);
                                         editor.putBoolean("overwrite_channel", true);
                                         AndroidUtilities.runOnUIThread(() -> getNotificationsController().deleteNotificationChannelGlobal(NotificationsController.TYPE_CHANNEL));
@@ -21860,11 +21927,11 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isDialogNotificationsSoundEnabled(long dialogId, long topicId) {
-        return notificationsPreferences.getBoolean("sound_enabled_" + NotificationsController.getSharedPrefKey(dialogId, topicId), true);
+        return safePreferenceBoolean(notificationsPreferences, "sound_enabled_" + NotificationsController.getSharedPrefKey(dialogId, topicId), true);
     }
 
     public boolean isDialogMuted(long dialogId, long topicId, TLRPC.Chat chat) {
-        int mute_type = notificationsPreferences.getInt("notify2_" + NotificationsController.getSharedPrefKey(dialogId, topicId), -1);
+        int mute_type = safePreferenceInt(notificationsPreferences, "notify2_" + NotificationsController.getSharedPrefKey(dialogId, topicId), -1);
         if (mute_type == -1) {
             Boolean forceChannel;
             if (chat != null) {
@@ -21881,7 +21948,7 @@ public class MessagesController extends BaseController implements NotificationCe
         if (mute_type == 2) {
             return true;
         } else if (mute_type == 3) {
-            int mute_until = notificationsPreferences.getInt("notifyuntil_" + NotificationsController.getSharedPrefKey(dialogId, topicId), 0);
+            int mute_until = safePreferenceInt(notificationsPreferences, "notifyuntil_" + NotificationsController.getSharedPrefKey(dialogId, topicId), 0);
             if (mute_until >= getConnectionsManager().getCurrentTime()) {
                 return true;
             }
@@ -23422,7 +23489,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public int getChatPendingRequestsOnClosed(long chatId) {
-        return mainPreferences.getInt("chatPendingRequests" + chatId, 0);
+        return safePreferenceInt(mainPreferences, "chatPendingRequests" + chatId, 0);
     }
 
     public void setChatPendingRequestsOnClose(long chatId, int count) {
@@ -23789,7 +23856,7 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public String getMutedString(long dialogId, long topicId) {
         if (getMessagesController().isDialogMuted(dialogId, topicId)) {
-            int mute_until = notificationsPreferences.getInt("notifyuntil_" + NotificationsController.getSharedPrefKey(dialogId, topicId), 0);
+            int mute_until = safePreferenceInt(notificationsPreferences, "notifyuntil_" + NotificationsController.getSharedPrefKey(dialogId, topicId), 0);
             if (mute_until >= getConnectionsManager().getCurrentTime()) {
                 return LocaleController.formatString("NotificationsMutedForHint", R.string.NotificationsMutedForHint, LocaleController.formatTTLString(mute_until));
             }
@@ -24796,7 +24863,7 @@ public class MessagesController extends BaseController implements NotificationCe
 
         @Override
         protected long getSavedLastTimeRequested(int hashCode) {
-            return mainPreferences.getLong("effects_last_" + hashCode, 0);
+            return safePreferenceLong(mainPreferences, "effects_last_" + hashCode, 0);
         }
 
         @Override
@@ -24998,7 +25065,7 @@ public class MessagesController extends BaseController implements NotificationCe
 
     /** Enables adult-content display once where Telegram explicitly allows this account setting. */
     private void applyHuanghunSensitiveContentDefaultIfNeeded() {
-        if (contentSettings == null || mainPreferences == null || mainPreferences.getBoolean("huanghun_sensitive_content_default_applied", false)) {
+        if (contentSettings == null || mainPreferences == null || safePreferenceBoolean(mainPreferences, "huanghun_sensitive_content_default_applied", false)) {
             return;
         }
         mainPreferences.edit().putBoolean("huanghun_sensitive_content_default_applied", true).apply();
@@ -25252,7 +25319,7 @@ public class MessagesController extends BaseController implements NotificationCe
         mainPreferences.edit().putLong("forumlasttopic" + chatId, topicId).apply();
     }
     public long getForumLastTopicId(long chatId) {
-        return mainPreferences.getLong("forumlasttopic" + chatId, 1);
+        return safePreferenceLong(mainPreferences, "forumlasttopic" + chatId, 1);
     }
 
     public void addOfferToSuggestedMessage(MessageObject msg, TLRPC.SuggestedPost suggestedPost) {
@@ -25644,7 +25711,7 @@ public class MessagesController extends BaseController implements NotificationCe
      * before the server request so a later account restart never overwrites a user's choice.
      */
     private void applyHuanghunInAppBrowserDefaultIfNeeded() {
-        if (webBrowserSettings == null || mainPreferences.getBoolean("huanghun_in_app_browser_default_applied", false)) {
+        if (webBrowserSettings == null || safePreferenceBoolean(mainPreferences, "huanghun_in_app_browser_default_applied", false)) {
             return;
         }
         mainPreferences.edit().putBoolean("huanghun_in_app_browser_default_applied", true).apply();

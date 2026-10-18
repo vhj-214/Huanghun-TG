@@ -318,16 +318,37 @@ public class NekoConfig {
                             o.value = new HashMap<Integer, Integer>();
                         } else {
                             try {
-                                byte[] data = Base64.decode(cv, Base64.DEFAULT);
-                                ObjectInputStream ois = new ObjectInputStream(
-                                        new ByteArrayInputStream(data));
-                                o.value = ois.readObject();
-                                if (o.value == null) {
-                                    o.value = new HashMap<Integer, Integer>();
+                                if (cv.length() > 4 * 1024 * 1024) {
+                                    throw new IllegalArgumentException("Serialized config exceeds size limit");
                                 }
-                                ois.close();
+                                byte[] data = Base64.decode(cv, Base64.DEFAULT);
+                                Object decoded;
+                                try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data))) {
+                                    decoded = ois.readObject();
+                                }
+                                if (decoded instanceof HashMap) {
+                                    HashMap<?, ?> values = (HashMap<?, ?>) decoded;
+                                    HashMap<Integer, Integer> validValues = new HashMap<>();
+                                    boolean valid = true;
+                                    for (Map.Entry<?, ?> entry : values.entrySet()) {
+                                        if (!(entry.getKey() instanceof Integer) || !(entry.getValue() instanceof Integer)) {
+                                            valid = false;
+                                            break;
+                                        }
+                                        validValues.put((Integer) entry.getKey(), (Integer) entry.getValue());
+                                    }
+                                    if (valid) {
+                                        o.value = validValues;
+                                    } else {
+                                        throw new IllegalArgumentException("Serialized config map contains non-integer entries");
+                                    }
+                                } else {
+                                    throw new IllegalArgumentException("Serialized config is not a HashMap");
+                                }
                             } catch (Exception e) {
+                                FileLog.e("Ignoring malformed serialized config " + o.key, e);
                                 o.value = new HashMap<Integer, Integer>();
+                                getPreferences().edit().remove(o.key).apply();
                             }
                         }
                     }

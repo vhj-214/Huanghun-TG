@@ -221,7 +221,7 @@ public class ApplicationLoader extends Application {
         return null;
     }
 
-    public static void postInitApplication() {
+    public static synchronized void postInitApplication() {
         if (applicationInited || applicationContext == null) {
             return;
         }
@@ -308,8 +308,9 @@ public class ApplicationLoader extends Application {
                 continue;
             }
             MessagesController.getInstance(a);
-            HuanghunActiveZoneHelper.getInstance(a);
-            HuanghunComebackHelper.getInstance(a);
+            final int account = a;
+            runOptionalStartupTask("HuanghunActiveZoneHelper(account=" + account + ")", () -> HuanghunActiveZoneHelper.getInstance(account));
+            runOptionalStartupTask("HuanghunComebackHelper(account=" + account + ")", () -> HuanghunComebackHelper.getInstance(account));
             if (a == 0) {
                 SharedConfig.pushStringStatus = "__FIREBASE_GENERATING_SINCE_" + ConnectionsManager.getInstance(a).getCurrentTime() + "__";
             } else {
@@ -391,7 +392,12 @@ public class ApplicationLoader extends Application {
         try {
             ConnectionsManager.native_setJava(false);
         } catch (UnsatisfiedLinkError error) {
-            throw new RuntimeException("can't load native libraries " +  Build.CPU_ABI + " lookup folder " + NativeLoader.getAbiFolder());
+            throw new RuntimeException(
+                    "can't load native libraries; device ABI=" + Build.CPU_ABI
+                            + ", loader ABI=" + NativeLoader.getAbiFolder()
+                            + ", loader log=" + NativeLoader.log,
+                    error
+            );
         }
         new ForegroundDetector(this) {
             @Override
@@ -415,16 +421,35 @@ public class ApplicationLoader extends Application {
 
         applicationHandler = new Handler(applicationContext.getMainLooper());
 
-        org.osmdroid.config.Configuration.getInstance().setUserAgentValue("Telegram-FOSS ( NekoX ) " + BuildConfig.VERSION_NAME);
-        org.osmdroid.config.Configuration.getInstance().setOsmdroidBasePath(new File(ApplicationLoader.applicationContext.getCacheDir(), "osmdroid"));
+        runOptionalStartupTask("osmdroid configuration", () -> {
+            org.osmdroid.config.Configuration.getInstance().setUserAgentValue("Telegram-FOSS ( NekoX ) " + BuildConfig.VERSION_NAME);
+            org.osmdroid.config.Configuration.getInstance().setOsmdroidBasePath(new File(ApplicationLoader.applicationContext.getCacheDir(), "osmdroid"));
+        });
+        runOptionalStartupTask("launcher icon repair", LauncherIconController::tryFixLauncherIconIfNeeded);
+        runOptionalStartupTask("proxy rotation", ProxyRotationController::init);
+    }
 
-        LauncherIconController.tryFixLauncherIconIfNeeded();
-        ProxyRotationController.init();
+    private static void runOptionalStartupTask(String name, Runnable task) {
+        try {
+            task.run();
+        } catch (RuntimeException error) {
+            FileLog.e("Optional startup task failed: " + name, error);
+        }
     }
 
     // Local Push Service, TFoss implementation
     public static void startPushService() {
         Utilities.stageQueue.postRunnable(ApplicationLoader::startPushServiceInternal);
+    }
+
+    private static boolean safeBooleanPreference(SharedPreferences preferences, String key, boolean fallback) {
+        try {
+            return preferences.getBoolean(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed push preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
     }
 
     private static void startPushServiceInternal() {
@@ -434,9 +459,9 @@ public class ApplicationLoader extends Application {
         SharedPreferences preferences = MessagesController.getNotificationsSettings(UserConfig.selectedAccount);
         boolean enabled;
         if (preferences.contains("pushService")) {
-            enabled = preferences.getBoolean("pushService", true);
+            enabled = safeBooleanPreference(preferences, "pushService", true);
         } else {
-            enabled = MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("keepAliveService", true);
+            enabled = safeBooleanPreference(MessagesController.getMainSettings(UserConfig.selectedAccount), "keepAliveService", true);
             SharedPreferences.Editor editor = preferences.edit();
             editor.putBoolean("pushService", enabled);
             editor.putBoolean("pushConnection", enabled);
@@ -456,24 +481,34 @@ public class ApplicationLoader extends Application {
                     Log.d("TFOSS", "Trying to start push service every 10 minutes");
                     // Telegram-FOSS: unconditionally enable push service
                     AlarmManager am = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+                    if (am == null) {
+                        throw new IllegalStateException("AlarmManager unavailable");
+                    }
                     Intent i = new Intent(applicationContext, NotificationsService.class);
-                    pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, i, PendingIntent.FLAG_IMMUTABLE);
+                    PendingIntent legacy = PendingIntent.getBroadcast(applicationContext, 0, i, PendingIntent.FLAG_IMMUTABLE);
+                    am.cancel(legacy);
+                    pendingIntent = PendingIntent.getService(applicationContext, 0, i, PendingIntent.FLAG_IMMUTABLE);
 
                     am.cancel(pendingIntent);
                     am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 10 * 60 * 1000, pendingIntent);
                 } catch (Throwable e) {
-                    Log.e("TFOSS", "Failed to start push service");
+                    Log.e("TFOSS", "Failed to start or schedule push service", e);
                 }
             });
 
         } else AndroidUtilities.runOnUIThread(() -> {
-            applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
-
-            PendingIntent pintent = PendingIntent.getService(applicationContext, 0, new Intent(applicationContext, NotificationsService.class), PendingIntent.FLAG_MUTABLE);
-            AlarmManager alarm = (AlarmManager)applicationContext.getSystemService(Context.ALARM_SERVICE);
-            alarm.cancel(pintent);
-            if (pendingIntent != null) {
-                alarm.cancel(pendingIntent);
+            try {
+                applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
+                PendingIntent pintent = PendingIntent.getService(applicationContext, 0, new Intent(applicationContext, NotificationsService.class), PendingIntent.FLAG_IMMUTABLE);
+                AlarmManager alarm = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+                if (alarm != null) {
+                    alarm.cancel(pintent);
+                    if (pendingIntent != null) {
+                        alarm.cancel(pendingIntent);
+                    }
+                }
+            } catch (Throwable error) {
+                FileLog.e("Failed to stop push service", error);
             }
         });
     }

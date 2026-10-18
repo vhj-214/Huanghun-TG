@@ -22,13 +22,43 @@ public class SaveToGallerySettingsHelper {
     public static final long DEFAULT_VIDEO_LIMIT = 100 * 1024 * 1024;//100 MB
     public static final long MAX_VIDEO_LIMIT = 4L * 1000 * 1024 * 1024;//100 MB
 
+    private static boolean safeBoolean(SharedPreferences preferences, String key, boolean fallback) {
+        try {
+            return preferences.getBoolean(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed save-to-gallery preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
+    private static int safeInt(SharedPreferences preferences, String key, int fallback) {
+        try {
+            return preferences.getInt(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed save-to-gallery preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
+    private static long safeLong(SharedPreferences preferences, String key, long fallback) {
+        try {
+            return preferences.getLong(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed save-to-gallery preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
     public static void load(SharedPreferences preferences) {
-        boolean saveToGalleryLegacy = preferences.getBoolean("save_gallery", false);
+        boolean saveToGalleryLegacy = safeBoolean(preferences, "save_gallery", false);
         int saveToGalleryFlags;
         if (saveToGalleryLegacy && BuildVars.NO_SCOPED_STORAGE) {
             saveToGalleryFlags = SAVE_TO_GALLERY_FLAG_PEER + SAVE_TO_GALLERY_FLAG_CHANNELS + SAVE_TO_GALLERY_FLAG_GROUP;
         } else {
-            saveToGalleryFlags = preferences.getInt("save_gallery_flags", -1);
+            saveToGalleryFlags = safeInt(preferences, "save_gallery_flags", -1);
         }
         //migration
         if (saveToGalleryFlags != -1) {
@@ -160,9 +190,9 @@ public class SaveToGallerySettingsHelper {
 
         private static SharedSettings read(String prefix, SharedPreferences preferences) {
             SharedSettings settings = new SharedSettings();
-            settings.savePhoto = preferences.getBoolean(prefix + "_save_gallery_photo", false);
-            settings.saveVideo = preferences.getBoolean(prefix + "_save_gallery_video", false);
-            settings.limitVideo = preferences.getLong(prefix + "_save_gallery_limitVideo", DEFAULT_VIDEO_LIMIT);
+            settings.savePhoto = safeBoolean(preferences, prefix + "_save_gallery_photo", false);
+            settings.saveVideo = safeBoolean(preferences, prefix + "_save_gallery_video", false);
+            settings.limitVideo = safeLong(preferences, prefix + "_save_gallery_limitVideo", DEFAULT_VIDEO_LIMIT);
             return settings;
         }
 

@@ -64,6 +64,36 @@ public final class MultiDynamicVideoWallpaperHelper {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    private static boolean safeBoolean(SharedPreferences preferences, String key, boolean fallback) {
+        try {
+            return preferences.getBoolean(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed multi-wallpaper preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
+    private static int safeInt(SharedPreferences preferences, String key, int fallback) {
+        try {
+            return preferences.getInt(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed multi-wallpaper preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
+    private static String safeString(SharedPreferences preferences, String key, String fallback) {
+        try {
+            return preferences.getString(key, fallback);
+        } catch (ClassCastException error) {
+            FileLog.e("Ignoring malformed multi-wallpaper preference " + key);
+            preferences.edit().remove(key).apply();
+            return fallback;
+        }
+    }
+
     /**
      * 播放器挂载路径只做轻量文件检查。不能在主线程每次页面切换时创建
      * MediaMetadataRetriever；损坏视频的 native 解码器可能造成卡顿甚至进程崩溃。
@@ -121,7 +151,7 @@ public final class MultiDynamicVideoWallpaperHelper {
             return false;
         }
         int storageAccount = storageAccount(c, account);
-        return prefs(c).getBoolean(key(KEY_ENABLED, storageAccount), false) && getVideoCount(c, account) > 0;
+        return safeBoolean(prefs(c), key(KEY_ENABLED, storageAccount), false) && getVideoCount(c, account) > 0;
     }
 
     /** 读取指定账号的本地配置，不受设备级共享开关影响。 */
@@ -129,11 +159,11 @@ public final class MultiDynamicVideoWallpaperHelper {
         if (DynamicVideoWallpaperHelper.requiresGlobalWallpaperReset(c)) {
             return false;
         }
-        return prefs(c).getBoolean(key(KEY_ENABLED, account), false) && readPaths(c, account).size() > 0;
+        return safeBoolean(prefs(c), key(KEY_ENABLED, account), false) && readPaths(c, account).size() > 0;
     }
 
     public static boolean isEnabledGlobal(Context c) {
-        return prefs(c).getBoolean(key(KEY_ENABLED, GLOBAL_ACCOUNT), false)
+        return safeBoolean(prefs(c), key(KEY_ENABLED, GLOBAL_ACCOUNT), false)
                 && readPaths(c, GLOBAL_ACCOUNT).size() > 0;
     }
 
@@ -177,7 +207,7 @@ public final class MultiDynamicVideoWallpaperHelper {
     }
 
     public static int getMode(Context c, int account) {
-        return prefs(c).getInt(key(KEY_MODE, storageAccount(c, account)), MODE_ORDER) == MODE_RANDOM ? MODE_RANDOM : MODE_ORDER;
+        return safeInt(prefs(c), key(KEY_MODE, storageAccount(c, account)), MODE_ORDER) == MODE_RANDOM ? MODE_RANDOM : MODE_ORDER;
     }
 
     public static void setMode(Context c, int account, int mode) {
@@ -346,16 +376,24 @@ public final class MultiDynamicVideoWallpaperHelper {
 
     private static ArrayList<String> readPaths(Context c, int account) {
         ArrayList<String> result = new ArrayList<>();
-        String raw = prefs(c).getString(key(KEY_VIDEOS, account), "");
+        SharedPreferences preferences = prefs(c);
+        String prefKey = key(KEY_VIDEOS, account);
+        String raw = safeString(preferences, prefKey, "");
         try {
             JSONArray array = new JSONArray(raw);
+            if (array.length() > 100) throw new IllegalArgumentException("Too many videos in local playlist");
             for (int i = 0; i < array.length(); i++) {
-                String path = array.optString(i, "");
+                Object item = array.opt(i);
+                String path = item instanceof String ? (String) item : "";
                 if (path.length() > 0 && !result.contains(path)) {
                     result.add(path);
                 }
             }
-        } catch (Throwable ignore) {
+        } catch (Throwable error) {
+            if (!raw.isEmpty()) {
+                FileLog.e("Ignoring malformed multi-wallpaper playlist", error);
+                preferences.edit().remove(prefKey).apply();
+            }
         }
         return result;
     }
