@@ -24,10 +24,12 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
 
     private boolean isCurrentlyChecking;
     private boolean isActiveProxyChecking;
+    private int pendingRotationChecks;
     private final Runnable activeProxyHealthCheckRunnable = this::checkActiveProxyHealth;
     private final Runnable rotationPingRefreshRunnable = this::refreshRotationProxyPings;
     private Runnable checkProxyAndSwitchRunnable = () -> {
         isCurrentlyChecking = true;
+        pendingRotationChecks = 0;
 
         int currentAccount = UserConfig.selectedAccount;
         boolean startedCheck = false;
@@ -37,6 +39,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
                 continue;
             }
             startedCheck = true;
+            pendingRotationChecks++;
             proxyInfo.checking = true;
             proxyInfo.proxyCheckPingId = ConnectionsManager.getInstance(currentAccount).checkProxy(proxyInfo.address, proxyInfo.port, proxyInfo.username, proxyInfo.password, proxyInfo.secret, time -> AndroidUtilities.runOnUIThread(() -> {
                 proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
@@ -48,6 +51,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
                     proxyInfo.ping = time;
                     proxyInfo.available = true;
                 }
+                pendingRotationChecks = Math.max(0, pendingRotationChecks - 1);
                 NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
             }));
         }
@@ -226,7 +230,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.proxyCheckDone) {
-            if (!SharedConfig.isProxyEnabled() || !SharedConfig.proxyRotationEnabled || SharedConfig.proxyList.size() <= 1 || !isCurrentlyChecking) {
+            if (!SharedConfig.isProxyEnabled() || !SharedConfig.proxyRotationEnabled || SharedConfig.proxyList.size() <= 1 || !isCurrentlyChecking || pendingRotationChecks > 0) {
                 return;
             }
 
