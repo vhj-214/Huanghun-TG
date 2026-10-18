@@ -985,17 +985,21 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // No white scrim: both top and bottom glass regions are fully transparent.
             final int liquidGlassScrimAlpha = 0;
             // The top glass RenderNode is recorded from the content layer and
-            // intentionally excludes the wallpaper. Drawing that snapshot over
-            // a transparent home header replaces the underlying wallpaper with
-            // the window's black base. Keep the whole main-page top surface
-            // transparent instead; the search field and tabs draw their own
-            // glass materials, while static/live wallpapers remain visible below.
+            // intentionally excludes live video. Do not draw a static wallpaper
+            // snapshot over an active video layer; when no video is active, keep
+            // the configured static wallpaper, with a themed fallback if none exists.
             if (shouldUseWallpaperBackedMainGlass() && top) {
-                if (getBackgroundImage() != null) {
+                if (dialogsDynamicVideoWallpaperPlayer != null) {
+                    // Leave the surface transparent so the live video below it
+                    // remains visible through the expanded search header.
+                } else if (getBackgroundImage() != null) {
                     canvas.save();
                     canvas.translate(0, -y);
                     captureWallpaperBackground(canvas, new RectF(rectTmp));
                     canvas.restore();
+                } else {
+                    actionBarSearchPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    canvas.drawRect(rectTmp, actionBarSearchPaint);
                 }
                 return;
             }
