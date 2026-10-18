@@ -10657,7 +10657,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 createActionMode(null);
             }
             AndroidUtilities.hideKeyboard(fragmentView.findFocus());
-            actionBar.setActionModeOverrideColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            if (!searchIsShowed && shouldUseWallpaperBackedMainGlass()) {
+                // The home ActionBar is transparent over the wallpaper. Keep the
+                // selection-mode surface transparent too, or it covers video/pattern
+                // wallpapers with the default opaque window background.
+                actionBar.setActionModeColor(Color.TRANSPARENT);
+                actionBar.setActionModeOverrideColor(Color.TRANSPARENT);
+            } else {
+                actionBar.setActionModeOverrideColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            }
             actionBar.showActionMode();
             if (getPinnedCount() > 1) {
                 if (viewPages != null) {
