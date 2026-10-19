@@ -981,19 +981,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
-            // 顶部和底部玻璃只显示底层内容,不再叠加任何白色 scrim。
-            // No white scrim: both top and bottom glass regions are fully transparent.
+            // Keep the shared blur scrim clear; the home header adds only a light
+            // theme tint below so wallpaper remains visible through its glass.
             final int liquidGlassScrimAlpha = 0;
             if (shouldUseWallpaperBackedMainGlass() && top) {
-                // ContentView already draws the wallpaper below this surface.
-                // Keep the glass surface empty only when a static or live
-                // wallpaper really exists; with no wallpaper, restore the
-                // themed page background instead of exposing the window base.
-                if (getBackgroundImage() != null || dialogsDynamicVideoWallpaperPlayer != null) {
-                    return;
+                // The shared glass RenderNode deliberately excludes wallpaper
+                // pixels, so an empty top surface can reveal the window's black
+                // base while search is expanded. Draw the static wallpaper into
+                // this pass explicitly; live video remains visible underneath.
+                if (dialogsDynamicVideoWallpaperPlayer == null && getBackgroundImage() != null) {
+                    canvas.save();
+                    canvas.translate(0, -y);
+                    captureWallpaperBackground(canvas, new RectF(rectTmp));
+                    canvas.restore();
                 }
                 int oldColor = blurScrimPaint.getColor();
-                blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.12f));
                 canvas.drawRect(rectTmp, blurScrimPaint);
                 blurScrimPaint.setColor(oldColor);
                 return;
@@ -15069,11 +15072,24 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     // The wallpaper-backed transparent header belongs to the primary dialogs list,
     // whether it was opened by MainTabsActivity or another normal home entry path.
-    boolean shouldUseWallpaperBackedMainGlass() {
+    public boolean shouldUseWallpaperBackedMainGlass() {
         return !onlySelect
             && initialDialogsType == DIALOGS_TYPE_DEFAULT
             && folderId == 0
             && communityId == 0;
+    }
+
+    public BlurredBackgroundDrawable createSearchResultLiquidGlass(View view) {
+        if (!shouldUseWallpaperBackedMainGlass() || view == null || iBlur3FactoryLiquidGlass == null) {
+            return null;
+        }
+        BlurredBackgroundDrawable drawable = iBlur3FactoryLiquidGlass.create(
+                view, BlurredBackgroundProviderImpl.mainSearchResultsGlass(resourceProvider));
+        drawable.setRadius(dp(18));
+        drawable.setPadding(dp(2));
+        drawable.setIntensity(0.9f);
+        drawable.setThickness(dp(9));
+        return drawable;
     }
 
     private void updateWallpaperBackedMainGlass(@Nullable ContentView contentView) {

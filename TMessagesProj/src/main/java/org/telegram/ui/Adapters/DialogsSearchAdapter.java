@@ -1609,22 +1609,28 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
         View view;
         switch (viewType) {
             case VIEW_TYPE_PROFILE_CELL:
-                view = new ProfileSearchCell(mContext).showPremiumBlock(dialogsType == DialogsActivity.DIALOGS_TYPE_FORWARD);
+                ProfileSearchCell profileCell = new ProfileSearchCell(mContext).showPremiumBlock(dialogsType == DialogsActivity.DIALOGS_TYPE_FORWARD);
+                applyWallpaperBackedSearchGlass(profileCell);
+                view = profileCell;
                 break;
             case VIEW_TYPE_GRAY_SECTION:
                 view = new GraySectionCell(mContext);
+                applyWallpaperBackedSearchGlass(view);
                 break;
             case VIEW_TYPE_DIALOG_CELL:
             case VIEW_TYPE_PUBLIC_POST:
-                view = new DialogCell(null, mContext, false, true) {
+                DialogCell dialogCell = new DialogCell(null, mContext, false, true) {
                     @Override
                     public boolean isForumCell() {
                         return false;
                     }
                 };
+                applyWallpaperBackedSearchGlass(dialogCell);
+                view = dialogCell;
                 break;
             case VIEW_TYPE_TOPIC_CELL:
                 view = new TopicSearchCell(mContext);
+                applyWallpaperBackedSearchGlass(view);
                 break;
             case VIEW_TYPE_LOADING:
                 FlickerLoadingView flickerLoadingView = new FlickerLoadingView(mContext);
@@ -1634,6 +1640,7 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
                 break;
             case VIEW_TYPE_HASHTAG_CELL:
                 view = new HashtagSearchCell(mContext);
+                applyWallpaperBackedSearchGlass(view);
                 break;
             case VIEW_TYPE_CATEGORY_LIST:
                 RecyclerListView horizontalListView = new RecyclerListView(mContext) {
@@ -1681,6 +1688,7 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
                 break;
             case VIEW_TYPE_INVITE_CONTACT_CELL:
                 view = new ProfileSearchCell(mContext);
+                applyWallpaperBackedSearchGlass(view);
                 break;
             case VIEW_TYPE_EMPTY_RESULT:
                 view = messagesEmptyLayout = new EmptyLayout(mContext, resourcesProvider, () -> {
@@ -1706,6 +1714,19 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
         return new RecyclerListView.Holder(view);
     }
 
+    private boolean usesWallpaperBackedSearchBackground() {
+        return dialogsActivity != null && dialogsActivity.shouldUseWallpaperBackedMainGlass();
+    }
+
+    private void applyWallpaperBackedSearchGlass(View view) {
+        if (usesWallpaperBackedSearchBackground()) {
+            android.graphics.drawable.Drawable drawable = dialogsActivity.createSearchResultLiquidGlass(view);
+            if (drawable != null) {
+                view.setBackground(drawable);
+            }
+        }
+    }
+
     private boolean hasHints() {
         return !searchWas && !MediaDataController.getInstance(currentAccount).hints.isEmpty() && (dialogsType != DialogsActivity.DIALOGS_TYPE_START_ATTACH_BOT || dialogsActivity.allowUsers);
     }
@@ -1717,7 +1738,9 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
         switch (holder.getItemViewType()) {
             case VIEW_TYPE_PROFILE_CELL: {
                 ProfileSearchCell cell = (ProfileSearchCell) holder.itemView;
-                cell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                if (!usesWallpaperBackedSearchBackground()) {
+                    cell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                }
                 long oldDialogId = cell.getDialogId();
 
                 TLRPC.User user = null;
@@ -2139,7 +2162,9 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
             case VIEW_TYPE_DIALOG_CELL:
             case VIEW_TYPE_PUBLIC_POST: {
                 DialogCell cell = (DialogCell) holder.itemView;
-                cell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                if (!usesWallpaperBackedSearchBackground()) {
+                    cell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                }
                 cell.useSeparator = (position != getItemCount() - 1);
                 MessageObject messageObject = (MessageObject) getItem(position);
                 boolean isLocalForum = searchForumResultMessages.contains(messageObject);
@@ -2158,7 +2183,9 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
             }
             case VIEW_TYPE_HASHTAG_CELL: {
                 HashtagSearchCell cell = (HashtagSearchCell) holder.itemView;
-                cell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                if (!usesWallpaperBackedSearchBackground()) {
+                    cell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                }
                 cell.setText(searchResultHashtags.get(position - 1));
                 cell.setNeedDivider(position != searchResultHashtags.size());
                 break;
