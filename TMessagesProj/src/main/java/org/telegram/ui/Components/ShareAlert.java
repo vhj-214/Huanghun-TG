@@ -1021,7 +1021,15 @@ public class ShareAlert extends BottomSheet implements NotificationCenter.Notifi
         containerView.setPadding(backgroundPaddingLeft, 0, backgroundPaddingLeft, systemInsets.bottom);
 
         frameLayout = new FrameLayout(context);
-        frameLayout.setBackgroundColor(getThemedColor(Theme.key_dialogBackground));
+        // The whole share sheet is a glass surface; the old opaque dialog color
+        // created the solid white block behind the share cells.
+        shareGlassBackground = iBlur3FactoryFrostedLiquidGlass.create(
+                frameLayout,
+                BlurredBackgroundProviderImpl.chatEmojiPanelGlass(resourcesProvider)
+        );
+        shareGlassBackground.setRadius(dp(28));
+        shareGlassBackground.setPadding(dp(1));
+        frameLayout.setBackground(shareGlassBackground);
 
         if (darkTheme && linkToCopy[1] != null) {
             switchView = new SwitchView(context) {
@@ -4001,6 +4009,7 @@ public class ShareAlert extends BottomSheet implements NotificationCenter.Notifi
     private BlurredBackgroundDrawable emojiViewChildBg;
     private BlurredBackgroundWithFadeDrawable fadeDrawable;
     private BlurredBackgroundDrawable captionContainerBg;
+    private BlurredBackgroundDrawable shareGlassBackground;
 
     private final ArrayList<RectF> iBlur3Positions = new ArrayList<>();
     private final RectF iBlur3PositionMainTabs = new RectF(); {

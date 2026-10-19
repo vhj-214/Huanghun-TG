@@ -3285,6 +3285,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         // same; recreating MediaPlayer here caused visible stutter and reset
         // the current video before it reached its natural end.
         if (dialogsDynamicVideoWallpaperPlayer != null
+                && !dialogsDynamicVideoWallpaperPlayer.isReleased()
                 && dialogsDynamicVideoWallpaperPlayer.matchesCurrentSource(wallpaperRootContext(), currentAccount, 0L)) {
             return;
         }
@@ -7511,9 +7512,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     public void onResume() {
         super.onResume();
         dialogsDynamicVideoWallpaperPaused = false;
-        if (dialogsDynamicVideoWallpaperPlayer != null) {
+        if (dialogsDynamicVideoWallpaperPlayer != null && !dialogsDynamicVideoWallpaperPlayer.isReleased()) {
             dialogsDynamicVideoWallpaperPlayer.resume();
         } else {
+            dialogsDynamicVideoWallpaperPlayer = null;
             refreshDialogsDynamicVideoWallpaper();
         }
         if (dialogStoriesCell != null) {

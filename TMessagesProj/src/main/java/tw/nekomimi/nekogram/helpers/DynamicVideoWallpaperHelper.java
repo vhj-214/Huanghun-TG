@@ -600,6 +600,11 @@ public final class DynamicVideoWallpaperHelper {
             return sourceSignature != null && sourceSignature.equals(current);
         }
 
+        /** Whether an error recovery or fragment teardown has removed this player. */
+        public boolean isReleased() {
+            return released;
+        }
+
         private void start() {
             textureView.addOnLayoutChangeListener(videoLayoutListener);
             textureView.setSurfaceTextureListener(this);
@@ -914,8 +919,13 @@ public final class DynamicVideoWallpaperHelper {
                         playbackErrorCount = 0;
                         playNextVideo();
                     } else {
-                        FileLog.e("Stopping repeated recovery for an unreadable dynamic wallpaper: " + path);
-                        release();
+                        // A decoder/surface failure after a long background period
+                        // must not permanently remove the wallpaper layer. Keep the
+                        // player alive and rebuild MediaPlayer on the same surface.
+                        FileLog.e("Retrying repeated dynamic wallpaper recovery: " + path);
+                        playbackErrorCount = 0;
+                        resumePositionMs = 0;
+                        prepare(surfaceTexture);
                     }
                 } else {
                     resumePositionMs = 0;
