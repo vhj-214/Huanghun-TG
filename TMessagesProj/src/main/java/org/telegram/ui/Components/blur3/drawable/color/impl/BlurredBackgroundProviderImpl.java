@@ -83,6 +83,22 @@ public class BlurredBackgroundProviderImpl {
                 .setStrokeWidth(dpf2(0.75f), dpf2(0.6f))
                 .build();
     }
+
+    /** Semi-transparent search rows that keep a glass tint even without a wallpaper source. */
+    public static BlurredBackgroundProvider mainSearchResultsGlass(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.18f : 0.10f))
+                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.12f : 0.08f))
+                .setStrokeColorTop(0x62FFFFFF, 0x3CFFFFFF)
+                .setStrokeColorBottom(0x26000000, 0x24000000)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(dpf2(0.6f), dpf2(0.6f))
+                .build();
+    }
+
     public static BlurredBackgroundProvider mainTabsTransparent(Theme.ResourcesProvider resourcesProvider) {
         return mainNavigationTransparentGlass(resourcesProvider);
     }
