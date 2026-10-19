@@ -1953,6 +1953,11 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
             }
             case VIEW_TYPE_GRAY_SECTION: {
                 final GraySectionCell cell = (GraySectionCell) holder.itemView;
+                // GraySectionCell owns a theme background and can restore it
+                // during recycling/theme updates. Re-apply the wallpaper
+                // glass at the real binding point so the Recent section
+                // cannot fall back to a solid white strip.
+                applyWallpaperBackedSearchGlass(cell);
                 if (!searchResultHashtags.isEmpty()) {
                     cell.setText(LocaleController.getString(R.string.Hashtags), LocaleController.getString(R.string.ClearButton), v -> {
                         if (delegate != null) {

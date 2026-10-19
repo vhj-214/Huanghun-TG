@@ -1087,8 +1087,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // called. With no recent searches / few dialogs, whiteActionBar and
             // searchIsShowed can still be false while the search header is visible.
             // Keep the wallpaper behind the transparent header for that state too.
-            if (!inPreviewMode && progressToActionMode == 0 && shouldUseWallpaperBackedMainGlass()
-                    && (searching || searchAnimationProgress > 0f)) {
+            // The search field can remain visibly expanded after the search
+            // animation has finished (and before the adapter reports the
+            // searching state). Do not key the wallpaper-backed header on
+            // those transient flags: otherwise ActionBar's black base is
+            // exposed exactly in the expanded-search screenshot.
+            if (!inPreviewMode && progressToActionMode == 0 && shouldUseWallpaperBackedMainGlass()) {
                 blurBounds.set(0, Math.max(0, top), getMeasuredWidth(), top + actionBarHeight - dp(2 * searchAnimationProgress));
                 drawBlurRect(canvas, 0, blurBounds, actionBarSearchPaint, true);
             }
