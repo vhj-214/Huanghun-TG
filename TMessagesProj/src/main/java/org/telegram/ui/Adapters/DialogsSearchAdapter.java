@@ -11,6 +11,8 @@ package org.telegram.ui.Adapters;
 import static org.telegram.messenger.AndroidUtilities.dp;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.SystemClock;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -1723,6 +1725,12 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
             android.graphics.drawable.Drawable drawable = dialogsActivity.createSearchResultLiquidGlass(view);
             if (drawable != null) {
                 view.setBackground(drawable);
+            } else {
+                GradientDrawable fallback = new GradientDrawable();
+                fallback.setColor(Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite), 0.10f));
+                fallback.setCornerRadius(dp(18));
+                fallback.setStroke(dp(1), Theme.multAlpha(Color.WHITE, 0.38f));
+                view.setBackground(fallback);
             }
         }
     }

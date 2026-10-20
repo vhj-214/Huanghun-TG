@@ -15089,13 +15089,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (!shouldUseWallpaperBackedMainGlass() || view == null || iBlur3FactoryLiquidGlass == null) {
             return null;
         }
-        BlurredBackgroundDrawable drawable = iBlur3FactoryLiquidGlass.create(
-                view, BlurredBackgroundProviderImpl.mainSearchResultsGlass(resourceProvider));
-        drawable.setRadius(dp(18));
-        drawable.setPadding(dp(2));
-        drawable.setIntensity(0.9f);
-        drawable.setThickness(dp(9));
-        return drawable;
+        try {
+            BlurredBackgroundDrawable drawable = iBlur3FactoryLiquidGlass.create(
+                    view, BlurredBackgroundProviderImpl.mainSearchResultsGlass(resourceProvider));
+            drawable.setRadius(dp(18));
+            drawable.setPadding(dp(2));
+            drawable.setIntensity(0.9f);
+            drawable.setThickness(dp(9));
+            return drawable;
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return null;
+        }
     }
 
     private void updateWallpaperBackedMainGlass(@Nullable ContentView contentView) {
