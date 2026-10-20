@@ -1721,22 +1721,25 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
     }
 
     private void applyWallpaperBackedSearchGlass(View view) {
-        if (usesWallpaperBackedSearchBackground()) {
-            if (view.getBackground() instanceof org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable
-                    || view.getBackground() instanceof GradientDrawable) {
-                return;
-            }
-            android.graphics.drawable.Drawable drawable = dialogsActivity.createSearchResultLiquidGlass(view);
-            if (drawable != null) {
-                view.setBackground(drawable);
-            } else {
-                GradientDrawable fallback = new GradientDrawable();
-                fallback.setColor(Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite), 0.10f));
-                fallback.setCornerRadius(dp(18));
-                fallback.setStroke(dp(1), Theme.multAlpha(Color.WHITE, 0.38f));
-                view.setBackground(fallback);
-            }
+        if (!usesWallpaperBackedSearchBackground() || view == null) {
+            return;
         }
+
+        // Do not attach a source-backed BlurredBackgroundDrawable to a search
+        // row. These rows are descendants of the same RenderNode that the
+        // home glass capture records. On the first search frame that creates
+        // a capture -> row background -> capture feedback loop and can crash
+        // in RenderNode/RecordingCanvas on Android 12+ devices. The search
+        // result must remain safe even while the wallpaper-backed header is
+        // being captured, so use a self-contained drawable here.
+        if (view.getBackground() instanceof GradientDrawable) {
+            return;
+        }
+        GradientDrawable fallback = new GradientDrawable();
+        fallback.setColor(Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhite), 0.10f));
+        fallback.setCornerRadius(dp(18));
+        fallback.setStroke(dp(1), Theme.multAlpha(Color.WHITE, 0.38f));
+        view.setBackground(fallback);
     }
 
     private boolean hasHints() {
@@ -2315,7 +2318,11 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
         }
         i -= localServerCount;
         if (i >= 0 && i < phoneCount) {
-            Object object = getItem(i);
+            // i is relative to the phone-search section here; getItem(i)
+            // interprets its argument as an absolute adapter position and
+            // can therefore classify the wrong row when earlier sections
+            // are present.
+            Object object = searchAdapterHelper.getPhoneSearch().get(i);
             if (object instanceof String) {
                 String str = (String) object;
                 if ("section".equals(str)) {
@@ -2379,10 +2386,17 @@ public class DialogsSearchAdapter extends RecyclerListView.SelectionAdapter {
             filteredRecentSearchObjects.clear();
             final int count = recentSearchObjects.size();
             for (int i = 0; i < count; ++i) {
-                if (delegate != null && delegate.getSearchForumDialogId() == recentSearchObjects.get(i).did || !filter(recentSearchObjects.get(i).object)) {
+                RecentSearchObject recentSearchObject = recentSearchObjects.get(i);
+                // A chat/user may have been deleted between loading the
+                // search_recent row and resolving it from MessagesStorage.
+                // Never expose that unresolved row to RecyclerView/cells.
+                if (recentSearchObject == null || recentSearchObject.object == null) {
                     continue;
                 }
-                filteredRecentSearchObjects.add(recentSearchObjects.get(i));
+                if (delegate != null && delegate.getSearchForumDialogId() == recentSearchObject.did || !filter(recentSearchObject.object)) {
+                    continue;
+                }
+                filteredRecentSearchObjects.add(recentSearchObject);
             }
             return;
         }
