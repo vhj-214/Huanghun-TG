@@ -1034,17 +1034,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         protected void dispatchDraw(Canvas canvas) {
-            // ActionBar keeps its own actionBarColor even when its Drawable
-            // background is cleared. Theme/adaptive-background callbacks can
-            // restore that color after the search field opens; ActionBar then
-            // paints the whole header from that stale color in its blurred
-            // dispatch pass. The home dialogs header is intentionally a
-            // transparent glass surface, so keep the internal color in sync
-            // before any children are drawn.
+            // The search header must have a real light base. Clearing the
+            // ActionBar background here exposes the window's black fallback on
+            // devices where the wallpaper/glass source does not cover the
+            // header, regardless of whether a wallpaper is configured.
             if (actionBar != null && shouldUseWallpaperBackedMainGlass()
                     && !actionBar.isActionModeShowed()) {
-                actionBar.setBackgroundColor(Color.TRANSPARENT);
-                actionBar.setBackground(null);
+                actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
             }
             if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                 blur3_InvalidateBlur();
@@ -3330,11 +3326,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     wallpaperRoot, wallpaperRoot.getContext(), currentAccount, 0L
             );
             if (player != null && generation == dialogsDynamicVideoWallpaperGeneration) {
-                // 首帧解码前继续显示稳定的透明玻璃与页面内容，避免黑色闪屏。
-                player.setFallbackBackgroundColor(0x00000000);
+                // TextureView 在首帧解码前以及部分设备的顶部安全区可能保持透明。
+                // 根容器不能同时透明，否则窗口默认的黑色底会从搜索头部露出。
+                // 使用白色承接层，播放器准备好后仍会在其上方显示动态壁纸。
+                player.setFallbackBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                 dialogsDynamicVideoWallpaperPlayer = player;
                 if (fragmentView instanceof ContentView) {
-                    ((ContentView) fragmentView).setBackgroundColor(Color.TRANSPARENT);
+                    ((ContentView) fragmentView).setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                 }
             } else if (player != null) {
                 player.release();
@@ -3814,10 +3812,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        // The ActionBar is part of the shared glass surface on every page.
-        // Do not leave the selection/ordinary-page branch with an opaque white bar.
-        actionBar.setBackgroundColor(Color.TRANSPARENT);
-        actionBar.setBackground(null);
+        // Keep a concrete light base behind the home search header. A fully
+        // transparent ActionBar lets the window's black fallback show through
+        // on devices where the glass/wallpaper source has no pixels there.
+        actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
@@ -15136,7 +15134,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         // Always assign, including null, so removing a wallpaper cannot leave a
         // stale drawable from the previous theme behind the search header.
         contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
-        contentView.setBackgroundColor(wallpaper != null || dialogsDynamicVideoWallpaperPlayer != null
+        contentView.setBackgroundColor(wallpaper != null
                 ? Color.TRANSPARENT
                 : getThemedColor(Theme.key_windowBackgroundWhite));
     }
