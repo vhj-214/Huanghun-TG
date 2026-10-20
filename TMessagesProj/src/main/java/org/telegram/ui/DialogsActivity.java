@@ -999,7 +999,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     canvas.translate(0, -y);
                     captureWallpaperBackground(canvas, new RectF(rectTmp));
                     canvas.restore();
-                } else {
+                } else if (dialogsDynamicVideoWallpaperPlayer == null) {
                     int oldColor = blurScrimPaint.getColor();
                     blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
                     canvas.drawRect(rectTmp, blurScrimPaint);
@@ -1036,14 +1036,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         protected void dispatchDraw(Canvas canvas) {
-            // The ActionBar itself is only the transparent content layer; the
-            // liquid-glass material is painted by ContentView below. Keeping
-            // the internal ActionBar color transparent prevents a black opaque
-            // strip from covering that shared material.
+            // Keep ActionBar's internal color non-transparent so its blurred
+            // dispatch pass invokes drawBlurRect() for the search header. The
+            // overridden pass paints the wallpaper/glass, not an opaque bar.
             if (actionBar != null && shouldUseWallpaperBackedMainGlass()
                     && !actionBar.isActionModeShowed()) {
-                actionBar.setBackgroundColor(Color.TRANSPARENT);
-                actionBar.setBackground(null);
+                actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
             }
             if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                 blur3_InvalidateBlur();
@@ -3815,11 +3813,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        // The header shares the same transparent liquid-glass material as the
-        // tabs and search results below. ContentView supplies the glass tint
-        // and the root fallback remains light when no wallpaper exists.
-        actionBar.setBackgroundColor(Color.TRANSPARENT);
-        actionBar.setBackground(null);
+        // Keep a theme-aware paint color to activate ActionBar's blurred
+        // dispatch pass; ContentView.drawBlurRect() keeps the surface glassy.
+        actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
