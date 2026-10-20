@@ -1034,6 +1034,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         protected void dispatchDraw(Canvas canvas) {
+            // ActionBar keeps its own actionBarColor even when its Drawable
+            // background is cleared. Theme/adaptive-background callbacks can
+            // restore that color after the search field opens; ActionBar then
+            // paints the whole header from that stale color in its blurred
+            // dispatch pass. The home dialogs header is intentionally a
+            // transparent glass surface, so keep the internal color in sync
+            // before any children are drawn.
+            if (actionBar != null && shouldUseWallpaperBackedMainGlass()
+                    && !actionBar.isActionModeShowed()) {
+                actionBar.setBackgroundColor(Color.TRANSPARENT);
+                actionBar.setBackground(null);
+            }
             if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                 blur3_InvalidateBlur();
             }
