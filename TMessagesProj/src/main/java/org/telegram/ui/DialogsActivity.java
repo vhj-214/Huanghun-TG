@@ -1006,7 +1006,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     blurScrimPaint.setColor(oldColor);
                 }
                 int oldColor = blurScrimPaint.getColor();
-                blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.12f));
+                // Match mainNavigationTransparentGlass: a light 8% theme tint
+                // over the live wallpaper instead of an opaque white panel.
+                blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.08f));
                 canvas.drawRect(rectTmp, blurScrimPaint);
                 blurScrimPaint.setColor(oldColor);
                 return;
@@ -1034,13 +1036,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         protected void dispatchDraw(Canvas canvas) {
-            // The search header must have a real light base. Clearing the
-            // ActionBar background here exposes the window's black fallback on
-            // devices where the wallpaper/glass source does not cover the
-            // header, regardless of whether a wallpaper is configured.
+            // The ActionBar itself is only the transparent content layer; the
+            // liquid-glass material is painted by ContentView below. Keeping
+            // the internal ActionBar color transparent prevents a black opaque
+            // strip from covering that shared material.
             if (actionBar != null && shouldUseWallpaperBackedMainGlass()
                     && !actionBar.isActionModeShowed()) {
-                actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                actionBar.setBackgroundColor(Color.TRANSPARENT);
+                actionBar.setBackground(null);
             }
             if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                 blur3_InvalidateBlur();
@@ -3812,10 +3815,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        // Keep a concrete light base behind the home search header. A fully
-        // transparent ActionBar lets the window's black fallback show through
-        // on devices where the glass/wallpaper source has no pixels there.
-        actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        // The header shares the same transparent liquid-glass material as the
+        // tabs and search results below. ContentView supplies the glass tint
+        // and the root fallback remains light when no wallpaper exists.
+        actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setBackground(null);
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
