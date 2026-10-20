@@ -988,12 +988,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // The shared glass RenderNode deliberately excludes wallpaper
                 // pixels, so an empty top surface can reveal the window's black
                 // base while search is expanded. Draw the static wallpaper into
-                // this pass explicitly; live video remains visible underneath.
-                if (dialogsDynamicVideoWallpaperPlayer == null && getBackgroundImage() != null) {
+                // this pass explicitly. Do this even while the dynamic player
+                // is alive: the player surface can be transparent until its
+                // first frame and may not cover the system-bar inset on every
+                // device. Never leave this region transparent over the window
+                // base, because that is the black strip seen above the search
+                // field in the expanded-search screenshot.
+                if (getBackgroundImage() != null) {
                     canvas.save();
                     canvas.translate(0, -y);
                     captureWallpaperBackground(canvas, new RectF(rectTmp));
                     canvas.restore();
+                } else {
+                    int oldColor = blurScrimPaint.getColor();
+                    blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    canvas.drawRect(rectTmp, blurScrimPaint);
+                    blurScrimPaint.setColor(oldColor);
                 }
                 int oldColor = blurScrimPaint.getColor();
                 blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.12f));
