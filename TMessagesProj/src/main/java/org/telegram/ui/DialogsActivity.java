@@ -985,25 +985,23 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // theme tint below so wallpaper remains visible through its glass.
             final int liquidGlassScrimAlpha = 0;
             if (shouldUseWallpaperBackedMainGlass() && top) {
-                // The shared glass RenderNode deliberately excludes wallpaper
-                // pixels, so an empty top surface can reveal the window's black
-                // base while search is expanded. Draw the static wallpaper into
-                // this pass explicitly. Do this even while the dynamic player
-                // is alive: the player surface can be transparent until its
-                // first frame and may not cover the system-bar inset on every
-                // device. Never leave this region transparent over the window
-                // base, because that is the black strip seen above the search
-                // field in the expanded-search screenshot.
-                if (getBackgroundImage() != null) {
-                    canvas.save();
-                    canvas.translate(0, -y);
-                    captureWallpaperBackground(canvas, new RectF(rectTmp));
-                    canvas.restore();
-                } else if (dialogsDynamicVideoWallpaperPlayer == null) {
-                    int oldColor = blurScrimPaint.getColor();
-                    blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                    canvas.drawRect(rectTmp, blurScrimPaint);
-                    blurScrimPaint.setColor(oldColor);
+                // The wallpaper must be supplied by the underlying root layer.
+                // Repainting the cached static image here used to cover the live
+                // TextureView over the entire search header, making the top look
+                // like a separately split wallpaper. Only synthesize a base when
+                // no dynamic player is active and the root has no wallpaper.
+                if (dialogsDynamicVideoWallpaperPlayer == null) {
+                    if (getBackgroundImage() != null) {
+                        canvas.save();
+                        canvas.translate(0, -y);
+                        captureWallpaperBackground(canvas, new RectF(rectTmp));
+                        canvas.restore();
+                    } else {
+                        int oldColor = blurScrimPaint.getColor();
+                        blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                        canvas.drawRect(rectTmp, blurScrimPaint);
+                        blurScrimPaint.setColor(oldColor);
+                    }
                 }
                 int oldColor = blurScrimPaint.getColor();
                 // Match mainNavigationTransparentGlass: a light 8% theme tint
@@ -3328,13 +3326,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             );
             if (player != null && generation == dialogsDynamicVideoWallpaperGeneration) {
                 // TextureView 在首帧解码前以及部分设备的顶部安全区可能保持透明。
-                // 根容器不能同时透明，否则窗口默认的黑色底会从搜索头部露出。
-                // 使用白色承接层，播放器准备好后仍会在其上方显示动态壁纸。
-                player.setFallbackBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                // 使用透明承接层，露出静态壁纸或页面主题底色，避免首帧前闪出白块。
+                player.setFallbackBackgroundColor(Color.TRANSPARENT);
                 dialogsDynamicVideoWallpaperPlayer = player;
-                if (fragmentView instanceof ContentView) {
-                    ((ContentView) fragmentView).setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                }
             } else if (player != null) {
                 player.release();
             }
@@ -4399,6 +4393,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         });
 
         ContentView contentView = new ContentView(context);
+        // Match wallpaper-backed settings roots: let the background layer extend
+        // behind the separate ActionBar and the transparent status-bar area.
+        contentView.setFitsSystemWindows(true);
         fragmentView = contentView;
         updateWallpaperBackedMainGlass(contentView);
 
@@ -4462,7 +4459,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         for (int a = 0; a < pagesCount; a++) {
             final ViewPage viewPage = new ViewPage(context);
             // 固定在列表容器底部：仅在页面创建或主题切换时更新，绝不跟随消息刷新或 RecyclerView 复用重绘。
-            if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT) {
+            if (shouldUseWallpaperBackedMainGlass()) {
                 viewPage.setBackground(createHuanghunDialogsGlassBaseDrawable());
             }
             contentView.addView(viewPage, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -15096,11 +15093,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         return capturingGlassSource;
     }
 
-    // The wallpaper-backed transparent header belongs to the primary dialogs list,
-    // whether it was opened by MainTabsActivity or another normal home entry path.
+    // Home and forward-to-chat lists share the wallpaper-backed transparent header
+    // and liquid-glass surfaces; forwarding remains eligible while onlySelect is set.
     public boolean shouldUseWallpaperBackedMainGlass() {
-        return !onlySelect
-            && initialDialogsType == DIALOGS_TYPE_DEFAULT
+        boolean isHomeList = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT;
+        boolean isForwardPicker = initialDialogsType == DIALOGS_TYPE_FORWARD;
+        return (isHomeList || isForwardPicker)
             && folderId == 0
             && communityId == 0;
     }
@@ -15152,7 +15150,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void updateHuanghunDialogsGlassBase() {
-        if (onlySelect || initialDialogsType != DIALOGS_TYPE_DEFAULT || viewPages == null) {
+        if (!shouldUseWallpaperBackedMainGlass() || viewPages == null) {
             return;
         }
         for (ViewPage page : viewPages) {
