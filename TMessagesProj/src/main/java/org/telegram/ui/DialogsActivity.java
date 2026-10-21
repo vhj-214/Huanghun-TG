@@ -981,15 +981,34 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
-            // Home and forward-picker surfaces must use the same background
-            // source as the list below them. The old header-only tint created a
-            // visible horizontal band when wallpaper was enabled or disabled.
+            // Keep the shared blur scrim clear; the home header adds only a light
+            // theme tint below so wallpaper remains visible through its glass.
             final int liquidGlassScrimAlpha = 0;
             if (shouldUseWallpaperBackedMainGlass() && top) {
-                // The ContentView/root wallpaper is already underneath this
-                // surface. Do not repaint a static image or add a tint here:
-                // both operations desynchronise this band from the list and can
-                // cover the live dynamic-video layer.
+                // The wallpaper must be supplied by the underlying root layer.
+                // Repainting the cached static image here used to cover the live
+                // TextureView over the entire search header, making the top look
+                // like a separately split wallpaper. Only synthesize a base when
+                // no dynamic player is active and the root has no wallpaper.
+                if (dialogsDynamicVideoWallpaperPlayer == null) {
+                    if (getBackgroundImage() != null) {
+                        canvas.save();
+                        canvas.translate(0, -y);
+                        captureWallpaperBackground(canvas, new RectF(rectTmp));
+                        canvas.restore();
+                    } else {
+                        int oldColor = blurScrimPaint.getColor();
+                        blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                        canvas.drawRect(rectTmp, blurScrimPaint);
+                        blurScrimPaint.setColor(oldColor);
+                    }
+                }
+                int oldColor = blurScrimPaint.getColor();
+                // Match mainNavigationTransparentGlass: a light 8% theme tint
+                // over the live wallpaper instead of an opaque white panel.
+                blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.08f));
+                canvas.drawRect(rectTmp, blurScrimPaint);
+                blurScrimPaint.setColor(oldColor);
                 return;
             }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
@@ -1015,12 +1034,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         protected void dispatchDraw(Canvas canvas) {
-            // Keep the ActionBar transparent so the status-bar/header area uses
-            // exactly the same root wallpaper as the list and forward picker.
+            // Keep ActionBar's internal color non-transparent so its blurred
+            // dispatch pass invokes drawBlurRect() for the search header. The
+            // overridden pass paints the wallpaper/glass, not an opaque bar.
             if (actionBar != null && shouldUseWallpaperBackedMainGlass()
                     && !actionBar.isActionModeShowed()) {
-                actionBar.setBackgroundColor(Color.TRANSPARENT);
-                actionBar.setBackground(null);
+                actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
             }
             if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                 blur3_InvalidateBlur();
@@ -3310,10 +3329,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // 使用透明承接层，露出静态壁纸或页面主题底色，避免首帧前闪出白块。
                 player.setFallbackBackgroundColor(Color.TRANSPARENT);
                 dialogsDynamicVideoWallpaperPlayer = player;
-                if (fragmentView instanceof ContentView) {
-                    updateWallpaperBackedMainGlass((ContentView) fragmentView);
-                    fragmentView.invalidate();
-                }
             } else if (player != null) {
                 player.release();
             }
@@ -3554,17 +3569,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             @Override
             public void onSearchExpand() {
                 searching = true;
-                // Search exposes the status/action-bar area as a transparent
-                // surface. Rebind the root background here because a dynamic
-                // wallpaper may finish attaching after this fragment was
-                // created; otherwise the newly exposed top area falls back to
-                // the window black base while the results remain transparent.
-                if (shouldUseWallpaperBackedMainGlass() && fragmentView instanceof ContentView) {
-                    updateWallpaperBackedMainGlass((ContentView) fragmentView);
-                    actionBar.setBackgroundColor(Color.TRANSPARENT);
-                    actionBar.setBackground(null);
-                    fragmentView.invalidate();
-                }
                 if (switchItem != null) {
                     switchItem.setVisibility(View.GONE);
                 }
@@ -3803,14 +3807,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        // The home and forward-picker ActionBar is part of the shared
-        // wallpaper-backed surface; it must not introduce an opaque header.
-        actionBar.setBackgroundColor(shouldUseWallpaperBackedMainGlass()
-                ? Color.TRANSPARENT
-                : getThemedColor(Theme.key_windowBackgroundWhite));
-        if (shouldUseWallpaperBackedMainGlass()) {
-            actionBar.setBackground(null);
-        }
+        // Keep a theme-aware paint color to activate ActionBar's blurred
+        // dispatch pass; ContentView.drawBlurRect() keeps the surface glassy.
+        actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
