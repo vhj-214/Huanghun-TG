@@ -689,6 +689,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private boolean searching;
     private boolean searchWas;
     private boolean onlySelect;
+    private boolean homeHeaderLiquidGlass;
+    private boolean forwardHeaderLiquidGlass;
     private boolean specialAttentionList;
     private boolean canSelectTopics;
     private String searchString;
@@ -1039,7 +1041,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // overridden pass paints the wallpaper/glass, not an opaque bar.
             if (actionBar != null && shouldUseWallpaperBackedMainGlass()
                     && !actionBar.isActionModeShowed()) {
-                actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                if (homeHeaderLiquidGlass || forwardHeaderLiquidGlass) {
+                    if (actionBar.getBackgroundColor() != Color.TRANSPARENT) {
+                        actionBar.setBackgroundColor(Color.TRANSPARENT);
+                    }
+                } else {
+                    actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                }
             }
             if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
                 blur3_InvalidateBlur();
@@ -3807,9 +3815,32 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        // Keep a theme-aware paint color to activate ActionBar's blurred
-        // dispatch pass; ContentView.drawBlurRect() keeps the surface glassy.
-        actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        // The home page and forward picker are separate fragment instances. Give
+        // each ActionBar its own full-width liquid-glass surface instead of
+        // representing the header with the old flat blur/tint pass.
+        homeHeaderLiquidGlass = LiteMode.isLiquidGlassEnabled() && !onlySelect
+                && initialDialogsType == DIALOGS_TYPE_DEFAULT
+                && folderId == 0 && communityId == 0;
+        forwardHeaderLiquidGlass = LiteMode.isLiquidGlassEnabled()
+                && initialDialogsType == DIALOGS_TYPE_FORWARD
+                && folderId == 0 && communityId == 0;
+        if (homeHeaderLiquidGlass) {
+            BlurredBackgroundDrawable homeHeaderGlass = iBlur3FactoryLiquidGlass.create(
+                    actionBar, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            homeHeaderGlass.setRadius(0);
+            homeHeaderGlass.setPadding(0);
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setBackground(homeHeaderGlass);
+        } else if (forwardHeaderLiquidGlass) {
+            BlurredBackgroundDrawable forwardHeaderGlass = iBlur3FactoryLiquidGlass.create(
+                    actionBar, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+            forwardHeaderGlass.setRadius(0);
+            forwardHeaderGlass.setPadding(0);
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setBackground(forwardHeaderGlass);
+        } else {
+            actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        }
         //if (!onlySelect || initialDialogsType == DIALOGS_TYPE_FORWARD) {
             actionBar.setAddToContainer(false);
             actionBar.setCastShadows(false);
@@ -8272,7 +8303,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // ActionBar colors can otherwise restore the theme's opaque
             // (black in dark mode) base behind the search field.
             actionBar.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setBackground(null);
+            if (!homeHeaderLiquidGlass && !forwardHeaderLiquidGlass) {
+                actionBar.setBackground(null);
+            }
         }
         if (whiteActionBar && actionBar != null) {
             int color1 = (folderId != 0 || communityId != 0) ? getThemedColor(Theme.key_actionBarDefaultArchivedIcon) : getThemedColor(Theme.key_actionBarDefaultIcon);
