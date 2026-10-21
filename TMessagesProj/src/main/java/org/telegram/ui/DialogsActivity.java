@@ -4416,6 +4416,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // before its children have completed layout.
                 if (LiteMode.isLiquidGlassEnabled()) {
                     contentView.captureWallpaperBackground(canvas, position);
+                    DynamicVideoWallpaperHelper.Player videoPlayer = dialogsDynamicVideoWallpaperPlayer;
+                    View videoLayer = videoPlayer != null && !videoPlayer.isReleased()
+                            ? videoPlayer.getLayerViewForBackgroundCapture()
+                            : null;
+                    if (videoLayer != null && videoLayer.getVisibility() == View.VISIBLE
+                            && videoLayer.getWidth() > 0 && videoLayer.getHeight() > 0) {
+                        Blur3Utils.captureRelativeParent((videoCanvas, videoPosition) -> {
+                            int saveCount = videoCanvas.save();
+                            videoCanvas.clipRect(videoPosition);
+                            videoLayer.draw(videoCanvas);
+                            videoCanvas.restoreToCount(saveCount);
+                        }, canvas, position, videoLayer, contentView);
+                    }
                 }
                 final float positionCenterY = (position.top + position.bottom) * 0.5f;
                 if (LiteMode.isLiquidGlassEnabled()

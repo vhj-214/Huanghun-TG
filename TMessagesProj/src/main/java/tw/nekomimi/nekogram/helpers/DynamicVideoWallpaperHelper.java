@@ -605,6 +605,11 @@ public final class DynamicVideoWallpaperHelper {
             return released;
         }
 
+        /** Returns the live wallpaper layer for backdrop capture while it is attached. */
+        public View getLayerViewForBackgroundCapture() {
+            return released ? null : layerView;
+        }
+
         private void start() {
             textureView.addOnLayoutChangeListener(videoLayoutListener);
             textureView.setSurfaceTextureListener(this);
