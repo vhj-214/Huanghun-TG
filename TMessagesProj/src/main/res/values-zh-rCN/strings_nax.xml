@@ -7,6 +7,7 @@
     <string name="XChannel">Nagram X 频道</string>
     <string name="EnableSaveDeletedMessages">保存已删除消息</string>
     <string name="DeletedMessage">已删除</string>
+    <string name="DeleteSelectedMessages">删除已勾选的消息</string>
     <string name="EnableSaveEditsHistory">保存编辑历史</string>
     <string name="EditsHistoryMenuText">编辑历史</string>
     <string name="DeleteKeepLocally">本地保留</string>

@@ -1004,6 +1004,30 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         canvas.drawRect(rectTmp, blurScrimPaint);
                         blurScrimPaint.setColor(oldColor);
                     }
+                } else {
+                    // ActionBar is drawn in its own canvas, so the TextureView
+                    // below ContentView is not automatically composited into
+                    // this header pass. Draw the live wallpaper layer here
+                    // before applying the glass tint, otherwise the transparent
+                    // header reveals the window black base above the search UI.
+                    View videoLayer = dialogsDynamicVideoWallpaperPlayer.isReleased()
+                            ? null
+                            : dialogsDynamicVideoWallpaperPlayer.getLayerViewForBackgroundCapture();
+                    if (videoLayer != null && videoLayer.getVisibility() == View.VISIBLE
+                            && videoLayer.getWidth() > 0 && videoLayer.getHeight() > 0
+                            && ViewPositionWatcher.computeRectInParent(videoLayer, ContentView.this, iBlur3PositionActionBar)) {
+                        canvas.save();
+                        final float videoLeft = iBlur3PositionActionBar.left;
+                        final float videoTop = iBlur3PositionActionBar.top - y;
+                        canvas.translate(videoLeft, videoTop);
+                        canvas.clipRect(
+                                rectTmp.left - videoLeft,
+                                rectTmp.top - videoTop,
+                                rectTmp.right - videoLeft,
+                                rectTmp.bottom - videoTop);
+                        videoLayer.draw(canvas);
+                        canvas.restore();
+                    }
                 }
                 int oldColor = blurScrimPaint.getColor();
                 // Match mainNavigationTransparentGlass: a light 8% theme tint
@@ -3337,6 +3361,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // 使用透明承接层，露出静态壁纸或页面主题底色，避免首帧前闪出白块。
                 player.setFallbackBackgroundColor(Color.TRANSPARENT);
                 dialogsDynamicVideoWallpaperPlayer = player;
+                if (fragmentView instanceof ContentView) {
+                    updateWallpaperBackedMainGlass((ContentView) fragmentView);
+                    fragmentView.invalidate();
+                    blur3_InvalidateBlur();
+                }
             } else if (player != null) {
                 player.release();
             }
@@ -3577,6 +3606,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             @Override
             public void onSearchExpand() {
                 searching = true;
+                // The dynamic wallpaper may attach after ActionBar creation.
+                // Rebind and invalidate the shared glass source as the search
+                // header becomes visible, preventing a black fallback strip.
+                if (shouldUseWallpaperBackedMainGlass() && fragmentView instanceof ContentView) {
+                    updateWallpaperBackedMainGlass((ContentView) fragmentView);
+                    fragmentView.invalidate();
+                    blur3_InvalidateBlur();
+                }
                 if (switchItem != null) {
                     switchItem.setVisibility(View.GONE);
                 }

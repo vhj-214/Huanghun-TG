@@ -266,6 +266,7 @@ import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.helpers.NoForwardsHelper;
 import tw.nekomimi.nekogram.helpers.TimeStringHelper;
 import tw.nekomimi.nekogram.helpers.TranscribeHelper;
+import tw.nekomimi.nekogram.helpers.BotFatherTranslation;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
@@ -30086,6 +30087,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     /** Only changes the rendered label; the original KeyboardButton remains the click payload. */
     private void translateBotButtonText(BotButton botButton, String original, TextPaint paint) {
+        String localTranslation = BotFatherTranslation.translate(original);
+        if (!TextUtils.isEmpty(localTranslation)) {
+            botButton.title = new Text(localTranslation, paint);
+            invalidateOutbounds();
+            return;
+        }
         if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || TextUtils.isEmpty(original) || containsChinese(original)) {
             return;
         }

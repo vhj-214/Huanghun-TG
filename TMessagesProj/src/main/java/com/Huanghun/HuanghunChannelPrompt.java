@@ -116,8 +116,8 @@ public final class HuanghunChannelPrompt {
 
     /**
      * Restore an archived channel to the main list, then repair its local and
-     * server-side pin state. Dialog loading can lag behind username resolution,
-     * so retry while both dialog folders are synchronized.
+     * server-side pin state. Dialog loading and server state can lag behind
+     * username resolution, so retry while both states are synchronized.
      */
     private static void prepareChannel(int accountNum, MessagesController controller, long dialogId, int retries, Runnable next) {
         TLRPC.Dialog dialog = controller.dialogs_dict.get(dialogId);
@@ -126,10 +126,8 @@ public final class HuanghunChannelPrompt {
                 controller.addDialogToFolder(dialogId, 0, 0, 0);
                 dialog = controller.dialogs_dict.get(dialogId);
             }
-            // An already pinned dialog needs no further request. Only an
-            // unpinned dialog enters the server-first/local-fallback path.
-            // taskId=-1 forces the official request even when unlimited local
-            // pins are enabled; a server rejection still leaves the local pin.
+            // Check the official state first. This prevents stale local dialog
+            // data from causing a duplicate or contradictory pin operation.
             if (dialog != null && dialog.folder_id == 0) {
                 refreshServerPinState(accountNum, dialogId, serverPinned -> {
                     if (serverPinned == null) {

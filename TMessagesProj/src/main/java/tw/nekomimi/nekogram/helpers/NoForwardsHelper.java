@@ -176,6 +176,22 @@ public class NoForwardsHelper {
     }
 
     /**
+     * 已删除消息在服务器端已经没有可供引用的原始消息，不能走真正的
+     * forwardMessages 流程，必须作为本地副本重新发送。
+     */
+    private static boolean containsDeletedMessage(ArrayList<MessageObject> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return false;
+        }
+        for (int i = 0, n = messages.size(); i < n; i++) {
+            if (messages.get(i) != null && messages.get(i).isAyuDeleted()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 以副本形式重发一批消息(媒体必须已经在本地)。整批发不出去时逐条兜底,尽量把内容送出去。
      *
      * @return 是否至少送出了一部分
@@ -227,7 +243,11 @@ public class NoForwardsHelper {
             return;
         }
         final ArrayList<MessageObject> list = new ArrayList<>(messages);
-        if (!isBypassEnabled() || !containsProtected(account, list)) {
+        // A deleted message has no valid server-side source to reference.  It
+        // must always be rebuilt and uploaded as a copy, regardless of the
+        // no-forwards bypass setting.
+        final boolean containsDeleted = containsDeletedMessage(list);
+        if (!containsDeleted && (!isBypassEnabled() || !containsProtected(account, list))) {
             try {
                 SendMessagesHelper.getInstance(account).sendMessage(list, targetDialogId, noQuote, false, true, 0, 0);
             } catch (Throwable e) {

@@ -52,6 +52,7 @@ import java.util.Locale;
 import me.vkryl.android.animator.ListAnimator;
 import me.vkryl.android.animator.ReplaceAnimator;
 import me.vkryl.core.lambda.Destroyable;
+import tw.nekomimi.nekogram.helpers.BotFatherTranslation;
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
 import xyz.nextalone.nagram.NaConfig;
@@ -270,6 +271,11 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
     }
 
     private void translateButtonText(SpoilersTextView textView, String original) {
+        String localTranslation = BotFatherTranslation.translate(original);
+        if (!TextUtils.isEmpty(localTranslation)) {
+            setTranslatedButtonText(textView, original, localTranslation);
+            return;
+        }
         if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || original == null || original.isEmpty() || containsChinese(original)) {
             return;
         }

@@ -109,6 +109,8 @@ public class DeleteMessagesBottomSheet extends BottomSheetWithRecyclerListView {
     private boolean restrictUserCollapsed = true;
     private boolean restrictUserDeleteAllMessages = false;
     private boolean restrictUserDeleteAllReactions = false;
+    // Deleting from the action mode should affect the messages selected by the user.
+    private boolean deleteSelectedMessages = true;
 
     private static final int RIGHT_SEND_MESSAGES = 0;
     private static final int RIGHT_SEND_MEDIA = 1;
@@ -130,6 +132,7 @@ public class DeleteMessagesBottomSheet extends BottomSheetWithRecyclerListView {
     private static final int OPTION_DELETE = 100;
     private static final int OPTION_DELETE_MESSAGES = 101;
     private static final int OPTION_DELETE_REACTIONS = 102;
+    private static final int OPTION_DELETE_SELECTED_MESSAGES = 105;
     private static final int OPTION_BAN_FROM_COMMUNITY = 103;
     private static final int OPTION_BAN_FROM_COMMUNITY_INFO = 104;
 
@@ -808,12 +811,22 @@ public class DeleteMessagesBottomSheet extends BottomSheetWithRecyclerListView {
                 items.add(UItem.asRoundCheckbox(OPTION_DELETE_MESSAGES, getString(R.string.RestrictUserDeleteAllMessages))
                     .setChecked(restrictUserDeleteAllMessages)
                     .setPad(1));
+                if (!isReactionOnlyMode && messages != null && !messages.isEmpty()) {
+                    items.add(UItem.asRoundCheckbox(OPTION_DELETE_SELECTED_MESSAGES, getString(R.string.DeleteSelectedMessages))
+                        .setChecked(deleteSelectedMessages)
+                        .setPad(1));
+                }
                 items.add(UItem.asRoundCheckbox(OPTION_DELETE_REACTIONS, getString(R.string.RestrictUserDeleteAllReactions))
                     .setChecked(restrictUserDeleteAllReactions)
                     .setPad(1));
             }
         } else {
             fillAction(items, deleteAll);
+            if (!isReactionOnlyMode && messages != null && !messages.isEmpty()) {
+                items.add(UItem.asRoundCheckbox(OPTION_DELETE_SELECTED_MESSAGES, getString(R.string.DeleteSelectedMessages))
+                    .setChecked(deleteSelectedMessages)
+                    .setPad(1));
+            }
             fillAction(items, deleteAllReactions);
         }
         fillAction(items, banOrRestrict);
@@ -1094,6 +1107,8 @@ public class DeleteMessagesBottomSheet extends BottomSheetWithRecyclerListView {
                 } else if (item.id == OPTION_DELETE_MESSAGES) {
                     restrictUserDeleteAllMessages = !restrictUserDeleteAllMessages;
                     updateTitleAnimated();
+                } else if (item.id == OPTION_DELETE_SELECTED_MESSAGES) {
+                    deleteSelectedMessages = !deleteSelectedMessages;
                 } else if (item.id == OPTION_DELETE_REACTIONS) {
                     restrictUserDeleteAllReactions = !restrictUserDeleteAllReactions;
                     updateTitleAnimated();
@@ -1262,17 +1277,17 @@ public class DeleteMessagesBottomSheet extends BottomSheetWithRecyclerListView {
                     }
                 });
             }
-        } else {
+        } else if (deleteSelectedMessages) {
             if (!supergroupMessageIds.isEmpty()) {
                 for (int i = 0; i < supergroupMessageIds.size(); i++) {
-                AyuState.permitDeleteMessage(-inChat.id, supergroupMessageIds.get(i));
+                    AyuState.permitDeleteMessage(-inChat.id, supergroupMessageIds.get(i));
+                }
+                MessagesController.getInstance(currentAccount).deleteMessages(supergroupMessageIds, null, null, -inChat.id, topicId, false, mode);
             }
-            MessagesController.getInstance(currentAccount).deleteMessages(supergroupMessageIds, null, null, -inChat.id, topicId, false, mode);
-        }
-        if (!groupMessageIds.isEmpty()) {
-            for (int i = 0; i < groupMessageIds.size(); i++) {
-                AyuState.permitDeleteMessage(mergeDialogId, groupMessageIds.get(i));
-            }
+            if (!groupMessageIds.isEmpty()) {
+                for (int i = 0; i < groupMessageIds.size(); i++) {
+                    AyuState.permitDeleteMessage(mergeDialogId, groupMessageIds.get(i));
+                }
                 MessagesController.getInstance(currentAccount).deleteMessages(groupMessageIds, null, null, mergeDialogId, topicId, true, mode);
             }
         }
