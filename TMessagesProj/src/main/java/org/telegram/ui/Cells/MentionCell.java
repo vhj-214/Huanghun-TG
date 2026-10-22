@@ -35,6 +35,7 @@ import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.ColoredImageSpan;
 import org.telegram.ui.Components.EmojiTextView;
 import org.telegram.ui.Components.LayoutHelper;
+import tw.nekomimi.nekogram.helpers.BotFatherTranslation;
 
 public class MentionCell extends LinearLayout {
 
@@ -258,7 +259,8 @@ public class MentionCell extends LinearLayout {
             nameTextView.setText(command);
         }
 
-        usernameTextView.setText(help);
+        String translatedHelp = BotFatherTranslation.translateCommandDescription(help);
+        usernameTextView.setText(translatedHelp != null ? translatedHelp : help);
     }
 
     public void setIsDarkTheme(boolean isDarkTheme) {

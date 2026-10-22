@@ -33,6 +33,7 @@ import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
+import org.telegram.messenger.LiteMode;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
@@ -256,6 +257,14 @@ public class BotKeyboardView extends LinearLayout implements InAppKeyboardInsetV
                     pressed = ColorUtils.compositeColors(getThemedColor(Theme.key_listSelector), color);
                     textColor = Color.WHITE;
                 }
+            }
+
+            // Bot keyboard chips sit above the same wallpaper-backed glass panel as
+            // the chat input. Tone down their fill in liquid-glass mode so the
+            // separate flat button surfaces do not look heavier than that panel.
+            if (LiteMode.isLiquidGlassEnabled()) {
+                color = Theme.multAlpha(color, 0.65f);
+                pressed = Theme.multAlpha(pressed, 0.65f);
             }
 
             icon.setColorFilter(textColor);

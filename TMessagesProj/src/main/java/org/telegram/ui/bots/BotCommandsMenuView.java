@@ -51,6 +51,7 @@ import java.util.Locale;
 
 import tw.nekomimi.nekogram.translate.Translator;
 import tw.nekomimi.nekogram.translate.TranslatorKt;
+import tw.nekomimi.nekogram.helpers.BotFatherTranslation;
 import xyz.nextalone.nagram.NaConfig;
 
 public class BotCommandsMenuView extends View {
@@ -135,7 +136,16 @@ public class BotCommandsMenuView extends View {
     }
 
     private static void translateCommandDescription(BotCommandView view, String command, String original) {
-        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool() || TextUtils.isEmpty(original) || containsChinese(original)) {
+        if (TextUtils.isEmpty(original) || containsChinese(original)) {
+            view.description.setText(original);
+            return;
+        }
+        String localTranslation = BotFatherTranslation.translateCommandDescription(original);
+        if (!TextUtils.isEmpty(localTranslation)) {
+            view.description.setText(original + " — " + localTranslation);
+            return;
+        }
+        if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool()) {
             view.description.setText(original);
             return;
         }

@@ -107,6 +107,20 @@ public class BlurredBackgroundProviderImpl {
         return mainNavigationTransparentGlass(resourcesProvider);
     }
 
+    /** Full-width home/forward header glass, matched to dialog-row tint without a bright edge. */
+    public static BlurredBackgroundProvider mainDialogsHeaderGlass(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> Theme.getColor(Theme.key_windowBackgroundWhite, r))
+                .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.13f : 0.09f))
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
+                .setShadowColor(0, 0)
+                .setShadowLayer(0, 0, 0)
+                .setStrokeWidth(0, 0)
+                .build();
+    }
+
     /** Translucent liquid glass for the in-app emoji/sticker panel. */
     public static BlurredBackgroundProvider chatEmojiPanelGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)

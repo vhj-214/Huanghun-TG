@@ -3863,14 +3863,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 && folderId == 0 && communityId == 0;
         if (homeHeaderLiquidGlass) {
             BlurredBackgroundDrawable homeHeaderGlass = iBlur3FactoryLiquidGlass.create(
-                    actionBar, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+                    actionBar, BlurredBackgroundProviderImpl.mainDialogsHeaderGlass(resourceProvider));
             homeHeaderGlass.setRadius(0);
             homeHeaderGlass.setPadding(0);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setBackground(homeHeaderGlass);
         } else if (forwardHeaderLiquidGlass) {
             BlurredBackgroundDrawable forwardHeaderGlass = iBlur3FactoryLiquidGlass.create(
-                    actionBar, BlurredBackgroundProviderImpl.mainFoldersTransparent(resourceProvider));
+                    actionBar, BlurredBackgroundProviderImpl.mainDialogsHeaderGlass(resourceProvider));
             forwardHeaderGlass.setRadius(0);
             forwardHeaderGlass.setPadding(0);
             actionBar.setBackgroundColor(Color.TRANSPARENT);
