@@ -142,7 +142,7 @@ public class BotCommandsMenuView extends View {
         }
         String localTranslation = BotFatherTranslation.translateCommandDescription(original);
         if (!TextUtils.isEmpty(localTranslation)) {
-            view.description.setText(original + " — " + localTranslation);
+            view.description.setText(localTranslation);
             return;
         }
         if (!NaConfig.INSTANCE.getBotButtonTranslation().Bool()) {
