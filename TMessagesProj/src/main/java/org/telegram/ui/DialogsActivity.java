@@ -987,29 +987,26 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             // theme tint below so wallpaper remains visible through its glass.
             final int liquidGlassScrimAlpha = 0;
             if (shouldUseWallpaperBackedMainGlass() && top) {
-                // The wallpaper must be supplied by the underlying root layer.
-                // Repainting the cached static image here used to cover the live
-                // TextureView over the entire search header, making the top look
-                // like a separately split wallpaper. Only synthesize a base when
-                // no dynamic player is active and the root has no wallpaper.
-                if (dialogsDynamicVideoWallpaperPlayer == null) {
-                    if (getBackgroundImage() != null) {
-                        canvas.save();
-                        canvas.translate(0, -y);
-                        captureWallpaperBackground(canvas, new RectF(rectTmp));
-                        canvas.restore();
-                    } else {
-                        int oldColor = blurScrimPaint.getColor();
-                        blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-                        canvas.drawRect(rectTmp, blurScrimPaint);
-                        blurScrimPaint.setColor(oldColor);
-                    }
+                // Always paint a stable base first. A newly attached TextureView
+                // stays transparent until its first video frame; without this
+                // wallpaper/theme fallback, expanded search exposes the window's
+                // black base above the search field.
+                if (getBackgroundImage() != null) {
+                    canvas.save();
+                    canvas.translate(0, -y);
+                    captureWallpaperBackground(canvas, new RectF(rectTmp));
+                    canvas.restore();
                 } else {
+                    int oldColor = blurScrimPaint.getColor();
+                    blurScrimPaint.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                    canvas.drawRect(rectTmp, blurScrimPaint);
+                    blurScrimPaint.setColor(oldColor);
+                }
+                if (dialogsDynamicVideoWallpaperPlayer != null) {
                     // ActionBar is drawn in its own canvas, so the TextureView
                     // below ContentView is not automatically composited into
-                    // this header pass. Draw the live wallpaper layer here
-                    // before applying the glass tint, otherwise the transparent
-                    // header reveals the window black base above the search UI.
+                    // this header pass. Draw the live wallpaper layer over the
+                    // stable base when available.
                     View videoLayer = dialogsDynamicVideoWallpaperPlayer.isReleased()
                             ? null
                             : dialogsDynamicVideoWallpaperPlayer.getLayerViewForBackgroundCapture();
@@ -1029,12 +1026,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         canvas.restore();
                     }
                 }
-                int oldColor = blurScrimPaint.getColor();
-                // Match mainNavigationTransparentGlass: a light 8% theme tint
-                // over the live wallpaper instead of an opaque white panel.
-                blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.08f));
-                canvas.drawRect(rectTmp, blurScrimPaint);
-                blurScrimPaint.setColor(oldColor);
+                // In Liquid Glass mode the ActionBar's shared glass drawable adds
+                // the material tint itself. Keep this pass as a wallpaper fallback
+                // only, otherwise the header receives an extra tint layer vs. tabs.
+                if (!homeHeaderLiquidGlass && !forwardHeaderLiquidGlass) {
+                    int oldColor = blurScrimPaint.getColor();
+                    blurScrimPaint.setColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhite), 0.08f));
+                    canvas.drawRect(rectTmp, blurScrimPaint);
+                    blurScrimPaint.setColor(oldColor);
+                }
                 return;
             }
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null || !BlurredBackgroundProviderImpl.checkBlurEnabled(currentAccount, resourceProvider)) {
@@ -3015,6 +3015,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             afterSignup = arguments.getBoolean("afterSignup", false);
             folderId = arguments.getInt("folderId", 0);
             specialAttentionList = arguments.getBoolean("huanghunSpecialAttentionList", false);
+            // MainTabsActivity preloads cached tab views before they are selected.
+            // Do not start a second wallpaper decoder for this hidden page; onResume
+            // will enable playback when the special-attention tab becomes visible.
+            dialogsDynamicVideoWallpaperPaused = specialAttentionList;
             specialAttentionFilter = HuanghunSpecialAttentionHelper.getFilter(currentAccount);
             communityId = arguments.getLong("community_id", 0);
             if (communityId != 0) {
@@ -3316,19 +3320,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     /**
-     * 主列表和转发列表只使用全局（dialogId=0）的动态壁纸。转发列表虽然是
-     * onlySelect 模式，但仍然是完整的聊天列表页面，不能因此跳过背景播放器。
+     * 主列表、归档列表、特别关心列表和转发列表只使用全局（dialogId=0）的动态壁纸。
+     * 转发列表虽然是 onlySelect 模式，但仍然是完整的聊天列表页面，不能因此跳过背景播放器。
      * 播放器是 ContentView 的首个子层，消息列表、搜索栏和底部导航仍由各自的
      * 官方刷新逻辑独立管理。
      */
     private boolean canShowDialogsDynamicVideoWallpaper() {
-        boolean isDialogsList = initialDialogsType == DIALOGS_TYPE_DEFAULT;
-        boolean isForwardList = initialDialogsType == DIALOGS_TYPE_FORWARD;
-        // The special-attention tab also uses DIALOGS_TYPE_DEFAULT, but it is a
-        // separate cached page. It must not create a second wallpaper player
-        // while MainTabsActivity preloads the bottom tabs.
-        return (isDialogsList || isForwardList) && !specialAttentionList
-                && folderId == 0 && communityId == 0;
+        boolean isDialogsList = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT
+                && (folderId == 0 || folderId == 1);
+        boolean isForwardList = initialDialogsType == DIALOGS_TYPE_FORWARD && folderId == 0;
+        // The special-attention tab is eligible too. Its cached view starts paused,
+        // so it only creates a wallpaper player after its onResume callback.
+        return (isDialogsList || isForwardList) && communityId == 0;
     }
 
     private void refreshDialogsDynamicVideoWallpaper() {
@@ -3856,29 +3859,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 actionBar.setSupportsHolidayImage(true);
             }
         }
-        // The home page and forward picker are separate fragment instances. Give
-        // each ActionBar its own full-width liquid-glass surface instead of
-        // representing the header with the old flat blur/tint pass.
-        homeHeaderLiquidGlass = LiteMode.isLiquidGlassEnabled() && !onlySelect
-                && initialDialogsType == DIALOGS_TYPE_DEFAULT
-                && folderId == 0 && communityId == 0;
+        // Home, archive and forward pages use the same full-width liquid-glass
+        // provider as search/tabs. Attach the drawable after setDrawBlurBackground,
+        // which clears ActionBar's background during view initialization.
+        homeHeaderLiquidGlass = LiteMode.isLiquidGlassEnabled()
+                && shouldUseWallpaperBackedMainGlass();
         forwardHeaderLiquidGlass = LiteMode.isLiquidGlassEnabled()
                 && initialDialogsType == DIALOGS_TYPE_FORWARD
                 && folderId == 0 && communityId == 0;
-        if (homeHeaderLiquidGlass) {
-            BlurredBackgroundDrawable homeHeaderGlass = iBlur3FactoryLiquidGlass.create(
-                    actionBar, BlurredBackgroundProviderImpl.mainDialogsHeaderGlass(resourceProvider));
-            homeHeaderGlass.setRadius(0);
-            homeHeaderGlass.setPadding(0);
+        if (homeHeaderLiquidGlass || forwardHeaderLiquidGlass) {
             actionBar.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setBackground(homeHeaderGlass);
-        } else if (forwardHeaderLiquidGlass) {
-            BlurredBackgroundDrawable forwardHeaderGlass = iBlur3FactoryLiquidGlass.create(
-                    actionBar, BlurredBackgroundProviderImpl.mainDialogsHeaderGlass(resourceProvider));
-            forwardHeaderGlass.setRadius(0);
-            forwardHeaderGlass.setPadding(0);
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setBackground(forwardHeaderGlass);
         } else {
             actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         }
@@ -5965,6 +5955,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             showSearch(false, false, false);
         }
         actionBar.setDrawBlurBackground(contentView);
+        applyDialogsHeaderLiquidGlassBackground();
 
         rightSlidingDialogContainer = new RightSlidingDialogContainer(context) {
 
@@ -8009,6 +8000,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         super.setInPreviewMode(isInPreviewMode);
         if (!isInPreviewMode && avatarContainer != null) {
             actionBar.setBackground(null);
+            applyDialogsHeaderLiquidGlassBackground();
             ((ViewGroup.MarginLayoutParams) actionBar.getLayoutParams()).topMargin = 0;
             actionBar.removeView(avatarContainer);
             avatarContainer = null;
@@ -15180,14 +15172,25 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         return capturingGlassSource;
     }
 
-    // Home and forward-to-chat lists share the wallpaper-backed transparent header
-    // and liquid-glass surfaces; forwarding remains eligible while onlySelect is set.
+    // Home and archive lists share the wallpaper-backed transparent header and
+    // liquid-glass surfaces; forwarding remains eligible while onlySelect is set.
     public boolean shouldUseWallpaperBackedMainGlass() {
-        boolean isHomeList = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT;
-        boolean isForwardPicker = initialDialogsType == DIALOGS_TYPE_FORWARD;
-        return (isHomeList || isForwardPicker)
-            && folderId == 0
-            && communityId == 0;
+        boolean isHomeOrArchiveList = !onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT
+                && (folderId == 0 || folderId == 1);
+        boolean isForwardPicker = initialDialogsType == DIALOGS_TYPE_FORWARD && folderId == 0;
+        return (isHomeOrArchiveList || isForwardPicker) && communityId == 0;
+    }
+
+    private void applyDialogsHeaderLiquidGlassBackground() {
+        if (actionBar == null || (!homeHeaderLiquidGlass && !forwardHeaderLiquidGlass)) {
+            return;
+        }
+        BlurredBackgroundDrawable headerGlass = iBlur3FactoryLiquidGlass.create(
+                actionBar, BlurredBackgroundProviderImpl.mainDialogsHeaderGlass(resourceProvider));
+        headerGlass.setRadius(0);
+        headerGlass.setPadding(0);
+        actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setBackground(headerGlass);
     }
 
     public BlurredBackgroundDrawable createSearchResultLiquidGlass(View view) {

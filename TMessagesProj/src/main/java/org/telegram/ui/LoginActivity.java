@@ -89,6 +89,7 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -1254,11 +1255,18 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             .setTitle("协议登录（请选择压缩包文件）")
             .aboveMessageView(warningView)
             .setItems(options, (dialog, which) -> {
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("application/zip");
-                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed"});
-                startActivityForResult(intent, 5000 + which);
+                Runnable openFilePicker = () -> {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed"});
+                    startActivityForResult(intent, 5000 + which);
+                };
+                if (which == 0 || which == 1) {
+                    showProtocolLoginDisclaimer(openFilePicker);
+                } else {
+                    openFilePicker.run();
+                }
             })
             .create();
         protocolDialog.setOnShowListener(ignored -> {
@@ -1279,6 +1287,55 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             }
         });
         showDialog(protocolDialog);
+    }
+
+    private void showProtocolLoginDisclaimer(Runnable onConfirmed) {
+        final String preferenceKey = "protocol_login_disclaimer_never_show";
+        if (MessagesController.getGlobalMainSettings().getBoolean(preferenceKey, false)) {
+            onConfirmed.run();
+            return;
+        }
+        Activity activity = getParentActivity();
+        if (activity == null) {
+            return;
+        }
+
+        LinearLayout checkboxesLayout = new LinearLayout(activity);
+        checkboxesLayout.setOrientation(LinearLayout.VERTICAL);
+        checkboxesLayout.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(4), AndroidUtilities.dp(16), AndroidUtilities.dp(4));
+
+        CheckBox acknowledgeCheckBox = new CheckBox(activity);
+        acknowledgeCheckBox.setText("我已充分知晓并阅读后果");
+        acknowledgeCheckBox.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        acknowledgeCheckBox.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        checkboxesLayout.addView(acknowledgeCheckBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        CheckBox neverShowCheckBox = new CheckBox(activity);
+        neverShowCheckBox.setText("已全部掌握，下次永久不再出现此公告");
+        neverShowCheckBox.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        neverShowCheckBox.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        checkboxesLayout.addView(neverShowCheckBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        AlertDialog disclaimerDialog = new AlertDialog.Builder(activity)
+            .setTitle("免责声明")
+            .setMessage("通过协议登录账号之后，禁止机器人或其他第三方使用“同一协议”。根据 TG 官方规则，这会导致你的账号掉登录；有通行密钥似乎也无法恢复。你可以尝试生成一个新的协议，供那些机器人等用途使用。不要使用同一个协议文件！！！")
+            .setView(checkboxesLayout)
+            .setPositiveButton("确定", (dialog, which) -> {
+                if (!acknowledgeCheckBox.isChecked()) {
+                    Toast.makeText(activity, "请仔细阅读并勾选第一个方框。", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (neverShowCheckBox.isChecked()) {
+                    MessagesController.getGlobalMainSettings().edit().putBoolean(preferenceKey, true).apply();
+                }
+                dialog.dismiss();
+                onConfirmed.run();
+            })
+            .create();
+        // The positive action validates the required checkbox itself and only
+        // dismisses after consent has been confirmed.
+        disclaimerDialog.setDismissDialogByButtons(false);
+        showDialog(disclaimerDialog);
     }
 
     /**
