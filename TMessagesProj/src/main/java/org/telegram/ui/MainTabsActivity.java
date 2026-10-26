@@ -467,6 +467,22 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         updateLayout();
         checkUnreadCount(false);
+        // ViewPagerFixed deliberately keeps only the current/transition views,
+        // so the first tap on Settings/Profile/Contacts otherwise performs the
+        // complete Fragment and view construction on the click path. Warm the
+        // cached fragment instances after the first frame; subsequent taps only
+        // attach an already-created view and remain responsive.
+        contentView.post(() -> {
+            if (fragmentView != contentView || viewPager == null) {
+                return;
+            }
+            final int currentPosition = viewPager.getCurrentPosition();
+            for (int position = 0; position < getFragmentsCount(); position++) {
+                if (position != currentPosition) {
+                    preloadFragmentAtPosition(position);
+                }
+            }
+        });
         return contentView;
     }
 
@@ -855,13 +871,13 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         if (viewPager != null) {
             final int currentPosition = viewPager.getCurrentPosition();
-            if (currentPosition != MainTabsHelper.getCallsOrSettingsPosition() && dropCallsFragmentAfterPageScroll) {
-                dropFragmentAtPosition(MainTabsHelper.getCallsOrSettingsPosition());
-                dropCallsFragmentAfterPageScroll = false;
-            }
-            if (currentPosition != MainTabsHelper.getProfilePosition()) {
-                dropFragmentAtPosition(MainTabsHelper.getProfilePosition());
-            }
+            // Keep the main-tab fragments alive after they have been created.  Dropping
+            // Settings/Profile here forced a full fragment, view and data rebuild on
+            // every return to those tabs.  Apart from the visible 1-3 second delay,
+            // that teardown could also interrupt the shared wallpaper/blur pipeline.
+            // ViewPager still owns the lifecycle of each page, so retaining the
+            // instances does not keep them actively running while off-screen.
+            dropCallsFragmentAfterPageScroll = false;
             if (pendingFolderId != null && currentPosition == POSITION_CHATS && dialogsActivity != null) {
                 dialogsActivity.scrollToFolder(pendingFolderId);
                 pendingFolderId = null;

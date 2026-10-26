@@ -132,6 +132,37 @@ public abstract class ViewPagerActivity extends BaseFragment {
         fragmentsArr.put(position, new FragmentState(fragment));
     }
 
+    /**
+     * Prepare a page before the user selects it.  ViewPagerFixed only keeps two
+     * container views, but the fragment instances are cached here; preparing the
+     * fragment view in advance removes the first-click construction pause while
+     * still allowing ViewPagerFixed to attach only the selected page.
+     */
+    protected void preloadFragmentAtPosition(int position) {
+        if (contentView == null || position < 0 || position >= getFragmentsCount()) {
+            return;
+        }
+        FragmentState state = fragmentsArr.get(position);
+        if (state == null) {
+            BaseFragment fragment = createBaseFragmentAt(position);
+            if (fragment == null) {
+                return;
+            }
+            state = new FragmentState(fragment);
+            fragmentsArr.put(position, state);
+        }
+        BaseFragment fragment = state.fragment;
+        if (!state.onCreateCalled) {
+            fragment.onFragmentCreate();
+            state.onCreateCalled = true;
+        }
+        fragment.setParentLayout(getParentLayout());
+        if (fragment.getFragmentView() == null) {
+            fragment.createView(contentView.getContext());
+            fragment.setTitleOverlayText(titleOverlay, titleOverlayId, titleOverlayAction);
+        }
+    }
+
     protected boolean canScrollBackward(MotionEvent ev) {
         return true;
     }

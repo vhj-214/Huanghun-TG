@@ -622,6 +622,13 @@ public final class DynamicVideoWallpaperHelper {
             if (released || surfaceTexture == null) {
                 return;
             }
+            // TextureView can report the same SurfaceTexture again while a tab is
+            // being detached/reattached.  Do not tear down a healthy decoder in
+            // that case: rebuilding MediaPlayer here was the source of the blank
+            // wallpaper and the noticeable delay when returning to Home.
+            if (this.surfaceTexture == surfaceTexture && mediaPlayer != null && mediaPrepared) {
+                return;
+            }
             cancelPlaybackRecovery();
             if (path == null || !new File(path).isFile() || new File(path).length() <= 0) {
                 if (playlistMode) {
@@ -1051,8 +1058,14 @@ public final class DynamicVideoWallpaperHelper {
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
             cancelPlaybackRecovery();
-            releaseMediaPlayer();
-            return true;
+            // Keep the SurfaceTexture/MediaPlayer pair across a short tab or
+            // window detach.  Returning true releases the surface immediately;
+            // the next attach then has to prepare the video again, which can take
+            // several seconds on some Android decoders and leaves only the theme
+            // background visible in the meantime.  The complete player release
+            // path still runs from release() when the fragment is destroyed.
+            savePlaybackPosition();
+            return false;
         }
 
         @Override

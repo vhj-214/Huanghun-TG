@@ -3324,7 +3324,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private boolean canShowDialogsDynamicVideoWallpaper() {
         boolean isDialogsList = initialDialogsType == DIALOGS_TYPE_DEFAULT;
         boolean isForwardList = initialDialogsType == DIALOGS_TYPE_FORWARD;
-        return (isDialogsList || isForwardList) && folderId == 0 && communityId == 0;
+        // The special-attention tab also uses DIALOGS_TYPE_DEFAULT, but it is a
+        // separate cached page. It must not create a second wallpaper player
+        // while MainTabsActivity preloads the bottom tabs.
+        return (isDialogsList || isForwardList) && !specialAttentionList
+                && folderId == 0 && communityId == 0;
     }
 
     private void refreshDialogsDynamicVideoWallpaper() {
