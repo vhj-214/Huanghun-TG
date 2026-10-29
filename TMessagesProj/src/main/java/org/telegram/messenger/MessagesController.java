@@ -389,6 +389,7 @@ public class MessagesController extends BaseController implements NotificationCe
     private TLRPC.TL_messages_peerDialogs resetDialogsPinned;
     private TLRPC.messages_Dialogs resetDialogsAll;
     private SparseIntArray loadingPinnedDialogs = new SparseIntArray();
+    private SparseArray<ArrayList<Runnable>> pinnedDialogsLoadCallbacks = new SparseArray<>();
 
     public ArrayList<FaqSearchResult> faqSearchArray = new ArrayList<>();
     public TLRPC.WebPage faqWebPage;
@@ -17639,8 +17640,8 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public boolean pinDialog(long dialogId, boolean pin, TLRPC.InputPeer peer, long taskId) {
         TLRPC.Dialog dialog = dialogs_dict.get(dialogId);
-        // An explicit maintenance pin must also repair the official state when
-        // unlimited local pins are enabled or the dialog is already locally pinned.
+        // taskId == -1 is the local-only path; allow it to reapply local pin state
+        // even when this dialog is already locally pinned.
         if (dialog == null || (dialog.pinned == pin && !(pin && taskId == -1))) {
             return dialog != null;
         }
@@ -17714,17 +17715,34 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public void loadPinnedDialogs(final int folderId, long newDialogId, ArrayList<Long> order) {
-        if (NekoConfig.unlimitedPinnedDialogs.Bool()) {
+        loadPinnedDialogs(folderId, newDialogId, order, null);
+    }
+
+    public void loadPinnedDialogs(final int folderId, long newDialogId, ArrayList<Long> order, Runnable onComplete) {
+        if (NekoConfig.unlimitedPinnedDialogs.Bool() || getUserConfig().isPinnedDialogsLoaded(folderId)) {
+            if (onComplete != null) {
+                AndroidUtilities.runOnUIThread(onComplete);
+            }
             return;
         }
-        if (loadingPinnedDialogs.indexOfKey(folderId) >= 0 || getUserConfig().isPinnedDialogsLoaded(folderId)) {
+        if (onComplete != null) {
+            synchronized (pinnedDialogsLoadCallbacks) {
+                ArrayList<Runnable> callbacks = pinnedDialogsLoadCallbacks.get(folderId);
+                if (callbacks == null) {
+                    callbacks = new ArrayList<>();
+                    pinnedDialogsLoadCallbacks.put(folderId, callbacks);
+                }
+                callbacks.add(onComplete);
+            }
+        }
+        if (loadingPinnedDialogs.indexOfKey(folderId) >= 0) {
             return;
         }
         loadingPinnedDialogs.put(folderId, 1);
         TLRPC.TL_messages_getPinnedDialogs req = new TLRPC.TL_messages_getPinnedDialogs();
         req.folder_id = folderId;
         getConnectionsManager().sendRequest(req, (response, error) -> {
-            if (response != null) {
+            if (response instanceof TLRPC.TL_messages_peerDialogs) {
                 TLRPC.TL_messages_peerDialogs res = (TLRPC.TL_messages_peerDialogs) response;
                 ArrayList<TLRPC.Dialog> newPinnedDialogs = new ArrayList<>(res.dialogs);
                 fetchFolderInLoadedPinnedDialogs(res);
@@ -17913,9 +17931,33 @@ public class MessagesController extends BaseController implements NotificationCe
                     getMessagesStorage().putDialogs(toCache, 1);
                     getUserConfig().setPinnedDialogsLoaded(folderId, true);
                     getUserConfig().saveConfig(false);
+                    dispatchPinnedDialogsLoadCallbacks(folderId);
                 }));
+            } else {
+                AndroidUtilities.runOnUIThread(() -> {
+                    loadingPinnedDialogs.delete(folderId);
+                    dispatchPinnedDialogsLoadCallbacks(folderId);
+                });
             }
         });
+    }
+
+    private void dispatchPinnedDialogsLoadCallbacks(int folderId) {
+        ArrayList<Runnable> callbacks;
+        synchronized (pinnedDialogsLoadCallbacks) {
+            callbacks = pinnedDialogsLoadCallbacks.get(folderId);
+            pinnedDialogsLoadCallbacks.remove(folderId);
+        }
+        if (callbacks == null) {
+            return;
+        }
+        for (Runnable callback : callbacks) {
+            try {
+                callback.run();
+            } catch (Throwable error) {
+                FileLog.e(error);
+            }
+        }
     }
 
     public void generateJoinMessage(long chatId, boolean ignoreLeft) {

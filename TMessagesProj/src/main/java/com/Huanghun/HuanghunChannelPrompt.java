@@ -126,25 +126,16 @@ public final class HuanghunChannelPrompt {
                 controller.addDialogToFolder(dialogId, 0, 0, 0);
                 dialog = controller.dialogs_dict.get(dialogId);
             }
-            // Check the official state first. This prevents stale local dialog
-            // data from causing a duplicate or contradictory pin operation.
+            // Wait for the normal server pin-list load first; its older snapshot
+            // must not overwrite the local fallback below.
             if (dialog != null && dialog.folder_id == 0) {
-                refreshServerPinState(accountNum, dialogId, serverPinned -> {
-                    if (serverPinned == null) {
-                        FileLog.e("Unable to refresh server pin state for " + dialogId);
-                        if (retries > 0) {
-                            AndroidUtilities.runOnUIThread(() -> prepareChannel(accountNum, controller, dialogId, retries - 1, next), 1000L);
-                        } else {
-                            next.run();
-                        }
-                        return;
-                    }
-                    if (!serverPinned && !controller.pinDialog(dialogId, true, null, -1)) {
-                        next.run();
-                        return;
-                    }
-                    next.run();
-                });
+                try {
+                    controller.loadPinnedDialogs(0, 0, null,
+                            () -> checkServerPinState(accountNum, controller, dialogId, retries, next));
+                } catch (Throwable error) {
+                    FileLog.e(error);
+                    checkServerPinState(accountNum, controller, dialogId, retries, next);
+                }
                 return;
             }
         }
@@ -159,6 +150,27 @@ public final class HuanghunChannelPrompt {
             FileLog.e(error);
         }
         AndroidUtilities.runOnUIThread(() -> prepareChannel(accountNum, controller, dialogId, retries - 1, next), 1000L);
+    }
+
+    private static void checkServerPinState(int accountNum, MessagesController controller, long dialogId, int retries, Runnable next) {
+        refreshServerPinState(accountNum, dialogId, serverPinned -> {
+            if (serverPinned == null) {
+                FileLog.e("Unable to refresh server pin state for " + dialogId);
+                if (retries > 0) {
+                    AndroidUtilities.runOnUIThread(
+                            () -> checkServerPinState(accountNum, controller, dialogId, retries - 1, next), 1000L);
+                } else {
+                    pinLocallyIfNeeded(controller, dialogId, next);
+                }
+                return;
+            }
+            if (serverPinned) {
+                pinLocallyIfNeeded(controller, dialogId, next);
+            } else {
+                requestServerPin(accountNum, controller, dialogId,
+                        () -> pinLocallyIfNeeded(controller, dialogId, next));
+            }
+        });
     }
 
     private static void refreshServerPinState(int accountNum, long dialogId, Utilities.Callback<Boolean> callback) {
@@ -183,6 +195,48 @@ public final class HuanghunChannelPrompt {
         } catch (Throwable error) {
             FileLog.e(error);
             callback.run(null);
+        }
+    }
+
+    /** Try Telegram's account-level pin first; keep the dialog pinned locally on any RPC outcome. */
+    private static void requestServerPin(int accountNum, MessagesController controller, long dialogId, Runnable onComplete) {
+        Runnable complete = once(onComplete);
+        try {
+            TLRPC.InputPeer inputPeer = controller.getInputPeer(dialogId);
+            if (inputPeer == null || inputPeer instanceof TLRPC.TL_inputPeerEmpty) {
+                FileLog.e("Unable to build input peer for server pin " + dialogId);
+                AndroidUtilities.runOnUIThread(complete);
+                return;
+            }
+            TLRPC.TL_inputDialogPeer dialogPeer = new TLRPC.TL_inputDialogPeer();
+            dialogPeer.peer = inputPeer;
+            TLRPC.TL_messages_toggleDialogPin request = new TLRPC.TL_messages_toggleDialogPin();
+            request.pinned = true;
+            request.peer = dialogPeer;
+            ConnectionsManager.getInstance(accountNum).sendRequest(request, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                if (error != null) {
+                    FileLog.e("Server pin failed for " + dialogId + ": " + error.text);
+                } else if (!(response instanceof TLRPC.TL_boolTrue)) {
+                    FileLog.e("Server did not confirm pin for " + dialogId);
+                }
+                complete.run();
+            }));
+        } catch (Throwable error) {
+            FileLog.e(error);
+            AndroidUtilities.runOnUIThread(complete);
+        }
+    }
+
+    private static void pinLocallyIfNeeded(MessagesController controller, long dialogId, Runnable next) {
+        try {
+            TLRPC.Dialog dialog = controller.dialogs_dict.get(dialogId);
+            if (dialog != null && !dialog.pinned && !controller.pinDialog(dialogId, true, null, -1)) {
+                FileLog.e("Unable to pin dialog locally " + dialogId);
+            }
+        } catch (Throwable error) {
+            FileLog.e(error);
+        } finally {
+            next.run();
         }
     }
 
