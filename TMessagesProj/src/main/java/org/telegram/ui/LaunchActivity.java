@@ -1604,6 +1604,36 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         return handleIntent(intent, isNew, restore, fromPassword, null, true, false);
     }
 
+    private boolean handleIntent(Intent intent, boolean isNew, boolean restore, boolean fromPassword, Browser.Progress progress, boolean rebuildFragments, boolean openedTelegram) {
+        try {
+            return handleIntentInternal(intent, isNew, restore, fromPassword, progress, rebuildFragments, openedTelegram);
+        } catch (RuntimeException e) {
+            String action = intent == null ? null : intent.getAction();
+            if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+                FileLog.e(e);
+                clearSharedContent();
+                Toast.makeText(this, "无法读取此分享内容，请检查文件来源或访问权限", Toast.LENGTH_LONG).show();
+                return true;
+            }
+            throw e;
+        }
+    }
+
+    private void clearSharedContent() {
+        photoPathsArray = null;
+        videoPath = null;
+        voicePath = null;
+        sendingText = null;
+        sendingLocation = null;
+        documentsPathsArray = null;
+        documentsOriginalPathsArray = null;
+        documentsMimeType = null;
+        documentsUrisArray = null;
+        exportingChatUri = null;
+        contactsToSend = null;
+        contactsToSendUri = null;
+    }
+
     /**
      * Some file managers put a shared file only in ClipData instead of EXTRA_STREAM.
      * Keep both forms working, especially for APKs shared with a content:// URI.
@@ -1644,7 +1674,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     }
 
     @SuppressLint("Range")
-    private boolean handleIntent(Intent intent, boolean isNew, boolean restore, boolean fromPassword, Browser.Progress progress, boolean rebuildFragments, boolean openedTelegram) {
+    private boolean handleIntentInternal(Intent intent, boolean isNew, boolean restore, boolean fromPassword, Browser.Progress progress, boolean rebuildFragments, boolean openedTelegram) {
         if (GiftInfoBottomSheet.handleIntent(intent, progress)) {
             return true;
         }
@@ -1816,7 +1846,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                     // Use normal GeoPoint message (user position)
                                 } else if (!lines[0].contains("geo:")) {
                                     venueTitle = lines[0];
-                                    if (!lines[1].contains("geo:")) {
+                                    if (lines.length > 1 && !lines[1].contains("geo:")) {
                                         venueAddress = lines[1];
                                     }
                                 }

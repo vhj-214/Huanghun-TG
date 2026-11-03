@@ -553,6 +553,12 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         return background;
     }
 
+    private GradientDrawable roundedBackground(int color, float radius, int strokeColor, int strokeWidth) {
+        GradientDrawable background = roundedBackground(color, radius);
+        background.setStroke(strokeWidth, strokeColor);
+        return background;
+    }
+
     @Override
     protected BaseListAdapter createAdapter(Context context) {
         return new Adapter(context);
@@ -623,7 +629,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             setOrientation(HORIZONTAL);
             setGravity(Gravity.CENTER_VERTICAL);
             setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
-            setBackgroundColor(getThemedColor(Theme.key_windowBackgroundGray));
+            setBackgroundColor(Color.TRANSPARENT);
 
             TextView add = createTextButton(context, "＋  添加目标", true);
             TextView run = createTextButton(context, "▶  执行全部任务", false);
@@ -650,8 +656,8 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             super(context);
             setOrientation(VERTICAL);
             setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(14));
-            setBackground(roundedBackground(getThemedColor(Theme.key_windowBackgroundWhite), AndroidUtilities.dp(14)));
-            setElevation(AndroidUtilities.dp(1));
+            setBackground(roundedBackground(0xe6eaf3d7, AndroidUtilities.dp(14), 0x66889b6d, AndroidUtilities.dp(1)));
+            setElevation(0);
             setClickable(true);
             setFocusable(true);
 
