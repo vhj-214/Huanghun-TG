@@ -2111,166 +2111,110 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         setPage(VIEW_CODE_EMAIL_SETUP, true, params, false);
     }
 
-    private static final String LOGIN_EMAIL_PREFS = "login_email_cache";
-    private static final String LOGIN_EMAIL_KEY = "last_login_email";
-
-    private String getCachedLoginEmail() {
-        try {
-            SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences(LOGIN_EMAIL_PREFS, Activity.MODE_PRIVATE);
-            String email = prefs.getString(LOGIN_EMAIL_KEY, null);
-            if (!TextUtils.isEmpty(email) && email.indexOf('@') > 0) {
-                return email;
-            }
-        } catch (Exception e) {
-            FileLog.e(e);
-        }
-        return null;
-    }
-
-    private void cacheLoginEmail(String email) {
-        try {
-            if (TextUtils.isEmpty(email)) {
-                return;
-            }
-            ApplicationLoader.applicationContext.getSharedPreferences(LOGIN_EMAIL_PREFS, Activity.MODE_PRIVATE)
-                    .edit().putString(LOGIN_EMAIL_KEY, email).apply();
-        } catch (Exception e) {
-            FileLog.e(e);
-        }
-    }
-
-    private void clearCachedLoginEmail() {
-        try {
-            ApplicationLoader.applicationContext.getSharedPreferences(LOGIN_EMAIL_PREFS, Activity.MODE_PRIVATE)
-                    .edit().remove(LOGIN_EMAIL_KEY).apply();
-        } catch (Exception e) {
-            FileLog.e(e);
-        }
-    }
-
     /**
-     * 改用邮箱接收验证码。
-     * 关键点：真正把验证码发到邮箱的接口是 account.sendVerifyEmailCode，它必须带邮箱地址，
-     * 而未登录状态下 Telegram 不会告诉客户端这个账号绑的是哪个邮箱，
-     * 所以这里先用本地记住的登录邮箱直接发（第二次起一点就发，零输入）；
-     * 没有记录时弹一个输入框让用户填一次，填完就记住。
-     * 不再跳「选择登录邮箱」那一整页，避免看起来像在重新绑定。
+     * 改用邮箱接收验证码 —— 全程零输入。
+     *
+     * Telegram 在未登录状态下没有任何「查询这个账号绑定了哪个邮箱」的接口，
+     * 但 auth.sendCode 的返回类型本身就在回答这个问题：
+     * 请求里不声明 app 投递（allow_app_hash = false）时，服务端只能在 短信 / 邮箱 里挑：
+     *   · 账号绑过登录邮箱 → 返回 sentCodeTypeEmailCode，验证码由服务端直接发到那个邮箱，
+     *     客户端只拿到掩码（例如 a***@gmail.com），既不需要用户输入，也拿不到完整地址；
+     *   · 账号没有登录邮箱 → 返回短信 / App 类型，此时服务端没有任何办法发邮件，
+     *     客户端也不会向用户索要邮箱地址。
+     * 所以这个按钮做的事就是：重新请求一次登录验证码，并明确不使用 app 投递。
      */
     private void openEmailFallback(Bundle source, int fromView) {
-        if (activityMode != MODE_LOGIN || source == null || getParentActivity() == null) {
+        if (activityMode != MODE_LOGIN || getParentActivity() == null) {
             return;
         }
-        emailFallbackView = fromView;
-        emailFallbackParams = new Bundle(source);
-
-        final String cached = getCachedLoginEmail();
-        if (!TextUtils.isEmpty(cached)) {
-            sendLoginEmailCode(cached, new Bundle(source), false);
-        } else {
-            showLoginEmailInputDialog(new Bundle(source));
-        }
+        requestLoginCodeForEmail(source, fromView);
     }
 
-    private void showLoginEmailInputDialog(final Bundle baseParams) {
+    private void requestLoginCodeForEmail(final Bundle source, final int fromView) {
         if (getParentActivity() == null) {
             return;
         }
-        final EditTextBoldCursor editText = new EditTextBoldCursor(getParentActivity());
-        editText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-        editText.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        editText.setHintText(getString(R.string.YourEmail));
-        editText.setHintColor(getThemedColor(Theme.key_windowBackgroundWhiteHintText));
-        editText.setBackgroundDrawable(Theme.createEditTextDrawable(getContext(), true));
-        editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        editText.setImeOptions(EditorInfo.IME_ACTION_DONE);
-        editText.setSingleLine(true);
-        editText.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(6));
-        final String cached = getCachedLoginEmail();
-        if (!TextUtils.isEmpty(cached)) {
-            editText.setText(cached);
-            editText.setSelection(cached.length());
-        }
-
-        FrameLayout container = new FrameLayout(getParentActivity());
-        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
-        container.addView(editText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("用登录邮箱接收验证码");
-        builder.setMessage("填这个账号原本绑定的登录邮箱，验证码会直接发到邮箱，不用重新绑定。");
-        builder.setView(container);
-        builder.setPositiveButton("发送", (dialog, which) -> {
-            String email = editText.getText().toString().trim();
-            if (TextUtils.isEmpty(email) || email.indexOf('@') <= 0) {
-                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "请输入完整的邮箱地址");
-                return;
-            }
-            sendLoginEmailCode(email, baseParams, true);
-        });
-        builder.setNegativeButton(getString(R.string.Cancel), null);
-        showDialog(builder.create());
-    }
-
-    /**
-     * 直接把登录验证码发到指定邮箱。成功后会进入邮箱验证码输入页，校验通过即继续登录。
-     */
-    private void sendLoginEmailCode(final String email, final Bundle baseParams, final boolean fromDialog) {
-        if (getParentActivity() == null || baseParams == null) {
-            return;
-        }
-        final String requestPhone = baseParams.getString("phoneFormated");
-        final String phoneHash = baseParams.getString("phoneHash");
-        if (TextUtils.isEmpty(requestPhone) || TextUtils.isEmpty(phoneHash)) {
-            needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "登录会话已失效，请返回重新获取验证码");
+        final String phone = source != null ? source.getString("phoneFormated") : null;
+        if (TextUtils.isEmpty(phone)) {
+            needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "登录会话已失效，请返回重新输入手机号");
             return;
         }
         if (emailCodeSending) {
             return;
         }
         emailCodeSending = true;
-        cacheLoginEmail(email);
-        if (getParentActivity() != null) {
-            try {
-                Toast.makeText(getParentActivity(), "正在把验证码发送到 " + email, Toast.LENGTH_SHORT).show();
-            } catch (Exception ignore) {
-            }
-        }
+        emailFallbackView = fromView;
+        emailFallbackParams = new Bundle(source);
+        needShowProgress(0);
 
-        TL_account.sendVerifyEmailCode req = new TL_account.sendVerifyEmailCode();
-        TLRPC.TL_emailVerifyPurposeLoginSetup purpose = new TLRPC.TL_emailVerifyPurposeLoginSetup();
-        purpose.phone_number = requestPhone;
-        purpose.phone_code_hash = phoneHash;
-        req.purpose = purpose;
-        req.email = email;
+        TLRPC.TL_codeSettings settings = new TLRPC.TL_codeSettings();
+        // 三项全部关掉：不带 app 投递，服务端才会去挑邮箱通道
+        settings.allow_app_hash = false;
+        settings.allow_flashcall = false;
+        settings.allow_missed_call = false;
+        settings.allow_firebase = false;
 
+        TLRPC.TL_auth_sendCode req = new TLRPC.TL_auth_sendCode();
+        req.api_id = NekoXConfig.currentAppId();
+        req.api_hash = NekoXConfig.currentAppHash();
+        req.phone_number = phone;
+        req.settings = settings;
+
+        final Bundle params = new Bundle(source);
+        params.putString("phoneFormated", phone);
         ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
             emailCodeSending = false;
-            if (response instanceof TL_account.sentEmailCode) {
-                Bundle params = new Bundle(baseParams);
-                params.putString("email", email);
-                params.putString("phoneHash", phoneHash);
-                fillNextCodeParams(params, (TL_account.sentEmailCode) response);
+            needHideProgress(false);
+            if (getParentActivity() == null) {
                 return;
             }
-            String err = error != null && error.text != null ? error.text : "";
-            if (err.contains("EMAIL_INVALID") || err.contains("EMAIL_ADDRESS_INVALID")) {
-                clearCachedLoginEmail();
-                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "邮箱地址格式不对，请检查后重试");
-            } else if (err.contains("EMAIL_NOT_ALLOWED")) {
-                if (!fromDialog) {
-                    clearCachedLoginEmail();
-                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "自动发送没成功，可能是这个账号绑定的邮箱变了。请再点一次「改用邮箱接收验证码」，填上正确的登录邮箱。");
-                } else {
-                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "这个邮箱不是该账号绑定的登录邮箱，请确认后再试");
+            if (error == null) {
+                if (response instanceof TLRPC.TL_auth_sentCodeSuccess) {
+                    onAuthSuccess(((TLRPC.TL_auth_sentCodeSuccess) response).authorization);
+                    return;
                 }
-            } else if (err.contains("PHONE_CODE_EXPIRED")) {
-                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "验证码会话已过期，请返回重新获取");
-            } else if (err.startsWith("FLOOD_WAIT")) {
+                if (response instanceof TLRPC.auth_SentCode) {
+                    TLRPC.auth_SentCode res = (TLRPC.auth_SentCode) response;
+                    params.putString("phoneHash", res.phone_code_hash);
+                    params.putInt("timeout", (res.timeout == 0 ? 60 : res.timeout) * 1000);
+
+                    if (res.type instanceof TLRPC.TL_auth_sentCodeTypeEmailCode) {
+                        // 服务端确认这个账号有登录邮箱，并且已经把码发过去了 —— 直接进邮箱验证码页
+                        TLRPC.TL_auth_sentCodeTypeEmailCode emailType = (TLRPC.TL_auth_sentCodeTypeEmailCode) res.type;
+                        params.putBoolean("googleSignInAllowed", emailType.google_signin_allowed);
+                        params.putString("emailPattern", emailType.email_pattern);
+                        params.putInt("length", emailType.length);
+                        params.putInt("nextPhoneLoginDate", emailType.next_phone_login_date);
+                        params.putInt("resetAvailablePeriod", emailType.reset_available_period);
+                        params.putInt("resetPendingDate", emailType.reset_pending_date);
+                        setPage(VIEW_CODE_EMAIL, true, params, false);
+                        try {
+                            Toast.makeText(getParentActivity(), "验证码已发送到这个账号绑定的登录邮箱", Toast.LENGTH_SHORT).show();
+                        } catch (Exception ignore) {
+                        }
+                        return;
+                    }
+
+                    // 非邮箱类型 = 这个账号没有可用的登录邮箱，服务端发不了邮件，客户端也不会要用户填
+                    fillNextCodeParams(params, res, true);
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle),
+                            "服务端没有给这个账号开邮箱投递：验证码这次只能发到" + describeCodeChannel(res.type)
+                                    + "。\n说明这个号码没有可用的登录邮箱（登录邮箱的地址在未登录状态下服务端不会提供，客户端也拿不到）。");
+                    return;
+                }
+            }
+            String err = error != null && error.text != null ? error.text : "";
+            if (err.startsWith("FLOOD_WAIT")) {
                 needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.FloodWait) + "\n" + err);
+            } else if (err.contains("PHONE_NUMBER_INVALID") || err.contains("PHONE_NUMBER_BANNED")) {
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("InvalidPhoneNumber", R.string.InvalidPhoneNumber));
+            } else if (err.contains("PHONE_HASH_EXPIRED") || err.contains("PHONE_CODE_EXPIRED")) {
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "这次登录会话已经过期，请返回验证码页点「重新获取验证码」再试一次");
             } else {
                 needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), TextUtils.isEmpty(err) ? getString("ErrorOccurred", R.string.ErrorOccurred) : err);
             }
-        }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin);
+        }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin
+                | ConnectionsManager.RequestFlagTryDifferentDc | ConnectionsManager.RequestFlagEnableUnauthorized);
     }
 
     /**
@@ -2296,31 +2240,33 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
     }
 
+    /** 把服务端这次用的投递通道翻译成人话 */
+    private String describeCodeChannel(TLRPC.auth_SentCodeType type) {
+        if (type instanceof TLRPC.TL_auth_sentCodeTypeEmailCode) {
+            return "该账号绑定的登录邮箱";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeApp) {
+            return "该账号已登录的其他设备";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeSms || type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms) {
+            return "短信";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeCall) {
+            return "语音电话";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeFlashCall) {
+            return "闪信来电";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeMissedCall) {
+            return "未接来电";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeSetUpEmailRequired) {
+            return "设置登录邮箱的流程（这个账号还没有登录邮箱）";
+        }
+        return "未知通道";
+    }
+
     /** 显示服务端这次把验证码发到了哪个通道，方便判断对方账号到底有没有登录邮箱 */
     private void showCodeChannelToast(TLRPC.auth_SentCodeType type) {
         if (getParentActivity() == null || type == null) {
             return;
         }
-        String channel;
-        if (type instanceof TLRPC.TL_auth_sentCodeTypeEmailCode) {
-            channel = "已发送到该账号的登录邮箱";
-        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeApp) {
-            channel = "已发送到该账号已登录的其他设备";
-        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeSms || type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms) {
-            channel = "已发送短信";
-        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeCall) {
-            channel = "将电话播报验证码";
-        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeFlashCall) {
-            channel = "闪信来电";
-        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeMissedCall) {
-            channel = "未接来电";
-        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeSetUpEmailRequired) {
-            channel = "该账号还没有登录邮箱，需要先设置一个";
-        } else {
-            channel = "未知通道";
-        }
         try {
-            Toast.makeText(getParentActivity(), "验证码通道：" + channel, Toast.LENGTH_SHORT).show();
+            Toast.makeText(getParentActivity(), "验证码通道：" + describeCodeChannel(type), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             FileLog.e(e);
         }
