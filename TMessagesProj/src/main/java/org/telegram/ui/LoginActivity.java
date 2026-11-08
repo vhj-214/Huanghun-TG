@@ -360,6 +360,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     @ActivityMode
     private int activityMode = MODE_LOGIN;
 
+    // 登录时改用邮箱接收验证码的相关状态
+    private boolean emailFallbackPrompted;
+    private int emailFallbackView = -1;
+    private Bundle emailFallbackParams;
+
     private String cancelDeletionPhone;
     private Bundle cancelDeletionParams;
     private TLRPC.TL_auth_sentCode cancelDeletionCode;
@@ -1216,6 +1221,14 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             if (invoked) {
                 views[currentViewNum].onBackPressed(true);
                 setPage(VIEW_NEW_PASSWORD_STAGE_1, true, null, true);
+            }
+        } else if (currentViewNum == VIEW_ADD_EMAIL && emailFallbackView != -1 && activityMode == MODE_LOGIN) {
+            if (invoked) {
+                int backView = emailFallbackView;
+                Bundle backParams = emailFallbackParams;
+                emailFallbackView = -1;
+                emailFallbackParams = null;
+                setPage(backView, true, backParams, false);
             }
         } else if (currentViewNum == VIEW_CODE_EMAIL_SETUP) {
             if (invoked) {
@@ -2089,6 +2102,55 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         setPage(VIEW_CODE_EMAIL_SETUP, true, params, false);
     }
 
+    /**
+     * 改用邮箱接收验证码：直接复用官方已有的「设置登录邮箱 -> 邮箱收码 -> 校验 -> 继续登录」链路。
+     * 该入口只在本机首次登录（MODE_LOGIN）时可用，换号流程不改。
+     */
+    private void openEmailFallback(Bundle source, int fromView) {
+        if (activityMode != MODE_LOGIN || source == null || getParentActivity() == null) {
+            return;
+        }
+        emailFallbackView = fromView;
+        emailFallbackParams = new Bundle(source);
+        Bundle params = new Bundle(source);
+        setPage(VIEW_ADD_EMAIL, true, params, false);
+    }
+
+    /**
+     * 如果开启了「登录优先用邮箱」，且 Telegram 把验证码发到了已登录设备/短信/电话
+     * （说明该账号还没有可用的登录邮箱），发码后自动带用户去设置登录邮箱。
+     * 每次登录只自动跳一次，用户可以返回验证码页继续用原来的方式。
+     */
+    private void maybePromptEmailFallback(Bundle params, int fromView) {
+        if (activityMode != MODE_LOGIN || emailFallbackPrompted || params == null) {
+            return;
+        }
+        if (!NekoConfig.loginPreferEmail.Bool()) {
+            return;
+        }
+        emailFallbackPrompted = true;
+        final Bundle emailParams = new Bundle(params);
+        AndroidUtilities.runOnUIThread(() -> {
+            if (currentViewNum == fromView && activityMode == MODE_LOGIN) {
+                openEmailFallback(emailParams, fromView);
+            }
+        }, 800);
+    }
+
+    /** 发码后立刻把「这个号码有没有账号」显示出来 */
+    private void showAccountStateToast(boolean registered) {
+        if (getParentActivity() == null) {
+            return;
+        }
+        try {
+            Toast.makeText(getParentActivity(),
+                    registered ? "账号已存在，验证码已发出" : "该号码未注册，将创建新账号",
+                    Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
     private void fillNextCodeParams(Bundle params, TLRPC.auth_SentCode res) {
         fillNextCodeParams(params, res, true);
     }
@@ -2299,6 +2361,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             params.putInt("type", AUTH_TYPE_MESSAGE);
             params.putInt("length", res.type.length);
             setPage(VIEW_CODE_MESSAGE, animate, params, false);
+            maybePromptEmailFallback(params, VIEW_CODE_MESSAGE);
         } else {
             if (res.timeout == 0) {
                 res.timeout = BuildVars.DEBUG_PRIVATE_VERSION ? 5 : 60;
@@ -2308,6 +2371,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 params.putInt("type", AUTH_TYPE_CALL);
                 params.putInt("length", res.type.length);
                 setPage(VIEW_CODE_CALL, animate, params, false);
+                maybePromptEmailFallback(params, VIEW_CODE_CALL);
             } else if (res.type instanceof TLRPC.TL_auth_sentCodeTypeFlashCall) {
                 params.putInt("type", AUTH_TYPE_FLASH_CALL);
                 params.putString("pattern", res.type.pattern);
@@ -2317,6 +2381,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 params.putInt("length", res.type.length);
                 params.putBoolean("firebase", res.type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms);
                 setPage(VIEW_CODE_SMS, animate, params, false);
+                maybePromptEmailFallback(params, VIEW_CODE_SMS);
             } else if (res.type instanceof TLRPC.TL_auth_sentCodeTypeFragmentSms) {
                 params.putInt("type", AUTH_TYPE_FRAGMENT_SMS);
                 params.putString("url", res.type.url);
@@ -3598,6 +3663,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 params.putString("country", currentCountry.code);
             }
             nextPressed = true;
+            emailFallbackPrompted = false;
+            emailFallbackView = -1;
+            emailFallbackParams = null;
             PhoneInputData phoneInputData = new PhoneInputData();
             phoneInputData.phoneNumber = "+" + codeField.getText() + " " + phoneField.getText();
             phoneInputData.country = currentCountry;
@@ -3612,11 +3680,13 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                             if (authorization.terms_of_service != null) {
                                 currentTermsOfService = authorization.terms_of_service;
                             }
+                            showAccountStateToast(false);
                             setPage(VIEW_REGISTER, true, params, false);
                         } else {
                             onAuthSuccess((TLRPC.TL_auth_authorization) auth);
                         }
                     } else {
+                        showAccountStateToast(true);
                         fillNextCodeParams(params, (TLRPC.auth_SentCode) response);
                     }
                 } else {
@@ -3994,6 +4064,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         private String emailPhone;
         private CodeFieldContainer codeFieldContainer;
         private TextView prevTypeTextView;
+        private TextView useEmailView;
         private TextView confirmTextView;
         private TextView titleTextView;
         private ImageView blackImageView;
@@ -4208,6 +4279,17 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             if (currentType == AUTH_TYPE_FLASH_CALL) {
                 codeFieldContainer.setVisibility(GONE);
             }
+
+            useEmailView = new TextView(context);
+            useEmailView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            useEmailView.setGravity(Gravity.CENTER);
+            useEmailView.setLineSpacing(AndroidUtilities.dp(2), 1.0f);
+            useEmailView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
+            useEmailView.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(10));
+            useEmailView.setText("改用邮箱接收验证码");
+            useEmailView.setOnClickListener(v -> openEmailFallback(currentParams, currentViewNum));
+            addView(useEmailView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 10, 0, 0));
+            useEmailView.setVisibility(View.GONE);
 
             prevTypeTextView = new LoadingTextView(context);
             prevTypeTextView.setLinkTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteValueText));
@@ -4984,6 +5066,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 }
                 setProblemTextVisible(false);
                 createCodeTimer();
+            }
+
+            if (useEmailView != null) {
+                boolean show = activityMode == MODE_LOGIN && (currentType == AUTH_TYPE_MESSAGE || currentType == AUTH_TYPE_SMS || currentType == AUTH_TYPE_CALL);
+                useEmailView.setVisibility(show ? VISIBLE : GONE);
             }
 
             if (currentType == AUTH_TYPE_MISSED_CALL) {
@@ -6344,6 +6431,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
         private Bundle currentParams;
         private boolean nextPressed;
+        private CheckBoxCell preferEmailCheckBox;
 
         private String phone, emailPhone;
         private String requestPhone, phoneHash;
@@ -6404,6 +6492,17 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             });
 
             addView(emailOutlineView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 58, 16, 24, 16, 0));
+
+            preferEmailCheckBox = new CheckBoxCell(context, 1);
+            preferEmailCheckBox.setText("以后登录优先用邮箱接收验证码", "", NekoConfig.loginPreferEmail.Bool(), false);
+            preferEmailCheckBox.setPad(1);
+            preferEmailCheckBox.setVisibility(activityMode == MODE_LOGIN ? VISIBLE : GONE);
+            preferEmailCheckBox.setOnClickListener(v -> {
+                boolean checked = !preferEmailCheckBox.isChecked();
+                preferEmailCheckBox.setChecked(checked, true);
+                NekoConfig.loginPreferEmail.setConfigBool(checked);
+            });
+            addView(preferEmailCheckBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, 16, 8, 16, 0));
 
             signInWithGoogleView = new TextView(context);
             signInWithGoogleView.setGravity(Gravity.LEFT);

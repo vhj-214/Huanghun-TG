@@ -81,6 +81,8 @@ public class NekoConfig {
     public static ConfigItem repeatConfirm = addConfig("repeatConfirm", configTypeBool, true);
     public static ConfigItem disableInstantCamera = addConfig("DisableInstantCamera", configTypeBool, true);
     public static ConfigItem showSeconds = addConfig("showSeconds", configTypeBool, false);
+    /** 登录时优先用邮箱接收验证码：发码后若 Telegram 没有直接把验证码发到邮箱，自动进入「用邮箱接收」页面 */
+    public static ConfigItem loginPreferEmail = addConfig("LoginPreferEmail", configTypeBool, true);
 
     // From NekoConfig
     public static ConfigItem useIPv6 = addConfig("IPv6", configTypeBool, false);
