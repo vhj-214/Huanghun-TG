@@ -362,6 +362,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     // 登录时改用邮箱接收验证码的相关状态
     private boolean emailFallbackPrompted;
+    private boolean emailCodeSending;
     private int emailFallbackView = -1;
     private Bundle emailFallbackParams;
 
@@ -1233,7 +1234,15 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         } else if (currentViewNum == VIEW_CODE_EMAIL_SETUP) {
             if (invoked) {
                 views[currentViewNum].onBackPressed(true);
-                setPage(VIEW_ADD_EMAIL, true, null, true);
+                if (activityMode == MODE_LOGIN && emailFallbackView != -1) {
+                    int backView = emailFallbackView;
+                    Bundle backParams = emailFallbackParams;
+                    emailFallbackView = -1;
+                    emailFallbackParams = null;
+                    setPage(backView, true, backParams, false);
+                } else {
+                    setPage(VIEW_ADD_EMAIL, true, null, true);
+                }
             }
         } else if (invoked) {
             if (views[currentViewNum].onBackPressed(true)) {
@@ -2102,9 +2111,50 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         setPage(VIEW_CODE_EMAIL_SETUP, true, params, false);
     }
 
+    private static final String LOGIN_EMAIL_PREFS = "login_email_cache";
+    private static final String LOGIN_EMAIL_KEY = "last_login_email";
+
+    private String getCachedLoginEmail() {
+        try {
+            SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences(LOGIN_EMAIL_PREFS, Activity.MODE_PRIVATE);
+            String email = prefs.getString(LOGIN_EMAIL_KEY, null);
+            if (!TextUtils.isEmpty(email) && email.indexOf('@') > 0) {
+                return email;
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return null;
+    }
+
+    private void cacheLoginEmail(String email) {
+        try {
+            if (TextUtils.isEmpty(email)) {
+                return;
+            }
+            ApplicationLoader.applicationContext.getSharedPreferences(LOGIN_EMAIL_PREFS, Activity.MODE_PRIVATE)
+                    .edit().putString(LOGIN_EMAIL_KEY, email).apply();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    private void clearCachedLoginEmail() {
+        try {
+            ApplicationLoader.applicationContext.getSharedPreferences(LOGIN_EMAIL_PREFS, Activity.MODE_PRIVATE)
+                    .edit().remove(LOGIN_EMAIL_KEY).apply();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
     /**
-     * 改用邮箱接收验证码：直接复用官方已有的「设置登录邮箱 -> 邮箱收码 -> 校验 -> 继续登录」链路。
-     * 该入口只在本机首次登录（MODE_LOGIN）时可用，换号流程不改。
+     * 改用邮箱接收验证码。
+     * 关键点：真正把验证码发到邮箱的接口是 account.sendVerifyEmailCode，它必须带邮箱地址，
+     * 而未登录状态下 Telegram 不会告诉客户端这个账号绑的是哪个邮箱，
+     * 所以这里先用本地记住的登录邮箱直接发（第二次起一点就发，零输入）；
+     * 没有记录时弹一个输入框让用户填一次，填完就记住。
+     * 不再跳「选择登录邮箱」那一整页，避免看起来像在重新绑定。
      */
     private void openEmailFallback(Bundle source, int fromView) {
         if (activityMode != MODE_LOGIN || source == null || getParentActivity() == null) {
@@ -2112,29 +2162,124 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
         emailFallbackView = fromView;
         emailFallbackParams = new Bundle(source);
-        Bundle params = new Bundle(source);
-        setPage(VIEW_ADD_EMAIL, true, params, false);
+
+        final String cached = getCachedLoginEmail();
+        if (!TextUtils.isEmpty(cached)) {
+            sendLoginEmailCode(cached, new Bundle(source), false);
+        } else {
+            showLoginEmailInputDialog(new Bundle(source));
+        }
+    }
+
+    private void showLoginEmailInputDialog(final Bundle baseParams) {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final EditTextBoldCursor editText = new EditTextBoldCursor(getParentActivity());
+        editText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        editText.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
+        editText.setHintText(getString(R.string.YourEmail));
+        editText.setHintColor(getThemedColor(Theme.key_windowBackgroundWhiteHintText));
+        editText.setBackgroundDrawable(Theme.createEditTextDrawable(getContext(), true));
+        editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        editText.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        editText.setSingleLine(true);
+        editText.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(6));
+        final String cached = getCachedLoginEmail();
+        if (!TextUtils.isEmpty(cached)) {
+            editText.setText(cached);
+            editText.setSelection(cached.length());
+        }
+
+        FrameLayout container = new FrameLayout(getParentActivity());
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
+        container.addView(editText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle("用登录邮箱接收验证码");
+        builder.setMessage("填这个账号原本绑定的登录邮箱，验证码会直接发到邮箱，不用重新绑定。");
+        builder.setView(container);
+        builder.setPositiveButton("发送", (dialog, which) -> {
+            String email = editText.getText().toString().trim();
+            if (TextUtils.isEmpty(email) || email.indexOf('@') <= 0) {
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "请输入完整的邮箱地址");
+                return;
+            }
+            sendLoginEmailCode(email, baseParams, true);
+        });
+        builder.setNegativeButton(getString(R.string.Cancel), null);
+        showDialog(builder.create());
     }
 
     /**
-     * 如果开启了「登录优先用邮箱」，且 Telegram 把验证码发到了已登录设备/短信/电话
-     * （说明该账号还没有可用的登录邮箱），发码后自动带用户去设置登录邮箱。
-     * 每次登录只自动跳一次，用户可以返回验证码页继续用原来的方式。
+     * 直接把登录验证码发到指定邮箱。成功后会进入邮箱验证码输入页，校验通过即继续登录。
+     */
+    private void sendLoginEmailCode(final String email, final Bundle baseParams, final boolean fromDialog) {
+        if (getParentActivity() == null || baseParams == null) {
+            return;
+        }
+        final String requestPhone = baseParams.getString("phoneFormated");
+        final String phoneHash = baseParams.getString("phoneHash");
+        if (TextUtils.isEmpty(requestPhone) || TextUtils.isEmpty(phoneHash)) {
+            needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "登录会话已失效，请返回重新获取验证码");
+            return;
+        }
+        if (emailCodeSending) {
+            return;
+        }
+        emailCodeSending = true;
+        cacheLoginEmail(email);
+        if (getParentActivity() != null) {
+            try {
+                Toast.makeText(getParentActivity(), "正在把验证码发送到 " + email, Toast.LENGTH_SHORT).show();
+            } catch (Exception ignore) {
+            }
+        }
+
+        TL_account.sendVerifyEmailCode req = new TL_account.sendVerifyEmailCode();
+        TLRPC.TL_emailVerifyPurposeLoginSetup purpose = new TLRPC.TL_emailVerifyPurposeLoginSetup();
+        purpose.phone_number = requestPhone;
+        purpose.phone_code_hash = phoneHash;
+        req.purpose = purpose;
+        req.email = email;
+
+        ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+            emailCodeSending = false;
+            if (response instanceof TL_account.sentEmailCode) {
+                Bundle params = new Bundle(baseParams);
+                params.putString("email", email);
+                params.putString("phoneHash", phoneHash);
+                fillNextCodeParams(params, (TL_account.sentEmailCode) response);
+                return;
+            }
+            String err = error != null && error.text != null ? error.text : "";
+            if (err.contains("EMAIL_INVALID") || err.contains("EMAIL_ADDRESS_INVALID")) {
+                clearCachedLoginEmail();
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "邮箱地址格式不对，请检查后重试");
+            } else if (err.contains("EMAIL_NOT_ALLOWED")) {
+                if (!fromDialog) {
+                    clearCachedLoginEmail();
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "自动发送没成功，可能是这个账号绑定的邮箱变了。请再点一次「改用邮箱接收验证码」，填上正确的登录邮箱。");
+                } else {
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "这个邮箱不是该账号绑定的登录邮箱，请确认后再试");
+                }
+            } else if (err.contains("PHONE_CODE_EXPIRED")) {
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), "验证码会话已过期，请返回重新获取");
+            } else if (err.startsWith("FLOOD_WAIT")) {
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString(R.string.FloodWait) + "\n" + err);
+            } else {
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), TextUtils.isEmpty(err) ? getString("ErrorOccurred", R.string.ErrorOccurred) : err);
+            }
+        }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin);
+    }
+
+    /**
+     * 发码后不再自动把用户带去「设置登录邮箱」页面。
+     * 那个页面是绑定用的，自动跳过去会让人误以为账号必须重新绑邮箱；
+     * 现在改成用户自己点验证码页上的「改用邮箱接收验证码」才走邮箱。
      */
     private void maybePromptEmailFallback(Bundle params, int fromView) {
-        if (activityMode != MODE_LOGIN || emailFallbackPrompted || params == null) {
-            return;
-        }
-        if (!NekoConfig.loginPreferEmail.Bool()) {
-            return;
-        }
-        emailFallbackPrompted = true;
-        final Bundle emailParams = new Bundle(params);
-        AndroidUtilities.runOnUIThread(() -> {
-            if (currentViewNum == fromView && activityMode == MODE_LOGIN) {
-                openEmailFallback(emailParams, fromView);
-            }
-        }, 800);
+        // 保留方法签名，避免调用点散落；行为已停用
     }
 
     /** 发码后立刻把「这个号码有没有账号」显示出来 */
@@ -2146,6 +2291,36 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             Toast.makeText(getParentActivity(),
                     registered ? "账号已存在，验证码已发出" : "该号码未注册，将创建新账号",
                     Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    /** 显示服务端这次把验证码发到了哪个通道，方便判断对方账号到底有没有登录邮箱 */
+    private void showCodeChannelToast(TLRPC.auth_SentCodeType type) {
+        if (getParentActivity() == null || type == null) {
+            return;
+        }
+        String channel;
+        if (type instanceof TLRPC.TL_auth_sentCodeTypeEmailCode) {
+            channel = "已发送到该账号的登录邮箱";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeApp) {
+            channel = "已发送到该账号已登录的其他设备";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeSms || type instanceof TLRPC.TL_auth_sentCodeTypeFirebaseSms) {
+            channel = "已发送短信";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeCall) {
+            channel = "将电话播报验证码";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeFlashCall) {
+            channel = "闪信来电";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeMissedCall) {
+            channel = "未接来电";
+        } else if (type instanceof TLRPC.TL_auth_sentCodeTypeSetUpEmailRequired) {
+            channel = "该账号还没有登录邮箱，需要先设置一个";
+        } else {
+            channel = "未知通道";
+        }
+        try {
+            Toast.makeText(getParentActivity(), "验证码通道：" + channel, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             FileLog.e(e);
         }
@@ -2217,6 +2392,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     private boolean isRequestingFirebaseSms;
     private void fillNextCodeParams(Bundle params, TLRPC.auth_SentCode res, boolean animate) {
+        if (activityMode == MODE_LOGIN) {
+            showCodeChannelToast(res == null ? null : res.type);
+        }
         if (res instanceof TLRPC.TL_auth_sentCodePaymentRequired) {
             final TLRPC.TL_auth_sentCodePaymentRequired auth = (TLRPC.TL_auth_sentCodePaymentRequired) res;
             params.putString("product", auth.store_product);
@@ -3567,7 +3745,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             TLRPC.TL_codeSettings settings = new TLRPC.TL_codeSettings();
             settings.allow_flashcall = simcardAvailable && allowCall && allowCancelCall && allowReadCallLog;
             settings.allow_missed_call = simcardAvailable && allowCall;
-            settings.allow_app_hash = PushListenerController.getProvider().hasServices();
+            // 登录时如果开着「优先用邮箱收验证码」，就不向服务端声明 app hash。
+            // 一旦声明，Telegram 会把验证码推给该账号已经登录的其他设备（sentCodeTypeApp），
+            // 而不是发到这个账号的登录邮箱；不声明，服务端只能在短信/邮箱里挑，
+            // 账号绑过登录邮箱时就会直接返回 sentCodeTypeEmailCode，客户端自动进邮箱验证码页（官方行为）。
+            final boolean preferEmailLogin = activityMode == MODE_LOGIN && NekoConfig.loginPreferEmail.Bool();
+            settings.allow_app_hash = !preferEmailLogin && PushListenerController.getProvider().hasServices();
             settings.allow_firebase = activityMode == MODE_CHANGE_PHONE_NUMBER
                     && PushListenerController.getProvider().hasServices()
                     && !forceDisableSafetyNet;
@@ -6496,12 +6679,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             preferEmailCheckBox = new CheckBoxCell(context, 1);
             preferEmailCheckBox.setText("以后登录优先用邮箱接收验证码", "", NekoConfig.loginPreferEmail.Bool(), false);
             preferEmailCheckBox.setPad(1);
-            preferEmailCheckBox.setVisibility(activityMode == MODE_LOGIN ? VISIBLE : GONE);
-            preferEmailCheckBox.setOnClickListener(v -> {
-                boolean checked = !preferEmailCheckBox.isChecked();
-                preferEmailCheckBox.setChecked(checked, true);
-                NekoConfig.loginPreferEmail.setConfigBool(checked);
-            });
+            // 该选项原来控制「发码后自动跳到设置登录邮箱」，属于绑定行为，已停用；
+            // 现在邮箱地址会自动记住，下次点「改用邮箱接收验证码」直接发码，无需此勾选。
+            preferEmailCheckBox.setVisibility(GONE);
             addView(preferEmailCheckBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, 16, 8, 16, 0));
 
             signInWithGoogleView = new TextView(context);
@@ -6705,6 +6885,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
                 if (response instanceof TL_account.sentEmailCode) {
                     TL_account.sentEmailCode emailCode = (TL_account.sentEmailCode) response;
+                    cacheLoginEmail(email);
                     fillNextCodeParams(params, emailCode);
                     return;
                 }
