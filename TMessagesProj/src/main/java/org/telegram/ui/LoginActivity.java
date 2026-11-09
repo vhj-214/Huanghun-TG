@@ -2170,7 +2170,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             }
             if (error == null) {
                 if (response instanceof TLRPC.TL_auth_sentCodeSuccess) {
-                    onAuthSuccess(((TLRPC.TL_auth_sentCodeSuccess) response).authorization);
+                    onAuthSuccess((TLRPC.TL_auth_authorization) ((TLRPC.TL_auth_sentCodeSuccess) response).authorization);
                     return;
                 }
                 if (response instanceof TLRPC.auth_SentCode) {
@@ -6831,7 +6831,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
                 if (response instanceof TL_account.sentEmailCode) {
                     TL_account.sentEmailCode emailCode = (TL_account.sentEmailCode) response;
-                    cacheLoginEmail(email);
                     fillNextCodeParams(params, emailCode);
                     return;
                 }
