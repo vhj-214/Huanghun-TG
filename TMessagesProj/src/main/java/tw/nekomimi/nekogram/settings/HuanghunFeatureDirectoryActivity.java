@@ -299,7 +299,7 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
 
         @NonNull
         @Override
-        public RecyclerListView.Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             if (viewType == TYPE_FEATURE) {
                 return new RecyclerListView.Holder(new FeatureCell(mContext));
             } else if (viewType == TYPE_HERO) {
