@@ -301,7 +301,13 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             if (viewType == TYPE_FEATURE) {
-                return new RecyclerListView.Holder(new FeatureCell(mContext));
+                FeatureCell cell = new FeatureCell(mContext);
+                RecyclerListView.Holder holder = new RecyclerListView.Holder(cell);
+                // FeatureCell handles its own touch events, so RecyclerListView's
+                // item-click listener will not receive taps on it. Use the live
+                // adapter position to keep recycled cards mapped to the right row.
+                cell.setOnClickListener(view -> onItemClick(view, holder.getAdapterPosition(), 0, 0));
+                return holder;
             } else if (viewType == TYPE_HERO) {
                 return new RecyclerListView.Holder(new HeroCell(mContext));
             }

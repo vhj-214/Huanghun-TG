@@ -76,7 +76,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private int automationHeaderRow, automationEndRow;
     private int attentionRow, signInRow, activeRow, comebackRow;
     private int mediaHeaderRow, mediaEndRow;
-    private int videoRow, localRow, experimentRow, extensionsRow;
+    private int videoRow, localRow, experimentRow;
     private int safetyHeaderRow, safetyEndRow;
     private int passcodeRow, privacyRow, blockRow;
     private int maintenanceHeaderRow, maintenanceEndRow;
@@ -106,7 +106,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         videoRow = addRow();
         localRow = addRow();
         experimentRow = addRow();
-        extensionsRow = addRow();
         mediaEndRow = addRow();
 
         safetyHeaderRow = addRow();
@@ -368,8 +367,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             presentFragment(new NekoPasscodeSettingsActivity());
         } else if (position == experimentRow) {
             presentFragment(new NekoExperimentalSettingsActivity());
-        } else if (position == extensionsRow) {
-            presentFragment(new HuanghunFeatureDirectoryActivity());
         } else if (position == attentionRow) {
             presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.ATTENTION));
         } else if (position == signInRow) {
@@ -470,8 +467,6 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                         title = R.string.PasscodeNeko; description = R.string.HuanghunCategoryDescPasscode; icon = R.drawable.msg_permissions;
                     } else if (position == experimentRow) {
                         title = R.string.Experimental; description = R.string.HuanghunCategoryDescExperimental; icon = R.drawable.msg_fave;
-                    } else if (position == extensionsRow) {
-                        title = R.string.HuanghunExtensions; description = R.string.HuanghunCategoryDescExtensions; icon = R.drawable.msg_settings;
                     } else if (position == petRow) {
                         title = R.string.HuanghunPet; description = R.string.HuanghunCategoryDescPet; icon = R.drawable.msg_emoji_cat_solar;
                     } else if (position == attentionRow) {

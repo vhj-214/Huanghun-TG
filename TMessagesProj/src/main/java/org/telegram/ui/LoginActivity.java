@@ -2365,6 +2365,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         private LinkSpanDrawable.LinksTextView subtitleView;
         private View codeDividerView;
         private ImageView chevronRight;
+        private TextView protocolLoginButton;
         private CheckBoxCell syncContactsBox;
         private CheckBoxCell testBackendCheckBox;
 
@@ -2507,6 +2508,26 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             phoneOutlineView.addView(linearLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 16, 8, 16, 8));
             phoneOutlineView.setText("手机号码");
             addView(phoneOutlineView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 58, 16, 8, 16, 8));
+
+            protocolLoginButton = new TextView(context);
+            protocolLoginButton.setText("协议登录");
+            protocolLoginButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+            protocolLoginButton.setGravity(Gravity.CENTER);
+            protocolLoginButton.setTypeface(AndroidUtilities.bold());
+            protocolLoginButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+            protocolLoginButton.setContentDescription("协议登录");
+            GradientDrawable protocolLoginBackground = new GradientDrawable();
+            protocolLoginBackground.setColor(Color.TRANSPARENT);
+            protocolLoginBackground.setCornerRadius(AndroidUtilities.dp(12));
+            protocolLoginBackground.setStroke(AndroidUtilities.dp(1), Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+            protocolLoginButton.setBackground(protocolLoginBackground);
+            protocolLoginButton.setForeground(Theme.createSelectorDrawable(
+                    Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4), 0.12f),
+                    Theme.RIPPLE_MASK_ROUNDRECT_6DP
+            ));
+            protocolLoginButton.setOnClickListener(v -> showProtocolLoginOptions());
+            protocolLoginButton.setVisibility(activityMode == MODE_LOGIN ? VISIBLE : GONE);
+            addView(protocolLoginButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 0, 16, 8));
 
             plusTextView = new TextView(context);
             plusTextView.setText("+");
