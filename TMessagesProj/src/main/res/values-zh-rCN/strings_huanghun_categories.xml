@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="HuanghunCategoryEveryday">日常设置</string>
+    <string name="HuanghunCategoryAutomation">互动与自动化</string>
+    <string name="HuanghunCategoryMedia">媒体与个性化</string>
+    <string name="HuanghunCategorySafety">隐私与防护</string>
+    <string name="HuanghunCategoryMaintenance">数据与维护</string>
+    <string name="HuanghunCategoryDanger">危险操作</string>
+
+    <string name="HuanghunCategoryAllFeatures">按功能浏览</string>
+    <string name="HuanghunCategoryDescAllFeatures">按用途查找各页面中的设置</string>
+    <string name="HuanghunCategoryDescGeneral">外观、文件夹、连接与存储</string>
+    <string name="HuanghunCategoryDescChat">消息、交互、贴纸与菜单</string>
+    <string name="HuanghunCategoryDescTranslation">翻译服务与语言设置</string>
+    <string name="HuanghunCategoryDescPet">宠物外观与行为</string>
+    <string name="HuanghunCategoryAttention">特别关心</string>
+    <string name="HuanghunCategoryDescAttention">特别关心专区与通知</string>
+    <string name="HuanghunCategorySignIn">自动签到</string>
+    <string name="HuanghunCategoryDescSignIn">定时签到与目标管理</string>
+    <string name="HuanghunCategoryActive">自动表情点赞</string>
+    <string name="HuanghunCategoryDescActive">点赞方向、对象与表情</string>
+    <string name="HuanghunCategoryComeback">回怼系统</string>
+    <string name="HuanghunCategoryDescComeback">触发词、词库与发送间隔</string>
+    <string name="HuanghunCategoryVideo">视频与相机</string>
+    <string name="HuanghunCategoryDescVideo">内置视频、录制与通话</string>
+    <string name="HuanghunCategoryLocal">本地自定义</string>
+    <string name="HuanghunCategoryDescLocal">本地修改与测试数据</string>
+    <string name="HuanghunCategoryDescExperimental">可能不稳定的试验功能</string>
+    <string name="HuanghunCategoryDescExtensions">查看原有的全部扩展功能</string>
+    <string name="HuanghunCategoryDescPasscode">保护设置页面访问</string>
+    <string name="HuanghunCategoryPrivacy">隐私文件夹</string>
+    <string name="HuanghunCategoryDescPrivacy">受保护的聊天与本机密码</string>
+    <string name="HuanghunCategoryBlock">消息屏蔽</string>
+    <string name="HuanghunCategoryDescBlock">非联系人、共同群与关键词</string>
+    <string name="HuanghunCategoryCleanup">账号清理</string>
+    <string name="HuanghunCategoryDescCleanup">管理聊天、联系人等账号数据</string>
+    <string name="HuanghunCategoryDescBackup">将设置导出为备份</string>
+    <string name="HuanghunCategoryDescImport">从备份文件恢复设置</string>
+    <string name="HuanghunCategoryDescReset">重置插件设置并重启</string>
+    <string name="HuanghunCategoryDescRestart">重启应用以应用更改</string>
+    <string name="HuanghunCategoryDescAbout">版本与项目信息</string>
+    <string name="HuanghunCategoryGoodbye">离别</string>
+    <string name="HuanghunCategoryDescGoodbye">永久注销当前 Telegram 账号</string>
+</resources>

@@ -19,6 +19,7 @@ import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -70,6 +71,21 @@ import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 
 /** Settings page for Huanghun account cleanup and non-contact message blocking. */
 public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements NotificationCenter.NotificationCenterDelegate {
+
+    public enum Section {
+        COMEBACK, ATTENTION, SIGN_IN, ACTIVE, LOCAL, VIDEO, PRIVACY, BLOCK, CLEANUP
+    }
+
+    // Consumed once the initial view and action-bar inset are ready.
+    private Section pendingSection;
+
+    public NekoExtensionsActivity() {
+        this(null);
+    }
+
+    public NekoExtensionsActivity(Section section) {
+        pendingSection = section;
+    }
 
     private static final int REQUEST_HUANGHUN_BUILTIN_VIDEOS = 10937;
     private SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow activeEmojiDialog;
@@ -147,6 +163,91 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     private int comebackFeatureRow;
     private int comebackNoticeRow;
     private int comebackEndRow;
+
+    private int getSectionHeaderRow(Section section) {
+        switch (section) {
+            case COMEBACK: return comebackHeaderRow;
+            case ATTENTION: return specialAttentionHeaderRow;
+            case SIGN_IN: return signInHeaderRow;
+            case ACTIVE: return activeHeaderRow;
+            case LOCAL: return localHeaderRow;
+            case VIDEO: return videoHeaderRow;
+            case PRIVACY: return privacyHeaderRow;
+            case BLOCK: return blockHeaderRow;
+            case CLEANUP: return cleanupHeaderRow;
+            default: return -1;
+        }
+    }
+
+    @Override
+    public View createView(Context context) {
+        View view = super.createView(context);
+        if (pendingSection == null) {
+            return view;
+        }
+
+        final RecyclerView sectionList = listView;
+        // The base class updates padding when the ActionBar is laid out. Wait for
+        // that inset before anchoring; offset 0 is relative to RecyclerView padding.
+        class SectionPositioner implements ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
+            private void removePreDrawListener() {
+                ViewTreeObserver observer = sectionList.getViewTreeObserver();
+                if (observer.isAlive()) {
+                    observer.removeOnPreDrawListener(this);
+                }
+            }
+
+            @Override
+            public void onViewAttachedToWindow(View v) {
+                if (listView == sectionList && pendingSection != null) {
+                    sectionList.getViewTreeObserver().addOnPreDrawListener(this);
+                } else {
+                    sectionList.removeOnAttachStateChangeListener(this);
+                }
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                removePreDrawListener();
+            }
+
+            @Override
+            public boolean onPreDraw() {
+                if (listView != sectionList || pendingSection == null) {
+                    removePreDrawListener();
+                    sectionList.removeOnAttachStateChangeListener(this);
+                    return true;
+                }
+                if (rowCount == 0 || actionBar == null || actionBar.getHeight() == 0 || sectionList.getHeight() == 0) {
+                    return true;
+                }
+                int topInset = actionBar.getMeasuredHeight();
+                if (!actionBar.getOccupyStatusBar()) {
+                    topInset += AndroidUtilities.statusBarHeight;
+                }
+                if (sectionList.getPaddingTop() != topInset) {
+                    return true;
+                }
+
+                int position = getSectionHeaderRow(pendingSection);
+                pendingSection = null;
+                removePreDrawListener();
+                sectionList.removeOnAttachStateChangeListener(this);
+                if (position >= 0 && position < rowCount) {
+                    layoutManager.scrollToPositionWithOffset(position, 0);
+                    // Draw only after RecyclerView has laid out the requested row.
+                    return false;
+                }
+                return true;
+            }
+        }
+        SectionPositioner positioner = new SectionPositioner();
+        sectionList.addOnAttachStateChangeListener(positioner);
+        if (sectionList.isAttachedToWindow()) {
+            positioner.onViewAttachedToWindow(sectionList);
+        }
+        return view;
+    }
 
     @Override
     protected void updateRows() {

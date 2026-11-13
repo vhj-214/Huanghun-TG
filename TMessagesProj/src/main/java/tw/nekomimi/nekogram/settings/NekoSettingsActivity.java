@@ -53,6 +53,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.UUID;
 
 import tw.nekomimi.nekogram.NekoConfig;
@@ -62,6 +63,7 @@ import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 import tw.nekomimi.nekogram.helpers.SettingsBackupHelper;
 import tw.nekomimi.nekogram.helpers.SettingsHelper;
 import tw.nekomimi.nekogram.helpers.SettingsSearchResult;
+import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 import tw.nekomimi.nekogram.utils.AlertUtil;
 
 public class NekoSettingsActivity extends BaseNekoSettingsActivity {
@@ -69,50 +71,67 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private static final int MENU_SEARCH = 1;
     private static final int MENU_SYNC = 2;
 
-    private int generalRow;
-    private int translatorRow;
-    private int chatRow;
-    private int passcodeRow;
-    private int experimentRow;
-    private int extensionsRow;
-    private int petRow;
-    private int goodbyeRow;
-    private int categoriesEndRow;
-
-    private int importSettingsRow;
-    private int exportSettingsRow;
-    private int resetSettingsRow;
-    private int appRestartRow;
-    private int nSettingsEndRow;
-
-
-    private int aboutRow;
+    private int everydayHeaderRow, everydayEndRow;
+    private int featureDirectoryRow, generalRow, chatRow, translatorRow, petRow;
+    private int automationHeaderRow, automationEndRow;
+    private int attentionRow, signInRow, activeRow, comebackRow;
+    private int mediaHeaderRow, mediaEndRow;
+    private int videoRow, localRow, experimentRow, extensionsRow;
+    private int safetyHeaderRow, safetyEndRow;
+    private int passcodeRow, privacyRow, blockRow;
+    private int maintenanceHeaderRow, maintenanceEndRow;
+    private int exportSettingsRow, importSettingsRow, cleanupRow, resetSettingsRow, appRestartRow, aboutRow;
+    private int dangerHeaderRow, goodbyeRow;
 
     @Override
     protected void updateRows() {
         super.updateRows();
 
+        everydayHeaderRow = addRow();
+        featureDirectoryRow = addRow();
         generalRow = addRow();
-        translatorRow = addRow();
         chatRow = addRow();
+        translatorRow = addRow();
+        petRow = addRow();
+        everydayEndRow = addRow();
+
+        automationHeaderRow = addRow();
+        attentionRow = addRow();
+        signInRow = addRow();
+        activeRow = addRow();
+        comebackRow = addRow();
+        automationEndRow = addRow();
+
+        mediaHeaderRow = addRow();
+        videoRow = addRow();
+        localRow = addRow();
+        experimentRow = addRow();
+        extensionsRow = addRow();
+        mediaEndRow = addRow();
+
+        safetyHeaderRow = addRow();
         if (!PasscodeHelper.isSettingsHidden()) {
             passcodeRow = addRow();
         } else {
             passcodeRow = -1;
         }
-        experimentRow = addRow();
-        extensionsRow = addRow();
-        petRow = addRow();
-        goodbyeRow = addRow();
-        categoriesEndRow = addRow();
+        privacyRow = addRow();
+        blockRow = addRow();
+        safetyEndRow = addRow();
 
+        maintenanceHeaderRow = addRow();
         exportSettingsRow = addRow();
         importSettingsRow = addRow();
+        cleanupRow = addRow();
         resetSettingsRow = addRow();
         appRestartRow = addRow();
-        nSettingsEndRow = addRow();
-
         aboutRow = addRow();
+        maintenanceEndRow = addRow();
+
+        // “Goodbye” permanently deletes the current account. Keep it visually
+        // isolated from pet settings and retain the original confirmation flow.
+        dangerHeaderRow = addRow();
+        goodbyeRow = addRow();
     }
 
     @Override
@@ -240,7 +259,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                     String q = currentQuery[0];
                     if (q != null && !q.isEmpty() && titleToSet.length() > 0) {
                         SpannableStringBuilder ss = new SpannableStringBuilder(titleToSet);
-                        String lower = titleToSet.toString().toLowerCase();
+                        String lower = titleToSet.toString().toLowerCase(Locale.ROOT);
                         String[] parts = q.split("\\s+");
                         int highlightColor = getThemedColor(Theme.key_windowBackgroundWhiteBlueText4);
                         for (String p : parts) {
@@ -292,7 +311,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                 @SuppressLint("NotifyDataSetChanged")
                 @Override
                 public void afterTextChanged(Editable s) {
-                    String q = s.toString().toLowerCase().trim();
+                    String q = s.toString().toLowerCase(Locale.ROOT).trim();
                     currentQuery[0] = q;
                     filtered.clear();
                     if (q.isEmpty()) {
@@ -300,10 +319,12 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                     } else {
                         String[] parts = q.split("\\s+");
                         for (SettingsSearchResult item : results) {
-                            String title = item.searchTitle == null ? "" : item.searchTitle.toLowerCase();
+                            String searchable = ((item.searchTitle == null ? "" : item.searchTitle) + " "
+                                    + (item.path1 == null ? "" : item.path1) + " "
+                                    + (item.path2 == null ? "" : item.path2)).toLowerCase(Locale.ROOT);
                             boolean ok = true;
                             for (String p : parts) {
-                                if (!title.contains(p)) {
+                                if (!searchable.contains(p)) {
                                     ok = false;
                                     break;
                                 }
@@ -337,7 +358,9 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     @SuppressLint("ApplySharedPref")
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
-        if (position == chatRow) {
+        if (position == featureDirectoryRow) {
+            presentFragment(new HuanghunFeatureDirectoryActivity());
+        } else if (position == chatRow) {
             presentFragment(new NekoChatSettingsActivity());
         } else if (position == generalRow) {
             presentFragment(new NekoGeneralSettingsActivity());
@@ -347,6 +370,24 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             presentFragment(new NekoExperimentalSettingsActivity());
         } else if (position == extensionsRow) {
             presentFragment(new NekoExtensionsActivity());
+        } else if (position == attentionRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.ATTENTION));
+        } else if (position == signInRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.SIGN_IN));
+        } else if (position == activeRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.ACTIVE));
+        } else if (position == comebackRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.COMEBACK));
+        } else if (position == videoRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.VIDEO));
+        } else if (position == localRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.LOCAL));
+        } else if (position == privacyRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.PRIVACY));
+        } else if (position == blockRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.BLOCK));
+        } else if (position == cleanupRow) {
+            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.CLEANUP));
         } else if (position == petRow) {
             presentFragment(new NekoPetActivity());
         } else if (position == goodbyeRow) {
@@ -402,35 +443,75 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                     // Transparent on wallpaper-backed settings pages; section glass is drawn by the base list.
                     break;
                 }
+                case TYPE_HEADER: {
+                    int title = position == everydayHeaderRow ? R.string.HuanghunCategoryEveryday
+                            : position == automationHeaderRow ? R.string.HuanghunCategoryAutomation
+                            : position == mediaHeaderRow ? R.string.HuanghunCategoryMedia
+                            : position == safetyHeaderRow ? R.string.HuanghunCategorySafety
+                            : position == maintenanceHeaderRow ? R.string.HuanghunCategoryMaintenance
+                            : R.string.HuanghunCategoryDanger;
+                    ((HeaderCell) holder.itemView).setText(getString(title));
+                    break;
+                }
                 case TYPE_TEXT: {
                     TextCell textCell = (TextCell) holder.itemView;
-                    if (position == chatRow) {
-                        textCell.setTextAndIcon(getString(R.string.Chat), R.drawable.msg_discussion, true);
+                    int title;
+                    int description;
+                    int icon;
+                    if (position == featureDirectoryRow) {
+                        title = R.string.HuanghunCategoryAllFeatures; description = R.string.HuanghunCategoryDescAllFeatures; icon = R.drawable.msg_list;
+                    } else if (position == chatRow) {
+                        title = R.string.Chat; description = R.string.HuanghunCategoryDescChat; icon = R.drawable.msg_discussion;
                     } else if (position == generalRow) {
-                        textCell.setTextAndIcon(getString(R.string.General), R.drawable.msg_theme, true);
+                        title = R.string.General; description = R.string.HuanghunCategoryDescGeneral; icon = R.drawable.msg_theme;
                     } else if (position == translatorRow) {
-                        textCell.setTextAndIcon(getString(R.string.TranslatorSettings), R.drawable.ic_translate, true);
+                        title = R.string.TranslatorSettings; description = R.string.HuanghunCategoryDescTranslation; icon = R.drawable.ic_translate;
                     } else if (position == passcodeRow) {
-                        textCell.setTextAndIcon(getString(R.string.PasscodeNeko), R.drawable.msg_permissions, true);
+                        title = R.string.PasscodeNeko; description = R.string.HuanghunCategoryDescPasscode; icon = R.drawable.msg_permissions;
                     } else if (position == experimentRow) {
-                        textCell.setTextAndIcon(getString(R.string.Experimental), R.drawable.msg_fave, true);
+                        title = R.string.Experimental; description = R.string.HuanghunCategoryDescExperimental; icon = R.drawable.msg_fave;
                     } else if (position == extensionsRow) {
-                        textCell.setTextAndIcon(getString(R.string.HuanghunExtensions), R.drawable.msg_fave, true);
+                        title = R.string.HuanghunExtensions; description = R.string.HuanghunCategoryDescExtensions; icon = R.drawable.msg_settings;
                     } else if (position == petRow) {
-                        textCell.setTextAndIcon(getString(R.string.HuanghunPet), R.drawable.msg_emoji_cat_solar, true);
+                        title = R.string.HuanghunPet; description = R.string.HuanghunCategoryDescPet; icon = R.drawable.msg_emoji_cat_solar;
+                    } else if (position == attentionRow) {
+                        title = R.string.HuanghunCategoryAttention; description = R.string.HuanghunCategoryDescAttention; icon = R.drawable.msg_contacts;
+                    } else if (position == signInRow) {
+                        title = R.string.HuanghunCategorySignIn; description = R.string.HuanghunCategoryDescSignIn; icon = R.drawable.msg_calendar2;
+                    } else if (position == activeRow) {
+                        title = R.string.HuanghunCategoryActive; description = R.string.HuanghunCategoryDescActive; icon = R.drawable.msg_reactions2;
+                    } else if (position == comebackRow) {
+                        title = R.string.HuanghunCategoryComeback; description = R.string.HuanghunCategoryDescComeback; icon = R.drawable.msg_discussion;
+                    } else if (position == videoRow) {
+                        title = R.string.HuanghunCategoryVideo; description = R.string.HuanghunCategoryDescVideo; icon = R.drawable.msg_camera;
+                    } else if (position == localRow) {
+                        title = R.string.HuanghunCategoryLocal; description = R.string.HuanghunCategoryDescLocal; icon = R.drawable.msg_edit;
+                    } else if (position == privacyRow) {
+                        title = R.string.HuanghunCategoryPrivacy; description = R.string.HuanghunCategoryDescPrivacy; icon = R.drawable.msg_permissions;
+                    } else if (position == blockRow) {
+                        title = R.string.HuanghunCategoryBlock; description = R.string.HuanghunCategoryDescBlock; icon = R.drawable.msg_disable;
+                    } else if (position == cleanupRow) {
+                        title = R.string.HuanghunCategoryCleanup; description = R.string.HuanghunCategoryDescCleanup; icon = R.drawable.msg_clear;
                     } else if (position == goodbyeRow) {
-                        textCell.setTextAndIcon("离别", R.drawable.msg_delete, true);
+                        title = R.string.HuanghunCategoryGoodbye; description = R.string.HuanghunCategoryDescGoodbye; icon = R.drawable.msg_delete;
                     } else if (position == importSettingsRow) {
-                        textCell.setTextAndIcon(getString(R.string.ImportSettings), R.drawable.import_solar, true);
+                        title = R.string.ImportSettings; description = R.string.HuanghunCategoryDescImport; icon = R.drawable.import_solar;
                     } else if (position == exportSettingsRow) {
-                        textCell.setTextAndIcon(getString(R.string.BackupSettings), R.drawable.export_solar, true);
+                        title = R.string.BackupSettings; description = R.string.HuanghunCategoryDescBackup; icon = R.drawable.export_solar;
                     } else if (position == resetSettingsRow) {
-                        textCell.setTextAndIcon(getString(R.string.ResetSettings), R.drawable.msg_reset_solar, true);
+                        title = R.string.ResetSettings; description = R.string.HuanghunCategoryDescReset; icon = R.drawable.msg_reset_solar;
                     } else if (position == appRestartRow) {
-                        textCell.setTextAndIcon(getString(R.string.RestartApp), R.drawable.msg_retry_solar, true);
-                    } else if (position == aboutRow) {
-                        textCell.setTextAndIcon(getString(R.string.About), R.drawable.msg_info, true);
+                        title = R.string.RestartApp; description = R.string.HuanghunCategoryDescRestart; icon = R.drawable.msg_retry_solar;
+                    } else {
+                        title = R.string.About; description = R.string.HuanghunCategoryDescAbout; icon = R.drawable.msg_info;
                     }
+                    boolean divider = position + 1 < rowCount && getItemViewType(position + 1) == TYPE_TEXT;
+                    textCell.heightDp = 64;
+                    textCell.setTextColor(getThemedColor(position == goodbyeRow
+                            ? Theme.key_text_RedRegular : Theme.key_windowBackgroundWhiteBlackText));
+                    textCell.setTextAndIcon(getString(title), icon, divider);
+                    textCell.setSubtitle(getString(description));
+                    textCell.setContentDescription(getString(title) + ". " + getString(description));
                     break;
                 }
 
@@ -439,14 +520,14 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == categoriesEndRow || position == nSettingsEndRow) {
+            if (position == everydayEndRow || position == automationEndRow || position == mediaEndRow
+                    || position == safetyEndRow || position == maintenanceEndRow) {
                 return TYPE_SHADOW;
-            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == extensionsRow || position == petRow || position == goodbyeRow || position == translatorRow ||
-                    position == importSettingsRow || position == exportSettingsRow || position == resetSettingsRow || position == appRestartRow ||
-                    position == aboutRow) {
-                return TYPE_TEXT;
+            } else if (position == everydayHeaderRow || position == automationHeaderRow || position == mediaHeaderRow
+                    || position == safetyHeaderRow || position == maintenanceHeaderRow || position == dangerHeaderRow) {
+                return TYPE_HEADER;
             }
-            return TYPE_SHADOW;
+            return TYPE_TEXT;
         }
     }
 

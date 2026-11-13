@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="HuanghunCategoryEveryday">Everyday settings</string>
+    <string name="HuanghunCategoryAutomation">Interaction &amp; automation</string>
+    <string name="HuanghunCategoryMedia">Media &amp; personalization</string>
+    <string name="HuanghunCategorySafety">Privacy &amp; protection</string>
+    <string name="HuanghunCategoryMaintenance">Data &amp; maintenance</string>
+    <string name="HuanghunCategoryDanger">Danger zone</string>
+
+    <string name="HuanghunCategoryAllFeatures">Browse by feature</string>
+    <string name="HuanghunCategoryDescAllFeatures">Find settings across all feature categories</string>
+    <string name="HuanghunCategoryDescGeneral">Appearance, folders, connections and storage</string>
+    <string name="HuanghunCategoryDescChat">Messages, interaction, stickers and menus</string>
+    <string name="HuanghunCategoryDescTranslation">Translation providers and languages</string>
+    <string name="HuanghunCategoryDescPet">Pet appearance and behavior</string>
+    <string name="HuanghunCategoryAttention">Special attention</string>
+    <string name="HuanghunCategoryDescAttention">Special attention tab and notifications</string>
+    <string name="HuanghunCategorySignIn">Automatic check-in</string>
+    <string name="HuanghunCategoryDescSignIn">Scheduled check-in and targets</string>
+    <string name="HuanghunCategoryActive">Automatic reactions</string>
+    <string name="HuanghunCategoryDescActive">Reaction direction, targets and emoji</string>
+    <string name="HuanghunCategoryComeback">Comeback system</string>
+    <string name="HuanghunCategoryDescComeback">Trigger words, word lists and intervals</string>
+    <string name="HuanghunCategoryVideo">Video &amp; camera</string>
+    <string name="HuanghunCategoryDescVideo">Built-in videos, recording and calls</string>
+    <string name="HuanghunCategoryLocal">Local customization</string>
+    <string name="HuanghunCategoryDescLocal">Local edits and test data</string>
+    <string name="HuanghunCategoryDescExperimental">Features that may be unstable</string>
+    <string name="HuanghunCategoryDescExtensions">Browse the original complete extensions page</string>
+    <string name="HuanghunCategoryDescPasscode">Protect access to settings</string>
+    <string name="HuanghunCategoryPrivacy">Private folder</string>
+    <string name="HuanghunCategoryDescPrivacy">Protected chats and local password</string>
+    <string name="HuanghunCategoryBlock">Message blocking</string>
+    <string name="HuanghunCategoryDescBlock">Non-contacts, shared groups and keywords</string>
+    <string name="HuanghunCategoryCleanup">Account cleanup</string>
+    <string name="HuanghunCategoryDescCleanup">Manage chats, contacts and other account data</string>
+    <string name="HuanghunCategoryDescBackup">Export settings to a backup</string>
+    <string name="HuanghunCategoryDescImport">Restore settings from a backup</string>
+    <string name="HuanghunCategoryDescReset">Reset plugin settings and restart</string>
+    <string name="HuanghunCategoryDescRestart">Restart the app to apply changes</string>
+    <string name="HuanghunCategoryDescAbout">Version and project information</string>
+    <string name="HuanghunCategoryGoodbye">Goodbye</string>
+    <string name="HuanghunCategoryDescGoodbye">Permanently delete the current Telegram account</string>
+</resources>

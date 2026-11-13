@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Labels for rows whose text is currently hard-coded on the extensions page. -->
+    <string name="hh_ext_search_section_comeback">Comeback System</string>
+    <string name="hh_ext_search_section_special_attention">Special Attention Notifications</string>
+    <string name="hh_ext_search_section_sign_in">Automatic Check-in</string>
+    <string name="hh_ext_search_section_active">Activity</string>
+    <string name="hh_ext_search_section_local">Local Features</string>
+    <string name="hh_ext_search_section_video">Video</string>
+    <string name="hh_ext_search_section_privacy">Privacy</string>
+
+    <string name="hh_ext_search_comeback">Comeback system</string>
+    <string name="hh_ext_search_special_attention">Enable special attention in the bottom bar</string>
+    <string name="hh_ext_search_sign_in_enabled">Enable automatic check-in</string>
+    <string name="hh_ext_search_sign_in_function">Automatic check-in function</string>
+    <string name="hh_ext_search_auto_reaction">Automatic emoji reactions</string>
+    <string name="hh_ext_search_reaction_direction">Reaction message direction</string>
+    <string name="hh_ext_search_reaction_target">Reaction targets</string>
+    <string name="hh_ext_search_reaction_emoji">Reaction emoji</string>
+    <string name="hh_ext_search_local_message">Edit messages locally</string>
+    <string name="hh_ext_search_local_time">Edit time locally</string>
+    <string name="hh_ext_search_local_avatar">Edit avatar locally</string>
+    <string name="hh_ext_search_local_bio">Edit user bio locally</string>
+    <string name="hh_ext_search_local_stars">Set star amount</string>
+    <string name="hh_ext_search_local_gram">Set my Gram</string>
+    <string name="hh_ext_search_local_gifts">Clear local virtual gifts</string>
+    <string name="hh_ext_search_builtin_camera">Enable built-in camera</string>
+    <string name="hh_ext_search_select_videos">Select built-in videos</string>
+    <string name="hh_ext_search_call_camera">Camera features</string>
+    <string name="hh_ext_search_video_sound">Video sound</string>
+    <string name="hh_ext_search_round_video">Round video</string>
+    <string name="hh_ext_search_square_video">Square video</string>
+    <string name="hh_ext_search_view_videos">View built-in videos</string>
+    <string name="hh_ext_search_delete_videos">Delete videos</string>
+    <string name="hh_ext_search_video_to_gif">Video to GIF (silent)</string>
+    <string name="hh_ext_search_create_privacy_folder">Create privacy folder</string>
+    <string name="hh_ext_search_manage_privacy_chats">Manage privacy chats</string>
+    <string name="hh_ext_search_privacy_password">Set privacy folder access password</string>
+    <string name="hh_ext_search_forgot_privacy_password">Forgot privacy folder password</string>
+    <string name="hh_ext_search_delete_privacy_folder">Delete current privacy folder</string>
+    <string name="hh_ext_search_block_mutual_groups">Block all messages from mutual groups</string>
+</resources>

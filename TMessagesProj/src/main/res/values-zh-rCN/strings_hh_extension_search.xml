@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与扩展页面中现有的硬编码标题保持一致。 -->
+    <string name="hh_ext_search_section_comeback">回怼系统专区</string>
+    <string name="hh_ext_search_section_special_attention">特别关心通知专区</string>
+    <string name="hh_ext_search_section_sign_in">自动签到功能专区</string>
+    <string name="hh_ext_search_section_active">活跃专区</string>
+    <string name="hh_ext_search_section_local">本地功能专区</string>
+    <string name="hh_ext_search_section_video">视频专区</string>
+    <string name="hh_ext_search_section_privacy">隐私专区</string>
+
+    <string name="hh_ext_search_comeback">回怼系统</string>
+    <string name="hh_ext_search_special_attention">开启特别关心底部专区</string>
+    <string name="hh_ext_search_sign_in_enabled">开启自动签到</string>
+    <string name="hh_ext_search_sign_in_function">自动签到函数</string>
+    <string name="hh_ext_search_auto_reaction">自动表情点赞</string>
+    <string name="hh_ext_search_reaction_direction">点赞消息方向</string>
+    <string name="hh_ext_search_reaction_target">点赞对象</string>
+    <string name="hh_ext_search_reaction_emoji">点赞表情</string>
+    <string name="hh_ext_search_local_message">本地修改消息</string>
+    <string name="hh_ext_search_local_time">本地修改时间</string>
+    <string name="hh_ext_search_local_avatar">本地修改头像</string>
+    <string name="hh_ext_search_local_bio">本地修改用户简介</string>
+    <string name="hh_ext_search_local_stars">定义星星数量</string>
+    <string name="hh_ext_search_local_gram">定义我的 Gram</string>
+    <string name="hh_ext_search_local_gifts">清空本地虚拟礼物</string>
+    <string name="hh_ext_search_builtin_camera">启动内置相机</string>
+    <string name="hh_ext_search_select_videos">选取内置视频</string>
+    <string name="hh_ext_search_call_camera">摄像头功能</string>
+    <string name="hh_ext_search_video_sound">视频声音</string>
+    <string name="hh_ext_search_round_video">圆形视频</string>
+    <string name="hh_ext_search_square_video">方形视频</string>
+    <string name="hh_ext_search_view_videos">查看内置视频</string>
+    <string name="hh_ext_search_delete_videos">删除视频</string>
+    <string name="hh_ext_search_video_to_gif">视频转 GIF（无声）</string>
+    <string name="hh_ext_search_create_privacy_folder">创建隐私文件夹</string>
+    <string name="hh_ext_search_manage_privacy_chats">管理隐私聊天</string>
+    <string name="hh_ext_search_privacy_password">设置隐私文件夹访问密码</string>
+    <string name="hh_ext_search_forgot_privacy_password">忘记隐私文件夹密码</string>
+    <string name="hh_ext_search_delete_privacy_folder">删除当前隐私文件夹</string>
+    <string name="hh_ext_search_block_mutual_groups">屏蔽共同群所有消息</string>
+</resources>
