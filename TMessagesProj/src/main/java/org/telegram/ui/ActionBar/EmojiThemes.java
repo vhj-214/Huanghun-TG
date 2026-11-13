@@ -722,10 +722,10 @@ public class EmojiThemes {
             if (items.get(i).themeInfo != null && items.get(i).themeInfo.getKey().equals("Blue")) {
                 int accentId = items.get(i).accentId >= 0 ? items.get(i).accentId : items.get(i).themeInfo.currentAccentId;
                 if (accentId == 99) {
-                    items.get(i).patternBgColor = 0xff17233b;
-                    items.get(i).patternBgGradientColor1 = 0xff2569a7;
-                    items.get(i).patternBgGradientColor2 = 0xff17233b;
-                    items.get(i).patternBgGradientColor3 = 0xff070c1a;
+                    items.get(i).patternBgColor = 0xffdbddbb;
+                    items.get(i).patternBgGradientColor1 = 0xff6ba587;
+                    items.get(i).patternBgGradientColor2 = 0xffd5d88d;
+                    items.get(i).patternBgGradientColor3 = 0xff88b884;
                 }
             }
         }

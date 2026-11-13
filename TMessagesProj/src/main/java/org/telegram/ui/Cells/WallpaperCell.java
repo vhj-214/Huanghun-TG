@@ -181,8 +181,11 @@ public class WallpaperCell extends FrameLayout {
                         patternColor = AndroidUtilities.getPatternColor(wallPaper.color);
                     }
                     if (Theme.DEFAULT_BACKGROUND_SLUG.equals(wallPaper.slug)) {
-                        imageView.setImageResource(R.drawable.huanghun_default_wallpaper);
-                        imageView.getImageReceiver().setAlpha(1.0f);
+                        if (wallPaper.defaultCache == null) {
+                            wallPaper.defaultCache = SvgHelper.getBitmap(R.raw.default_pattern, 100, 180, Color.BLACK);
+                        }
+                        imageView.setImageBitmap(wallPaper.defaultCache);
+                        imageView.getImageReceiver().setAlpha(Math.abs(wallPaper.intensity));
                     } else if (wallPaper.path != null) {
                         imageView.setImage(wallPaper.path.getAbsolutePath(), imageFilter, null);
                     } else {

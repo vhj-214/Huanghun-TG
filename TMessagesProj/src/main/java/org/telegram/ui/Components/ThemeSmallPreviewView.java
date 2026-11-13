@@ -545,7 +545,7 @@ public class ThemeSmallPreviewView extends FrameLayout implements NotificationCe
                     drawable = bitmapDrawable;
                 }
             } else if (!(chatThemeItem.chatTheme != null && chatThemeItem.chatTheme.isAnyStub())) {
-                drawable = Theme.createDefaultWallpaper(AndroidUtilities.dp(112), AndroidUtilities.dp(134));
+                drawable = new MotionBackgroundDrawable(0xffdbddbb, 0xff6ba587, 0xffd5d88d, 0xff88b884, true);
             }
         }
 
