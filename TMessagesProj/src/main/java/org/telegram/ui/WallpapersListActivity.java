@@ -152,7 +152,7 @@ public class WallpapersListActivity extends BaseFragment implements Notification
     private final static int delete = 4;
 
     private static final int[][] defaultColorsLight = new int[][]{
-            new int[]{0xffdbddbb, 0xff6ba587, 0xffd5d88d, 0xff88b884},
+            new int[]{0xff17233b, 0xff2569a7, 0xff17233b, 0xff070c1a},
             new int[]{0xff8dc0eb, 0xffb9d1ea, 0xffc6b1ef, 0xffebd7ef},
             new int[]{0xff97beeb, 0xffb1e9ea, 0xffc6b1ef, 0xffefb7dc},
             new int[]{0xff8adbf2, 0xff888dec, 0xffe39fea, 0xff679ced},
@@ -1178,7 +1178,7 @@ public class WallpapersListActivity extends BaseFragment implements Notification
             addedFileWallpaper = null;
         }
         if (catsWallpaper == null) {
-            catsWallpaper = new ColorWallpaper(Theme.DEFAULT_BACKGROUND_SLUG, 0xffdbddbb, 0xff6ba587, 0xffd5d88d, 0xff88b884);
+            catsWallpaper = new ColorWallpaper(Theme.DEFAULT_BACKGROUND_SLUG, 0xff17233b, 0xff2569a7, 0xff17233b, 0xff070c1a);
             catsWallpaper.intensity = 0.34f;
             //catsWallpaper.slug = "fqv01SQemVIBAAAApND8LDRUhRU";
         } else {

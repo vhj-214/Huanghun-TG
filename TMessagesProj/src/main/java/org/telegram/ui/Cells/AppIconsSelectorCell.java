@@ -305,7 +305,7 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
         }
 
         public void setForeground(int res) {
-            foreground = ContextCompat.getDrawable(getContext(), res);
+            foreground = res == 0 ? null : ContextCompat.getDrawable(getContext(), res);
             invalidate();
         }
 
