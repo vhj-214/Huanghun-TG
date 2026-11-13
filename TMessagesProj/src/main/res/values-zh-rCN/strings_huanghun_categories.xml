@@ -26,7 +26,7 @@
     <string name="HuanghunCategoryLocal">本地自定义</string>
     <string name="HuanghunCategoryDescLocal">本地修改与测试数据</string>
     <string name="HuanghunCategoryDescExperimental">可能不稳定的试验功能</string>
-    <string name="HuanghunCategoryDescExtensions">查看原有的全部扩展功能</string>
+    <string name="HuanghunCategoryDescExtensions">按聊天、媒体、隐私与自动化等类别查找相关设置</string>
     <string name="HuanghunCategoryDescPasscode">保护设置页面访问</string>
     <string name="HuanghunCategoryPrivacy">隐私文件夹</string>
     <string name="HuanghunCategoryDescPrivacy">受保护的聊天与本机密码</string>

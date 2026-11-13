@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hfd_title">Feature directory</string>
+    <string name="hfd_hero_eyebrow">HUANGHUN SETTINGS · FEATURE GUIDE</string>
+    <string name="hfd_hero_title">Find the right setting</string>
+    <string name="hfd_hero_desc">Explore by what you want to do, then open a focused group</string>
     <string name="hfd_chat_header">Chats and messages</string>
     <string name="hfd_dialogs">Chat list</string>
     <string name="hfd_dialogs_desc">Sorting, search and previews</string>

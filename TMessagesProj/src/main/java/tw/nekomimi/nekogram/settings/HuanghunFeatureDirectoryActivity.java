@@ -3,14 +3,25 @@ package tw.nekomimi.nekogram.settings;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.R;
-import org.telegram.ui.Cells.TextCell;
+import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.RecyclerListView;
 
 import java.util.ArrayList;
 
@@ -21,6 +32,8 @@ import xyz.nextalone.nagram.NaConfig;
 
 /** A navigation-only index. All settings and their side effects remain in their original pages. */
 public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
+    private static final int TYPE_HERO = 30;
+    private static final int TYPE_FEATURE = 31;
     private final ArrayList<Row> rows = new ArrayList<>();
 
     private static final class Row {
@@ -46,7 +59,7 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
 
     private void entry(int title, int description, int icon, Runnable open) {
         addRow();
-        rows.add(new Row(TYPE_TEXT, title, description, icon, open));
+        rows.add(new Row(TYPE_FEATURE, title, description, icon, open));
     }
 
     private void endSection() {
@@ -58,6 +71,9 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
     protected void updateRows() {
         super.updateRows();
         rows.clear();
+
+        addRow();
+        rows.add(new Row(TYPE_HERO, R.string.hfd_hero_title, R.string.hfd_hero_desc, R.drawable.msg_list, null));
 
         header(R.string.hfd_chat_header);
         // General: Dialogs and Folder; Chat: Chats, Double Tap, Menu, Interaction, Channels, Search tag.
@@ -276,18 +292,166 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
         }
 
         @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) {
+            int position = holder.getAdapterPosition();
+            return position >= 0 && position < rows.size() && rows.get(position).open != null;
+        }
+
+        @NonNull
+        @Override
+        public RecyclerListView.Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            if (viewType == TYPE_FEATURE) {
+                return new RecyclerListView.Holder(new FeatureCell(mContext));
+            } else if (viewType == TYPE_HERO) {
+                return new RecyclerListView.Holder(new HeroCell(mContext));
+            }
+            return super.onCreateViewHolder(parent, viewType);
+        }
+
+        @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, boolean partial) {
             Row row = rows.get(position);
             if (row.type == TYPE_HEADER) {
                 ((HeaderCell) holder.itemView).setText(getString(row.title));
-            } else if (row.type == TYPE_TEXT) {
-                TextCell cell = (TextCell) holder.itemView;
-                boolean divider = position + 1 < rows.size() && rows.get(position + 1).type == TYPE_TEXT;
-                cell.heightDp = 64;
-                cell.setTextAndIcon(getString(row.title), row.icon, divider);
-                cell.setSubtitle(getString(row.description));
-                cell.setContentDescription(getString(row.title) + ". " + getString(row.description));
+            } else if (row.type == TYPE_FEATURE) {
+                ((FeatureCell) holder.itemView).bind(row);
+            } else if (row.type == TYPE_HERO) {
+                ((HeroCell) holder.itemView).bind(row);
             }
+        }
+    }
+
+    private class FeatureCell extends FrameLayout {
+        private final ImageView icon;
+        private final TextView title;
+        private final TextView description;
+        private final ImageView arrow;
+        private final GradientDrawable cardBackground;
+        private final GradientDrawable iconBackground;
+
+        FeatureCell(Context context) {
+            super(context);
+            setFocusable(true);
+            setClickable(true);
+
+            cardBackground = new GradientDrawable();
+            cardBackground.setCornerRadius(AndroidUtilities.dp(18));
+            cardBackground.setColor(ColorUtils.setAlphaComponent(
+                    getThemedColor(Theme.key_windowBackgroundWhite), Theme.isCurrentThemeDark() ? 44 : 150));
+            cardBackground.setStroke(AndroidUtilities.dp(1), ColorUtils.setAlphaComponent(Color.WHITE, Theme.isCurrentThemeDark() ? 30 : 115));
+            setBackground(cardBackground);
+            setForeground(Theme.createSelectorDrawable(ColorUtils.setAlphaComponent(Color.WHITE, 45), Theme.RIPPLE_MASK_ROUNDRECT_6DP, AndroidUtilities.dp(18)));
+
+            RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(82));
+            params.setMargins(AndroidUtilities.dp(16), AndroidUtilities.dp(4), AndroidUtilities.dp(16), AndroidUtilities.dp(4));
+            setLayoutParams(params);
+
+            FrameLayout iconHolder = new FrameLayout(context);
+            iconBackground = new GradientDrawable();
+            iconBackground.setCornerRadius(AndroidUtilities.dp(14));
+            iconBackground.setColor(ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), 30));
+            iconBackground.setStroke(AndroidUtilities.dp(1), ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), 45));
+            iconHolder.setBackground(iconBackground);
+            addView(iconHolder, LayoutHelper.createFrame(46, 46, Gravity.LEFT | Gravity.CENTER_VERTICAL, 14, 0, 0, 0));
+
+            icon = new ImageView(context);
+            icon.setScaleType(ImageView.ScaleType.CENTER);
+            icon.setColorFilter(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4));
+            iconHolder.addView(icon, LayoutHelper.createFrame(25, 25, Gravity.CENTER));
+
+            LinearLayout textLayout = new LinearLayout(context);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+            textLayout.setGravity(Gravity.CENTER_VERTICAL);
+            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 72, 0, 48, 0));
+
+            title = new TextView(context);
+            title.setTextSize(16);
+            title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+            title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            title.setSingleLine(true);
+            textLayout.addView(title, new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            description = new TextView(context);
+            description.setTextSize(12);
+            description.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
+            description.setMaxLines(1);
+            description.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams descriptionParams = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT);
+            descriptionParams.topMargin = AndroidUtilities.dp(4);
+            textLayout.addView(description, descriptionParams);
+
+            arrow = new ImageView(context);
+            arrow.setImageResource(R.drawable.msg_arrowright);
+            arrow.setColorFilter(ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhiteGrayText), 185));
+            addView(arrow, LayoutHelper.createFrame(20, 20, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 14, 0));
+        }
+
+        void bind(Row row) {
+            title.setText(getString(row.title));
+            description.setText(getString(row.description));
+            icon.setImageResource(row.icon);
+            setContentDescription(getString(row.title) + ". " + getString(row.description));
+        }
+    }
+
+    private class HeroCell extends FrameLayout {
+        private final TextView eyebrow;
+        private final TextView title;
+        private final TextView description;
+        private final ImageView icon;
+
+        HeroCell(Context context) {
+            super(context);
+            RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(132));
+            params.setMargins(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
+            setLayoutParams(params);
+
+            GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{0x8C5C84D8, 0x7250BEB1, 0x6695D3B3});
+            background.setCornerRadius(AndroidUtilities.dp(24));
+            background.setStroke(AndroidUtilities.dp(1), 0x66FFFFFF);
+            setBackground(background);
+
+            LinearLayout textLayout = new LinearLayout(context);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+            textLayout.setGravity(Gravity.CENTER_VERTICAL);
+            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT, 20, 0, 76, 0));
+
+            eyebrow = new TextView(context);
+            eyebrow.setTextSize(11);
+            eyebrow.setLetterSpacing(.08f);
+            eyebrow.setTextColor(0xEFFFFFFF);
+            eyebrow.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            textLayout.addView(eyebrow, new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            title = new TextView(context);
+            title.setTextSize(22);
+            title.setTextColor(Color.WHITE);
+            title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT);
+            titleParams.topMargin = AndroidUtilities.dp(5);
+            textLayout.addView(title, titleParams);
+
+            description = new TextView(context);
+            description.setTextSize(12);
+            description.setTextColor(0xE8FFFFFF);
+            description.setMaxLines(2);
+            LinearLayout.LayoutParams descriptionParams = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT);
+            descriptionParams.topMargin = AndroidUtilities.dp(5);
+            textLayout.addView(description, descriptionParams);
+
+            icon = new ImageView(context);
+            icon.setImageResource(R.drawable.msg_list);
+            icon.setColorFilter(0xE8FFFFFF);
+            icon.setAlpha(.18f);
+            addView(icon, LayoutHelper.createFrame(66, 66, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 18, 0));
+        }
+
+        void bind(Row row) {
+            eyebrow.setText(getString(R.string.hfd_hero_eyebrow));
+            title.setText(getString(row.title));
+            description.setText(getString(row.description));
+            setContentDescription(getString(row.title) + ". " + getString(row.description));
         }
     }
 }

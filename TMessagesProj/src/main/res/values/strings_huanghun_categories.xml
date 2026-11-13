@@ -26,7 +26,7 @@
     <string name="HuanghunCategoryLocal">Local customization</string>
     <string name="HuanghunCategoryDescLocal">Local edits and test data</string>
     <string name="HuanghunCategoryDescExperimental">Features that may be unstable</string>
-    <string name="HuanghunCategoryDescExtensions">Browse the original complete extensions page</string>
+    <string name="HuanghunCategoryDescExtensions">Find related settings by chat, media, privacy and automation</string>
     <string name="HuanghunCategoryDescPasscode">Protect access to settings</string>
     <string name="HuanghunCategoryPrivacy">Private folder</string>
     <string name="HuanghunCategoryDescPrivacy">Protected chats and local password</string>

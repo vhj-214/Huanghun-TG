@@ -369,7 +369,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         } else if (position == experimentRow) {
             presentFragment(new NekoExperimentalSettingsActivity());
         } else if (position == extensionsRow) {
-            presentFragment(new NekoExtensionsActivity());
+            presentFragment(new HuanghunFeatureDirectoryActivity());
         } else if (position == attentionRow) {
             presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.ATTENTION));
         } else if (position == signInRow) {

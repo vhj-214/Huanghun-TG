@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hfd_title">功能分类目录</string>
+    <string name="hfd_hero_eyebrow">黄昏设置 · 功能导航</string>
+    <string name="hfd_hero_title">设置，一眼找到</string>
+    <string name="hfd_hero_desc">按使用场景归类，点进分组直接查看相关选项</string>
     <string name="hfd_chat_header">聊天与消息</string>
     <string name="hfd_dialogs">聊天列表</string>
     <string name="hfd_dialogs_desc">排序、搜索与预览</string>

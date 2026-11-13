@@ -19,7 +19,6 @@ import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -76,254 +75,184 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         COMEBACK, ATTENTION, SIGN_IN, ACTIVE, LOCAL, VIDEO, PRIVACY, BLOCK, CLEANUP
     }
 
-    // Consumed once the initial view and action-bar inset are ready.
-    private Section pendingSection;
+    // Null keeps the complete extensions page used by settings links and search.
+    private final Section section;
 
     public NekoExtensionsActivity() {
         this(null);
     }
 
     public NekoExtensionsActivity(Section section) {
-        pendingSection = section;
+        this.section = section;
     }
 
     private static final int REQUEST_HUANGHUN_BUILTIN_VIDEOS = 10937;
     private SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow activeEmojiDialog;
 
-    private int specialAttentionHeaderRow;
-    private int specialAttentionEnabledRow;
-    private int specialAttentionNoticeRow;
-    private int specialAttentionEndRow;
-    private int signInHeaderRow;
-    private int signInEnabledRow;
-    private int signInFunctionRow;
-    private int signInNoticeRow;
-    private int signInEndRow;
-    private int activeHeaderRow;
-    private int activeEnabledRow;
-    private int activeDirectionRow;
-    private int activeTargetRow;
-    private int activeEmojiRow;
-    private int activeNoticeRow;
-    private int activeEndRow;
+    private int specialAttentionHeaderRow = -1;
+    private int specialAttentionEnabledRow = -1;
+    private int specialAttentionNoticeRow = -1;
+    private int specialAttentionEndRow = -1;
+    private int signInHeaderRow = -1;
+    private int signInEnabledRow = -1;
+    private int signInFunctionRow = -1;
+    private int signInNoticeRow = -1;
+    private int signInEndRow = -1;
+    private int activeHeaderRow = -1;
+    private int activeEnabledRow = -1;
+    private int activeDirectionRow = -1;
+    private int activeTargetRow = -1;
+    private int activeEmojiRow = -1;
+    private int activeNoticeRow = -1;
+    private int activeEndRow = -1;
 
-    private int localHeaderRow;
-    private int localEditMessageRow;
-    private int localEditTimeRow;
-    private int localEditAvatarRow;
-    private int localEditBioRow;
-    private int localStarsRow;
-    private int localGramRow;
-    private int localClearGiftsRow;
-    private int localNoticeRow;
-    private int localEndRow;
+    private int localHeaderRow = -1;
+    private int localEditMessageRow = -1;
+    private int localEditTimeRow = -1;
+    private int localEditAvatarRow = -1;
+    private int localEditBioRow = -1;
+    private int localStarsRow = -1;
+    private int localGramRow = -1;
+    private int localClearGiftsRow = -1;
+    private int localNoticeRow = -1;
+    private int localEndRow = -1;
 
-    private int videoHeaderRow;
-    private int builtinCameraRow;
-    private int selectBuiltinVideosRow;
+    private int videoHeaderRow = -1;
+    private int builtinCameraRow = -1;
+    private int selectBuiltinVideosRow = -1;
     // 位于启动内置相机和视频声音之间，直接打开独立的通话专区。
-    private int callCameraFeatureRow;
-    private int builtinVideoSoundRow;
-    private int builtinRoundVideoRow;
-    private int builtinSquareVideoRow;
-    private int viewBuiltinVideosRow;
-    private int deleteBuiltinVideosRow;
-    private int videoToGifRow;
-    private int videoNoticeRow;
-    private int videoEndRow;
+    private int callCameraFeatureRow = -1;
+    private int builtinVideoSoundRow = -1;
+    private int builtinRoundVideoRow = -1;
+    private int builtinSquareVideoRow = -1;
+    private int viewBuiltinVideosRow = -1;
+    private int deleteBuiltinVideosRow = -1;
+    private int videoToGifRow = -1;
+    private int videoNoticeRow = -1;
+    private int videoEndRow = -1;
 
-    private int cleanupHeaderRow;
-    private int clearBotsRow;
-    private int leaveGroupsRow;
-    private int clearContactsRow;
-    private int clearChatsRow;
-    private int resetProfileRow;
-    private int clearDeletedAccountsRow;
-    private int clearMessagesByTimeRow;
-    private int clearAllRow;
-    private int cleanupNoticeRow;
-    private int cleanupEndRow;
+    private int cleanupHeaderRow = -1;
+    private int clearBotsRow = -1;
+    private int leaveGroupsRow = -1;
+    private int clearContactsRow = -1;
+    private int clearChatsRow = -1;
+    private int resetProfileRow = -1;
+    private int clearDeletedAccountsRow = -1;
+    private int clearMessagesByTimeRow = -1;
+    private int clearAllRow = -1;
+    private int cleanupNoticeRow = -1;
+    private int cleanupEndRow = -1;
 
-    private int privacyHeaderRow;
-    private int createPrivacyFolderRow;
-    private int managePrivacyChatsRow;
-    private int changePrivacyPasswordRow;
-    private int forgotPrivacyPasswordRow;
-    private int deletePrivacyFolderRow;
-    private int privacyNoticeRow;
-    private int privacyEndRow;
+    private int privacyHeaderRow = -1;
+    private int createPrivacyFolderRow = -1;
+    private int managePrivacyChatsRow = -1;
+    private int changePrivacyPasswordRow = -1;
+    private int forgotPrivacyPasswordRow = -1;
+    private int deletePrivacyFolderRow = -1;
+    private int privacyNoticeRow = -1;
+    private int privacyEndRow = -1;
 
-    private int blockHeaderRow;
-    private int blockNonContactsRow;
-    private int blockMutualGroupMessagesRow;
-    private int keywordsRow;
-    private int blockNoticeRow;
-    private int blockEndRow;
-    private int comebackHeaderRow;
-    private int comebackFeatureRow;
-    private int comebackNoticeRow;
-    private int comebackEndRow;
+    private int blockHeaderRow = -1;
+    private int blockNonContactsRow = -1;
+    private int blockMutualGroupMessagesRow = -1;
+    private int keywordsRow = -1;
+    private int blockNoticeRow = -1;
+    private int blockEndRow = -1;
+    private int comebackHeaderRow = -1;
+    private int comebackFeatureRow = -1;
+    private int comebackNoticeRow = -1;
+    private int comebackEndRow = -1;
 
-    private int getSectionHeaderRow(Section section) {
-        switch (section) {
-            case COMEBACK: return comebackHeaderRow;
-            case ATTENTION: return specialAttentionHeaderRow;
-            case SIGN_IN: return signInHeaderRow;
-            case ACTIVE: return activeHeaderRow;
-            case LOCAL: return localHeaderRow;
-            case VIDEO: return videoHeaderRow;
-            case PRIVACY: return privacyHeaderRow;
-            case BLOCK: return blockHeaderRow;
-            case CLEANUP: return cleanupHeaderRow;
-            default: return -1;
+    // The key is the row's position on the full page, not its position in a
+    // section. Long-press links are opened by SettingsHelper on the full page.
+    private int addExtensionRow(Section rowSection, int fullPagePosition) {
+        if (section != null && section != rowSection) {
+            return -1;
         }
-    }
-
-    @Override
-    public View createView(Context context) {
-        View view = super.createView(context);
-        if (pendingSection == null) {
-            return view;
-        }
-
-        final RecyclerView sectionList = listView;
-        // The base class updates padding when the ActionBar is laid out. Wait for
-        // that inset before anchoring; offset 0 is relative to RecyclerView padding.
-        class SectionPositioner implements ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
-            private void removePreDrawListener() {
-                ViewTreeObserver observer = sectionList.getViewTreeObserver();
-                if (observer.isAlive()) {
-                    observer.removeOnPreDrawListener(this);
-                }
-            }
-
-            @Override
-            public void onViewAttachedToWindow(View v) {
-                if (listView == sectionList && pendingSection != null) {
-                    sectionList.getViewTreeObserver().addOnPreDrawListener(this);
-                } else {
-                    sectionList.removeOnAttachStateChangeListener(this);
-                }
-            }
-
-            @Override
-            public void onViewDetachedFromWindow(View v) {
-                removePreDrawListener();
-            }
-
-            @Override
-            public boolean onPreDraw() {
-                if (listView != sectionList || pendingSection == null) {
-                    removePreDrawListener();
-                    sectionList.removeOnAttachStateChangeListener(this);
-                    return true;
-                }
-                if (rowCount == 0 || actionBar == null || actionBar.getHeight() == 0 || sectionList.getHeight() == 0) {
-                    return true;
-                }
-                int topInset = actionBar.getMeasuredHeight();
-                if (!actionBar.getOccupyStatusBar()) {
-                    topInset += AndroidUtilities.statusBarHeight;
-                }
-                if (sectionList.getPaddingTop() != topInset) {
-                    return true;
-                }
-
-                int position = getSectionHeaderRow(pendingSection);
-                pendingSection = null;
-                removePreDrawListener();
-                sectionList.removeOnAttachStateChangeListener(this);
-                if (position >= 0 && position < rowCount) {
-                    layoutManager.scrollToPositionWithOffset(position, 0);
-                    // Draw only after RecyclerView has laid out the requested row.
-                    return false;
-                }
-                return true;
-            }
-        }
-        SectionPositioner positioner = new SectionPositioner();
-        sectionList.addOnAttachStateChangeListener(positioner);
-        if (sectionList.isAttachedToWindow()) {
-            positioner.onViewAttachedToWindow(sectionList);
-        }
-        return view;
+        return addRow(String.valueOf(fullPagePosition));
     }
 
     @Override
     protected void updateRows() {
         super.updateRows();
-        comebackHeaderRow = addRow();
-        comebackFeatureRow = addRow();
-        comebackNoticeRow = addRow();
-        comebackEndRow = addRow();
-        specialAttentionHeaderRow = addRow();
-        specialAttentionEnabledRow = addRow();
-        specialAttentionNoticeRow = addRow();
-        specialAttentionEndRow = addRow();
-        signInHeaderRow = addRow();
-        signInEnabledRow = addRow();
-        signInFunctionRow = addRow();
-        signInNoticeRow = addRow();
-        signInEndRow = addRow();
-        activeHeaderRow = addRow();
-        activeEnabledRow = addRow();
-        activeDirectionRow = addRow();
-        activeTargetRow = addRow();
-        activeEmojiRow = addRow();
-        activeNoticeRow = addRow();
-        activeEndRow = addRow();
+        // The base implementation clears rowMap but not its reverse map.
+        rowMapReverse.clear();
 
-        localHeaderRow = addRow();
-        localEditMessageRow = addRow();
-        localEditTimeRow = addRow();
-        localEditAvatarRow = addRow();
-        localEditBioRow = addRow();
-        localStarsRow = addRow();
-        localGramRow = addRow();
-        localClearGiftsRow = addRow();
-        localNoticeRow = addRow();
-        localEndRow = addRow();
+        comebackHeaderRow = addExtensionRow(Section.COMEBACK, 0);
+        comebackFeatureRow = addExtensionRow(Section.COMEBACK, 1);
+        comebackNoticeRow = addExtensionRow(Section.COMEBACK, 2);
+        comebackEndRow = addExtensionRow(Section.COMEBACK, 3);
 
-        videoHeaderRow = addRow();
-        builtinCameraRow = addRow();
-        selectBuiltinVideosRow = addRow();
-        callCameraFeatureRow = addRow();
-        builtinVideoSoundRow = addRow();
-        builtinRoundVideoRow = addRow();
-        builtinSquareVideoRow = addRow();
-        viewBuiltinVideosRow = addRow();
-        deleteBuiltinVideosRow = addRow();
-        videoToGifRow = addRow();
-        videoNoticeRow = addRow();
-        videoEndRow = addRow();
+        specialAttentionHeaderRow = addExtensionRow(Section.ATTENTION, 4);
+        specialAttentionEnabledRow = addExtensionRow(Section.ATTENTION, 5);
+        specialAttentionNoticeRow = addExtensionRow(Section.ATTENTION, 6);
+        specialAttentionEndRow = addExtensionRow(Section.ATTENTION, 7);
 
-        cleanupHeaderRow = addRow();
-        clearBotsRow = addRow();
-        leaveGroupsRow = addRow();
-        clearContactsRow = addRow();
-        clearChatsRow = addRow();
-        resetProfileRow = addRow();
-        clearDeletedAccountsRow = addRow();
-        clearMessagesByTimeRow = addRow();
-        clearAllRow = addRow();
-        cleanupNoticeRow = addRow();
-        cleanupEndRow = addRow();
+        signInHeaderRow = addExtensionRow(Section.SIGN_IN, 8);
+        signInEnabledRow = addExtensionRow(Section.SIGN_IN, 9);
+        signInFunctionRow = addExtensionRow(Section.SIGN_IN, 10);
+        signInNoticeRow = addExtensionRow(Section.SIGN_IN, 11);
+        signInEndRow = addExtensionRow(Section.SIGN_IN, 12);
 
-        privacyHeaderRow = addRow();
-        createPrivacyFolderRow = addRow();
-        managePrivacyChatsRow = addRow();
-        changePrivacyPasswordRow = addRow();
-        forgotPrivacyPasswordRow = addRow();
-        deletePrivacyFolderRow = addRow();
-        privacyNoticeRow = addRow();
-        privacyEndRow = addRow();
+        activeHeaderRow = addExtensionRow(Section.ACTIVE, 13);
+        activeEnabledRow = addExtensionRow(Section.ACTIVE, 14);
+        activeDirectionRow = addExtensionRow(Section.ACTIVE, 15);
+        activeTargetRow = addExtensionRow(Section.ACTIVE, 16);
+        activeEmojiRow = addExtensionRow(Section.ACTIVE, 17);
+        activeNoticeRow = addExtensionRow(Section.ACTIVE, 18);
+        activeEndRow = addExtensionRow(Section.ACTIVE, 19);
 
-        blockHeaderRow = addRow();
-        blockNonContactsRow = addRow();
-        blockMutualGroupMessagesRow = addRow();
-        keywordsRow = addRow();
-        blockNoticeRow = addRow();
-        blockEndRow = addRow();
+        localHeaderRow = addExtensionRow(Section.LOCAL, 20);
+        localEditMessageRow = addExtensionRow(Section.LOCAL, 21);
+        localEditTimeRow = addExtensionRow(Section.LOCAL, 22);
+        localEditAvatarRow = addExtensionRow(Section.LOCAL, 23);
+        localEditBioRow = addExtensionRow(Section.LOCAL, 24);
+        localStarsRow = addExtensionRow(Section.LOCAL, 25);
+        localGramRow = addExtensionRow(Section.LOCAL, 26);
+        localClearGiftsRow = addExtensionRow(Section.LOCAL, 27);
+        localNoticeRow = addExtensionRow(Section.LOCAL, 28);
+        localEndRow = addExtensionRow(Section.LOCAL, 29);
+
+        videoHeaderRow = addExtensionRow(Section.VIDEO, 30);
+        builtinCameraRow = addExtensionRow(Section.VIDEO, 31);
+        selectBuiltinVideosRow = addExtensionRow(Section.VIDEO, 32);
+        callCameraFeatureRow = addExtensionRow(Section.VIDEO, 33);
+        builtinVideoSoundRow = addExtensionRow(Section.VIDEO, 34);
+        builtinRoundVideoRow = addExtensionRow(Section.VIDEO, 35);
+        builtinSquareVideoRow = addExtensionRow(Section.VIDEO, 36);
+        viewBuiltinVideosRow = addExtensionRow(Section.VIDEO, 37);
+        deleteBuiltinVideosRow = addExtensionRow(Section.VIDEO, 38);
+        videoToGifRow = addExtensionRow(Section.VIDEO, 39);
+        videoNoticeRow = addExtensionRow(Section.VIDEO, 40);
+        videoEndRow = addExtensionRow(Section.VIDEO, 41);
+
+        cleanupHeaderRow = addExtensionRow(Section.CLEANUP, 42);
+        clearBotsRow = addExtensionRow(Section.CLEANUP, 43);
+        leaveGroupsRow = addExtensionRow(Section.CLEANUP, 44);
+        clearContactsRow = addExtensionRow(Section.CLEANUP, 45);
+        clearChatsRow = addExtensionRow(Section.CLEANUP, 46);
+        resetProfileRow = addExtensionRow(Section.CLEANUP, 47);
+        clearDeletedAccountsRow = addExtensionRow(Section.CLEANUP, 48);
+        clearMessagesByTimeRow = addExtensionRow(Section.CLEANUP, 49);
+        clearAllRow = addExtensionRow(Section.CLEANUP, 50);
+        cleanupNoticeRow = addExtensionRow(Section.CLEANUP, 51);
+        cleanupEndRow = addExtensionRow(Section.CLEANUP, 52);
+
+        privacyHeaderRow = addExtensionRow(Section.PRIVACY, 53);
+        createPrivacyFolderRow = addExtensionRow(Section.PRIVACY, 54);
+        managePrivacyChatsRow = addExtensionRow(Section.PRIVACY, 55);
+        changePrivacyPasswordRow = addExtensionRow(Section.PRIVACY, 56);
+        forgotPrivacyPasswordRow = addExtensionRow(Section.PRIVACY, 57);
+        deletePrivacyFolderRow = addExtensionRow(Section.PRIVACY, 58);
+        privacyNoticeRow = addExtensionRow(Section.PRIVACY, 59);
+        privacyEndRow = addExtensionRow(Section.PRIVACY, 60);
+
+        blockHeaderRow = addExtensionRow(Section.BLOCK, 61);
+        blockNonContactsRow = addExtensionRow(Section.BLOCK, 62);
+        blockMutualGroupMessagesRow = addExtensionRow(Section.BLOCK, 63);
+        keywordsRow = addExtensionRow(Section.BLOCK, 64);
+        blockNoticeRow = addExtensionRow(Section.BLOCK, 65);
+        blockEndRow = addExtensionRow(Section.BLOCK, 66);
     }
 
     @Override
@@ -357,7 +286,21 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
     @Override
     protected String getActionBarTitle() {
-        return getString(R.string.HuanghunExtensions);
+        if (section == null) {
+            return getString(R.string.HuanghunExtensions);
+        }
+        switch (section) {
+            case COMEBACK: return getString(R.string.hh_ext_search_section_comeback);
+            case ATTENTION: return getString(R.string.hh_ext_search_section_special_attention);
+            case SIGN_IN: return getString(R.string.hh_ext_search_section_sign_in);
+            case ACTIVE: return getString(R.string.hh_ext_search_section_active);
+            case LOCAL: return getString(R.string.hh_ext_search_section_local);
+            case VIDEO: return getString(R.string.hh_ext_search_section_video);
+            case PRIVACY: return getString(R.string.hh_ext_search_section_privacy);
+            case BLOCK: return getString(R.string.HuanghunBlockZone);
+            case CLEANUP: return getString(R.string.HuanghunCleanupZone);
+            default: return getString(R.string.HuanghunExtensions);
+        }
     }
 
     @Override
@@ -367,6 +310,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
     @Override
     protected String getBackupValue(int position) {
+        if (position < 0 || position >= rowCount) return null;
         if (position == activeEnabledRow) return Boolean.toString(NekoConfig.huanghunActiveZoneEnabled.Bool());
         if (position == localEditMessageRow) return Boolean.toString(NekoConfig.huanghunLocalEditMessage.Bool());
         if (position == localEditTimeRow) return Boolean.toString(NekoConfig.huanghunLocalEditTime.Bool());
@@ -386,6 +330,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
     @Override
     protected boolean applyBackupValue(int position, String value) {
+        if (position < 0 || position >= rowCount) return false;
         try {
             boolean enabled = Boolean.parseBoolean(value);
             if (position == activeEnabledRow) NekoConfig.huanghunActiveZoneEnabled.setConfigBool(enabled);
@@ -413,6 +358,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
 
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
+        if (position < 0 || position >= rowCount) return;
         if (position == comebackFeatureRow) {
             presentFragment(new HuanghunComebackActivity());
             return;
@@ -707,18 +653,21 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         super.onActivityResultFragment(requestCode, resultCode, data);
     }
 
-    private void notifyVideoRows() {
-        if (listAdapter == null) {
-            return;
+    private void notifyExistingRow(int position) {
+        if (listAdapter != null && position >= 0 && position < rowCount) {
+            listAdapter.notifyItemChanged(position);
         }
-        listAdapter.notifyItemChanged(builtinCameraRow);
-        listAdapter.notifyItemChanged(selectBuiltinVideosRow);
-        listAdapter.notifyItemChanged(callCameraFeatureRow);
-        listAdapter.notifyItemChanged(builtinVideoSoundRow);
-        listAdapter.notifyItemChanged(builtinRoundVideoRow);
-        listAdapter.notifyItemChanged(builtinSquareVideoRow);
-        listAdapter.notifyItemChanged(viewBuiltinVideosRow);
-        listAdapter.notifyItemChanged(deleteBuiltinVideosRow);
+    }
+
+    private void notifyVideoRows() {
+        notifyExistingRow(builtinCameraRow);
+        notifyExistingRow(selectBuiltinVideosRow);
+        notifyExistingRow(callCameraFeatureRow);
+        notifyExistingRow(builtinVideoSoundRow);
+        notifyExistingRow(builtinRoundVideoRow);
+        notifyExistingRow(builtinSquareVideoRow);
+        notifyExistingRow(viewBuiltinVideosRow);
+        notifyExistingRow(deleteBuiltinVideosRow);
     }
 
     private void showCleanupConfirmation(HuanghunExtensionHelper.CleanupAction action) {
@@ -934,14 +883,13 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     }
 
     private void notifyLocalRows() {
-        if (listAdapter == null) return;
-        listAdapter.notifyItemChanged(localEditMessageRow);
-        listAdapter.notifyItemChanged(localEditTimeRow);
-        listAdapter.notifyItemChanged(localEditAvatarRow);
-        listAdapter.notifyItemChanged(localEditBioRow);
-        listAdapter.notifyItemChanged(localStarsRow);
-        listAdapter.notifyItemChanged(localGramRow);
-        listAdapter.notifyItemChanged(localClearGiftsRow);
+        notifyExistingRow(localEditMessageRow);
+        notifyExistingRow(localEditTimeRow);
+        notifyExistingRow(localEditAvatarRow);
+        notifyExistingRow(localEditBioRow);
+        notifyExistingRow(localStarsRow);
+        notifyExistingRow(localGramRow);
+        notifyExistingRow(localClearGiftsRow);
     }
 
     private void showActiveEmojiDialog(View anchor) {
@@ -1016,11 +964,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     }
 
     private void notifyActiveRows() {
-        if (listAdapter == null) return;
-        listAdapter.notifyItemChanged(activeEnabledRow);
-        listAdapter.notifyItemChanged(activeDirectionRow);
-        listAdapter.notifyItemChanged(activeTargetRow);
-        listAdapter.notifyItemChanged(activeEmojiRow);
+        notifyExistingRow(activeEnabledRow);
+        notifyExistingRow(activeDirectionRow);
+        notifyExistingRow(activeTargetRow);
+        notifyExistingRow(activeEmojiRow);
     }
 
     private void showKeywordsDialog() {
@@ -1057,9 +1004,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .setPositiveButton(getString(R.string.HuanghunSaveKeywords), (d, which) -> {
                     HuanghunExtensionHelper.setKeywords(input.getText().toString());
-                    if (listAdapter != null) {
-                        listAdapter.notifyItemChanged(keywordsRow);
-                    }
+                    notifyExistingRow(keywordsRow);
                 })
                 .create();
         showDialog(dialog);
@@ -1468,13 +1413,10 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
     }
 
     private void notifyPrivacyRows() {
-        if (listAdapter == null) {
-            return;
-        }
-        listAdapter.notifyItemChanged(createPrivacyFolderRow);
-        listAdapter.notifyItemChanged(managePrivacyChatsRow);
-        listAdapter.notifyItemChanged(changePrivacyPasswordRow);
-        listAdapter.notifyItemChanged(deletePrivacyFolderRow);
+        notifyExistingRow(createPrivacyFolderRow);
+        notifyExistingRow(managePrivacyChatsRow);
+        notifyExistingRow(changePrivacyPasswordRow);
+        notifyExistingRow(deletePrivacyFolderRow);
     }
 
     @Override
