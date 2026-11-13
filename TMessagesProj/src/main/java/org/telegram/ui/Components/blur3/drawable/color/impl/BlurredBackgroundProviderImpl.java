@@ -73,9 +73,12 @@ public class BlurredBackgroundProviderImpl {
     /** Separate live-source glass surface for each dialog row. */
     public static BlurredBackgroundProvider mainChatRowGlass(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
-                .setBackgroundColor((r, isDark) -> Theme.getColor(Theme.key_windowBackgroundWhite, r))
+                // Rows sit immediately below the full-width transparent header, search
+                // field and folder tabs. An opaque theme fill here makes wallpaper
+                // visibility jump at every row edge; use the same transparent base/tint.
+                .setBackgroundColor((r, isDark) -> 0x00000000)
                 .setLiquidGlassTintColor((r, isDark) -> Theme.multAlpha(
-                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.13f : 0.09f))
+                        Theme.getColor(Theme.key_windowBackgroundWhite, r), isDark ? 0.12f : 0.08f))
                 .setStrokeColorTop(0x78FFFFFF, 0x58FFFFFF)
                 .setStrokeColorBottom(0x35000000, 0x26FFFFFF)
                 .setShadowColor(0x35000000, 0x46000000)
