@@ -45,9 +45,6 @@ jobs:
       - name: Build with Gradle
         env:
           NATIVE_TARGET: universal
-          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          REQUIRE_RELEASE_SIGNING: 'true'
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify directly installable universal APK
         shell: bash
@@ -66,12 +63,13 @@ jobs:
           certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
           printf '%s\n' "$certs"
           if grep -q 'CN=Android Debug' <<< "$certs"; then
-            echo "Refusing to publish a debug-signed APK: $apk" >&2
-            echo 'APK 签名无效：检测到 Android Debug 证书，已阻止发布。请配置 RELEASE_KEYSTORE_BASE64、KEYSTORE_PASS、ALIAS_NAME 和 ALIAS_PASS。' >> "$GITHUB_STEP_SUMMARY"
+            echo '### APK 签名' >> "$GITHUB_STEP_SUMMARY"
+            echo '已验证使用 Android Debug 证书签名。此测试包可全新安装；若设备已有同包名的其他签名版本，需先卸载旧版。' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Expected Android Debug signing certificate: $apk" >&2
+            echo 'APK 签名异常：Staging 包未使用预期的 Android Debug 证书，已阻止发布。' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          echo '### APK 签名' >> "$GITHUB_STEP_SUMMARY"
-          echo '已通过发布证书签名校验；该 APK 可覆盖更新同一签名的已安装版本。' >> "$GITHUB_STEP_SUMMARY"
           sha256sum "$apk" > "$apk.sha256"
           ls -lh "$apk" "$apk.sha256"
       - name: Upload APK

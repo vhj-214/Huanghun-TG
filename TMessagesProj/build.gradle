@@ -172,7 +172,9 @@ android {
         staging {
             debuggable = false
             jniDebuggable = false
-            signingConfig = hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            // Staging artifacts are intentionally debug-signed so CI can build
+            // and distribute installable test APKs without release secrets.
+            signingConfig = signingConfigs.debug
             minifyEnabled = true
             shrinkResources = true
             multiDexEnabled = true
