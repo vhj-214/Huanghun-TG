@@ -274,7 +274,12 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
         if (position >= 0 && position < rows.size()) {
             Runnable open = rows.get(position).open;
             if (open != null) {
-                open.run();
+                try {
+                    open.run();
+                } catch (Throwable error) {
+                    // Optional settings must never crash the navigation index.
+                    org.telegram.messenger.FileLog.e(error);
+                }
             }
         }
     }
@@ -309,7 +314,12 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
                 // FeatureCell handles its own touch events, so RecyclerListView's
                 // item-click listener will not receive taps on it. Use the live
                 // adapter position to keep recycled cards mapped to the right row.
-                cell.setOnClickListener(view -> onItemClick(view, holder.getAdapterPosition(), 0, 0));
+                cell.setOnClickListener(view -> {
+                    int adapterPosition = holder.getAdapterPosition();
+                    if (adapterPosition != RecyclerView.NO_POSITION) {
+                        onItemClick(view, adapterPosition, 0, 0);
+                    }
+                });
                 return holder;
             } else if (viewType == TYPE_HERO) {
                 return new RecyclerListView.Holder(new HeroCell(mContext));

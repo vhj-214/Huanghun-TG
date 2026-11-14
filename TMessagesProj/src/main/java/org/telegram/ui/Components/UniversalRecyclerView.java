@@ -37,6 +37,7 @@ public class UniversalRecyclerView extends RecyclerListView {
     public LinearLayoutManager layoutManager;
     public final UniversalAdapter adapter;
     public ItemTouchHelper itemTouchHelper;
+    private final Paint huanghunSectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private boolean doNotDetachViews;
     public void doNotDetachViews() {
@@ -438,11 +439,16 @@ public class UniversalRecyclerView extends RecyclerListView {
             view -> {
                 if (view.getParent() != this) return false;
                 final ViewHolder viewHolder = getChildViewHolder(view);
-                return !UniversalAdapter.isShadow(viewHolder.getItemViewType());
+                return viewHolder != null && !UniversalAdapter.isShadow(viewHolder.getItemViewType());
             },
             UniversalAdapter::isShadow,
             padding, roundRadius,
-            super::drawBackgroundRect,
+            (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                huanghunSectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                huanghunSectionGlassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x26 : 0x20) * alpha));
+                float radius = Math.max(topRadius, bottomRadius);
+                canvas.drawRoundRect(rect, radius, radius, huanghunSectionGlassPaint);
+            },
             topPadding
         );
     }

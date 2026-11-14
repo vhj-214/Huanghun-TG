@@ -4,6 +4,8 @@ import static org.telegram.messenger.LocaleController.formatPluralString;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.view.View;
 import android.widget.FrameLayout;
 
@@ -43,7 +45,7 @@ public abstract class UniversalFragment extends BaseFragment {
             }
         });
 
-        FrameLayout contentView = new SizeNotifierFrameLayout(context) {
+        SizeNotifierFrameLayout contentView = new SizeNotifierFrameLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 super.onMeasure(
@@ -52,7 +54,11 @@ public abstract class UniversalFragment extends BaseFragment {
                 );
             }
         };
-        contentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        android.graphics.drawable.Drawable wallpaper = Theme.getCachedWallpaper();
+        contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
+        contentView.setBackgroundColor(wallpaper != null ? Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundGray));
+        actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick) {
             @Override
@@ -67,6 +73,28 @@ public abstract class UniversalFragment extends BaseFragment {
                 savedScrollPosition = -1;
             }
         };
+        // Universal pages previously received opaque white cards from the
+        // adapter. Disable only that fill and use a guarded glass section.
+        listView.adapter.setApplyBackground(false);
+        listView.setBackgroundColor(Color.TRANSPARENT);
+        final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        listView.setSections(
+            view -> {
+                if (view.getParent() != listView) return false;
+                androidx.recyclerview.widget.RecyclerView.ViewHolder holder = listView.getChildViewHolder(view);
+                return holder != null && !UniversalAdapter.isShadow(holder.getItemViewType());
+            },
+            UniversalAdapter::isShadow,
+            AndroidUtilities.dp(12),
+            16,
+            (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                sectionGlassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x26 : 0x20) * alpha));
+                float radius = Math.max(topRadius, bottomRadius);
+                canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
+            },
+            false
+        );
         contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         return fragmentView = contentView;

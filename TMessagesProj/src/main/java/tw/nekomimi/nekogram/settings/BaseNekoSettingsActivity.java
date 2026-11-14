@@ -381,14 +381,14 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
     }
 
     public void scrollToRow(String key, Runnable unknown) {
-        if (rowMap.containsKey(key)) {
+        if (key != null && rowMap.containsKey(key) && listView != null && layoutManager != null) {
             listView.highlightRow(() -> {
                 // noinspection ConstantConditions
                 int position = rowMap.get(key);
                 layoutManager.scrollToPositionWithOffset(position, dp(60));
                 return position;
             });
-        } else {
+        } else if (unknown != null) {
             unknown.run();
         }
     }

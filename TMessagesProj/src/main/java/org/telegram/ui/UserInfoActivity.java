@@ -11,6 +11,8 @@ import static org.telegram.ui.Components.Premium.LimitReachedBottomSheet.TYPE_AC
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
@@ -63,6 +65,7 @@ import org.telegram.ui.Components.IconBackgroundColors;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.Premium.LimitReachedBottomSheet;
 import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalFragment;
@@ -264,9 +267,41 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
 
         super.createView(context);
         this.listView = super.listView;
-        listView.setSections();
+        // Keep the account editor scoped to this page: use the same cached
+        // wallpaper as the main settings page without changing edit behavior.
+        if (fragmentView instanceof SizeNotifierFrameLayout) {
+            SizeNotifierFrameLayout contentView = (SizeNotifierFrameLayout) fragmentView;
+            Drawable wallpaper = Theme.getCachedWallpaper();
+            contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
+            contentView.setBackgroundColor(wallpaper != null
+                    ? Color.TRANSPARENT
+                    : getThemedColor(Theme.key_windowBackgroundGray));
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
+        }
+        // UniversalAdapter normally paints opaque theme cards. Remove that
+        // layer and draw a low-alpha glass section so wallpaper remains visible.
+        listView.adapter.setApplyBackground(false);
+        listView.setBackgroundColor(Color.TRANSPARENT);
+        final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        listView.setSections(
+                view -> {
+                    if (view.getParent() != listView) return false;
+                    androidx.recyclerview.widget.RecyclerView.ViewHolder holder = listView.getChildViewHolder(view);
+                    return holder != null && !UniversalAdapter.isShadow(holder.getItemViewType());
+                },
+                UniversalAdapter::isShadow,
+                dp(12),
+                16,
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                    sectionGlassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x26 : 0x20) * alpha));
+                    float radius = Math.max(topRadius, bottomRadius);
+                    canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
+                },
+                false
+        );
         listView.setClipToPadding(false);
-        actionBar.setAdaptiveBackground(listView);
         if (parentLayout != null && parentLayout.isRightLayout()) {
             actionBar.setBackButtonImage(R.drawable.ic_ab_close);
         }
