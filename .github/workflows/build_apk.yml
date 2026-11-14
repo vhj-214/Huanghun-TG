@@ -62,12 +62,13 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
           certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
           printf '%s\n' "$certs"
-          if grep -q 'CN=Android Debug' <<< "$certs"; then
+          expected_cert='7fa62028311565d639602a6b99770e635be9b478b58c31a870529222d39b415a'
+          if grep -q 'CN=Android Debug' <<< "$certs" && grep -q "Signer #1 certificate SHA-256 digest: $expected_cert" <<< "$certs"; then
             echo '### APK 签名' >> "$GITHUB_STEP_SUMMARY"
-            echo '已验证使用 Android Debug 证书签名。此测试包可全新安装；若设备已有同包名的其他签名版本，需先卸载旧版。' >> "$GITHUB_STEP_SUMMARY"
+            echo "已验证使用固定 Staging Debug 证书签名（SHA-256: $expected_cert）。连续 Staging 构建可保持相同签名。" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Expected Android Debug signing certificate: $apk" >&2
-            echo 'APK 签名异常：Staging 包未使用预期的 Android Debug 证书，已阻止发布。' >> "$GITHUB_STEP_SUMMARY"
+            echo "Unexpected Staging signing certificate; expected SHA-256 $expected_cert: $apk" >&2
+            echo 'APK 签名异常：证书与固定的 Staging Debug 密钥不一致，已阻止发布。' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           sha256sum "$apk" > "$apk.sha256"
