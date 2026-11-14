@@ -21,6 +21,8 @@
     <string name="hfd_channels_desc">发送身份、分享与滑动行为</string>
     <string name="hfd_search_tags">话题标签搜索</string>
     <string name="hfd_search_tags_desc">聊天与频道的默认搜索页</string>
+    <string name="hfd_wallpaper">壁纸</string>
+    <string name="hfd_wallpaper_desc">聊天静态壁纸与动态壁纸设置</string>
     <string name="hfd_translation">翻译</string>
     <string name="hfd_translation_desc">打开全部翻译与服务商设置</string>
     <string name="hfd_pangu">盘古空格</string>

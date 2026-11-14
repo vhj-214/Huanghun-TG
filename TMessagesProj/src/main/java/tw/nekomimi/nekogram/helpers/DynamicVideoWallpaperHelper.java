@@ -456,7 +456,7 @@ public final class DynamicVideoWallpaperHelper {
         Player player = new Player(textureView, paths, layer, mode, playlistPlaybackKey(account, paths, mode));
         if (contentAnchor instanceof SizeNotifierFrameLayout) {
             View background = ((SizeNotifierFrameLayout) contentAnchor).backgroundView;
-            if (background != null) { background.setAlpha(0f); player.setSuppressedContentBackground(background); }
+            player.suppressViewAlpha(background);
         }
         player.start();
         return player;
@@ -509,13 +509,10 @@ public final class DynamicVideoWallpaperHelper {
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         Player player = new Player(textureView, path, videoLayer, singlePlaybackKey(account, path));
         // 视频已提升到导航容器后，聊天内容内的官方静态背景会成为遮挡层；
-        // 将它暂时透明化，释放播放器时再恢复，保证视频作为完整页面背景可见。
+        // 首帧出现后再将它透明化，避免视频解码准备期间整页露空。
         if (contentAnchor instanceof SizeNotifierFrameLayout) {
             View originalBackground = ((SizeNotifierFrameLayout) contentAnchor).backgroundView;
-            if (originalBackground != null) {
-                originalBackground.setAlpha(0f);
-                player.setSuppressedContentBackground(originalBackground);
-            }
+            player.suppressViewAlpha(originalBackground);
         }
         player.start();
         return player;
@@ -536,7 +533,6 @@ public final class DynamicVideoWallpaperHelper {
         private MediaPlayer mediaPlayer;
         private Surface surface;
         private SurfaceTexture surfaceTexture;
-        private View suppressedContentBackground;
         private final ArrayList<SuppressedBackground> suppressedBackgrounds = new ArrayList<>();
         private final ArrayList<SuppressedAlpha> suppressedAlphas = new ArrayList<>();
         private final Handler playbackHandler = new Handler(Looper.getMainLooper());
@@ -558,6 +554,7 @@ public final class DynamicVideoWallpaperHelper {
         private long playbackGeneration;
         private boolean released;
         private boolean mediaPrepared;
+        private boolean firstFrameRendered;
         private final View.OnLayoutChangeListener videoLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> applyFitCenter();
         private int videoWidth;
         private int videoHeight;
@@ -630,6 +627,12 @@ public final class DynamicVideoWallpaperHelper {
                 return;
             }
             cancelPlaybackRecovery();
+            // Some decoders take seconds to recover. Keep the static wallpaper
+            // visible until the replacement player has produced a real frame.
+            firstFrameRendered = false;
+            textureView.animate().cancel();
+            textureView.setAlpha(0f);
+            restoreSuppressedAlphas();
             if (path == null || !new File(path).isFile() || new File(path).length() <= 0) {
                 if (playlistMode) {
                     playNextVideo();
@@ -693,7 +696,6 @@ public final class DynamicVideoWallpaperHelper {
                         videoHeight = player.getVideoHeight();
                         configureVideoBuffer();
                         applyFitCenter();
-                        textureView.animate().alpha(.96f).setDuration(220L).start();
                         try {
                             int position = resumePositionMs;
                             if (position > 0 && player.getDuration() > position + 300) {
@@ -763,10 +765,6 @@ public final class DynamicVideoWallpaperHelper {
             }
         }
 
-        private void setSuppressedContentBackground(View background) {
-            suppressedContentBackground = background;
-        }
-
         /**
          * 暂时移除顶部导航、翻译栏或外层容器的实色背景，但不隐藏其中的文字和按钮。
          * 视频播放器释放时会逐一恢复原始 Drawable。
@@ -784,18 +782,23 @@ public final class DynamicVideoWallpaperHelper {
             view.setBackground(null);
         }
 
-        /** 暂时隐藏原始静态壁纸视图，释放播放器时精确恢复原透明度。 */
+        /** Record a static wallpaper as fallback; hide it only after the video frame is visible. */
         public void suppressViewAlpha(View view) {
             if (view == null) {
                 return;
             }
             for (SuppressedAlpha state : suppressedAlphas) {
                 if (state.view == view) {
+                    if (firstFrameRendered) {
+                        state.view.setAlpha(0f);
+                    }
                     return;
                 }
             }
             suppressedAlphas.add(new SuppressedAlpha(view, view.getAlpha()));
-            view.setAlpha(0f);
+            if (firstFrameRendered) {
+                view.setAlpha(0f);
+            }
         }
 
         public void release() {
@@ -806,17 +809,11 @@ public final class DynamicVideoWallpaperHelper {
             textureView.removeOnLayoutChangeListener(videoLayoutListener);
             textureView.setSurfaceTextureListener(null);
             releaseMediaPlayer();
-            if (suppressedContentBackground != null) {
-                suppressedContentBackground.setAlpha(1f);
-                suppressedContentBackground = null;
-            }
+            restoreSuppressedAlphas();
             for (SuppressedBackground state : suppressedBackgrounds) {
                 state.view.setBackground(state.background);
             }
             suppressedBackgrounds.clear();
-            for (SuppressedAlpha state : suppressedAlphas) {
-                state.view.setAlpha(state.alpha);
-            }
             suppressedAlphas.clear();
             if (layerView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) layerView.getParent()).removeView(layerView);
@@ -1070,6 +1067,24 @@ public final class DynamicVideoWallpaperHelper {
 
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+            if (released || !mediaPrepared || firstFrameRendered) {
+                return;
+            }
+            firstFrameRendered = true;
+            textureView.animate().cancel();
+            textureView.animate().alpha(.96f).setDuration(220L).withEndAction(() -> {
+                if (!released && firstFrameRendered) {
+                    for (SuppressedAlpha state : suppressedAlphas) {
+                        state.view.setAlpha(0f);
+                    }
+                }
+            }).start();
+        }
+
+        private void restoreSuppressedAlphas() {
+            for (SuppressedAlpha state : suppressedAlphas) {
+                state.view.setAlpha(state.alpha);
+            }
         }
     }
 }

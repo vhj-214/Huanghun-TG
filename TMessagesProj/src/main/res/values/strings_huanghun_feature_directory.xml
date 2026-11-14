@@ -21,6 +21,8 @@
     <string name="hfd_channels_desc">Send-as, share and swipe behavior</string>
     <string name="hfd_search_tags">Hashtag search</string>
     <string name="hfd_search_tags_desc">Default search pages for chats and channels</string>
+    <string name="hfd_wallpaper">Wallpaper</string>
+    <string name="hfd_wallpaper_desc">Static and dynamic chat wallpaper controls</string>
     <string name="hfd_translation">Translation</string>
     <string name="hfd_translation_desc">Open all translation and provider settings</string>
     <string name="hfd_pangu">Pangu spacing</string>

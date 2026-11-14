@@ -14,9 +14,9 @@
 
 ## 修改内容
 
-1. 新增 `Components/LoginBackgroundLayout.java`。登录页自行绘制完整壁纸层，延伸到顶部按钮和状态栏下方，而不是穿透到 Activity 的窗口底色。首次缓存未就绪时使用本地默认壁纸；默认壁纸创建失败时使用本地渐变兜底。
+1. 新增 `Components/LoginBackgroundLayout.java`。登录页自行绘制完整壁纸层，延伸到顶部按钮和状态栏下方，而不是穿透到 Activity 的窗口底色。使用 `res/drawable-nodpi/huanghun_login_wallpaper.png` 作为登录专用背景；资源无法解码时回退到主题灰色。
 2. 删除登录页主动重置全局主题的逻辑，保留用户已有主题、壁纸和自动夜间设置。创建、主题刷新、缓存页面恢复与预留动画收尾不再回写实体白底。
-3. 国家/地区、号码输入框、协议登录按钮、返回/菜单按钮与继续按钮复用现有 `WallpaperBitmapProvider → BlurredBackgroundSourceWrapped → BlurredBackgroundDrawableViewFactory`。输入框原有焦点、错误轮廓与标签缺口保留，标签上方区域不被玻璃背景填平。
+3. 国家/地区、号码输入框、协议登录按钮、返回/菜单按钮与继续按钮复用现有 `WallpaperBitmapProvider → BlurredBackgroundSourceWrapped → BlurredBackgroundDrawableViewFactory`，从登录照片生成磨砂采样源。登录背景遮罩和控件表面均使用低透明度（alpha `0x18`），避免白色雾化压住照片。输入框原有焦点、错误轮廓与标签缺口保留，标签上方区域不被玻璃背景填平。
 4. 数字键盘新增可选 `setGlassBackground()` 接口。仅 `LoginActivity` 启用；其他键盘调用者默认仍使用原选择器。玻璃与原按压选择器组合绘制，每个按键独立持有 drawable，保留原来的四角形状和退格图标 padding。
 5. 壁纸变化监听在片段创建/销毁时成对添加和移除。位置监听器在最终释放时 shutdown；主题刷新复用已有玻璃 drawable，避免反复订阅导致累积。
 6. 不新增视频播放器、账号初始化、实时根视图抓取、RenderNode 或 AGSL 依赖。使用可在旧版 Android 和软件 Canvas 上绘制的位图/颜色渲染路径，并保留现有项目的玻璃开关行为。

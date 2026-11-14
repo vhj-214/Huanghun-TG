@@ -8,12 +8,12 @@ import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 
 import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ChatBackgroundDrawable;
 import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
@@ -25,7 +25,7 @@ import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
 
-/** Neutral material login surface. It intentionally does not reveal chat wallpaper. */
+/** Login surface with a dedicated portrait wallpaper and translucent glass controls. */
 public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     private final WallpaperBitmapProvider wallpaperProvider = new WallpaperBitmapProvider();
     private final BlurredBackgroundSourceWrapped glassSource = new BlurredBackgroundSourceWrapped();
@@ -34,7 +34,7 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     private final BlurredBackgroundDrawableViewFactory glassFactory =
             new BlurredBackgroundDrawableViewFactory(positionWatcher, this, glassSource);
     private final Paint scrimPaint = new Paint();
-    private Drawable fallbackWallpaper;
+    private Drawable loginWallpaper;
     private int statusBarColor;
     private int navigationBarColor;
 
@@ -81,16 +81,24 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     }
 
     public void refreshWallpaper() {
-        // Use a stable theme-colored source instead of the account wallpaper.
-        // Glass controls still receive a material source, but no chat image or
-        // dynamic wallpaper can leak into the login surface.
-        Drawable surface = new ColorDrawable(Theme.getColor(Theme.key_windowBackgroundGray));
-        int scrimAlpha = Theme.isCurrentThemeDark() ? 0x46 : 0x38;
+        // Use the user-selected portrait as a dedicated login wallpaper. Keep a
+        // theme-colored fallback so login remains usable if resource decoding fails.
+        if (!isWallpaperUsable(loginWallpaper)) {
+            try {
+                loginWallpaper = getResources().getDrawable(R.drawable.huanghun_login_wallpaper).mutate();
+            } catch (RuntimeException | OutOfMemoryError e) {
+                FileLog.e(e);
+                loginWallpaper = null;
+            }
+        }
+        if (!isWallpaperUsable(loginWallpaper)) {
+            loginWallpaper = new ColorDrawable(Theme.getColor(Theme.key_windowBackgroundGray));
+        }
+        Drawable surface = loginWallpaper;
+        int scrimAlpha = 0x18;
         scrimPaint.setColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhite), scrimAlpha));
         setBackgroundColor(Color.TRANSPARENT);
-        boolean changed = getBackgroundImage() == null
-                || !(getBackgroundImage() instanceof ColorDrawable)
-                || ((ColorDrawable) getBackgroundImage()).getColor() != ((ColorDrawable) surface).getColor();
+        boolean changed = getBackgroundImage() != surface;
         setBackgroundImage(surface, false);
         if (!changed) {
             updateSurfaceColors();
@@ -151,10 +159,10 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
         if (Color.alpha(bottom) == 0) {
             bottom = Theme.getColor(Theme.key_windowBackgroundWhite);
         }
-        // This is a material surface, not a readability scrim. Keep the tint
-        // light enough for the neutral source to remain visibly translucent.
+        // A low-opacity tint keeps the portrait visible through the glass
+        // controls instead of turning the login screen into a white surface.
         int tint = Theme.getColor(Theme.key_windowBackgroundWhite);
-        int alpha = Theme.isCurrentThemeDark() ? 0x46 : 0x38;
+        int alpha = 0x18;
         scrimPaint.setColor(ColorUtils.setAlphaComponent(tint, alpha));
         statusBarColor = ColorUtils.compositeColors(scrimPaint.getColor(), top);
         navigationBarColor = ColorUtils.compositeColors(scrimPaint.getColor(), bottom);

@@ -106,7 +106,12 @@ class LoginGlassRegression(unittest.TestCase):
         self.assertNotIn("sizeNotifierFrameLayout.setBackgroundColor(Theme.getColor", self.login)
         self.assertIn("setHasOwnBackground(true)", self.login)
 
-    def test_neutral_glass_has_no_wallpaper_or_capture_recursion(self):
+    def test_login_wallpaper_is_translucent_and_glass_has_no_capture_recursion(self):
+        wallpaper = ROOT / "TMessagesProj/src/main/res/drawable-nodpi/huanghun_login_wallpaper.png"
+        self.assertTrue(wallpaper.is_file())
+        self.assertIn("R.drawable.huanghun_login_wallpaper", self.background)
+        self.assertIn("int scrimAlpha = 0x18", self.background)
+        self.assertIn("int alpha = 0x18", self.background)
         self.assertIn("new ColorDrawable(Theme.getColor(Theme.key_windowBackgroundGray))", self.background)
         self.assertNotIn("Theme.getCachedWallpaperNonBlocking()", self.background)
         self.assertNotIn("Theme.getCachedWallpaper()", self.background)

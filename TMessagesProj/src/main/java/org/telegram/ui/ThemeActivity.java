@@ -133,6 +133,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     public final static int THEME_TYPE_NIGHT = 1;
     public final static int THEME_TYPE_OTHER = 2;
     public final static int THEME_TYPE_THEMES_BROWSER = 3;
+    public final static int THEME_TYPE_HUANGHUN_WALLPAPER = 4;
 
     private ListAdapter listAdapter;
     private RecyclerListView listView;
@@ -159,6 +160,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private int multiDynamicVideoWallpaperRow;
     private int multiDynamicModeRow;
     private int multiDynamicViewRow;
+    private int wallpaperFeaturesHeaderRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -598,6 +600,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
         textSizeRow = -1;
         backgroundRow = -1;
+        wallpaperFeaturesHeaderRow = -1;
         globalDynamicWallpaperRow = -1;
         dynamicVideoWallpaperRow = -1;
         deleteDynamicVideoWallpaperRow = -1;
@@ -684,12 +687,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             textSizeHeaderRow = rowCount++;
             textSizeRow = rowCount++;
             backgroundRow = rowCount++;
-            globalDynamicWallpaperRow = rowCount++;
-            dynamicVideoWallpaperRow = rowCount++;
-            deleteDynamicVideoWallpaperRow = rowCount++;
-            multiDynamicVideoWallpaperRow = rowCount++;
-            multiDynamicModeRow = rowCount++;
-            multiDynamicViewRow = rowCount++;
             changeUserColor = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
@@ -737,6 +734,15 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             sendByEnterRow = rowCount++;
             distanceRow = rowCount++;
             otherSectionRow = rowCount++;
+        } else if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+            wallpaperFeaturesHeaderRow = rowCount++;
+            globalDynamicWallpaperRow = rowCount++;
+            dynamicVideoWallpaperRow = rowCount++;
+            deleteDynamicVideoWallpaperRow = rowCount++;
+            multiDynamicVideoWallpaperRow = rowCount++;
+            multiDynamicModeRow = rowCount++;
+            multiDynamicViewRow = rowCount++;
+            lastShadowRow = rowCount++;
         } else {
             nightDisabledRow = rowCount++;  // TYPE_THEME_TYPE
             nightScheduledRow = rowCount++; // TYPE_THEME_TYPE
@@ -1189,6 +1195,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     }
                 });
             }
+        } else if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+            actionBar.setTitle(getString(R.string.hfd_wallpaper));
         } else {
             actionBar.setTitle(getString(R.string.AutoNightTheme));
         }
@@ -2925,6 +2933,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         headerCell.setText(getString("OtherSettings", R.string.OtherSettings));
                     } else if (position == mediaSoundHeaderRow) {
                         headerCell.setText(getString("MediaAndSoundSettings", R.string.MediaAndSoundSettings));
+                    } else if (position == wallpaperFeaturesHeaderRow) {
+                        headerCell.setText(getString(R.string.hfd_wallpaper));
                     }
                     break;
                 }
@@ -3124,7 +3134,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     position == settingsRow || position == themeHeaderRow || position == textSizeHeaderRow ||
                     position == chatListHeaderRow || position == bubbleRadiusHeaderRow || position == swipeGestureHeaderRow ||
                     position == selectThemeHeaderRow || position == appIconHeaderRow || position == mediaSoundHeaderRow ||
-                    position == otherHeaderRow) {
+                    position == otherHeaderRow || position == wallpaperFeaturesHeaderRow) {
                 return TYPE_HEADER;
             } else if (position == automaticBrightnessRow) {
                 return TYPE_BRIGHTNESS;

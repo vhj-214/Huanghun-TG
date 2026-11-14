@@ -22,6 +22,7 @@ import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.ThemeActivity;
 
 import java.util.ArrayList;
 
@@ -93,6 +94,8 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
                 () -> openChat(NekoConfig.hideSendAsChannel.getKey()));
         entry(R.string.hfd_search_tags, R.string.hfd_search_tags_desc, R.drawable.msg_discussion,
                 () -> openChat(NaConfig.INSTANCE.getSearchHashtagDefaultPageChannel().getKey()));
+        entry(R.string.hfd_wallpaper, R.string.hfd_wallpaper_desc, R.drawable.msg_background,
+                () -> presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_HUANGHUN_WALLPAPER)));
         entry(R.string.hfd_translation, R.string.hfd_translation_desc, R.drawable.ic_translate,
                 () -> presentFragment(new NekoTranslatorSettingsActivity()));
         // Experimental: Pangu.
