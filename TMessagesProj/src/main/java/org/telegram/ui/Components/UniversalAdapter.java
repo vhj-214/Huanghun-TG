@@ -4,6 +4,7 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
@@ -452,6 +453,9 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
                         super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), heightMeasureSpec);
                     }
                 };
+                // Custom rows own their background (glass, editor surface, etc.).
+                // Never let a recycled wrapper paint an opaque theme card behind them.
+                view.setBackgroundColor(Color.TRANSPARENT);
                 if (viewType == VIEW_TYPE_CUSTOM_SHADOW) {
                     view.setTag(RecyclerListView.TAG_NOT_SECTION);
                 }

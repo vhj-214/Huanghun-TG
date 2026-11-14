@@ -10,6 +10,7 @@ import android.text.InputType;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.EditText;
+import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
@@ -110,7 +111,8 @@ public class NekoXConfig {
         if (context == null) return;
 
         AtomicInteger useApiType = new AtomicInteger(-1);
-        BottomBuilder builder = new BottomBuilder(context);
+        BottomBuilder builder = new BottomBuilder(context, true,
+                ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_dialogBackground), 0xD8));
         EditText[] inputs = new EditText[2];
 
         builder.addTitle(getString(R.string.CustomApi), true, getString(R.string.UseCustomApiNotice));

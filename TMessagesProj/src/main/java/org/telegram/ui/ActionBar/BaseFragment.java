@@ -17,6 +17,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -527,12 +528,54 @@ public abstract class BaseFragment {
     @CallSuper
     public void onResume() {
         isPaused = false;
+        applySettingsGlassWallpaper();
         if (actionBar != null) {
             actionBar.onResume();
         }
         if (getLastStoryViewer() != null) {
             getLastStoryViewer().onResume();
             getLastStoryViewer().updatePlayingMode();
+        }
+    }
+
+    /** Apply the settings wallpaper consistently to legacy settings fragments. */
+    private void applySettingsGlassWallpaper() {
+        if (fragmentView == null || fragmentView instanceof org.telegram.ui.Components.LoginBackgroundLayout || Theme.getCachedWallpaper() == null) return;
+        final String name = getClass().getName();
+        if (!name.startsWith("org.telegram.ui.") || name.equals("org.telegram.ui.SettingsActivity")) return;
+        final String simpleName = name.substring(name.lastIndexOf('.') + 1);
+        if (!(simpleName.contains("Settings") || simpleName.contains("Privacy")
+                || simpleName.contains("Stickers") || simpleName.contains("Theme")
+                || simpleName.contains("Sessions") || simpleName.contains("LanguageSelect")
+                || simpleName.contains("Passcode") || simpleName.contains("Passkeys")
+                || simpleName.contains("TwoStepVerification") || simpleName.contains("DataAutoDownload")
+                || simpleName.contains("Notifications") || simpleName.contains("ArchiveSettings")
+                || simpleName.contains("Cache") || simpleName.contains("FiltersSetup")
+                || simpleName.contains("Proxy") || simpleName.contains("QuickReplies")
+                || simpleName.contains("SaveToGallery") || simpleName.contains("LiteMode")
+                || simpleName.contains("AutoDeleteMessages") || simpleName.contains("WallpapersList"))) return;
+
+        fragmentView.setBackground(Theme.getCachedWallpaper());
+        if (actionBar != null) {
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
+        }
+        clearOpaqueSettingsFills(fragmentView);
+    }
+
+    private void clearOpaqueSettingsFills(View view) {
+        if (view != fragmentView && view.getBackground() instanceof ColorDrawable) {
+            int color = ((ColorDrawable) view.getBackground()).getColor();
+            if (color == Theme.getColor(Theme.key_windowBackgroundWhite)
+                    || color == Theme.getColor(Theme.key_windowBackgroundGray)) {
+                view.setBackgroundColor(Color.TRANSPARENT);
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                clearOpaqueSettingsFills(group.getChildAt(i));
+            }
         }
     }
 

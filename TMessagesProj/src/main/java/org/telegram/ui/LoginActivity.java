@@ -829,9 +829,14 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         moreButtonView.addSubItem(2, R.drawable.msg_permissions_solar, getString(R.string.CustomApi)).setContentDescription(getString(R.string.CustomApi));
         moreButtonView.addSubItem(3, R.drawable.msg_retry_solar, getString(R.string.TestBackend));
         moreButtonView.addSubItem(100, R.drawable.msg_permissions_solar, "协议登录");
+        // Match the login wallpaper instead of leaving the overflow menu as an
+        // opaque white popup. The rounded popup drawable remains intact while
+        // its theme tint lets the wallpaper show through as a glass surface.
+        moreButtonView.redrawPopup(ColorUtils.setAlphaComponent(
+                Theme.getColor(Theme.key_windowBackgroundWhite), 0xC8));
         moreButtonView.setDelegate(id -> {
             if (id == 0) {
-                presentFragment(new ProxyListActivity());
+                presentFragment(new ProxyListActivity(true));
             } else if (id == 1) {
                 setPage(VIEW_QR_LOGIN, true, null, false);
             } else if (id == 2) {
@@ -1289,11 +1294,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 protocolDialog.getWindow().setAttributes(params);
             }
             if (protocolDialog.getWindow() != null) {
-                // 选择区采用独立浅色玻璃底与蓝色描边，避免与登录页背景融为一体。
+                // Keep the rounded glass surface translucent so the login wallpaper remains visible.
                 GradientDrawable dialogFrame = new GradientDrawable();
-                dialogFrame.setColor(0xF7FFFFFF);
+                dialogFrame.setColor(0xC8FFFFFF);
                 dialogFrame.setCornerRadius(AndroidUtilities.dp(20));
-                dialogFrame.setStroke(AndroidUtilities.dp(2), 0xFF339FEA);
+                dialogFrame.setStroke(AndroidUtilities.dp(1), 0x99339FEA);
                 protocolDialog.getWindow().setBackgroundDrawable(dialogFrame);
             }
         });
@@ -1343,6 +1348,15 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 onConfirmed.run();
             })
             .create();
+        disclaimerDialog.setOnShowListener(ignored -> {
+            if (disclaimerDialog.getWindow() != null) {
+                GradientDrawable glass = new GradientDrawable();
+                glass.setColor(0xC8FFFFFF);
+                glass.setCornerRadius(AndroidUtilities.dp(20));
+                glass.setStroke(AndroidUtilities.dp(1), 0x66339FEA);
+                disclaimerDialog.getWindow().setBackgroundDrawable(glass);
+            }
+        });
         // The positive action validates the required checkbox itself and only
         // dismisses after consent has been confirmed.
         disclaimerDialog.setDismissDialogByButtons(false);

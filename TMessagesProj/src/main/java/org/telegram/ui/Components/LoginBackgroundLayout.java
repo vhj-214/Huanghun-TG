@@ -2,6 +2,7 @@ package org.telegram.ui.Components;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -24,6 +25,7 @@ import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
+import tw.nekomimi.nekogram.helpers.LoginWallpaperHelper;
 
 /** Login surface with a dedicated portrait wallpaper and translucent glass controls. */
 public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
@@ -81,8 +83,11 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     }
 
     public void refreshWallpaper() {
-        // Use the user-selected portrait as a dedicated login wallpaper. Keep a
+        // Use a user-selected portrait as a dedicated login wallpaper. Keep a
         // theme-colored fallback so login remains usable if resource decoding fails.
+        if (!isWallpaperUsable(loginWallpaper)) {
+            loginWallpaper = loadUserWallpaper();
+        }
         if (!isWallpaperUsable(loginWallpaper)) {
             try {
                 loginWallpaper = getResources().getDrawable(R.drawable.huanghun_login_wallpaper).mutate();
@@ -104,6 +109,28 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
             updateSurfaceColors();
         }
         invalidate();
+    }
+
+    private Drawable loadUserWallpaper() {
+        if (!LoginWallpaperHelper.isSet(getContext())) return null;
+        try {
+            String path = LoginWallpaperHelper.getFile(getContext()).getAbsolutePath();
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+            int sample = 1;
+            int maxDimension = Math.max(bounds.outWidth, bounds.outHeight);
+            while (maxDimension / sample > 2048) sample *= 2;
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Bitmap bitmap = BitmapFactory.decodeFile(path, options);
+            return bitmap == null ? null : new BitmapDrawable(getResources(), bitmap);
+        } catch (RuntimeException | OutOfMemoryError error) {
+            FileLog.e(error);
+            return null;
+        }
     }
 
     private static boolean isWallpaperUsable(Drawable drawable) {

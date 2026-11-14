@@ -66,6 +66,7 @@ import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.LoginBackgroundLayout;
 import org.telegram.ui.Components.QRCodeBottomSheet;
 import org.telegram.ui.Components.SectionsScrollView;
 
@@ -110,6 +111,7 @@ public class ProxySettingsActivity extends BaseFragment {
     private ClipboardManager clipboardManager;
 
     private boolean addingNewProxy;
+    private final boolean loginBackground;
 
     private SharedConfig.ProxyInfo currentProxyInfo;
 
@@ -168,13 +170,23 @@ public class ProxySettingsActivity extends BaseFragment {
     }
 
     public ProxySettingsActivity() {
+        this(false);
+    }
+
+    public ProxySettingsActivity(boolean loginBackground) {
         super();
+        this.loginBackground = loginBackground;
         currentProxyInfo = new SharedConfig.ProxyInfo("", 1080, "", "", "");
         addingNewProxy = true;
     }
 
     public ProxySettingsActivity(SharedConfig.ProxyInfo proxyInfo) {
+        this(proxyInfo, false);
+    }
+
+    public ProxySettingsActivity(SharedConfig.ProxyInfo proxyInfo, boolean loginBackground) {
         super();
+        this.loginBackground = loginBackground;
         currentProxyInfo = proxyInfo;
     }
 
@@ -256,9 +268,14 @@ public class ProxySettingsActivity extends BaseFragment {
         doneItem = actionBar.createMenu().addItemWithWidth(done_button, R.drawable.ic_ab_done, AndroidUtilities.dp(56));
         doneItem.setContentDescription(LocaleController.getString(R.string.Done));
 
-        fragmentView = new FrameLayout(context);
+        fragmentView = loginBackground ? new LoginBackgroundLayout(context) : new FrameLayout(context);
         FrameLayout frameLayout = (FrameLayout) fragmentView;
-        fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        if (loginBackground) {
+            actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
+        } else {
+            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        }
 
 //        linearLayout2 = new SectionsScrollView.SectionsLinearLayout(context);
 //        scrollView = new SectionsScrollView(context, linearLayout2, resourceProvider);
@@ -291,7 +308,7 @@ public class ProxySettingsActivity extends BaseFragment {
 
         inputFieldsContainer = new LinearLayout(context);
         inputFieldsContainer.setOrientation(LinearLayout.VERTICAL);
-        inputFieldsContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        inputFieldsContainer.setBackgroundColor(loginBackground ? android.graphics.Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             // bring to front for transitions
             inputFieldsContainer.setElevation(AndroidUtilities.dp(1f));

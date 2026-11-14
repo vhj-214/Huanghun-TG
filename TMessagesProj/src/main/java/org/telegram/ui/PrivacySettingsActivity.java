@@ -13,6 +13,7 @@ import static org.telegram.messenger.LocaleController.formatPluralString;
 import static org.telegram.messenger.LocaleController.getString;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.content.DialogInterface;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
@@ -301,9 +302,17 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
 
         fragmentView = new FrameLayout(context);
         FrameLayout frameLayout = (FrameLayout) fragmentView;
-        frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        android.graphics.drawable.Drawable settingsWallpaper = Theme.getCachedWallpaper();
+        if (settingsWallpaper != null) {
+            frameLayout.setBackground(settingsWallpaper);
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
+        } else {
+            frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        }
 
         listView = new RecyclerListView(context);
+        listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setSections();
         actionBar.setAdaptiveBackground(listView);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false) {

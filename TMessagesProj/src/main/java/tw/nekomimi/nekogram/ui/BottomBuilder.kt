@@ -31,7 +31,7 @@ class BottomBuilder(val ctx: Context, val needFocus: Boolean = true, val bgColor
     constructor(ctx: Context) : this(ctx, true)
     constructor(ctx: Context, needFocus: Boolean) : this(ctx, needFocus, Theme.getColor(Theme.key_dialogBackground))
 
-    val builder = BottomSheet.Builder(ctx, needFocus)
+    val builder = BottomSheet.Builder(ctx, needFocus, null, bgColor)
 
     private var onShowListener: DialogInterface.OnShowListener? = null
 

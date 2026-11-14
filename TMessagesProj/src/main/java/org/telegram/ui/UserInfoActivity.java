@@ -16,6 +16,7 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -57,6 +58,7 @@ import org.telegram.ui.Business.ChatbotsActivity;
 import org.telegram.ui.Business.LocationActivity;
 import org.telegram.ui.Business.OpeningHoursActivity;
 import org.telegram.ui.Cells.EditTextCell;
+import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.CircularProgressDrawable;
@@ -83,10 +85,10 @@ import java.util.TimeZone;
 import tw.nekomimi.nekogram.helpers.PasscodeHelper;
 
 public class UserInfoActivity extends UniversalFragment implements NotificationCenter.NotificationCenterDelegate {
-
     private EditTextCell firstNameEdit;
     private EditTextCell lastNameEdit;
     private EditTextCell bioEdit;
+    private LinearLayout nameFieldsContainer;
 
     private int bioInfoHash = Integer.MIN_VALUE;
     private CharSequence bioInfo;
@@ -262,8 +264,21 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             }
         };
         bioEdit.setShowLimitWhenEmpty(true);
+        bioEdit.setBackground(createHuanghunGlassDrawable());
         updateBioInfo();
         bioInfo = AndroidUtilities.replaceSingleTag(getString(R.string.EditProfileBioInfo2), this::openBioSettings);
+
+        // First and last name are one visual group in the account editor. Keeping
+        // them in a single glass container prevents the adapter's section
+        // background from painting an opaque theme card behind only the first row.
+        nameFieldsContainer = new LinearLayout(context);
+        nameFieldsContainer.setOrientation(LinearLayout.VERTICAL);
+        nameFieldsContainer.setBackground(createHuanghunGlassDrawable());
+        final HeaderCell nameHeader = new HeaderCell(context, resourceProvider);
+        nameHeader.setText(getString(R.string.EditProfileName));
+        nameFieldsContainer.addView(nameHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        nameFieldsContainer.addView(firstNameEdit, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        nameFieldsContainer.addView(lastNameEdit, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         super.createView(context);
         this.listView = super.listView;
@@ -272,21 +287,39 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
         if (fragmentView instanceof SizeNotifierFrameLayout) {
             SizeNotifierFrameLayout contentView = (SizeNotifierFrameLayout) fragmentView;
             Drawable wallpaper = Theme.getCachedWallpaper();
+            // Lay the page out behind the separate ActionBar sibling as well, so
+            // the wallpaper also covers the status bar and the title area.
+            contentView.setFitsSystemWindows(true);
+            contentView.setDrawBackgroundBehindTopBars(true);
             contentView.setBackgroundImage(wallpaper, Theme.isWallpaperMotion());
             contentView.setBackgroundColor(wallpaper != null
                     ? Color.TRANSPARENT
                     : getThemedColor(Theme.key_windowBackgroundGray));
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            contentView.requestLayout();
+            actionBar.setBackgroundColor(Theme.isCurrentThemeDark() ? 0x26000000 : 0x20FFFFFF);
             actionBar.setCastShadows(false);
+            actionBar.setTitleColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+            actionBar.setItemsColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText), false);
         }
         // UniversalAdapter normally paints opaque theme cards. Remove that
         // layer and draw a low-alpha glass section so wallpaper remains visible.
         listView.adapter.setApplyBackground(false);
         listView.setBackgroundColor(Color.TRANSPARENT);
+        listView.setPadding(0,
+                AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight() + dp(8),
+                0,
+                AndroidUtilities.navigationBarHeight);
         final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         listView.setSections(
                 view -> {
                     if (view.getParent() != listView) return false;
+                    final int position = listView.getChildAdapterPosition(view);
+                    // The name group and bio own their glass surfaces. Exclude
+                    // them from the list's section fill so the adapter cannot
+                    // put an opaque card behind a single row.
+                    if (position == firstNameRow || position == lastNameRow || position == bioRow) {
+                        return false;
+                    }
                     androidx.recyclerview.widget.RecyclerView.ViewHolder holder = listView.getChildViewHolder(view);
                     return holder != null && !UniversalAdapter.isShadow(holder.getItemViewType());
                 },
@@ -387,11 +420,9 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
         numberRow = -1;
         updateAccounts();
 
-        items.add(UItem.asHeader(getString(R.string.EditProfileName)));
         firstNameRow = items.size();
-        items.add(UItem.asCustom(firstNameEdit));
-        lastNameRow = items.size();
-        items.add(UItem.asCustom(lastNameEdit));
+        lastNameRow = firstNameRow;
+        items.add(UItem.asCustom(nameFieldsContainer));
         items.add(UItem.asShadow(-1, null));
         bioRow = items.size();
         items.add(UItem.asCustom(bioEdit));
@@ -1217,7 +1248,15 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
     }
     @Override
     public void onInsets(int left, int top, int right, int bottom) {
-        listView.setPadding(0, 0, 0, bottom);
+        final int statusBar = Math.max(top, AndroidUtilities.statusBarHeight);
+        listView.setPadding(0, statusBar + ActionBar.getCurrentActionBarHeight() + dp(8), 0, bottom);
         listView.setClipToPadding(false);
+    }
+
+    private Drawable createHuanghunGlassDrawable() {
+        final GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Theme.isCurrentThemeDark() ? 0x26000000 : 0x20FFFFFF);
+        drawable.setCornerRadius(dp(20));
+        return drawable;
     }
 }

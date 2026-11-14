@@ -108,6 +108,7 @@ import org.telegram.ui.Components.SimpleThemeDescription;
 import org.telegram.ui.Components.SwipeGestureSettingsView;
 import org.telegram.ui.Components.TextHelper;
 import org.telegram.ui.Components.ThemeEditorView;
+import tw.nekomimi.nekogram.helpers.LoginWallpaperHelper;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import org.telegram.ui.bots.BotWebViewAttachedSheet;
 import org.telegram.ui.bots.BotWebViewSheet;
@@ -161,6 +162,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private int multiDynamicModeRow;
     private int multiDynamicViewRow;
     private int wallpaperFeaturesHeaderRow;
+    private int loginWallpaperHeaderRow;
+    private int loginWallpaperChangeRow;
+    private int loginWallpaperDeleteRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -601,6 +605,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         textSizeRow = -1;
         backgroundRow = -1;
         wallpaperFeaturesHeaderRow = -1;
+        loginWallpaperHeaderRow = -1;
+        loginWallpaperChangeRow = -1;
+        loginWallpaperDeleteRow = -1;
         globalDynamicWallpaperRow = -1;
         dynamicVideoWallpaperRow = -1;
         deleteDynamicVideoWallpaperRow = -1;
@@ -736,6 +743,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             otherSectionRow = rowCount++;
         } else if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
             wallpaperFeaturesHeaderRow = rowCount++;
+            loginWallpaperHeaderRow = rowCount++;
+            loginWallpaperChangeRow = rowCount++;
+            loginWallpaperDeleteRow = rowCount++;
             globalDynamicWallpaperRow = rowCount++;
             dynamicVideoWallpaperRow = rowCount++;
             deleteDynamicVideoWallpaperRow = rowCount++;
@@ -870,6 +880,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
     private static final int REQUEST_DYNAMIC_VIDEO_WALLPAPER = 9924;
     private static final int REQUEST_MULTI_DYNAMIC_VIDEO_WALLPAPER = 9925;
+    private static final int REQUEST_LOGIN_WALLPAPER = 9926;
 
     private void chooseMultiDynamicVideoWallpaper() {
         if (getParentActivity() == null) {
@@ -1039,8 +1050,59 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 .create());
     }
 
+    private void chooseLoginWallpaper() {
+        if (getParentActivity() == null) return;
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_LOGIN_WALLPAPER);
+        } catch (Throwable error) {
+            FileLog.e(error);
+            showDynamicVideoWallpaperDialog("选择失败", "无法打开图片选择器，请稍后重试。");
+        }
+    }
+
+    private void saveLoginWallpaper(Uri source) {
+        if (source == null) return;
+        final Context appContext = ApplicationLoader.applicationContext;
+        Utilities.globalQueue.postRunnable(() -> {
+            boolean saved = LoginWallpaperHelper.save(appContext, source);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (listAdapter != null) {
+                    listAdapter.notifyItemChanged(loginWallpaperChangeRow);
+                    listAdapter.notifyItemChanged(loginWallpaperDeleteRow);
+                }
+                showDynamicVideoWallpaperDialog(saved ? "设置成功" : "设置失败",
+                        saved ? "登录界面壁纸已更新。" : "图片无法读取或文件过大，请选择其他图片。最大支持 50 MB。");
+            });
+        });
+    }
+
+    private void confirmClearLoginWallpaper() {
+        if (!LoginWallpaperHelper.isSet(ApplicationLoader.applicationContext)) return;
+        showDialog(new AlertDialog.Builder(getParentActivity())
+                .setTitle("删除登录壁纸")
+                .setMessage("确定删除自定义图片吗？删除后登录界面将恢复默认壁纸。")
+                .setNegativeButton(getString(R.string.Cancel), null)
+                .setPositiveButton("删除", (dialog, which) -> {
+                    LoginWallpaperHelper.clear(ApplicationLoader.applicationContext);
+                    if (listAdapter != null) {
+                        listAdapter.notifyItemChanged(loginWallpaperChangeRow);
+                        listAdapter.notifyItemChanged(loginWallpaperDeleteRow);
+                    }
+                    showDynamicVideoWallpaperDialog("删除成功", "登录界面壁纸已恢复默认设置。");
+                })
+                .create());
+    }
+
     @Override
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_LOGIN_WALLPAPER && resultCode == Activity.RESULT_OK) {
+            saveLoginWallpaper(data == null ? null : data.getData());
+            return;
+        }
         if (requestCode == REQUEST_DYNAMIC_VIDEO_WALLPAPER && resultCode == Activity.RESULT_OK) {
             saveDynamicVideoWallpaper(data == null ? null : data.getData());
             return;
@@ -1330,7 +1392,11 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         actionBar.setAdaptiveBackground(listView);
         listView.setOnItemClickListener((view, position, x, y) -> {
-            if (position == globalDynamicWallpaperRow) {
+            if (position == loginWallpaperChangeRow) {
+                chooseLoginWallpaper();
+            } else if (position == loginWallpaperDeleteRow) {
+                confirmClearLoginWallpaper();
+            } else if (position == globalDynamicWallpaperRow) {
                 boolean enabled = DynamicVideoWallpaperHelper.isGlobalSharingEnabled(ApplicationLoader.applicationContext);
                 DynamicVideoWallpaperHelper.setGlobalSharingEnabled(ApplicationLoader.applicationContext, currentAccount, !enabled);
                 if (view instanceof TextCheckCell) {
@@ -2935,6 +3001,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         headerCell.setText(getString("MediaAndSoundSettings", R.string.MediaAndSoundSettings));
                     } else if (position == wallpaperFeaturesHeaderRow) {
                         headerCell.setText(getString(R.string.hfd_wallpaper));
+                    } else if (position == loginWallpaperHeaderRow) {
+                        headerCell.setText("登录壁纸更换");
                     }
                     break;
                 }
@@ -3025,6 +3093,14 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         cell.setTextAndIcon(getString(R.string.ChangeChatBackground), R.drawable.msg_background, dynamicVideoWallpaperRow >= 0);
+                    } else if (position == loginWallpaperChangeRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
+                        cell.setTextAndValueAndIcon("更换设置壁纸", LoginWallpaperHelper.isSet(ApplicationLoader.applicationContext) ? "已设置" : "未设置", R.drawable.msg_background, true);
+                    } else if (position == loginWallpaperDeleteRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_text_RedBold, Theme.key_text_RedRegular);
+                        cell.setTextAndValueAndIcon("删除壁纸", LoginWallpaperHelper.isSet(ApplicationLoader.applicationContext) ? "恢复默认" : "未设置", R.drawable.msg_delete, globalDynamicWallpaperRow >= 0);
                     } else if (position == dynamicVideoWallpaperRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -3134,7 +3210,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     position == settingsRow || position == themeHeaderRow || position == textSizeHeaderRow ||
                     position == chatListHeaderRow || position == bubbleRadiusHeaderRow || position == swipeGestureHeaderRow ||
                     position == selectThemeHeaderRow || position == appIconHeaderRow || position == mediaSoundHeaderRow ||
-                    position == otherHeaderRow || position == wallpaperFeaturesHeaderRow) {
+                    position == otherHeaderRow || position == wallpaperFeaturesHeaderRow || position == loginWallpaperHeaderRow) {
                 return TYPE_HEADER;
             } else if (position == automaticBrightnessRow) {
                 return TYPE_BRIGHTNESS;
@@ -3154,7 +3230,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_THEME_ACCENT_LIST;
             } else if (position == bubbleRadiusRow) {
                 return TYPE_BUBBLE_RADIUS;
-            } else if (position == backgroundRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == multiDynamicVideoWallpaperRow || position == multiDynamicModeRow || position == multiDynamicViewRow || position == editThemeRow || position == createNewThemeRow ||
+            } else if (position == backgroundRow || position == loginWallpaperChangeRow || position == loginWallpaperDeleteRow || position == dynamicVideoWallpaperRow || position == deleteDynamicVideoWallpaperRow || position == multiDynamicVideoWallpaperRow || position == multiDynamicModeRow || position == multiDynamicViewRow || position == editThemeRow || position == createNewThemeRow ||
                         position == huanghunDefaultThemeRow || position == deleteCustomThemesRow || position == liteModeRow || position == stickersRow) {
                 return TYPE_TEXT_PREFERENCE;
             } else if (position == swipeGestureRow) {
