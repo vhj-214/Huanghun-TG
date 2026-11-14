@@ -79,6 +79,7 @@ import org.telegram.ui.ActionBar.ThemeDescription;
 import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.BottomPagesView;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.LoginBackgroundLayout;
 import org.telegram.ui.Components.RLottieDrawable;
 import org.telegram.ui.Components.RLottieImageView;
 import org.telegram.ui.Components.ScaleStateListAnimator;
@@ -136,6 +137,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     private boolean destroyed;
 
     private boolean isOnLogout;
+    private LoginBackgroundLayout introBackgroundLayout;
 
     @Override
     public boolean onFragmentCreate() {
@@ -257,6 +259,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
         frameContainerView.addView(frameLayout2, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 0, 78, 0, 0));
 
         TextureView textureView = new TextureView(context);
+        textureView.setOpaque(false);
         frameLayout2.addView(textureView, LayoutHelper.createFrame(ICON_WIDTH_DP, ICON_HEIGHT_DP, Gravity.CENTER));
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
@@ -444,7 +447,9 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
 
         frameContainerView.addView(themeFrameLayout, LayoutHelper.createFrame(64, 64, Gravity.TOP | Gravity.RIGHT, 0, themeMargin, themeMargin, 0));
 
-        fragmentView = scrollView;
+        introBackgroundLayout = new LoginBackgroundLayout(context);
+        introBackgroundLayout.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        fragmentView = introBackgroundLayout;
 
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.suggestedLangpack);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.configLoaded);
@@ -490,6 +495,10 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
         destroyed = true;
+        if (introBackgroundLayout != null) {
+            introBackgroundLayout.dispose();
+            introBackgroundLayout = null;
+        }
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.suggestedLangpack);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.configLoaded);
         MessagesController.getGlobalMainSettings().edit().putLong("intro_crashed_time", 0).apply();
@@ -795,7 +804,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
             int size = dp(ICON_HEIGHT_DP);
             Bitmap bm = Bitmap.createBitmap(dp(ICON_WIDTH_DP), size, Bitmap.Config.ARGB_8888);
             Canvas c = new Canvas(bm);
-            c.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            c.drawColor(Color.TRANSPARENT);
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
             c.drawCircle(bm.getWidth() / 2f, bm.getHeight() / 2f, size / 2f, paint);
@@ -1097,7 +1106,9 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     private void updateColors(boolean fromTheme) {
         startMessagingButtonBackground.setColors(new int[]{getThemedColor(Theme.key_featuredStickers_addButton), getThemedColor(Theme.key_featuredStickers_addButton2)});
         logoDrawable.setColorFilter(Theme.multAlpha(getThemedColor(Theme.key_actionBarDefaultTitle), 0.9f), PorterDuff.Mode.MULTIPLY);
-        fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        if (introBackgroundLayout != null) {
+            introBackgroundLayout.refreshWallpaper();
+        }
         switchLanguageTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
         if (restoreHiddenAccountsTextView != null) {
             restoreHiddenAccountsTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
@@ -1115,7 +1126,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
                     eglThread.loadTexture(eglThread.telegramMaskProvider, 23, true);
                     eglThread.updateTelegramTextures();
 
-                    Intro.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                    Intro.setBackgroundColor(Color.TRANSPARENT);
                 });
             }
             for (int i = 0; i < viewPager.getChildCount(); i++) {
@@ -1125,7 +1136,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
                 TextView messageTextView = ch.findViewWithTag(pagerMessageTag);
                 messageTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             }
-        } else Intro.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        } else Intro.setBackgroundColor(Color.TRANSPARENT);
     }
 
     @Override

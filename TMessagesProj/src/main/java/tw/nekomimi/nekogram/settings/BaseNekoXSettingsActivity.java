@@ -126,19 +126,18 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
                 return false;
             }
         };
-        // Draw the wallpaper behind the separate ActionBar and transparent status bar.
+        // Use a neutral material source; Huanghun settings do not show account wallpaper.
         frameLayout.setFitsSystemWindows(true);
         fragmentView = frameLayout;
-        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
+        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
+                getThemedColor(Theme.key_windowBackgroundGray)), false);
         actionBar.setDrawBlurBackground(frameLayout);
-        DynamicVideoWallpaperHelper.addChangeListener(dynamicVideoWallpaperChangeListener);
-        dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
-        if (dynamicVideoWallpaperPlayer != null) {
-            dynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
-        }
         updateSettingsWallpaperBackground(frameLayout);
 
         listView = createListView(context);
+        // RecyclerView itself must stay transparent; the wallpaper root and
+        // row-level glass surfaces are the only background layers.
+        listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setVerticalScrollBarEnabled(false);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
 
@@ -198,22 +197,12 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     private void refreshDynamicVideoWallpaper() {
         if (!(fragmentView instanceof SizeNotifierFrameLayout)) return;
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
-        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-        if (dynamicVideoWallpaperPlayer != null
-                && dynamicVideoWallpaperPlayer.matchesCurrentSource(frameLayout.getContext(), currentAccount, 0L)) {
-            updateSettingsWallpaperBackground(frameLayout);
-            applyHuanghunSettingsActionBarGlass();
-            dynamicVideoWallpaperPlayer.resume();
-            return;
-        }
         if (dynamicVideoWallpaperPlayer != null) {
             dynamicVideoWallpaperPlayer.release();
             dynamicVideoWallpaperPlayer = null;
         }
-        dynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, frameLayout.getContext(), currentAccount, 0L);
-        if (dynamicVideoWallpaperPlayer != null) {
-            dynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
-        }
+        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
+                getThemedColor(Theme.key_windowBackgroundGray)), false);
         updateSettingsWallpaperBackground(frameLayout);
         applyHuanghunSettingsActionBarGlass();
     }

@@ -114,18 +114,18 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
         // Let the wallpaper root sit behind the separate ActionBar sibling, including the status bar.
         frameLayout.setFitsSystemWindows(true);
-        // 子设置页沿用主设置页的壁纸；无壁纸时保留主题背景，避免露出窗口黑底。
-        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-        DynamicVideoWallpaperHelper.addChangeListener(settingsDynamicVideoWallpaperChangeListener);
-        settingsDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, context, currentAccount, 0L);
-        if (settingsDynamicVideoWallpaperPlayer != null) {
-            settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
-        }
+        // Huanghun settings use a neutral material source: no account wallpaper
+        // or dynamic video should show through these glass surfaces.
+        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
+                getThemedColor(Theme.key_windowBackgroundGray)), false);
         updateSettingsWallpaperBackground(frameLayout);
 
         actionBar.setDrawBlurBackground(frameLayout);
 
         listView = new BlurredRecyclerView(context);
+        // Keep the list surface transparent so section glass can reveal the
+        // wallpaper supplied by the parent frame.
+        listView.setBackgroundColor(Color.TRANSPARENT);
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
@@ -223,26 +223,11 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             return;
         }
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
-        frameLayout.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-        if (settingsDynamicVideoWallpaperPaused) {
-            updateSettingsWallpaperBackground(frameLayout);
-            applyHuanghunSettingsActionBarGlass();
-            return;
-        }
-        if (settingsDynamicVideoWallpaperPlayer != null
-                && settingsDynamicVideoWallpaperPlayer.matchesCurrentSource(frameLayout.getContext(), currentAccount, 0L)) {
-            updateSettingsWallpaperBackground(frameLayout);
-            applyHuanghunSettingsActionBarGlass();
-            settingsDynamicVideoWallpaperPlayer.resume();
-            return;
-        }
+        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
+                getThemedColor(Theme.key_windowBackgroundGray)), false);
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.release();
             settingsDynamicVideoWallpaperPlayer = null;
-        }
-        settingsDynamicVideoWallpaperPlayer = DynamicVideoWallpaperHelper.attach(frameLayout, frameLayout.getContext(), currentAccount, 0L);
-        if (settingsDynamicVideoWallpaperPlayer != null) {
-            settingsDynamicVideoWallpaperPlayer.setFallbackBackgroundColor(Color.TRANSPARENT);
         }
         updateSettingsWallpaperBackground(frameLayout);
         applyHuanghunSettingsActionBarGlass();

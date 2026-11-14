@@ -9402,7 +9402,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                     Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
                     Canvas canvas = new Canvas(bitmap);
                     canvas.scale(1.0f / scaleFactor, 1.0f / scaleFactor);
-                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                    // Keep the confirmation transition consistent with the
+                    // neutral water-glass login surface instead of creating a
+                    // one-frame opaque white snapshot underneath the blur.
+                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundGray));
                     fragmentView.draw(canvas);
                     Utilities.stackBlurBitmap(bitmap, Math.max(8, Math.max(w, h) / 150));
                     blurredView.setBackground(new BitmapDrawable(getContext().getResources(), bitmap));

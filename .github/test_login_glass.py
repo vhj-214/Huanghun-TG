@@ -68,6 +68,10 @@ class LoginGlassRegression(unittest.TestCase):
         for name in names:
             with self.subTest(view=name):
                 pattern = rf"\bclass\s+{name}\b"
+                if name == "PhoneNumberConfirmView":
+                    # Its blur snapshot deliberately uses the neutral glass
+                    # source instead of the old opaque white fill.
+                    continue
                 self.assertEqual(block(self.original_login, pattern), block(self.login, pattern))
 
     def test_protocol_import_and_consent_are_unchanged(self):
@@ -102,27 +106,24 @@ class LoginGlassRegression(unittest.TestCase):
         self.assertNotIn("sizeNotifierFrameLayout.setBackgroundColor(Theme.getColor", self.login)
         self.assertIn("setHasOwnBackground(true)", self.login)
 
-    def test_wallpaper_is_nonblocking_and_glass_has_no_capture_recursion(self):
-        self.assertIn("Theme.getCachedWallpaperNonBlocking()", self.background)
+    def test_neutral_glass_has_no_wallpaper_or_capture_recursion(self):
+        self.assertIn("new ColorDrawable(Theme.getColor(Theme.key_windowBackgroundGray))", self.background)
+        self.assertNotIn("Theme.getCachedWallpaperNonBlocking()", self.background)
         self.assertNotIn("Theme.getCachedWallpaper()", self.background)
         for forbidden in ("RuntimeShader", "new RenderNode", "root.draw(",
                           "fragmentView.draw(", "DynamicVideoWallpaperHelper", ".recycle()"):
             self.assertNotIn(forbidden, self.background)
-        self.assertIn("Theme.createDefaultWallpaper(360, 640)", self.background)
         self.assertIn("setDrawBackgroundBehindTopBars(true)", self.background)
         self.assertIn("getGlassFactory()", self.background)
 
     def test_damaged_wallpaper_and_loading_indicator_have_guards(self):
         refresh = block(self.background, r"public void refreshWallpaper\(")
-        self.assertLess(refresh.index("isWallpaperUsable(wallpaper)"),
-                        refresh.index("setBackgroundImage(wallpaper, false)"))
-        guard = block(self.background, r"private static boolean isWallpaperUsable\(")
-        self.assertIn("bitmap != null && !bitmap.isRecycled()", guard)
+        self.assertLess(refresh.index("new ColorDrawable"),
+                        refresh.index("setBackgroundImage(surface, false)"))
         draw = block(self.background, r"protected boolean drawChild\(")
-        self.assertLess(draw.index("isWallpaperUsable(getBackgroundImage())"),
-                        draw.index("super.drawChild"))
         self.assertIn("floatingButton.progressView.setProgressColor", self.login)
-        self.assertIn("ColorUtils.calculateContrast", self.background)
+        self.assertIn("canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundGray))", self.login)
+        self.assertNotIn("canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite))", self.login)
         self.assertIn("applyLoginGlass(phoneView.protocolLoginButton, 12, 0, true)", self.login)
         self.assertIn("new LayerDrawable(new Drawable[]{glassBackground, originalBackground})", self.login)
 

@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.View;
@@ -24,7 +25,7 @@ import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
 
-/** Wallpaper-backed login surface. No account/player, RenderNode or AGSL dependency. */
+/** Neutral material login surface. It intentionally does not reveal chat wallpaper. */
 public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     private final WallpaperBitmapProvider wallpaperProvider = new WallpaperBitmapProvider();
     private final BlurredBackgroundSourceWrapped glassSource = new BlurredBackgroundSourceWrapped();
@@ -80,30 +81,17 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     }
 
     public void refreshWallpaper() {
-        // Never wait for the theme queue on the login/UI thread. A local wallpaper
-        // covers the first frame until didSetNewWallpapper supplies the cached one.
-        Drawable wallpaper = Theme.getCachedWallpaperNonBlocking();
-        if (!isWallpaperUsable(wallpaper)) {
-            if (wallpaper == null && Theme.wallpaperLoadTask == null) {
-                Theme.loadWallpaper(true);
-            }
-            if (!isWallpaperUsable(fallbackWallpaper)) {
-                try {
-                    fallbackWallpaper = Theme.createDefaultWallpaper(360, 640);
-                } catch (RuntimeException | OutOfMemoryError e) {
-                    FileLog.e(e);
-                    fallbackWallpaper = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                            new int[]{0xffdbddbb, 0xff6ba587, 0xff88b884});
-                }
-            }
-            wallpaper = fallbackWallpaper;
-        }
-        scrimPaint.setColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhite), 0x58));
-        // Login owns its background; transparent child surfaces must not reveal
-        // LaunchActivity's white window or a previously displayed fragment.
+        // Use a stable theme-colored source instead of the account wallpaper.
+        // Glass controls still receive a material source, but no chat image or
+        // dynamic wallpaper can leak into the login surface.
+        Drawable surface = new ColorDrawable(Theme.getColor(Theme.key_windowBackgroundGray));
+        int scrimAlpha = Theme.isCurrentThemeDark() ? 0x46 : 0x38;
+        scrimPaint.setColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhite), scrimAlpha));
         setBackgroundColor(Color.TRANSPARENT);
-        boolean changed = getBackgroundImage() != wallpaper;
-        setBackgroundImage(wallpaper, false);
+        boolean changed = getBackgroundImage() == null
+                || !(getBackgroundImage() instanceof ColorDrawable)
+                || ((ColorDrawable) getBackgroundImage()).getColor() != ((ColorDrawable) surface).getColor();
+        setBackgroundImage(surface, false);
         if (!changed) {
             updateSurfaceColors();
         }
@@ -163,22 +151,10 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
         if (Color.alpha(bottom) == 0) {
             bottom = Theme.getColor(Theme.key_windowBackgroundWhite);
         }
-        // Usually a light tint is sufficient. A dark wallpaper with a light
-        // theme (or the inverse) needs stronger local frosting for the original
-        // text colors to remain legible. Never change the global theme/colors.
-        int surface = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(top, bottom, 0.5f), 255);
-        int foreground = ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), 255);
-        int secondary = ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText6), 255);
+        // This is a material surface, not a readability scrim. Keep the tint
+        // light enough for the neutral source to remain visibly translucent.
         int tint = Theme.getColor(Theme.key_windowBackgroundWhite);
-        int alpha = 0x58;
-        while (alpha < 0xF2) {
-            int tinted = ColorUtils.compositeColors(ColorUtils.setAlphaComponent(tint, alpha), surface);
-            if (ColorUtils.calculateContrast(foreground, tinted) >= 4.5
-                    && ColorUtils.calculateContrast(secondary, tinted) >= 4.5) {
-                break;
-            }
-            alpha = Math.min(0xF2, alpha + 8);
-        }
+        int alpha = Theme.isCurrentThemeDark() ? 0x46 : 0x38;
         scrimPaint.setColor(ColorUtils.setAlphaComponent(tint, alpha));
         statusBarColor = ColorUtils.compositeColors(scrimPaint.getColor(), top);
         navigationBarColor = ColorUtils.compositeColors(scrimPaint.getColor(), bottom);
