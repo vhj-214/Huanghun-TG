@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.location.Address;
@@ -116,6 +117,7 @@ import org.telegram.ui.bots.WebViewRequestProps;
 import org.telegram.ui.web.SearchEngine;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 import tw.nekomimi.nekogram.helpers.MultiDynamicVideoWallpaperHelper;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import tw.nekomimi.nekogram.settings.HuanghunVideoLibraryActivity;
 import org.telegram.ui.web.WebBrowserSettings;
 
@@ -743,16 +745,17 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             otherSectionRow = rowCount++;
         } else if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
             wallpaperFeaturesHeaderRow = rowCount++;
-            loginWallpaperHeaderRow = rowCount++;
-            loginWallpaperChangeRow = rowCount++;
-            loginWallpaperDeleteRow = rowCount++;
             globalDynamicWallpaperRow = rowCount++;
             dynamicVideoWallpaperRow = rowCount++;
             deleteDynamicVideoWallpaperRow = rowCount++;
             multiDynamicVideoWallpaperRow = rowCount++;
             multiDynamicModeRow = rowCount++;
             multiDynamicViewRow = rowCount++;
+            // Start a separate glass group for the two login-wallpaper actions.
             lastShadowRow = rowCount++;
+            loginWallpaperHeaderRow = rowCount++;
+            loginWallpaperChangeRow = rowCount++;
+            loginWallpaperDeleteRow = rowCount++;
         } else {
             nightDisabledRow = rowCount++;  // TYPE_THEME_TYPE
             nightScheduledRow = rowCount++; // TYPE_THEME_TYPE
@@ -1379,18 +1382,50 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
         listAdapter = new ListAdapter(context);
 
-        FrameLayout frameLayout = new FrameLayout(context);
-        frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        FrameLayout frameLayout;
+        if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+            // The wallpaper root owns the full surface. Keeping the ActionBar and
+            // list in the same transparent hierarchy prevents the old page from
+            // showing through and removes the black shadow seam at the top.
+            frameLayout = new HuanghunWallpaperLayout(context, currentAccount);
+            actionBar.setDrawBlurBackground(frameLayout);
+            actionBar.setBackgroundColor(0x20FFFFFF);
+            actionBar.setCastShadows(false);
+            actionBar.setItemsColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), false);
+            actionBar.setTitleColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        } else {
+            frameLayout = new FrameLayout(context);
+            frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        }
         fragmentView = frameLayout;
 
         listView = new RecyclerListView(context);
-        listView.setSections();
+        if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+            listView.setBackgroundColor(Color.TRANSPARENT);
+            final Paint glassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            listView.setSections(
+                    view -> view.getParent() == listView && !(view instanceof ShadowSectionCell),
+                    dp(12),
+                    18,
+                    (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                        glassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                        glassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
+                        float radius = Math.max(topRadius, bottomRadius);
+                        canvas.drawRoundRect(rect, radius, radius, glassPaint);
+                    },
+                    false
+            );
+        } else {
+            listView.setSections();
+        }
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         listView.setVerticalScrollBarEnabled(false);
         listView.setAdapter(listAdapter);
         ((DefaultItemAnimator) listView.getItemAnimator()).setDelayAnimations(false);
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        actionBar.setAdaptiveBackground(listView);
+        if (currentType != THEME_TYPE_HUANGHUN_WALLPAPER) {
+            actionBar.setAdaptiveBackground(listView);
+        }
         listView.setOnItemClickListener((view, position, x, y) -> {
             if (position == loginWallpaperChangeRow) {
                 chooseLoginWallpaper();
@@ -2877,11 +2912,17 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     view = new PeerColorActivity.ChangeNameColorCell(currentAccount, 0, mContext, getResourceProvider());
                     break;
             }
+            if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+                view.setBackgroundColor(Color.TRANSPARENT);
+            }
             return new RecyclerListView.Holder(view);
         }
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+                holder.itemView.setBackgroundColor(Color.TRANSPARENT);
+            }
             switch (holder.getItemViewType()) {
                 case TYPE_TEXT_SETTING: {
                     TextSettingsCell cell = (TextSettingsCell) holder.itemView;

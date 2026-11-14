@@ -8,13 +8,13 @@ import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
 
 /** Shared transparent root for Huanghun feature pages, exposing the active Telegram wallpaper. */
-final class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
+public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
     private final int account;
     private DynamicVideoWallpaperHelper.Player player;
     private boolean listening;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener wallpaperChangeListener;
 
-    HuanghunWallpaperLayout(Context context, int account) {
+    public HuanghunWallpaperLayout(Context context, int account) {
         super(context);
         this.account = account;
         wallpaperChangeListener = (changedAccount, dialogId) -> {

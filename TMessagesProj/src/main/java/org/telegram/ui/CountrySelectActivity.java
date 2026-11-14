@@ -45,7 +45,9 @@ import org.telegram.ui.Cells.LetterSectionCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.EmptyTextProgressView;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.LoginBackgroundLayout;
 import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -82,6 +84,7 @@ public class CountrySelectActivity extends BaseFragment {
 
     private CountrySelectActivityDelegate delegate;
     private ArrayList<Country> existingCountries;
+    private LoginBackgroundLayout loginBackgroundLayout;
 
     public CountrySelectActivity(boolean phoneCode) {
         this(phoneCode, null);
@@ -105,6 +108,10 @@ public class CountrySelectActivity extends BaseFragment {
 
     @Override
     public void onFragmentDestroy() {
+        if (loginBackgroundLayout != null) {
+            loginBackgroundLayout.dispose();
+            loginBackgroundLayout = null;
+        }
         super.onFragmentDestroy();
     }
 
@@ -116,11 +123,17 @@ public class CountrySelectActivity extends BaseFragment {
 
     @Override
     public View createView(Context context) {
+        setHasOwnBackground(true);
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(false);
         actionBar.setTitle(LocaleController.getString(R.string.ChooseCountry));
 
-        actionBar.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        // The country picker is opened from the wallpaper-backed login page.
+        // Keep the same wallpaper visible here instead of switching back to a
+        // solid white ActionBar and content surface.
+        actionBar.setBackgroundDrawable(null);
+        actionBar.setCastShadows(false);
+        actionBar.setAddToContainer(false);
         actionBar.setItemsColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), false);
         actionBar.setItemsBackgroundColor(Theme.getColor(Theme.key_actionBarWhiteSelector), false);
         actionBar.setTitleColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
@@ -179,8 +192,9 @@ public class CountrySelectActivity extends BaseFragment {
         listViewAdapter = new CountryAdapter(context, existingCountries, disableAnonymousNumbers);
         searchListViewAdapter = new CountrySearchAdapter(context, listViewAdapter.getCountries());
 
-        fragmentView = new FrameLayout(context);
-        FrameLayout frameLayout = (FrameLayout) fragmentView;
+        loginBackgroundLayout = new LoginBackgroundLayout(context);
+        fragmentView = loginBackgroundLayout;
+        FrameLayout frameLayout = loginBackgroundLayout;
 
         emptyView = new EmptyTextProgressView(context);
         emptyView.showTextView();
@@ -197,6 +211,11 @@ public class CountrySelectActivity extends BaseFragment {
         listView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         listView.setAdapter(listViewAdapter);
         listView.setVerticalScrollbarPosition(LocaleController.isRTL ? RecyclerListView.SCROLLBAR_POSITION_LEFT : RecyclerListView.SCROLLBAR_POSITION_RIGHT);
+        BlurredBackgroundDrawable listGlass = loginBackgroundLayout.getGlassFactory().create(
+                listView, loginBackgroundLayout.getGlassColorProvider());
+        listGlass.setRadius(0).setHasPadding(false);
+        listGlass.setStrokeWidth(0, 0);
+        listView.setBackground(listGlass);
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         listView.setOnItemClickListener((view, position) -> {

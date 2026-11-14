@@ -84,6 +84,11 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
                 () -> openGeneral(NekoConfig.hideAllTab.getKey()));
         entry(R.string.hfd_chat_options, R.string.hfd_chat_options_desc, R.drawable.msg_discussion,
                 () -> openChat(NekoConfig.unreadBadgeOnBackButton.getKey()));
+        // Keep wallpaper as an explicit directory button immediately after the
+        // chat entry. Do not hide it behind a dependent setting or an optional
+        // feature condition; it must be visible in every build.
+        entry(R.string.hfd_wallpaper, R.string.hfd_wallpaper_desc, R.drawable.msg_background,
+                this::openHuanghunWallpaper);
         entry(R.string.hfd_double_tap, R.string.hfd_double_tap_desc, R.drawable.msg_discussion,
                 () -> openChat("DoubleTapIncoming"));
         entry(R.string.hfd_menus, R.string.hfd_menus_desc, R.drawable.msg_discussion,
@@ -94,8 +99,6 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
                 () -> openChat(NekoConfig.hideSendAsChannel.getKey()));
         entry(R.string.hfd_search_tags, R.string.hfd_search_tags_desc, R.drawable.msg_discussion,
                 () -> openChat(NaConfig.INSTANCE.getSearchHashtagDefaultPageChannel().getKey()));
-        entry(R.string.hfd_wallpaper, R.string.hfd_wallpaper_desc, R.drawable.msg_background,
-                () -> presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_HUANGHUN_WALLPAPER)));
         entry(R.string.hfd_translation, R.string.hfd_translation_desc, R.drawable.ic_translate,
                 () -> presentFragment(new NekoTranslatorSettingsActivity()));
         // Experimental: Pangu.
@@ -234,6 +237,10 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
 
     private void openChat(String key) {
         openNekoX(new NekoChatSettingsActivity(), key);
+    }
+
+    private void openHuanghunWallpaper() {
+        presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_HUANGHUN_WALLPAPER));
     }
 
     private void openExperimental(String key) {

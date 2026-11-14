@@ -114,10 +114,9 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
         // Let the wallpaper root sit behind the separate ActionBar sibling, including the status bar.
         frameLayout.setFitsSystemWindows(true);
-        // Huanghun settings use a neutral material source: no account wallpaper
-        // or dynamic video should show through these glass surfaces.
-        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
-                getThemedColor(Theme.key_windowBackgroundGray)), false);
+        // Use the same wallpaper-backed root as the NekoX settings pages.
+        // A neutral ColorDrawable here was the source of the remaining white
+        // panels on emoji, sticker and privacy-related pages.
         updateSettingsWallpaperBackground(frameLayout);
 
         actionBar.setDrawBlurBackground(frameLayout);
@@ -223,8 +222,6 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             return;
         }
         SizeNotifierFrameLayout frameLayout = (SizeNotifierFrameLayout) fragmentView;
-        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
-                getThemedColor(Theme.key_windowBackgroundGray)), false);
         if (settingsDynamicVideoWallpaperPlayer != null) {
             settingsDynamicVideoWallpaperPlayer.release();
             settingsDynamicVideoWallpaperPlayer = null;
@@ -428,13 +425,13 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         }
     }
 
-    private class BlurContentView extends SizeNotifierFrameLayout {
+    private class BlurContentView extends HuanghunWallpaperLayout {
 
         public Paint blurScrimPaint = new Paint();
         Rect rectTmp = new Rect();
 
         public BlurContentView(Context context) {
-            super(context);
+            super(context, currentAccount);
             needBlur = hasWhiteActionBar();
             blurBehindViews.add(this);
         }
@@ -498,6 +495,11 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            if (holder.getItemViewType() != TYPE_SHADOW) {
+                // Subclasses bind their own cells after this method is entered;
+                // clear recycled theme backgrounds before that binding happens.
+                holder.itemView.setBackgroundColor(Color.TRANSPARENT);
+            }
             var payload = holder.getPayload();
             onBindViewHolder(holder, position, PARTIAL.equals(payload));
         }

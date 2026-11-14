@@ -6,6 +6,7 @@ import static org.telegram.messenger.LocaleController.getString;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.view.View;
@@ -115,22 +116,12 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
             }
         });
 
-        SizeNotifierFrameLayout frameLayout = new SizeNotifierFrameLayout(context) {
-            @Override
-            protected boolean isActionBarVisible() {
-                return false;
-            }
-
-            @Override
-            protected boolean isStatusBarVisible() {
-                return false;
-            }
-        };
-        // Use a neutral material source; Huanghun settings do not show account wallpaper.
+        SizeNotifierFrameLayout frameLayout = new HuanghunWallpaperLayout(context, currentAccount);
+        // All Huanghun settings pages share the same wallpaper-backed surface.
+        // Keeping this root behind the ActionBar prevents the black top seam
+        // and makes chat, emoji and privacy pages visually consistent.
         frameLayout.setFitsSystemWindows(true);
         fragmentView = frameLayout;
-        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
-                getThemedColor(Theme.key_windowBackgroundGray)), false);
         actionBar.setDrawBlurBackground(frameLayout);
         updateSettingsWallpaperBackground(frameLayout);
 
@@ -157,6 +148,7 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
 
         // setSections(true) uses the default opaque theme section drawable.
         // Keep wallpaper/video visible through every NekoX settings page.
+        final Paint glassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         listView.setSections(
                 view -> {
                     if (view.getParent() != listView) {
@@ -166,10 +158,13 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
                     return holder != null && !(view instanceof ShadowSectionCell);
                 },
                 viewType -> viewType != CellGroup.ITEM_TYPE_DIVIDER,
-                0,
-                0,
+                dp(12),
+                18,
                 (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    // Rows provide their own translucent glass; no opaque group surface.
+                    glassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                    glassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
+                    float radius = Math.max(topRadius, bottomRadius);
+                    canvas.drawRoundRect(rect, radius, radius, glassPaint);
                 },
                 false
         );
@@ -201,8 +196,6 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
             dynamicVideoWallpaperPlayer.release();
             dynamicVideoWallpaperPlayer = null;
         }
-        frameLayout.setBackgroundImage(new android.graphics.drawable.ColorDrawable(
-                getThemedColor(Theme.key_windowBackgroundGray)), false);
         updateSettingsWallpaperBackground(frameLayout);
         applyHuanghunSettingsActionBarGlass();
     }
@@ -564,6 +557,9 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            if (holder.getItemViewType() != CellGroup.ITEM_TYPE_DIVIDER) {
+                holder.itemView.setBackgroundColor(Color.TRANSPARENT);
+            }
             CellGroup cellGroup = getCellGroup();
             if (cellGroup == null || position < 0 || position >= cellGroup.rows.size()) {
                 return;
