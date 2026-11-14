@@ -48,6 +48,8 @@ import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
@@ -183,6 +185,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.LinkPath;
 import org.telegram.ui.Components.LinkSpanDrawable;
 import org.telegram.ui.Components.LoadingDrawable;
+import org.telegram.ui.Components.LoginBackgroundLayout;
 import org.telegram.ui.Components.LoginOrView;
 import org.telegram.ui.Components.OutlineTextContainerView;
 import org.telegram.ui.Components.Premium.GLIcon.GLIconRenderer;
@@ -195,13 +198,13 @@ import org.telegram.ui.Components.RLottieImageView;
 import org.telegram.ui.Components.RadialProgressView;
 import org.telegram.ui.Components.ScaleStateListAnimator;
 import org.telegram.ui.Components.SimpleThemeDescription;
-import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.SlideView;
 import org.telegram.ui.Components.TextStyleSpan;
 import org.telegram.ui.Components.TextViewSwitcher;
 import org.telegram.ui.Components.TransformableLoginButtonView;
 import org.telegram.ui.Components.URLSpanNoUnderline;
 import org.telegram.ui.Components.VerticalPositionAutoAnimator;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.spoilers.SpoilersTextView;
 import org.telegram.ui.Stars.ExplainStarsSheet;
@@ -375,7 +378,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     private AlertDialog cancelDeleteProgressDialog;
 
-    private SizeNotifierFrameLayout sizeNotifierFrameLayout;
+    private LoginBackgroundLayout sizeNotifierFrameLayout;
+    private final HashMap<View, BlurredBackgroundDrawable> loginGlassDrawables = new HashMap<>();
+    private final HashMap<View, Drawable> loginOriginalBackgrounds = new HashMap<>();
     private Runnable keyboardHideCallback;
 
     private ImageView backButtonView;
@@ -548,38 +553,33 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
         getNotificationCenter().removeObserver(this, NotificationCenter.didUpdateConnectionState);
         getNotificationCenter().removeObserver(this, NotificationCenter.newSuggestionsAvailable);
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.didSetNewWallpapper);
+        if (sizeNotifierFrameLayout != null) {
+            sizeNotifierFrameLayout.dispose();
+        }
+        loginGlassDrawables.clear();
+        loginOriginalBackgrounds.clear();
     }
 
     @Override
     public boolean onFragmentCreate() {
         getNotificationCenter().addObserver(this, NotificationCenter.didUpdateConnectionState);
         getNotificationCenter().addObserver(this, NotificationCenter.newSuggestionsAvailable);
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewWallpapper);
         return super.onFragmentCreate();
     }
 
     private View cachedFragmentView;
 
-    /**
-     * 登录流程必须始终使用官方稳定的明亮主题，避免旧安装遗留的自动夜间主题或自定义
-     * 配色使表单背景变黑、文字与分页层的对比度失效。该操作只调整未登录入口的视觉主题，
-     * 不触碰协议登录、账号导入或任何扩展功能逻辑。
-     */
-    private void restoreOfficialLoginTheme() {
-        Theme.ThemeInfo defaultTheme = Theme.getDefaultTheme();
-        if (defaultTheme == null) {
-            return;
-        }
-        Theme.selectedAutoNightType = Theme.AUTO_NIGHT_TYPE_NONE;
-        Theme.applyTheme(defaultTheme, true, false);
-        Theme.saveAutoNightThemeConfig();
-    }
-
     @Override
     public View createView(Context context) {
-        restoreOfficialLoginTheme();
+        // Keep the user's theme/wallpaper. Login owns its background instead of
+        // changing global theme preferences or relying on the navigation window.
+        setHasOwnBackground(true);
         if (cachedFragmentView != null) {
             fragmentView = cachedFragmentView;
             cachedFragmentView = null;
+            updateColors();
             return fragmentView;
         }
 
@@ -601,7 +601,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         doneButtonVisible[DONE_TYPE_FLOATING] = true;
         doneButtonVisible[DONE_TYPE_ACTION] = false;
 
-        sizeNotifierFrameLayout = new SizeNotifierFrameLayout(context) {
+        if (sizeNotifierFrameLayout != null) {
+            sizeNotifierFrameLayout.dispose();
+        }
+        loginGlassDrawables.clear();
+        loginOriginalBackgrounds.clear();
+        sizeNotifierFrameLayout = new LoginBackgroundLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 MarginLayoutParams marginLayoutParams = (MarginLayoutParams) floatingButton.getLayoutParams();
@@ -651,8 +656,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             }
         });
         fragmentView = sizeNotifierFrameLayout;
-        // 直接由登录页持有官方实体背景，避免导航容器或设备深色窗口背景透入。
-        sizeNotifierFrameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
         ScrollView scrollView = new ScrollView(context) {
             @Override
@@ -993,6 +996,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     @Override
     public void onPause() {
         super.onPause();
+        if (sizeNotifierFrameLayout != null) {
+            sizeNotifierFrameLayout.onPause();
+        }
         if (newAccount) {
             ConnectionsManager.getInstance(currentAccount).setAppPaused(true, false);
         }
@@ -1002,6 +1008,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     @Override
     public void onResume() {
         super.onResume();
+        if (fragmentView != null && sizeNotifierFrameLayout != null) {
+            updateColors();
+            sizeNotifierFrameLayout.onResume();
+            updateLoginSystemBars();
+        }
         if (newAccount) {
             ConnectionsManager.getInstance(currentAccount).setAppPaused(false, false);
         }
@@ -9067,7 +9078,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 public void onAnimationEnd(Animator animation) {
                     keyboardLinearLayout.setAlpha(1);
                     startMessagingButton.setVisibility(View.VISIBLE);
-                    fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                    sizeNotifierFrameLayout.refreshWallpaper();
                     floatingButton.setButtonVisible(true, false);
 
                     FrameLayout frameLayout = (FrameLayout) fragmentView;
@@ -9082,12 +9093,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                     callback.run();
                 }
             });
-            int bgColor = Theme.getColor(Theme.key_windowBackgroundWhite);
-            int initialAlpha = Color.alpha(bgColor);
             animator.addUpdateListener(animation -> {
                 float val = (float) animation.getAnimatedValue();
                 keyboardLinearLayout.setAlpha(val);
-                fragmentView.setBackgroundColor(ColorUtils.setAlphaComponent(bgColor, (int) (initialAlpha * val)));
 
                 float inverted = 1f - val;
                 slideViewsContainer.setTranslationY(AndroidUtilities.dp(20) * inverted);
@@ -9121,7 +9129,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private void updateColors() {
-        fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        if (fragmentView == null || sizeNotifierFrameLayout == null || floatingButton == null) {
+            return;
+        }
+        sizeNotifierFrameLayout.refreshWallpaper();
 
         backButtonView.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         backButtonView.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector)));
@@ -9135,16 +9146,71 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         radialProgressView.setProgressColor(Theme.getColor(Theme.key_chats_actionBackground));
 
         floatingButton.updateColors();
-        floatingButtonIcon.setColor(Theme.getColor(Theme.key_chats_actionIcon));
-        floatingButtonIcon.setBackgroundColor(Theme.getColor(Theme.key_chats_actionBackground));
+        floatingButton.progressView.setProgressColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+        floatingButtonIcon.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+        floatingButtonIcon.setBackgroundColor(Color.TRANSPARENT);
 
         for (SlideView slideView : views) {
-            slideView.updateColors();
+            if (slideView != null) {
+                slideView.updateColors();
+            }
         }
 
-        keyboardView.updateColors();
+        applyLoginGlass(backButtonView, 16, 0);
+        applyLoginGlass(moreButtonView, 16, 0);
+        applyLoginGlass(floatingButton, 28, 0);
+        if (views[VIEW_PHONE_INPUT] instanceof PhoneView) {
+            PhoneView phoneView = (PhoneView) views[VIEW_PHONE_INPUT];
+            // The six-dp label notch remains transparent; keep the original blue
+            // focus/error outlines and all input/country-selection callbacks.
+            applyLoginGlass(phoneView.countryOutlineView, 8, 6);
+            applyLoginGlass(phoneView.phoneOutlineView, 8, 6);
+            applyLoginGlass(phoneView.protocolLoginButton, 12, 0, true);
+            phoneView.protocolLoginButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
+        }
+        keyboardView.setGlassBackground(sizeNotifierFrameLayout.getGlassFactory(),
+                sizeNotifierFrameLayout.getGlassColorProvider());
         if (phoneNumberConfirmView != null) {
             phoneNumberConfirmView.updateColors();
+        }
+    }
+
+    private void applyLoginGlass(View view, int radius, int topInset) {
+        applyLoginGlass(view, radius, topInset, false);
+    }
+
+    private void applyLoginGlass(View view, int radius, int topInset, boolean preserveOriginalBackground) {
+        BlurredBackgroundDrawable drawable = loginGlassDrawables.get(view);
+        if (drawable == null) {
+            if (preserveOriginalBackground) {
+                loginOriginalBackgrounds.put(view, view.getBackground());
+            }
+            drawable = sizeNotifierFrameLayout.getGlassFactory().create(view,
+                    sizeNotifierFrameLayout.getGlassColorProvider());
+            drawable.setRadius(dp(radius)).setHasPadding(false);
+            drawable.setStrokeWidth(0, 0);
+            loginGlassDrawables.put(view, drawable);
+        }
+        drawable.updateColors();
+        int left = view.getPaddingLeft(), top = view.getPaddingTop();
+        int right = view.getPaddingRight(), bottom = view.getPaddingBottom();
+        Drawable glassBackground = topInset == 0 ? drawable : new InsetDrawable(drawable, 0, dp(topInset), 0, 0);
+        Drawable originalBackground = preserveOriginalBackground ? loginOriginalBackgrounds.get(view) : null;
+        view.setBackground(originalBackground == null ? glassBackground
+                : new LayerDrawable(new Drawable[]{glassBackground, originalBackground}));
+        view.setPadding(left, top, right, bottom);
+        if (!(view instanceof OutlineTextContainerView)) {
+            view.setForeground(Theme.createSelectorDrawable(
+                    Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4), 0.12f),
+                    radius <= 12 ? Theme.RIPPLE_MASK_ROUNDRECT_6DP : Theme.RIPPLE_MASK_CIRCLE_AUTO));
+        }
+        view.invalidate();
+    }
+
+    private void updateLoginSystemBars() {
+        if (!isPaused && isLastFragment() && getParentActivity() != null) {
+            AndroidUtilities.setLightStatusBar(getParentActivity(), isLightStatusBar());
+            setNavigationBarColor(getNavigationBarColor());
         }
     }
 
@@ -9420,8 +9486,23 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     @Override
     public boolean isLightStatusBar() {
-        int color = Theme.getColor(Theme.key_windowBackgroundWhite, null, true);
+        int color = sizeNotifierFrameLayout != null ? sizeNotifierFrameLayout.getStatusBarSurfaceColor()
+                : Theme.getColor(Theme.key_windowBackgroundWhite, null, true);
         return ColorUtils.calculateLuminance(color) > 0.7f;
+    }
+
+    @Override
+    public int getNavigationBarColor() {
+        int color = sizeNotifierFrameLayout != null ? sizeNotifierFrameLayout.getNavigationBarSurfaceColor()
+                : super.getNavigationBarColor();
+        if (sheetsStack != null) {
+            for (AttachedSheet sheet : sheetsStack) {
+                if (sheet.attachedToParent()) {
+                    color = sheet.getNavigationBarColor(color);
+                }
+            }
+        }
+        return color;
     }
 
     private int currentConnectionState;
@@ -9497,6 +9578,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         } else if (id == NotificationCenter.newSuggestionsAvailable) {
             if (emailChangeIsSuggestion && !getMessagesController().hasSetupEmailSuggestion()) {
                 finishFragment();
+            }
+        } else if (id == NotificationCenter.didSetNewWallpapper) {
+            if (!isFinished && fragmentView != null && sizeNotifierFrameLayout != null) {
+                updateColors();
+                updateLoginSystemBars();
             }
         }
     }

@@ -5,9 +5,11 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.text.Editable;
 import android.text.TextPaint;
 import android.view.GestureDetector;
@@ -22,11 +24,15 @@ import android.widget.EditText;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.view.GestureDetectorCompat;
 
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
+import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProvider;
 
 import tw.nekomimi.nekogram.NekoConfig;
 
@@ -38,6 +44,9 @@ public class CustomPhoneKeyboardView extends ViewGroup {
     private final ImageView backButton;
     private EditText editText;
     private final View[] views = new View[12];
+    private final BlurredBackgroundDrawable[] glassDrawables = new BlurredBackgroundDrawable[12];
+    private BlurredBackgroundDrawableViewFactory glassFactory;
+    private boolean glassEnabled;
 
     private View viewToFindFocus;
 
@@ -252,12 +261,16 @@ public class CustomPhoneKeyboardView extends ViewGroup {
     }
 
     private static Drawable getButtonDrawable(int index) {
+        return getButtonDrawable(index, false);
+    }
+
+    private static Drawable getButtonDrawable(int index, boolean glass) {
         final boolean isTop = index < 3;        // 0 1 2
         final boolean isLeft = index % 3 == 0;  // 0 3 6 9
         final boolean isRight = index % 3 == 2; // 2 5 8 11
         final boolean isBottom = index > 8;     // 9 10 11
 
-        final int defaultColor = Theme.getColor(Theme.key_listSelector);
+        final int defaultColor = glass ? Color.TRANSPARENT : Theme.getColor(Theme.key_listSelector);
         final int pressedColor = ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_listSelector), 30);
 
         return Theme.createSimpleSelectorRoundRectDrawable(
@@ -268,12 +281,50 @@ public class CustomPhoneKeyboardView extends ViewGroup {
             defaultColor, pressedColor, pressedColor);
     }
 
+    /** Optional wallpaper material; all existing callers retain the opaque selector. */
+    public void setGlassBackground(@Nullable BlurredBackgroundDrawableViewFactory factory,
+                                   @Nullable BlurredBackgroundColorProvider provider) {
+        glassEnabled = factory != null;
+        if (factory != null && glassFactory != factory) {
+            glassFactory = factory;
+            for (int i = 0; i < views.length; i++) {
+                if (views[i] == null) continue;
+                boolean isTop = i < 3, isLeft = i % 3 == 0;
+                boolean isRight = i % 3 == 2, isBottom = i > 8;
+                BlurredBackgroundDrawable drawable = factory.create(views[i], provider);
+                drawable.setRadius(dp(isLeft && isTop ? 24 : 12),
+                        dp(isRight && isTop ? 24 : 12),
+                        dp(isRight && isBottom ? 24 : 12),
+                        dp(isLeft && isBottom ? 24 : 12));
+                drawable.setHasPadding(false);
+                drawable.setStrokeWidth(0, 0);
+                glassDrawables[i] = drawable;
+            }
+        }
+        updateColors();
+    }
+
+    private void updateButtonBackground(int index) {
+        View view = views[index];
+        BlurredBackgroundDrawable glass = glassEnabled ? glassDrawables[index] : null;
+        Drawable background = getButtonDrawable(index, glass != null);
+        if (glass != null) {
+            glass.updateColors();
+            background = new LayerDrawable(new Drawable[]{glass, background});
+        }
+        // Background padding must not move the backspace icon (originally dp11).
+        int left = view.getPaddingLeft(), top = view.getPaddingTop();
+        int right = view.getPaddingRight(), bottom = view.getPaddingBottom();
+        view.setBackground(background);
+        view.setPadding(left, top, right, bottom);
+    }
+
     public void updateColors() {
         backButton.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         for (int a = 0; a < views.length; a++) {
             View v = views[a];
             if (v != null) {
-                v.setBackground(getButtonDrawable(a));
+                updateButtonBackground(a);
 
                 if (v instanceof NumberButtonView) {
                     ((NumberButtonView) v).updateColors();
