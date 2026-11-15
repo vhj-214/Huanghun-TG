@@ -58,6 +58,19 @@ jobs:
           fi
           apk="${apks[0]}"
           test -s "$apk"
+          unzip -t "$apk"
+          package_info="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | head -n 1)"
+          printf 'APK package: %s\n' "$package_info"
+          if ! grep -q "^package: name='com.Huanghun' " <<< "$package_info"; then
+            echo "Unexpected APK package; expected com.Huanghun: $package_info" >&2
+            exit 1
+          fi
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            if ! unzip -Z1 "$apk" | grep "^lib/$abi/" >/dev/null; then
+              echo "Universal APK is missing native libraries for $abi: $apk" >&2
+              exit 1
+            fi
+          done
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
           certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
@@ -71,13 +84,11 @@ jobs:
             echo 'APK 签名异常：证书与固定的 Staging Debug 密钥不一致，已阻止发布。' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          sha256sum "$apk" > "$apk.sha256"
-          ls -lh "$apk" "$apk.sha256"
+          ls -lh "$apk"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: 黄昏-可直接安装通用APK
           path: |
             TMessagesProj/build/outputs/apk/staging/*-universal.apk
-            TMessagesProj/build/outputs/apk/staging/*-universal.apk.sha256
           if-no-files-found: error
