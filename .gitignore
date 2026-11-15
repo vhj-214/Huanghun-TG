@@ -14,3 +14,6 @@ TMessagesProj/jniLibs/
 TMessagesProj/jniRes/
 TMessagesProj/afat/
 TMessagesProj/jni/ffmpeg/build_android
+server/app/config.php
+server/data/
+server/logs/

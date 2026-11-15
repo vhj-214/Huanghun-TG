@@ -33,6 +33,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -41,6 +42,7 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.Huanghun.BuiltInProxyClient;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DownloadController;
 import org.telegram.messenger.LocaleController;
@@ -74,6 +76,8 @@ import org.telegram.ui.Components.SlideChooseView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import tw.nekomimi.nekogram.utils.AlertUtil;
 import tw.nekomimi.nekogram.utils.ProxyUtil;
@@ -100,6 +104,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     private int connectionsHeaderRow;
     private int proxyStartRow;
     private int proxyEndRow;
+    private int proxyFetchRow;
     @Keep
     private int proxyAddRow;
     private int proxyShadowRow;
@@ -119,6 +124,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     private List<SharedConfig.ProxyInfo> selectedItems = new ArrayList<>();
     private List<SharedConfig.ProxyInfo> proxyList = new ArrayList<>();
     private boolean wasCheckedAllList;
+    private boolean fetchingBuiltInProxies;
     private final boolean loginBackground;
     private final Paint loginSectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -194,7 +200,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         }
 
         public void setProxy(SharedConfig.ProxyInfo proxyInfo) {
-            textView.setText(proxyInfo.address + ":" + proxyInfo.port);
+            boolean managed = BuiltInProxyClient.isManagedProxy(proxyInfo);
+            textView.setText(managed ? "黄昏🌇定制代理" : proxyInfo.address + ":" + proxyInfo.port);
+            checkImageView.setVisibility(managed ? GONE : VISIBLE);
             currentInfo = proxyInfo;
         }
 
@@ -592,6 +600,8 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     textCheckCell.setChecked(true);
                 }
                 ConnectionsManager.setProxySettings(useProxySettings, SharedConfig.currentProxy.address, SharedConfig.currentProxy.port, SharedConfig.currentProxy.username, SharedConfig.currentProxy.password, SharedConfig.currentProxy.secret);
+            } else if (position == proxyFetchRow) {
+                fetchBuiltInProxies();
             } else if (position == proxyAddRow) {
                 presentFragment(new ProxySettingsActivity(loginBackground));
             } else if (position == deleteAllRow) {
@@ -690,10 +700,19 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     case MENU_SHARE:
                         StringBuilder links = new StringBuilder();
                         for (SharedConfig.ProxyInfo info : selectedItems) {
+                            if (BuiltInProxyClient.isManagedProxy(info)) {
+                                continue;
+                            }
                             if (links.length() > 0) {
                                 links.append("\n\n");
                             }
                             links.append(info.getLink());
+                        }
+
+                        if (links.length() == 0) {
+                            Toast.makeText(getParentActivity(), "黄昏定制代理不支持分享真实连接信息。", Toast.LENGTH_SHORT).show();
+                            if (listAdapter != null) listAdapter.clearSelected();
+                            break;
                         }
 
                         Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -766,6 +785,14 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
             boolean isChecking = checking;
             Collections.sort(proxyList, (o1, o2) -> {
+                boolean managed1 = BuiltInProxyClient.isManagedProxy(o1);
+                boolean managed2 = BuiltInProxyClient.isManagedProxy(o2);
+                if (managed1 != managed2) {
+                    return managed1 ? -1 : 1;
+                }
+                if (managed1) {
+                    return Integer.compare(SharedConfig.proxyList.indexOf(o1), SharedConfig.proxyList.indexOf(o2));
+                }
                 long bias1 = SharedConfig.currentProxy == o1 ? -200000 : 0;
                 if (!o1.available) {
                     bias1 += 100000;
@@ -787,6 +814,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             proxyStartRow = -1;
             proxyEndRow = -1;
         }
+        proxyFetchRow = rowCount++;
         proxyAddRow = rowCount++;
         proxyShadowRow = rowCount++;
         if (SharedConfig.currentProxy == null || SharedConfig.currentProxy.secret.isEmpty()) {
@@ -814,6 +842,89 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         checkProxyList();
         if (notify && listAdapter != null) {
             listAdapter.notifyDataSetChanged();
+        }
+    }
+
+    private void fetchBuiltInProxies() {
+        if (fetchingBuiltInProxies || getParentActivity() == null) {
+            return;
+        }
+        fetchingBuiltInProxies = true;
+        Toast.makeText(getParentActivity(), "正在获取并检测黄昏定制代理…", Toast.LENGTH_SHORT).show();
+        BuiltInProxyClient.fetchProxies(new BuiltInProxyClient.ResultCallback<BuiltInProxyClient.ProxySnapshot>() {
+            @Override
+            public void onSuccess(BuiltInProxyClient.ProxySnapshot snapshot) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (snapshot.proxies.isEmpty()) {
+                        fetchingBuiltInProxies = false;
+                        if (getParentActivity() != null) {
+                            Toast.makeText(getParentActivity(), "服务器暂时没有可获取的内置代理；现有代理未更改。", Toast.LENGTH_LONG).show();
+                        }
+                        return;
+                    }
+                    ArrayList<SharedConfig.ProxyInfo> previous = new ArrayList<>(SharedConfig.proxyList);
+                    if (previous.isEmpty()) {
+                        replaceWithBuiltInProxies(snapshot, 0, 0);
+                        return;
+                    }
+                    AtomicInteger remaining = new AtomicInteger(previous.size());
+                    AtomicInteger unavailable = new AtomicInteger(0);
+                    AtomicBoolean completed = new AtomicBoolean(false);
+                    Runnable finishCheck = () -> {
+                        if (completed.compareAndSet(false, true)) {
+                            AndroidUtilities.runOnUIThread(() -> replaceWithBuiltInProxies(snapshot, unavailable.get(), previous.size()));
+                        }
+                    };
+                    AndroidUtilities.runOnUIThread(finishCheck, 12_000);
+                    for (SharedConfig.ProxyInfo info : previous) {
+                        try {
+                            ConnectionsManager.getInstance(currentAccount).checkProxy(info.address, info.port,
+                                    info.username, info.password, info.secret, ping -> {
+                                        if (completed.get()) return;
+                                        if (ping == -1) unavailable.incrementAndGet();
+                                        if (remaining.decrementAndGet() == 0) finishCheck.run();
+                                    });
+                        } catch (Throwable ignored) {
+                            unavailable.incrementAndGet();
+                            if (remaining.decrementAndGet() == 0) finishCheck.run();
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    fetchingBuiltInProxies = false;
+                    if (getParentActivity() != null) Toast.makeText(getParentActivity(), message, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private void replaceWithBuiltInProxies(BuiltInProxyClient.ProxySnapshot snapshot, int unavailable, int checkedCount) {
+        SharedConfig.loadProxyList();
+        SharedConfig.deleteAllProxy();
+        useProxySettings = false;
+        useProxyForCalls = false;
+        MessagesController.getGlobalMainSettings().edit()
+                .putBoolean("proxy_enabled", false)
+                .putBoolean("proxy_enabled_calls", false)
+                .apply();
+
+        ArrayList<SharedConfig.ProxyInfo> managed = new ArrayList<>(snapshot.proxies);
+        // addProxy inserts at index 0, so insert in reverse to preserve the server's order.
+        for (int i = managed.size() - 1; i >= 0; i--) {
+            SharedConfig.addProxy(managed.get(i));
+        }
+        BuiltInProxyClient.setManagedProxies(managed);
+        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);
+        updateRows(true);
+        fetchingBuiltInProxies = false;
+
+        if (getParentActivity() != null) {
+            String status = checkedCount > 0 ? "已检测原代理：" + (checkedCount - unavailable) + " 条可用，" + unavailable + " 条不可用；" : "";
+            Toast.makeText(getParentActivity(), status + "已清除原有代理并按服务器顺序添加 " + managed.size() + " 条黄昏定制代理。", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -991,7 +1102,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 case VIEW_TYPE_TEXT_SETTING: {
                     TextSettingsCell textCell = (TextSettingsCell) holder.itemView;
                     textCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                    if (position == proxyAddRow) {
+                    if (position == proxyFetchRow) {
+                        textCell.setText("获取黄昏🌇定制代理", true);
+                        textCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText6));
+                    } else if (position == proxyAddRow) {
                         textCell.setText(getString(R.string.AddProxy), deleteAllRow != -1);
                     } else if (position == deleteAllRow) {
                         textCell.setTextColor(Theme.getColor(Theme.key_text_RedRegular));
@@ -1099,7 +1213,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == useProxyRow || position == rotationRow || position == callsRow || position == proxyAddRow || position == deleteAllRow || position >= proxyStartRow && position < proxyEndRow;
+            return position == useProxyRow || position == rotationRow || position == callsRow || position == proxyFetchRow || position == proxyAddRow || position == deleteAllRow || position >= proxyStartRow && position < proxyEndRow;
         }
 
         @Override
@@ -1145,6 +1259,8 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 return -1;
             } else if (position == proxyShadowRow) {
                 return -2;
+            } else if (position == proxyFetchRow) {
+                return -12;
             } else if (position == proxyAddRow) {
                 return -3;
             } else if (position == useProxyRow) {
@@ -1172,7 +1288,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         public int getItemViewType(int position) {
             if (position == useProxyShadowRow || position == proxyShadowRow) {
                 return VIEW_TYPE_SHADOW;
-            } else if (position == proxyAddRow || position == deleteAllRow) {
+            } else if (position == proxyFetchRow || position == proxyAddRow || position == deleteAllRow) {
                 return VIEW_TYPE_TEXT_SETTING;
             } else if (position == useProxyRow || position == rotationRow || position == callsRow) {
                 return VIEW_TYPE_TEXT_CHECK;

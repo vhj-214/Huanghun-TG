@@ -68,6 +68,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.Huanghun.ContactAuthorActivity;
+import com.Huanghun.HuanghunServiceActivity;
 import com.google.common.collect.Lists;
 
 import org.telegram.PhoneFormat.PhoneFormat;
@@ -899,6 +900,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         items.add(SettingCell.Factory.of(100, 0xFF3CCFFF, 0xFF007AFF, R.drawable.filled_profile_settings, getString(R.string.NekoSettings)));
         items.add(SettingCell.Factory.of(102, 0xFF3CCFFF, 0xFF007AFF, R.drawable.msg_contact_add, "联系作者"));
+        items.add(SettingCell.Factory.of(103, 0xFFFFA431, 0xFFE87524, R.drawable.settings_data, "黄昏服务", "更新配置"));
         items.add(UItem.asShadow(null));
 
         items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
@@ -1126,6 +1128,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
             case 102: {
                 presentFragment(new ContactAuthorActivity());
+                break;
+            }
+            case 103: {
+                presentFragment(new HuanghunServiceActivity());
                 break;
             }
         }
