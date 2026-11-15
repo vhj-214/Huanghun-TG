@@ -474,7 +474,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
         fragmentView = loginBackground ? new LoginBackgroundLayout(context) : new FrameLayout(context);
         if (!loginBackground) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            // The wallpaper/glass root owns the surface; do not briefly paint
+            // the legacy gray window background during list creation.
+            fragmentView.setBackgroundColor(Color.TRANSPARENT);
         } else {
             actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setCastShadows(false);
@@ -482,6 +484,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         FrameLayout frameLayout = (FrameLayout) fragmentView;
 
         listView = new RecyclerListView(context);
+        // The proxy page is displayed over the settings wallpaper. Keep the
+        // list itself transparent; stock cells and sections are opaque.
+        listView.setBackgroundColor(Color.TRANSPARENT);
         if (loginBackground) {
             listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell),
                     AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
@@ -489,9 +494,20 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                         canvas.drawRoundRect(rect, AndroidUtilities.dp(16), AndroidUtilities.dp(16), loginSectionPaint);
                     }, false);
         } else {
-            listView.setSections();
+            // The default section renderer paints an opaque
+            // windowBackgroundWhite. Use a stable translucent glass surface
+            // instead, so scrolling cannot reveal a white rectangle.
+            listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell),
+                    AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                        int surface = Theme.getColor(Theme.key_windowBackgroundWhite);
+                        loginSectionPaint.setColor(Color.argb((int) (0x28 * alpha),
+                                Color.red(surface), Color.green(surface), Color.blue(surface)));
+                        canvas.drawRoundRect(rect, AndroidUtilities.dp(16), AndroidUtilities.dp(16), loginSectionPaint);
+                    }, false);
         }
-        actionBar.setAdaptiveBackground(listView);
+        // Do not animate opaque action-bar colors with list scroll position.
+        actionBar.setBackgroundColor(Color.TRANSPARENT);
+        actionBar.setCastShadows(false);
         if (loginBackground) {
             actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setCastShadows(false);
@@ -1006,6 +1022,14 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         }
         BuiltInProxyClient.setManagedProxies(managed);
         SharedConfig.saveProxyList();
+
+        // Fetching the Huanghun managed list is an explicit request to use it:
+        // select the first managed proxy, enable the proxy, and enable
+        // rotation with the shortest (5 second) failureover timeout. Persist
+        // every part of this state so the connection layer and the next app
+        // launch see the same settings as the UI.
+        boolean autoEnabled = enableFetchedProxyDefaults(managed);
+
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);
         fetchingBuiltInProxies = false;
         updateRows(true);
@@ -1021,8 +1045,39 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             if (removedCurrentProxy) {
                 status.append("当前所选代理不可用，已关闭代理及通话代理开关。");
             }
+            if (autoEnabled) {
+                status.append("已自动开启代理和自动切换代理，切换时间设为5秒。");
+            }
             Toast.makeText(getParentActivity(), status.toString(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private boolean enableFetchedProxyDefaults(List<SharedConfig.ProxyInfo> managed) {
+        if (managed == null || managed.isEmpty()) {
+            return false;
+        }
+
+        SharedConfig.ProxyInfo selected = managed.get(0);
+        SharedConfig.currentProxy = selected;
+        useProxySettings = true;
+
+        SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit();
+        editor.putString("proxy_ip", selected.address);
+        editor.putString("proxy_pass", selected.password);
+        editor.putString("proxy_user", selected.username);
+        editor.putInt("proxy_port", selected.port);
+        editor.putString("proxy_secret", selected.secret);
+        editor.putBoolean("proxy_enabled", true);
+        editor.commit();
+
+        SharedConfig.proxyRotationEnabled = true;
+        // ROTATION_TIMEOUTS[0] is 5 seconds.
+        SharedConfig.proxyRotationTimeout = 0;
+        SharedConfig.saveConfig();
+        ConnectionsManager.setProxySettings(true, selected.address, selected.port,
+                selected.username, selected.password, selected.secret);
+        ProxyRotationController.onRotationSettingsChanged();
+        return true;
     }
 
     private boolean containsProxyConfig(List<SharedConfig.ProxyInfo> proxies, SharedConfig.ProxyInfo candidate) {
@@ -1203,6 +1258,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            if (holder.getItemViewType() != VIEW_TYPE_SHADOW) {
+                // Clear opaque state from recycled Telegram cells.
+                holder.itemView.setBackgroundColor(Color.TRANSPARENT);
+            }
             switch (holder.getItemViewType()) {
                 case VIEW_TYPE_SHADOW: {
                     break;
@@ -1333,27 +1392,28 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     break;
                 case VIEW_TYPE_TEXT_SETTING:
                     view = new TextSettingsCell(mContext);
-                    view.setBackgroundColor(loginBackground ? Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case VIEW_TYPE_HEADER:
                     view = new HeaderCell(mContext);
-                    view.setBackgroundColor(loginBackground ? Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case VIEW_TYPE_TEXT_CHECK:
                     view = new TextCheckCell(mContext);
-                    view.setBackgroundColor(loginBackground ? Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case VIEW_TYPE_INFO:
                     view = new TextInfoPrivacyCell(mContext);
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case VIEW_TYPE_SLIDE_CHOOSER:
                     view = new SlideChooseView(mContext);
-                    view.setBackgroundColor(loginBackground ? Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
                 case VIEW_TYPE_PROXY_DETAIL:
                 default:
                     view = new TextDetailProxyCell(mContext);
-                    view.setBackgroundColor(loginBackground ? Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
+                    view.setBackgroundColor(Color.TRANSPARENT);
                     break;
             }
             view.setLayoutParams(new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT));
@@ -1416,10 +1476,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     public ArrayList<ThemeDescription> getThemeDescriptions() {
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();
 
-        if (!loginBackground) {
-            themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_CELLBACKGROUNDCOLOR, new Class[]{TextSettingsCell.class, TextCheckCell.class, HeaderCell.class, TextDetailProxyCell.class}, null, null, null, Theme.key_windowBackgroundWhite));
-            themeDescriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
-        }
+        // Do not register opaque cell/page backgrounds here. ThemeDescription
+        // would write windowBackgroundWhite/windowBackgroundGray back into the
+        // transparent glass list when the theme is refreshed.
 
 //        themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
         themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_actionBarDefault));

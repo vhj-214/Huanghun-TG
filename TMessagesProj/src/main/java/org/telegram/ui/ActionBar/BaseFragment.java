@@ -545,16 +545,22 @@ public abstract class BaseFragment {
         final String name = getClass().getName();
         if (!name.startsWith("org.telegram.ui.") || name.equals("org.telegram.ui.SettingsActivity")) return;
         final String simpleName = name.substring(name.lastIndexOf('.') + 1);
+        // This covers the complete Settings -> Chat through Power Saving
+        // navigation chain, including child screens opened from those entries.
+        // Keep the list explicit enough not to turn unrelated chat, profile,
+        // or dialog fragments into wallpaper-backed settings pages.
         if (!(simpleName.contains("Settings") || simpleName.contains("Privacy")
                 || simpleName.contains("Stickers") || simpleName.contains("Theme")
                 || simpleName.contains("Sessions") || simpleName.contains("LanguageSelect")
                 || simpleName.contains("Passcode") || simpleName.contains("Passkeys")
                 || simpleName.contains("TwoStepVerification") || simpleName.contains("DataAutoDownload")
-                || simpleName.contains("Notifications") || simpleName.contains("ArchiveSettings")
-                || simpleName.contains("Cache") || simpleName.contains("FiltersSetup")
-                || simpleName.contains("Proxy") || simpleName.contains("QuickReplies")
-                || simpleName.contains("SaveToGallery") || simpleName.contains("LiteMode")
-                || simpleName.contains("AutoDeleteMessages") || simpleName.contains("WallpapersList"))) return;
+                || simpleName.contains("DataUsage") || simpleName.contains("Notifications")
+                || simpleName.contains("ArchiveSettings") || simpleName.contains("Cache")
+                || simpleName.contains("Filter") || simpleName.contains("Proxy")
+                || simpleName.contains("QuickReplies") || simpleName.contains("SaveToGallery")
+                || simpleName.contains("LiteMode") || simpleName.contains("AutoDeleteMessages")
+                || simpleName.contains("WallpapersList") || simpleName.contains("PeerColor")
+                || simpleName.contains("Reactions") || simpleName.contains("PinnedReactions"))) return;
 
         fragmentView.setBackground(Theme.getCachedWallpaper());
         if (getParentActivity() != null && getParentActivity().getWindow() != null) {
@@ -566,31 +572,14 @@ public abstract class BaseFragment {
         }
         applyTransparentSettingsSections(fragmentView);
         clearOpaqueSettingsFills(fragmentView);
-        // Native settings lists bind their cells after onResume(). Clear the
-        // theme-white cell backgrounds again after that first layout pass;
-        // otherwise the wallpaper is immediately covered by opaque rows.
+        // Native settings lists may bind their first cells after onResume().
+        // Perform one cleanup after that initial layout, but never mutate
+        // backgrounds from a per-frame drawing callback: doing so races
+        // RecyclerView/blurred wallpaper rendering and briefly exposes the
+        // window black fallback on every scroll frame.
         fragmentView.post(() -> {
             if (fragmentView != null) {
                 clearOpaqueSettingsFills(fragmentView);
-            }
-        });
-        fragmentView.postDelayed(() -> {
-            if (fragmentView != null) {
-                clearOpaqueSettingsFills(fragmentView);
-            }
-        }, 120);
-        // Sticker packs, chat folders and several native settings lists bind
-        // their rows asynchronously. A one-shot cleanup races that binding
-        // and leaves white panels behind, so clean them during the draw pass
-        // while this fragment is visible.
-        fragmentView.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-                if (fragmentView == null) {
-                    return true;
-                }
-                clearOpaqueSettingsFills(fragmentView);
-                return true;
             }
         });
     }

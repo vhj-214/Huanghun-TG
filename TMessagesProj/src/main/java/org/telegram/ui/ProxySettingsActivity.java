@@ -268,25 +268,32 @@ public class ProxySettingsActivity extends BaseFragment {
             actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
             actionBar.setCastShadows(false);
         } else {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            // Keep the wallpaper/fallback supplied by BaseFragment visible.
+            fragmentView.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
         }
 
 //        linearLayout2 = new SectionsScrollView.SectionsLinearLayout(context);
 //        scrollView = new SectionsScrollView(context, linearLayout2, resourceProvider);
         scrollView = new ScrollView(context);
+        scrollView.setBackgroundColor(Color.TRANSPARENT);
         scrollView.setFillViewport(true);
         AndroidUtilities.setScrollViewEdgeEffectColor(scrollView, Theme.getColor(Theme.key_actionBarDefault));
         frameLayout.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         linearLayout2 = new LinearLayout(context);
         linearLayout2.setOrientation(LinearLayout.VERTICAL);
+        linearLayout2.setBackgroundColor(Color.TRANSPARENT);
         scrollView.addView(linearLayout2, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         final View.OnClickListener typeCellClickListener = view -> setProxyType((Integer) view.getTag(), true);
 
         for (int a = 0; a < 2; a++) {
             typeCell[a] = new RadioCell(context);
-            typeCell[a].setBackground(Theme.getSelectorDrawable(!loginBackground));
+            // The default selector has an opaque white normal state. The page
+            // is drawn over the wallpaper, so keep the cell transparent.
+            typeCell[a].setBackgroundColor(Color.TRANSPARENT);
             typeCell[a].setTag(a);
             if (a == 0) {
                 typeCell[a].setText(LocaleController.getString(R.string.UseProxySocks5), a == currentType, true);
@@ -302,7 +309,7 @@ public class ProxySettingsActivity extends BaseFragment {
 
         inputFieldsContainer = new LinearLayout(context);
         inputFieldsContainer.setOrientation(LinearLayout.VERTICAL);
-        inputFieldsContainer.setBackgroundColor(loginBackground ? android.graphics.Color.TRANSPARENT : Theme.getColor(Theme.key_windowBackgroundWhite));
+        inputFieldsContainer.setBackgroundColor(Color.TRANSPARENT);
         if (!loginBackground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             // bring to front for transitions
             inputFieldsContainer.setElevation(AndroidUtilities.dp(1f));
@@ -313,6 +320,7 @@ public class ProxySettingsActivity extends BaseFragment {
         inputFields = new EditTextBoldCursor[5];
         for (int a = 0; a < 5; a++) {
             FrameLayout container = new FrameLayout(context);
+            container.setBackgroundColor(Color.TRANSPARENT);
             inputFieldsContainer.addView(container, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 64));
 
             inputFields[a] = new EditTextBoldCursor(context);
@@ -450,7 +458,7 @@ public class ProxySettingsActivity extends BaseFragment {
 
         for (int i = 0; i < 2; i++) {
             bottomCells[i] = new TextInfoPrivacyCell(context);
-            bottomCells[i].setBackground(loginBackground ? null : Theme.getThemedDrawableByKey(context, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+            bottomCells[i].setBackgroundColor(Color.TRANSPARENT);
             if (i == 0) {
                 bottomCells[i].setText(LocaleController.getString(R.string.UseProxyInfo));
             } else {
@@ -461,7 +469,7 @@ public class ProxySettingsActivity extends BaseFragment {
         }
 
         pasteCell = new TextSettingsCell(fragmentView.getContext());
-        pasteCell.setBackground(Theme.getSelectorDrawable(!loginBackground));
+        pasteCell.setBackgroundColor(Color.TRANSPARENT);
         pasteCell.setText(LocaleController.getString(R.string.PasteFromClipboard), false);
         pasteCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
         pasteCell.setOnClickListener(v -> {
@@ -508,12 +516,12 @@ public class ProxySettingsActivity extends BaseFragment {
         // Keep this entry permanently visible so users always know they can import a link.
         pasteCell.setVisibility(View.VISIBLE);
         sectionCell[2] = new ShadowSectionCell(fragmentView.getContext());
-        sectionCell[2].setBackground(loginBackground ? null : Theme.getThemedDrawableByKey(fragmentView.getContext(), R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+        sectionCell[2].setBackgroundColor(Color.TRANSPARENT);
         linearLayout2.addView(sectionCell[2], 1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         sectionCell[2].setVisibility(View.VISIBLE);
 
         shareCell = new TextSettingsCell(context);
-        shareCell.setBackgroundDrawable(Theme.getSelectorDrawable(!loginBackground));
+        shareCell.setBackgroundColor(Color.TRANSPARENT);
         shareCell.setText(LocaleController.getString(R.string.ShareFile), false);
         shareCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
         linearLayout2.addView(shareCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -570,7 +578,7 @@ public class ProxySettingsActivity extends BaseFragment {
         });
 
         sectionCell[1] = new ShadowSectionCell(context);
-        sectionCell[1].setBackgroundDrawable(loginBackground ? null : Theme.getThemedDrawableByKey(context, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+        sectionCell[1].setBackgroundColor(Color.TRANSPARENT);
         linearLayout2.addView(sectionCell[1], LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -762,33 +770,30 @@ public class ProxySettingsActivity extends BaseFragment {
             }
         };
         ArrayList<ThemeDescription> arrayList = new ArrayList<>();
-        if (!loginBackground) {
-            arrayList.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
-            arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
-        }
+        // The wallpaper and transparent action bar are intentionally not
+        // registered as theme-owned opaque backgrounds.
         arrayList.add(new ThemeDescription(scrollView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_actionBarDefault));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_ITEMSCOLOR, null, null, null, null, Theme.key_actionBarDefaultIcon));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_TITLECOLOR, null, null, null, null, Theme.key_actionBarDefaultTitle));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_SELECTORCOLOR, null, null, null, null, Theme.key_actionBarDefaultSelector));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_SEARCH, null, null, null, null, Theme.key_actionBarDefaultSearch));
         arrayList.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_SEARCHPLACEHOLDER, null, null, null, null, Theme.key_actionBarDefaultSearchPlaceholder));
-        if (!loginBackground) {
-            arrayList.add(new ThemeDescription(inputFieldsContainer, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
-        }
         arrayList.add(new ThemeDescription(linearLayout2, 0, new Class[]{View.class}, Theme.dividerPaint, null, null, Theme.key_divider));
 
-        int selectorFlag = loginBackground ? ThemeDescription.FLAG_SELECTOR : ThemeDescription.FLAG_SELECTORWHITE;
-        arrayList.add(new ThemeDescription(shareCell, selectorFlag, null, null, null, null, loginBackground ? Theme.key_listSelector : Theme.key_windowBackgroundWhite));
+        // Use the regular selector only; FLAG_SELECTORWHITE would restore an
+        // opaque windowBackgroundWhite normal state on these transparent rows.
+        int selectorFlag = ThemeDescription.FLAG_SELECTOR;
+        arrayList.add(new ThemeDescription(shareCell, selectorFlag, null, null, null, null, Theme.key_listSelector));
         arrayList.add(new ThemeDescription(shareCell, selectorFlag, null, null, null, null, Theme.key_listSelector));
         arrayList.add(new ThemeDescription(null, 0, null, null, null, null, delegate, Theme.key_windowBackgroundWhiteBlueText4));
         arrayList.add(new ThemeDescription(null, 0, null, null, null, null, delegate, Theme.key_windowBackgroundWhiteGrayText2));
 
-        arrayList.add(new ThemeDescription(pasteCell, selectorFlag, null, null, null, null, loginBackground ? Theme.key_listSelector : Theme.key_windowBackgroundWhite));
+        arrayList.add(new ThemeDescription(pasteCell, selectorFlag, null, null, null, null, Theme.key_listSelector));
         arrayList.add(new ThemeDescription(pasteCell, selectorFlag, null, null, null, null, Theme.key_listSelector));
         arrayList.add(new ThemeDescription(pasteCell, 0, new Class[]{TextSettingsCell.class}, new String[]{"textView"}, null, null, null, Theme.key_windowBackgroundWhiteBlueText4));
 
         for (int a = 0; a < typeCell.length; a++) {
-            arrayList.add(new ThemeDescription(typeCell[a], selectorFlag, null, null, null, null, loginBackground ? Theme.key_listSelector : Theme.key_windowBackgroundWhite));
+            arrayList.add(new ThemeDescription(typeCell[a], selectorFlag, null, null, null, null, Theme.key_listSelector));
             arrayList.add(new ThemeDescription(typeCell[a], selectorFlag, null, null, null, null, Theme.key_listSelector));
             arrayList.add(new ThemeDescription(typeCell[a], 0, new Class[]{RadioCell.class}, new String[]{"textView"}, null, null, null, Theme.key_windowBackgroundWhiteBlackText));
             arrayList.add(new ThemeDescription(typeCell[a], ThemeDescription.FLAG_CHECKBOX, new Class[]{RadioCell.class}, new String[]{"radioButton"}, null, null, null, Theme.key_radioBackground));
@@ -809,9 +814,7 @@ public class ProxySettingsActivity extends BaseFragment {
             arrayList.add(new ThemeDescription(null, ThemeDescription.FLAG_TEXTCOLOR, null, null, null, null, Theme.key_windowBackgroundWhiteBlackText));
             arrayList.add(new ThemeDescription(null, ThemeDescription.FLAG_HINTTEXTCOLOR, null, null, null, null, Theme.key_windowBackgroundWhiteHintText));
         }
-        if (!loginBackground) {
-            arrayList.add(new ThemeDescription(headerCell, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
-        }
+        // Keep the header carrier transparent; only its text is theme-owned.
         arrayList.add(new ThemeDescription(headerCell, 0, new Class[]{HeaderCell.class}, new String[]{"textView"}, null, null, null, Theme.key_windowBackgroundWhiteBlueHeader));
         if (!loginBackground) {
             for (int a = 0; a < sectionCell.length; a++) {

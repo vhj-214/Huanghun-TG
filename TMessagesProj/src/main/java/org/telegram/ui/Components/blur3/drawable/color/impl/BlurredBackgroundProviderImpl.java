@@ -224,13 +224,21 @@ public class BlurredBackgroundProviderImpl {
     public static BlurredBackgroundProvider topPanelChatActivity(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
                 .setBackgroundColor((r, isDark) -> {
+                    final int colorBg = Theme.getColor(isDark
+                            ? Theme.key_actionBarDefault
+                            : Theme.key_chat_topPanelBackground, r);
                     if (!checkBlurEnabled(resourcesProvider)) {
-                        return ColorUtils.setAlphaComponent(Theme.getColor(isDark ?
-                            Theme.key_actionBarDefault : Theme.key_chat_topPanelBackground, r), 255);
+                        // Keep the fallback translucent as well. A fully opaque
+                        // fallback is the white card seen on devices where the
+                        // blur source is unavailable or is still being rebuilt.
+                        return Theme.multAlpha(colorBg, 0.24f);
                     }
 
-                    final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.85f : 0.76f;
-                    final int colorBg = Theme.getColor(Theme.key_chat_topPanelBackground, r);
+                    // The previous 0.76/0.85 alpha hid the wallpaper and made
+                    // the common header/pinned panel look like a white sheet.
+                    // Keep a readable but genuinely translucent liquid-glass
+                    // surface for every chat type.
+                    final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.34f : 0.27f;
                     return Theme.multAlpha(colorBg, alpha);
                 })
                 .setStrokeColorTop(0xFFFFFFFF, 0x20FFFFFF)
@@ -260,13 +268,14 @@ public class BlurredBackgroundProviderImpl {
     public static BlurredBackgroundProvider topPanelChatActivityTags(Theme.ResourcesProvider resourcesProvider) {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
             .setBackgroundColor((r, isDark) -> {
+                final int colorBg = Theme.getColor(isDark
+                        ? Theme.key_actionBarDefault
+                        : Theme.key_chat_topPanelBackground, r);
                 if (!checkBlurEnabled(resourcesProvider)) {
-                    return ColorUtils.setAlphaComponent(Theme.getColor(isDark ?
-                            Theme.key_actionBarDefault : Theme.key_chat_topPanelBackground, r), 255);
+                    return Theme.multAlpha(colorBg, 0.24f);
                 }
 
-                final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.85f : 0.76f;
-                final int colorBg = Theme.getColor(Theme.key_chat_topPanelBackground, r);
+                final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.34f : 0.27f;
                 return Theme.multAlpha(colorBg, alpha);
             })
             .setStrokeColorTop(0, 0)
