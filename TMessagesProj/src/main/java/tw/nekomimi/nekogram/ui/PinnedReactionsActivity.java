@@ -11,6 +11,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.os.Build;
@@ -77,6 +78,7 @@ import java.util.List;
 
 import tw.nekomimi.nekogram.config.ConfigItem;
 import tw.nekomimi.nekogram.helpers.PinnedElementsHelper;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import tw.nekomimi.nekogram.ui.cells.ReactionsContainerPreviewCell;
 import xyz.nextalone.nagram.NaConfig;
 
@@ -186,7 +188,7 @@ public class PinnedReactionsActivity extends BaseFragment {
         frameLayout.addView(viewPager, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
         actionBarContainer = new FrameLayout(context);
-        actionBarContainer.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
+        actionBarContainer.setBackgroundColor(0x24FFFFFF);
         frameLayout.addView(actionBarContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.FILL_HORIZONTAL));
 
         tabsView = new FilledTabsView(context);
@@ -201,7 +203,7 @@ public class PinnedReactionsActivity extends BaseFragment {
                 onScrollEndCallback.run(false, tab == PAGE_CHANNELS ? PAGE_CHATS : PAGE_CHANNELS);
             }, 100);
         });
-        tabsView.setBackgroundColor(AndroidUtilities.computePerceivedBrightness(Theme.getColor(Theme.key_actionBarDefault, getResourceProvider())) > .721f ? Theme.getColor(Theme.key_actionBarDefaultIcon, getResourceProvider()) : Theme.adaptHSV(Theme.getColor(Theme.key_actionBarDefault, getResourceProvider()), +.08f, -.08f));
+        tabsView.setBackgroundColor(0x22FFFFFF);
         actionBarContainer.addView(tabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 40, Gravity.CENTER));
 
         backButton = new ImageView(context);
@@ -224,7 +226,7 @@ public class PinnedReactionsActivity extends BaseFragment {
 
     @NonNull
     private FrameLayout getFrameLayout(Context context) {
-        FrameLayout frameLayout = new FrameLayout(context) {
+        FrameLayout frameLayout = new HuanghunWallpaperLayout(context, currentAccount) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 if (actionBarContainer != null) {
@@ -391,15 +393,17 @@ public class PinnedReactionsActivity extends BaseFragment {
 
             scrollView = new ScrollView(context);
             scrollView.setFillViewport(true);
+            scrollView.setBackgroundColor(Color.TRANSPARENT);
 
             LinearLayout contentLayout = new LinearLayout(context);
             contentLayout.setOrientation(LinearLayout.VERTICAL);
+            contentLayout.setBackgroundColor(Color.TRANSPARENT);
 
             scrollView.addView(contentLayout);
 
             enableReactionsCell = new TextCheckCell(context);
             enableReactionsCell.setHeight(56);
-            enableReactionsCell.setBackgroundColor(Theme.getColor(enableReactionsCell.isChecked() ? Theme.key_windowBackgroundChecked : Theme.key_windowBackgroundUnchecked));
+            enableReactionsCell.setBackgroundColor(0x20FFFFFF);
             enableReactionsCell.setTypeface(AndroidUtilities.bold());
             enableReactionsCell.setTextAndCheck(getString(type == PAGE_CHATS ? R.string.PinnedReactions_Status_Chats : R.string.PinnedReactions_Status_Channels), false, false);
             enableReactionsCell.setColors(Theme.key_windowBackgroundCheckText, Theme.key_switchTrackBlue, Theme.key_switchTrackBlueChecked, Theme.key_switchTrackBlueThumb, Theme.key_switchTrackBlueThumbChecked);
@@ -417,12 +421,12 @@ public class PinnedReactionsActivity extends BaseFragment {
             contentLayout.addView(reactionsPreview, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(45)));
 
             ShadowSectionCell shadowSectionCell = new ShadowSectionCell(context);
-            shadowSectionCell.setBackground(Theme.getThemedDrawable(context, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
+            shadowSectionCell.setBackgroundColor(Color.TRANSPARENT);
             contentLayout.addView(shadowSectionCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             HeaderCell headerCell = new HeaderCell(context);
             headerCell.setText(getString(R.string.PinnedReactions));
-            headerCell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            headerCell.setBackgroundColor(Color.TRANSPARENT);
             headerCell.setTextSize(15);
             headerCell.setTopMargin(14);
 
@@ -460,7 +464,7 @@ public class PinnedReactionsActivity extends BaseFragment {
             actionButton.setOnClickListener(v -> buttonClick());
             addView(scrollView);
             addView(actionButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, 13, 13, 13, 13));
-            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            setBackgroundColor(Color.TRANSPARENT);
 
             bottomDialogLayout = new FrameLayout(context) {
                 @Override
@@ -473,6 +477,7 @@ public class PinnedReactionsActivity extends BaseFragment {
                 }
             };
             bottomDialogLayout.setVisibility(View.INVISIBLE);
+            bottomDialogLayout.setBackgroundColor(Color.TRANSPARENT);
             addView(bottomDialogLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
 
             SpannableStringBuilder editable = new SpannableStringBuilder();
@@ -650,7 +655,7 @@ public class PinnedReactionsActivity extends BaseFragment {
             };
             selectAnimatedEmojiDialog.setAnimationsEnabled(false);
             selectAnimatedEmojiDialog.setClipChildren(false);
-            selectAnimatedEmojiDialog.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            selectAnimatedEmojiDialog.setBackgroundColor(0x30FFFFFF);
             bottomDialogLayout.addView(selectAnimatedEmojiDialog, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
 
             BackSpaceButtonView backSpaceButtonView = getBackSpaceButtonView();
@@ -740,7 +745,7 @@ public class PinnedReactionsActivity extends BaseFragment {
             this.checked = checked;
 
             enableReactionsCell.setChecked(checked);
-            int clr = Theme.getColor(checked ? Theme.key_windowBackgroundChecked : Theme.key_windowBackgroundUnchecked);
+            int clr = checked ? 0x2AFFFFFF : 0x20FFFFFF;
             if (animated) {
                 if (checked) {
                     enableReactionsCell.setBackgroundColorAnimated(true, clr);

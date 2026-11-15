@@ -6,6 +6,7 @@ import static org.telegram.messenger.LocaleController.getString;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -34,6 +35,7 @@ import java.util.ArrayList;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import tw.nekomimi.nekogram.utils.LocaleUtil;
 
 
@@ -173,10 +175,16 @@ public class RegexFilterEditActivity extends BaseFragment {
         ActionBarMenu menu = actionBar.createMenu();
         doneButton = menu.addItemWithWidth(done_button, R.drawable.ic_ab_done, dp(56));
 
-        fragmentView = new LinearLayout(context);
-        LinearLayout linearLayout = (LinearLayout) fragmentView;
+        HuanghunWallpaperLayout wallpaperRoot = new HuanghunWallpaperLayout(context, currentAccount);
+        fragmentView = wallpaperRoot;
+        actionBar.setDrawBlurBackground(wallpaperRoot);
+        actionBar.setBackgroundColor(0x20FFFFFF);
+
+        LinearLayout linearLayout = new LinearLayout(context);
         linearLayout.setOrientation(LinearLayout.VERTICAL);
-        fragmentView.setOnTouchListener((v, event) -> true);
+        linearLayout.setBackgroundColor(Color.TRANSPARENT);
+        linearLayout.setOnTouchListener((v, event) -> true);
+        wallpaperRoot.addView(linearLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         editField = new EditTextBoldCursor(context);
         editField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
@@ -241,7 +249,7 @@ public class RegexFilterEditActivity extends BaseFragment {
             addToSharedFiltersButtonView = new TextCheckCell(context);
             addToSharedFiltersButtonView.setFocusable(true);
             addToSharedFiltersButtonView.setTextAndCheck(getString(R.string.RegexFiltersTextSelectionAddtoShared), addToSharedFilters, true);
-            addToSharedFiltersButtonView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            addToSharedFiltersButtonView.setBackgroundColor(0x20FFFFFF);
             addToSharedFiltersButtonView.setOnClickListener((v) -> {
                 boolean checked = !addToSharedFiltersButtonView.isChecked();
                 addToSharedFiltersButtonView.setChecked(checked);
@@ -253,7 +261,7 @@ public class RegexFilterEditActivity extends BaseFragment {
         caseInsensitiveButtonView = new TextCheckCell(context);
         caseInsensitiveButtonView.setFocusable(true);
         caseInsensitiveButtonView.setTextAndCheck(getString(R.string.RegexFiltersCaseInsensitive), caseInsensitive, true);
-        caseInsensitiveButtonView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        caseInsensitiveButtonView.setBackgroundColor(0x20FFFFFF);
         caseInsensitiveButtonView.setOnClickListener((v) -> {
             boolean checked = !caseInsensitiveButtonView.isChecked();
             caseInsensitiveButtonView.setChecked(checked);
@@ -300,9 +308,6 @@ public class RegexFilterEditActivity extends BaseFragment {
 
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();
 
-        themeDescriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundWhite));
-
-        themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
         themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_ITEMSCOLOR, null, null, null, null, Theme.key_actionBarDefaultIcon));
         themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_TITLECOLOR, null, null, null, null, Theme.key_actionBarDefaultTitle));
         themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_AB_SELECTORCOLOR, null, null, null, null, Theme.key_actionBarDefaultSelector));
