@@ -97,12 +97,6 @@ SQL);
         'force_update'     => '0',
         'proxy_auto_apply' => '0',
         'api_base'         => hh_config()['api_base'],
-        'latest_apk_version' => '',
-        'latest_apk_sha256' => '',
-        'latest_apk_size'   => '0',
-        'upload_token_hash' => '',
-        'upload_token_expiry' => '0',
-        'upload_version'    => '',
         'proxy_rev'        => '1',
         'config_rev'       => '1',
     ];
@@ -117,11 +111,6 @@ function hh_proxy_rows(bool $enabledOnly = false): array
 {
     $sql = 'SELECT * FROM proxies' . ($enabledOnly ? ' WHERE enabled = 1' : '') . ' ORDER BY sort_order ASC, id ASC';
     return hh_db()->query($sql)->fetchAll();
-}
-
-function hh_release_path(): string
-{
-    return dirname(hh_config()['db_path']) . '/releases/latest.apk';
 }
 
 function hh_setting(string $key, ?string $default = null): string

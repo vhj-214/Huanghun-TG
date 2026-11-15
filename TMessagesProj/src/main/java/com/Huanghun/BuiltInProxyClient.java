@@ -8,19 +8,15 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.SharedConfig;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.security.DigestInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Read-only client for the Huanghun service API. */
 public final class BuiltInProxyClient {
@@ -30,7 +26,6 @@ public final class BuiltInProxyClient {
     private static final String MANAGED_KEYS = "huanghun_builtin_proxy_keys";
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_MS = 15_000;
-    private static final AtomicBoolean downloadingApk = new AtomicBoolean(false);
 
     private BuiltInProxyClient() {}
 
@@ -52,10 +47,6 @@ public final class BuiltInProxyClient {
         public final int revision;
         public final String latestVersion;
         public final String updateUrl;
-        public final String serverDownloadUrl;
-        public final String serverApkSha256;
-        public final long serverApkSize;
-        public final boolean serverDownloadAvailable;
         public final boolean forceUpdate;
         public final String announcement;
         public final int proxyCount;
@@ -64,10 +55,6 @@ public final class BuiltInProxyClient {
             revision = json.optInt("revision", 0);
             latestVersion = json.optString("latest_version", "");
             updateUrl = json.optString("update_url", "");
-            serverDownloadUrl = json.optString("server_download_url", "");
-            serverApkSha256 = json.optString("server_apk_sha256", "");
-            serverApkSize = json.optLong("server_apk_size", 0L);
-            serverDownloadAvailable = json.optBoolean("server_download_available", false);
             forceUpdate = json.optBoolean("force_update", false);
             announcement = json.optString("announcement", "");
             proxyCount = json.optInt("proxy_count", 0);
@@ -109,86 +96,6 @@ public final class BuiltInProxyClient {
                 callback.onError(safeError(error));
             }
         }, "HuanghunConfigFetch").start();
-    }
-
-    public static void downloadServerApk(RemoteConfig config, ResultCallback<File> callback) {
-        if (!downloadingApk.compareAndSet(false, true)) {
-            callback.onError("已有服务器 APK 下载正在进行，请稍后重试");
-            return;
-        }
-        new Thread(() -> {
-            HttpURLConnection connection = null;
-            File temporary = null;
-            try {
-                if (config == null || !config.serverDownloadAvailable || TextUtils.isEmpty(config.serverDownloadUrl)) {
-                    throw new IllegalStateException("服务器尚未上传最新版客户端");
-                }
-                if (TextUtils.isEmpty(config.serverApkSha256) || !config.serverApkSha256.matches("(?i)[0-9a-f]{64}")) {
-                    throw new IllegalStateException("服务器未提供有效的 APK 校验值，已停止安装");
-                }
-                URL apiUrl = new URL(API_BASE);
-                URL downloadUrl = new URL(config.serverDownloadUrl);
-                if (!"https".equalsIgnoreCase(downloadUrl.getProtocol())
-                        || !apiUrl.getHost().equalsIgnoreCase(downloadUrl.getHost())
-                        || (downloadUrl.getPort() != -1 && downloadUrl.getPort() != 443)) {
-                    throw new IllegalStateException("服务器下载地址不符合安全策略");
-                }
-                connection = (HttpURLConnection) downloadUrl.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
-                connection.setReadTimeout(60_000);
-                connection.setUseCaches(false);
-                connection.setInstanceFollowRedirects(false);
-                connection.setRequestProperty("X-Huanghun-Key", API_KEY);
-                connection.setRequestProperty("Accept", "application/vnd.android.package-archive");
-                int status = connection.getResponseCode();
-                if (status < 200 || status >= 300) {
-                    throw new IllegalStateException(status == 404 ? "服务器上的 APK 文件不存在" : "服务器下载失败（HTTP " + status + "）");
-                }
-                long expectedSize = connection.getContentLengthLong();
-                if (expectedSize > 256L * 1024 * 1024) throw new IllegalStateException("APK 文件超过 256 MiB 限制");
-                File destination = new File(ApplicationLoader.applicationContext.getCacheDir(), "huanghun-latest.apk");
-                temporary = File.createTempFile("huanghun-latest-", ".part", destination.getParentFile());
-                MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                long total = 0;
-                try (InputStream input = new BufferedInputStream(connection.getInputStream());
-                     DigestInputStream hashing = new DigestInputStream(input, digest);
-                     FileOutputStream output = new FileOutputStream(temporary)) {
-                    byte[] buffer = new byte[64 * 1024];
-                    int count;
-                    while ((count = hashing.read(buffer)) != -1) {
-                        total += count;
-                        if (total > 256L * 1024 * 1024) throw new IllegalStateException("APK 文件超过 256 MiB 限制");
-                        output.write(buffer, 0, count);
-                    }
-                    output.getFD().sync();
-                }
-                if (total == 0 || (expectedSize > 0 && total != expectedSize)
-                        || (config.serverApkSize > 0 && total != config.serverApkSize)) {
-                    throw new IllegalStateException("下载文件长度不完整或与服务器版本信息不符");
-                }
-                String actualHash = toHex(digest.digest());
-                if (!config.serverApkSha256.equalsIgnoreCase(actualHash)) {
-                    throw new IllegalStateException("APK 校验失败，文件可能已损坏");
-                }
-                if (destination.exists() && !destination.delete()) throw new IllegalStateException("无法替换旧下载文件");
-                if (!temporary.renameTo(destination)) throw new IllegalStateException("无法保存已下载的 APK");
-                temporary = null;
-                callback.onSuccess(destination);
-            } catch (Throwable error) {
-                callback.onError(safeError(error));
-            } finally {
-                if (temporary != null) temporary.delete();
-                if (connection != null) connection.disconnect();
-                downloadingApk.set(false);
-            }
-        }, "HuanghunApkDownload").start();
-    }
-
-    private static String toHex(byte[] bytes) {
-        StringBuilder result = new StringBuilder(bytes.length * 2);
-        for (byte value : bytes) result.append(String.format(java.util.Locale.US, "%02x", value & 0xff));
-        return result.toString();
     }
 
     private static JSONObject request(String resource) throws Exception {

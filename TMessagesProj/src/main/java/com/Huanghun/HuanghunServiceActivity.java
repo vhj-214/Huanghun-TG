@@ -1,20 +1,14 @@
 package com.Huanghun;
 
 import android.content.Context;
-import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
-import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-import androidx.core.content.FileProvider;
-
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
@@ -26,7 +20,6 @@ import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.LayoutHelper;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -36,7 +29,6 @@ public class HuanghunServiceActivity extends BaseFragment {
     private TextSettingsCell checkUpdateCell;
     private TextSettingsCell updateCell;
     private TextInfoPrivacyCell infoCell;
-    private File pendingApkInstall;
     private boolean loading;
 
     @Override
@@ -69,7 +61,7 @@ public class HuanghunServiceActivity extends BaseFragment {
 
         infoCell = new TextInfoPrivacyCell(context);
         infoCell.setBackgroundDrawable(Theme.getThemedDrawableByKey(context, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
-        infoCell.setText("检查客户端更新会比较本机版本与服务器版本。发现新版后可选择服务器下载或打开网盘链接；安装时仍需 Android 系统确认。代理获取请前往：设置 → 数据和存储 → 代理设置。");
+        infoCell.setText("检查客户端更新会比较本机版本与服务器版本。发现新版后可通过管理员配置的 HTTPS 更新链接打开外部更新页面。代理获取请前往：设置 → 数据和存储 → 代理设置。");
         content.addView(infoCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         fragmentView = root;
@@ -89,6 +81,10 @@ public class HuanghunServiceActivity extends BaseFragment {
                     saveRemoteConfig(config);
                     String current = currentVersionName();
                     String remote = config.latestVersion == null ? "" : config.latestVersion.trim();
+                    if ("未知".equals(current)) {
+                        showNotice("无法读取当前客户端版本，暂时无法判断是否需要更新。", "版本检查失败");
+                        return;
+                    }
                     if (remote.isEmpty()) {
                         showNotice("服务器尚未设置客户端版本号。", "版本信息不完整");
                         return;
@@ -115,77 +111,39 @@ public class HuanghunServiceActivity extends BaseFragment {
     }
 
     private void showUpdateOptions(BuiltInProxyClient.RemoteConfig config, String current, String latest) {
-        boolean hasCloudUrl = config.updateUrl != null && !config.updateUrl.trim().isEmpty();
-        boolean enforce = config.forceUpdate && (config.serverDownloadAvailable || hasCloudUrl);
+        if (compareVersions(latest, current) <= 0) {
+            showNotice("当前客户端无需更新。", "版本检查结果");
+            return;
+        }
+        if (!isValidHttpsUpdateUrl(config.updateUrl)) {
+            showNotice("管理员尚未配置更新链接。", "更新链接不可用");
+            return;
+        }
+        boolean enforce = config.forceUpdate;
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
         builder.setTitle("发现新版本 " + latest);
-        builder.setMessage("当前客户端版本：" + current + "\n服务器最新版本：" + latest + "\n\n请选择下载方式。下载安装包后，Android 会显示系统安装确认界面。");
+        builder.setMessage("当前客户端版本：" + current + "\n服务器最新版本：" + latest + "\n\n将通过管理员配置的 HTTPS 更新链接打开外部页面。");
         if (!enforce) builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        if (!enforce || config.serverDownloadAvailable) {
-            builder.setPositiveButton("服务器端更新", (dialog, which) -> downloadAndInstall(config));
-        }
-        if (!enforce || hasCloudUrl) {
-        builder.setNeutralButton("网盘下载", (dialog, which) -> {
-            if (config.updateUrl == null || config.updateUrl.trim().isEmpty()) {
-                Toast.makeText(getParentActivity(), "管理员尚未配置网盘更新链接。", Toast.LENGTH_LONG).show();
-            } else {
-                Browser.openUrl(getParentActivity(), config.updateUrl);
-            }
-        });
-        }
+        builder.setPositiveButton("打开更新链接", (dialog, which) ->
+                Browser.openUrl(getParentActivity(), config.updateUrl.trim()));
         AlertDialog dialog = builder.create();
         dialog.setCancelable(!enforce);
         dialog.setCanceledOnTouchOutside(!enforce);
         showDialog(dialog);
     }
 
-    private void downloadAndInstall(BuiltInProxyClient.RemoteConfig config) {
-        if (getParentActivity() == null) return;
-        if (!config.serverDownloadAvailable) {
-            Toast.makeText(getParentActivity(), "服务器尚未上传该版本 APK，请选择网盘下载或联系管理员。", Toast.LENGTH_LONG).show();
-            return;
-        }
-        AlertDialog progress = new AlertDialog(getParentActivity(), 3);
-        progress.setMessage("正在从服务器下载并校验 APK…");
-        progress.setCanceledOnTouchOutside(false);
-        showDialog(progress);
-        BuiltInProxyClient.downloadServerApk(config, new BuiltInProxyClient.ResultCallback<File>() {
-            @Override public void onSuccess(File file) {
-                AndroidUtilities.runOnUIThread(() -> {
-                    try { progress.dismiss(); } catch (Exception ignored) {}
-                    installDownloadedApk(file);
-                });
-            }
-            @Override public void onError(String message) {
-                AndroidUtilities.runOnUIThread(() -> {
-                    try { progress.dismiss(); } catch (Exception ignored) {}
-                    if (getParentActivity() != null) Toast.makeText(getParentActivity(), message, Toast.LENGTH_LONG).show();
-                });
-            }
-        });
-    }
-
-    private void installDownloadedApk(File apk) {
-        if (getParentActivity() == null || apk == null || !apk.isFile()) return;
-        if (Build.VERSION.SDK_INT >= 26 && !getParentActivity().getPackageManager().canRequestPackageInstalls()) {
-            try {
-                pendingApkInstall = apk;
-                Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getParentActivity().getPackageName()));
-                startActivityForResult(settings, 9217);
-                Toast.makeText(getParentActivity(), "请允许此应用安装未知来源应用，返回后将继续安装。", Toast.LENGTH_LONG).show();
-            } catch (Exception error) {
-                Toast.makeText(getParentActivity(), "无法打开安装权限设置。", Toast.LENGTH_LONG).show();
-            }
-            return;
-        }
+    static boolean isValidHttpsUpdateUrl(String value) {
+        if (value == null || value.trim().isEmpty()) return false;
+        String candidate = value.trim();
         try {
-            Uri uri = FileProvider.getUriForFile(getParentActivity(), ApplicationLoader.getApplicationId() + ".provider", apk);
-            Intent install = new Intent(Intent.ACTION_VIEW);
-            install.setDataAndType(uri, "application/vnd.android.package-archive");
-            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivityForResult(install, 9218);
-        } catch (Exception error) {
-            Toast.makeText(getParentActivity(), "无法启动 Android 安装器：" + error.getMessage(), Toast.LENGTH_LONG).show();
+            Uri uri = Uri.parse(candidate);
+            java.net.URL url = new java.net.URL(candidate);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                    && uri.getHost() != null && !uri.getHost().trim().isEmpty()
+                    && "https".equalsIgnoreCase(url.getProtocol())
+                    && url.getHost() != null && !url.getHost().trim().isEmpty();
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
@@ -197,7 +155,7 @@ public class HuanghunServiceActivity extends BaseFragment {
         return "未知";
     }
 
-    private static int compareVersions(String left, String right) {
+    static int compareVersions(String left, String right) {
         ParsedVersion a = parseVersion(left);
         ParsedVersion b = parseVersion(right);
         int count = Math.max(a.parts.size(), b.parts.size());
@@ -209,7 +167,40 @@ public class HuanghunServiceActivity extends BaseFragment {
         if (a.qualifier.isEmpty() && b.qualifier.isEmpty()) return 0;
         if (a.qualifier.isEmpty()) return 1;
         if (b.qualifier.isEmpty()) return -1;
-        return a.qualifier.compareToIgnoreCase(b.qualifier);
+        return compareQualifiers(a.qualifier, b.qualifier);
+    }
+
+    private static int compareQualifiers(String left, String right) {
+        String[] leftParts = left.split("[.-]", -1);
+        String[] rightParts = right.split("[.-]", -1);
+        int count = Math.min(leftParts.length, rightParts.length);
+        for (int i = 0; i < count; i++) {
+            String a = leftParts[i];
+            String b = rightParts[i];
+            boolean aNumeric = a.matches("\\d+");
+            boolean bNumeric = b.matches("\\d+");
+            int comparison;
+            if (aNumeric && bNumeric) {
+                comparison = compareNumericIdentifiers(a, b);
+            } else if (aNumeric != bNumeric) {
+                comparison = aNumeric ? -1 : 1;
+            } else {
+                comparison = a.compareToIgnoreCase(b);
+            }
+            if (comparison != 0) return comparison;
+        }
+        return Integer.compare(leftParts.length, rightParts.length);
+    }
+
+    private static int compareNumericIdentifiers(String left, String right) {
+        int leftStart = 0;
+        int rightStart = 0;
+        while (leftStart < left.length() - 1 && left.charAt(leftStart) == '0') leftStart++;
+        while (rightStart < right.length() - 1 && right.charAt(rightStart) == '0') rightStart++;
+        int leftLength = left.length() - leftStart;
+        int rightLength = right.length() - rightStart;
+        if (leftLength != rightLength) return Integer.compare(leftLength, rightLength);
+        return left.substring(leftStart).compareTo(right.substring(rightStart));
     }
 
     private static ParsedVersion parseVersion(String value) {
@@ -255,8 +246,7 @@ public class HuanghunServiceActivity extends BaseFragment {
                     saveRemoteConfig(config);
                     String message = "配置已更新。\n\n当前客户端：" + currentVersionName()
                             + "\n服务器最新版本：" + (config.latestVersion.isEmpty() ? "未设置" : config.latestVersion)
-                            + "\n服务器 APK：" + (config.serverDownloadAvailable ? "可下载" : "尚未上传")
-                            + "\n网盘链接：" + (config.updateUrl.isEmpty() ? "未设置" : "已设置")
+                            + "\n更新链接：" + (isValidHttpsUpdateUrl(config.updateUrl) ? "已配置 HTTPS 链接" : "尚未配置有效 HTTPS 链接")
                             + "\n服务器内置代理：" + config.proxyCount + " 条";
                     if (!config.announcement.isEmpty()) message += "\n\n公告：" + config.announcement;
                     infoCell.setText(message);
@@ -283,8 +273,6 @@ public class HuanghunServiceActivity extends BaseFragment {
                 .putString("huanghun_latest_version", config.latestVersion)
                 .putString("huanghun_update_url", config.updateUrl)
                 .putBoolean("huanghun_force_update", config.forceUpdate)
-                .putBoolean("huanghun_server_download_available", config.serverDownloadAvailable)
-                .putString("huanghun_server_download_url", config.serverDownloadUrl)
                 .putString("huanghun_announcement", config.announcement)
                 .putInt("huanghun_proxy_count", config.proxyCount)
                 .putInt("huanghun_proxy_revision", config.proxyRevision)
@@ -295,20 +283,6 @@ public class HuanghunServiceActivity extends BaseFragment {
         if (getParentActivity() == null) return;
         new AlertDialog.Builder(getParentActivity()).setTitle(title).setMessage(message)
                 .setPositiveButton(LocaleController.getString(R.string.OK), null).show();
-    }
-
-    @Override
-    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
-        super.onActivityResultFragment(requestCode, resultCode, data);
-        if (requestCode == 9217 && pendingApkInstall != null) {
-            File apk = pendingApkInstall;
-            pendingApkInstall = null;
-            if (Build.VERSION.SDK_INT < 26 || getParentActivity() != null && getParentActivity().getPackageManager().canRequestPackageInstalls()) {
-                installDownloadedApk(apk);
-            } else if (getParentActivity() != null) {
-                Toast.makeText(getParentActivity(), "未授予安装权限；APK 已保存在应用缓存中。", Toast.LENGTH_LONG).show();
-            }
-        }
     }
 
     @Override

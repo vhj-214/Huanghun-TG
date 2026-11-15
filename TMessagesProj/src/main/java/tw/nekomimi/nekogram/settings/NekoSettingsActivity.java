@@ -376,7 +376,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         } else if (position == activeRow) {
             presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.ACTIVE));
         } else if (position == comebackRow) {
-            presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.COMEBACK));
+            presentFragment(new HuanghunComebackActivity());
         } else if (position == videoRow) {
             presentFragment(new NekoExtensionsActivity(NekoExtensionsActivity.Section.VIDEO));
         } else if (position == localRow) {

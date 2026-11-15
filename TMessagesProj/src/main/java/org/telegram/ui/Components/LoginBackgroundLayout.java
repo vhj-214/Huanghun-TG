@@ -102,7 +102,10 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
         Drawable surface = loginWallpaper;
         int scrimAlpha = 0x18;
         scrimPaint.setColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhite), scrimAlpha));
-        setBackgroundColor(Color.TRANSPARENT);
+        // Keep an opaque surface behind the separately drawn wallpaper. The
+        // wallpaper view can be temporarily empty (for example during measure)
+        // or unable to draw a recycled bitmap; transparency would expose black.
+        setBackgroundColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundGray), 0xFF));
         boolean changed = getBackgroundImage() != surface;
         setBackgroundImage(surface, false);
         if (!changed) {

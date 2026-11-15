@@ -26,6 +26,8 @@ if (function_exists('fastcgi_finish_request')) {
 try {
     if (isset($update['message']) && is_array($update['message'])) {
         hh_bot_handle_message($update['message']);
+    } elseif (isset($update['callback_query']) && is_array($update['callback_query'])) {
+        hh_bot_handle_callback($update['callback_query']);
     }
 } catch (Throwable $e) {
     hh_log('Webhook handler error: ' . $e->getMessage());

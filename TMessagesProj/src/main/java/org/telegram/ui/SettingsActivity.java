@@ -450,6 +450,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         search.loadFaqWebPage();
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
+        listView.listenReorder((sectionId, reorderedItems) -> saveAccountOrder(reorderedItems));
+        listView.allowReorder(true);
         listView.adapter.setApplyBackground(false);
         // 保留官方 section 的条目判定与滚动/点击裁剪，但不再绘制会遮挡壁纸的 windowBackgroundWhite 实体底板。
         // radius/padding 归零后，设置行仅由各自的透明玻璃背景负责外观。
@@ -822,7 +824,38 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
     }
 
+    private static final String ACCOUNT_ORDER_KEY = "huanghun_user_info_account_order";
     private ArrayList<Integer> accountNumbers = new ArrayList<>();
+
+    private ArrayList<Integer> getSavedAccountOrder() {
+        ArrayList<Integer> result = new ArrayList<>();
+        String saved = MessagesController.getGlobalMainSettings().getString(ACCOUNT_ORDER_KEY, "");
+        if (saved != null && !saved.isEmpty()) {
+            for (String value : saved.split(",")) {
+                try {
+                    int account = Integer.parseInt(value);
+                    if (account >= 0 && account < UserConfig.MAX_ACCOUNT_COUNT && !result.contains(account)) {
+                        result.add(account);
+                    }
+                } catch (Exception ignore) {
+                }
+            }
+        }
+        return result;
+    }
+
+    private void saveAccountOrder(ArrayList<UItem> reorderedItems) {
+        StringBuilder order = new StringBuilder();
+        for (UItem item : reorderedItems) {
+            if (!item.instanceOf(AccountCell.Factory.class)) continue;
+            if (order.length() > 0) order.append(',');
+            order.append(item.intValue);
+        }
+        if (order.length() > 0) {
+            MessagesController.getGlobalMainSettings().edit().putString(ACCOUNT_ORDER_KEY, order.toString()).apply();
+        }
+    }
+
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (searchItem.isSearchFieldVisible2()) {
             items.add(UItem.asSpace(ActionBar.getCurrentActionBarHeight()));
@@ -839,7 +872,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 accountNumbers.add(a);
             }
         }
+        final ArrayList<Integer> savedOrder = getSavedAccountOrder();
         Collections.sort(accountNumbers, (o1, o2) -> {
+            int saved1 = savedOrder.indexOf(o1);
+            int saved2 = savedOrder.indexOf(o2);
+            if (saved1 >= 0 || saved2 >= 0) {
+                if (saved1 < 0) return 1;
+                if (saved2 < 0) return -1;
+                return Integer.compare(saved1, saved2);
+            }
             long l1 = UserConfig.getInstance(o1).loginTime;
             long l2 = UserConfig.getInstance(o2).loginTime;
             if (l1 > l2) {
@@ -892,9 +933,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         if (accountNumbers.size() > 0) {
             items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
+            adapter.reorderSectionStart();
             for (int i = 0; i < accountNumbers.size(); ++i) {
                 items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
             }
+            adapter.reorderSectionEnd();
             items.add(UItem.asShadow(null));
         }
 

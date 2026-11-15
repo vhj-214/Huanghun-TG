@@ -268,7 +268,11 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
     }
 
     private void openExtension(NekoExtensionsActivity.Section section) {
-        presentFragment(new NekoExtensionsActivity(section));
+        if (section == NekoExtensionsActivity.Section.COMEBACK) {
+            presentFragment(new HuanghunComebackActivity());
+        } else {
+            presentFragment(new NekoExtensionsActivity(section));
+        }
     }
 
     @Override

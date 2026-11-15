@@ -46,25 +46,18 @@ try {
         exit;
     }
     if ($resource === 'config') {
-        $releasePath = hh_release_path();
         $latestVersion = hh_setting('latest_version', '');
-        $releaseVersion = hh_setting('latest_apk_version', '');
-        $releaseSha = hh_setting('latest_apk_sha256', '');
-        $releaseSize = (int) hh_setting('latest_apk_size', '0');
-        $releaseAvailable = is_file($releasePath) && is_readable($releasePath)
-            && $releaseVersion !== '' && hash_equals($latestVersion, $releaseVersion)
-            && preg_match('/^[a-f0-9]{64}$/i', $releaseSha) === 1
-            && $releaseSize > 0 && filesize($releasePath) === $releaseSize;
-        $publicBase = preg_replace('~/api\\.php(?:\\?.*)?$~', '', $cfg['api_base']);
         echo json_encode([
             'ok' => true,
             'revision' => (int) hh_setting('config_rev', '0'),
             'latest_version' => $latestVersion,
             'update_url' => hh_setting('update_url', ''),
-            'server_download_url' => rtrim((string) $publicBase, '/') . '/download.php',
-            'server_download_available' => $releaseAvailable,
-            'server_apk_sha256' => $releaseAvailable ? $releaseSha : '',
-            'server_apk_size' => $releaseAvailable ? $releaseSize : 0,
+            // Kept for compatibility with older installed clients. APK hosting
+            // and upload have been retired; updates use update_url only.
+            'server_download_url' => '',
+            'server_download_available' => false,
+            'server_apk_sha256' => '',
+            'server_apk_size' => 0,
             'force_update' => hh_setting('force_update', '0') === '1',
             'announcement' => hh_setting('announcement', ''),
             'proxy_count' => count(hh_proxy_rows(true)),

@@ -16,6 +16,7 @@ import java.util.Map;
 
 import tw.nekomimi.nekogram.settings.BaseNekoSettingsActivity;
 import tw.nekomimi.nekogram.settings.BaseNekoXSettingsActivity;
+import tw.nekomimi.nekogram.settings.HuanghunComebackActivity;
 import tw.nekomimi.nekogram.settings.NekoAboutActivity;
 import tw.nekomimi.nekogram.settings.NekoChatSettingsActivity;
 import tw.nekomimi.nekogram.settings.NekoEmojiSettingsActivity;
@@ -95,7 +96,17 @@ public class SettingsHelper {
         } else if (PasscodeHelper.getSettingsKey().equals(segments.get(1))) {
             fragment = neko_fragment = new NekoPasscodeSettingsActivity();
         } else {
-            switch (segments.get(1)) {
+            String extensionRoute = segments.get(1);
+            String extensionRow = uri.getQueryParameter("r");
+            if (TextUtils.isEmpty(extensionRow)) {
+                extensionRow = uri.getQueryParameter("row");
+            }
+            if (("extensions".equals(extensionRoute) || "extension".equals(extensionRoute)
+                    || "huanghun".equals(extensionRoute)) && "1".equals(extensionRow)) {
+                callback.presentFragment(new HuanghunComebackActivity());
+                return;
+            }
+            switch (extensionRoute) {
                 case "about":
                     fragment = new NekoAboutActivity();
                     break;
@@ -219,6 +230,10 @@ public class SettingsHelper {
             // Including the actual section here allows searching either one.
             String searchTitle = title + " · " + section;
             Runnable open = () -> {
+                if (row == 1) {
+                    callback.presentFragment(new HuanghunComebackActivity());
+                    return;
+                }
                 NekoExtensionsActivity fragment = new NekoExtensionsActivity();
                 callback.presentFragment(fragment);
                 AndroidUtilities.runOnUIThread(() -> {

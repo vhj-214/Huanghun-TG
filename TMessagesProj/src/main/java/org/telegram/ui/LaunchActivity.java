@@ -6311,6 +6311,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         }
     }
 
+    public boolean isHuanghunUpdatePromptActive() {
+        return isResumed && !isFinishing() && !isDestroyed();
+    }
+
     public void setNavigateToPremiumBot(boolean val) {
         navigateToPremiumBot = val;
     }
@@ -6942,6 +6946,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     protected void onPause() {
         super.onPause();
         isResumed = false;
+        com.Huanghun.HuanghunUpdatePrompt.onAppPaused(this);
         if (huanghunPetOverlay != null) {
             huanghunPetOverlay.onHostPause();
         }
@@ -7298,6 +7303,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         //if (refreshRateController != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         //    refreshRateController.start();
         //}
+        com.Huanghun.HuanghunUpdatePrompt.checkOnAppForeground(this);
     }
 
     public static Runnable whenResumed;

@@ -78,6 +78,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import tw.nekomimi.nekogram.utils.AlertUtil;
 import tw.nekomimi.nekogram.utils.ProxyUtil;
@@ -125,6 +126,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     private List<SharedConfig.ProxyInfo> proxyList = new ArrayList<>();
     private boolean wasCheckedAllList;
     private boolean fetchingBuiltInProxies;
+    private boolean fragmentDestroyed;
     private final boolean loginBackground;
     private final Paint loginSectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -380,6 +382,8 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        fragmentDestroyed = true;
+        fetchingBuiltInProxies = false;
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxyChangedByRotation);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxySettingsChanged);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxyCheckDone);
@@ -851,50 +855,31 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         }
         fetchingBuiltInProxies = true;
         Toast.makeText(getParentActivity(), "正在获取并检测黄昏定制代理…", Toast.LENGTH_SHORT).show();
+        AtomicBoolean requestFinished = new AtomicBoolean(false);
         BuiltInProxyClient.fetchProxies(new BuiltInProxyClient.ResultCallback<BuiltInProxyClient.ProxySnapshot>() {
             @Override
             public void onSuccess(BuiltInProxyClient.ProxySnapshot snapshot) {
+                if (!requestFinished.compareAndSet(false, true)) {
+                    return;
+                }
                 AndroidUtilities.runOnUIThread(() -> {
-                    if (snapshot.proxies.isEmpty()) {
-                        fetchingBuiltInProxies = false;
-                        if (getParentActivity() != null) {
-                            Toast.makeText(getParentActivity(), "服务器暂时没有可获取的内置代理；现有代理未更改。", Toast.LENGTH_LONG).show();
-                        }
+                    if (fragmentDestroyed) {
                         return;
                     }
                     ArrayList<SharedConfig.ProxyInfo> previous = new ArrayList<>(SharedConfig.proxyList);
-                    if (previous.isEmpty()) {
-                        replaceWithBuiltInProxies(snapshot, 0, 0);
-                        return;
-                    }
-                    AtomicInteger remaining = new AtomicInteger(previous.size());
-                    AtomicInteger unavailable = new AtomicInteger(0);
-                    AtomicBoolean completed = new AtomicBoolean(false);
-                    Runnable finishCheck = () -> {
-                        if (completed.compareAndSet(false, true)) {
-                            AndroidUtilities.runOnUIThread(() -> replaceWithBuiltInProxies(snapshot, unavailable.get(), previous.size()));
-                        }
-                    };
-                    AndroidUtilities.runOnUIThread(finishCheck, 12_000);
-                    for (SharedConfig.ProxyInfo info : previous) {
-                        try {
-                            ConnectionsManager.getInstance(currentAccount).checkProxy(info.address, info.port,
-                                    info.username, info.password, info.secret, ping -> {
-                                        if (completed.get()) return;
-                                        if (ping == -1) unavailable.incrementAndGet();
-                                        if (remaining.decrementAndGet() == 0) finishCheck.run();
-                                    });
-                        } catch (Throwable ignored) {
-                            unavailable.incrementAndGet();
-                            if (remaining.decrementAndGet() == 0) finishCheck.run();
-                        }
-                    }
+                    checkExistingProxies(snapshot, previous);
                 });
             }
 
             @Override
             public void onError(String message) {
+                if (!requestFinished.compareAndSet(false, true)) {
+                    return;
+                }
                 AndroidUtilities.runOnUIThread(() -> {
+                    if (fragmentDestroyed) {
+                        return;
+                    }
                     fetchingBuiltInProxies = false;
                     if (getParentActivity() != null) Toast.makeText(getParentActivity(), message, Toast.LENGTH_LONG).show();
                 });
@@ -902,30 +887,153 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         });
     }
 
-    private void replaceWithBuiltInProxies(BuiltInProxyClient.ProxySnapshot snapshot, int unavailable, int checkedCount) {
-        SharedConfig.loadProxyList();
-        SharedConfig.deleteAllProxy();
-        useProxySettings = false;
-        useProxyForCalls = false;
-        MessagesController.getGlobalMainSettings().edit()
-                .putBoolean("proxy_enabled", false)
-                .putBoolean("proxy_enabled_calls", false)
-                .apply();
+    private void checkExistingProxies(BuiltInProxyClient.ProxySnapshot snapshot, ArrayList<SharedConfig.ProxyInfo> previous) {
+        final AtomicBoolean finished = new AtomicBoolean(false);
+        final AtomicIntegerArray results = new AtomicIntegerArray(previous.size());
+        final AtomicIntegerArray callbacksHandled = new AtomicIntegerArray(previous.size());
+        final AtomicInteger remaining = new AtomicInteger(previous.size());
+        final long[] pings = new long[previous.size()];
+        Runnable finish = () -> {
+            if (!finished.compareAndSet(false, true)) {
+                return;
+            }
+            final int[] finalResults = new int[previous.size()];
+            for (int i = 0; i < finalResults.length; i++) {
+                finalResults[i] = results.get(i);
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                if (!fragmentDestroyed) {
+                    applyFetchedProxies(snapshot, previous, finalResults, pings);
+                }
+            });
+        };
+        if (previous.isEmpty()) {
+            finish.run();
+            return;
+        }
+        AndroidUtilities.runOnUIThread(finish, 12_000);
+        for (int i = 0; i < previous.size(); i++) {
+            final int index = i;
+            SharedConfig.ProxyInfo info = previous.get(i);
+            try {
+                ConnectionsManager.getInstance(currentAccount).checkProxy(info.address, info.port,
+                        info.username, info.password, info.secret, ping -> {
+                            if (!callbacksHandled.compareAndSet(index, 0, 1)) {
+                                return;
+                            }
+                            int result = ping == -1 ? 2 : 1; // 0=pending, 1=valid, 2=definitely invalid, 3=unknown
+                            pings[index] = ping;
+                            results.compareAndSet(index, 0, result);
+                            if (remaining.decrementAndGet() == 0) {
+                                finish.run();
+                            }
+                        });
+            } catch (Throwable ignored) {
+                if (callbacksHandled.compareAndSet(index, 0, 1)) {
+                    results.compareAndSet(index, 0, 3);
+                    if (remaining.decrementAndGet() == 0) {
+                        finish.run();
+                    }
+                }
+            }
+        }
+    }
 
-        ArrayList<SharedConfig.ProxyInfo> managed = new ArrayList<>(snapshot.proxies);
-        // addProxy inserts at index 0, so insert in reverse to preserve the server's order.
-        for (int i = managed.size() - 1; i >= 0; i--) {
-            SharedConfig.addProxy(managed.get(i));
+    private void applyFetchedProxies(BuiltInProxyClient.ProxySnapshot snapshot, ArrayList<SharedConfig.ProxyInfo> previous, int[] results, long[] pings) {
+        int valid = 0;
+        int unavailable = 0;
+        int unknown = 0;
+        boolean removedCurrentProxy = false;
+        ArrayList<SharedConfig.ProxyInfo> managed = new ArrayList<>();
+        for (int i = 0; i < previous.size(); i++) {
+            SharedConfig.ProxyInfo info = previous.get(i);
+            if (i < results.length && results[i] == 2) {
+                info.available = false;
+                info.ping = 0;
+                info.availableCheckTime = SystemClock.elapsedRealtime();
+                info.checking = false;
+                if (SharedConfig.currentProxy == info) {
+                    removedCurrentProxy = true;
+                }
+                SharedConfig.deleteProxy(info);
+                unavailable++;
+            } else if (i < results.length && results[i] == 1) {
+                info.available = true;
+                info.ping = i < pings.length ? pings[i] : 0;
+                info.availableCheckTime = SystemClock.elapsedRealtime();
+                info.checking = false;
+                valid++;
+                if (BuiltInProxyClient.isManagedProxy(info)) {
+                    managed.add(info);
+                }
+            } else {
+                // Timed out, never called back, or checkProxy threw: preserve as unknown.
+                unknown++;
+                if (BuiltInProxyClient.isManagedProxy(info)) {
+                    managed.add(info);
+                }
+            }
+        }
+
+        if (removedCurrentProxy) {
+            useProxySettings = false;
+            useProxyForCalls = false;
+            MessagesController.getGlobalMainSettings().edit()
+                    .putBoolean("proxy_enabled", false)
+                    .putBoolean("proxy_enabled_calls", false)
+                    .apply();
+            ConnectionsManager.setProxySettings(false, "", 0, "", "", "");
+        }
+
+        ArrayList<SharedConfig.ProxyInfo> remoteSeen = new ArrayList<>();
+        int added = 0;
+        if (snapshot.proxies != null) {
+            for (int i = snapshot.proxies.size() - 1; i >= 0; i--) {
+                SharedConfig.ProxyInfo candidate = snapshot.proxies.get(i);
+                if (candidate == null || containsProxyConfig(remoteSeen, candidate)) {
+                    continue;
+                }
+                remoteSeen.add(0, candidate);
+                boolean existed = containsProxyConfig(SharedConfig.proxyList, candidate);
+                SharedConfig.ProxyInfo stored = SharedConfig.addProxy(candidate);
+                if (!containsProxyConfig(managed, stored)) {
+                    managed.add(0, stored);
+                }
+                if (!existed) {
+                    added++;
+                }
+            }
         }
         BuiltInProxyClient.setManagedProxies(managed);
+        SharedConfig.saveProxyList();
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);
-        updateRows(true);
         fetchingBuiltInProxies = false;
+        updateRows(true);
 
         if (getParentActivity() != null) {
-            String status = checkedCount > 0 ? "已检测原代理：" + (checkedCount - unavailable) + " 条可用，" + unavailable + " 条不可用；" : "";
-            Toast.makeText(getParentActivity(), status + "已清除原有代理并按服务器顺序添加 " + managed.size() + " 条黄昏定制代理。", Toast.LENGTH_LONG).show();
+            StringBuilder status = new StringBuilder("原代理检测：有效 ").append(valid)
+                    .append(" 条，明确不可用 ").append(unavailable).append(" 条，未知并保留 ").append(unknown)
+                    .append(" 条（超时/未返回/检查异常）；已清除 ")
+                    .append(unavailable).append(" 条，新增黄昏定制代理 ").append(added).append(" 条。");
+            if (snapshot.proxies == null || snapshot.proxies.isEmpty()) {
+                status.append("服务器当前没有代理。");
+            }
+            if (removedCurrentProxy) {
+                status.append("当前所选代理不可用，已关闭代理及通话代理开关。");
+            }
+            Toast.makeText(getParentActivity(), status.toString(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private boolean containsProxyConfig(List<SharedConfig.ProxyInfo> proxies, SharedConfig.ProxyInfo candidate) {
+        for (SharedConfig.ProxyInfo info : proxies) {
+            if (info.address.equals(candidate.address) && info.port == candidate.port
+                    && info.username.equals(candidate.username) && info.password.equals(candidate.password)
+                    && info.secret.equals(candidate.secret)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void checkProxyList() {
@@ -1308,8 +1416,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     public ArrayList<ThemeDescription> getThemeDescriptions() {
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();
 
-        themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_CELLBACKGROUNDCOLOR, new Class[]{TextSettingsCell.class, TextCheckCell.class, HeaderCell.class, TextDetailProxyCell.class}, null, null, null, Theme.key_windowBackgroundWhite));
-        themeDescriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
+        if (!loginBackground) {
+            themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_CELLBACKGROUNDCOLOR, new Class[]{TextSettingsCell.class, TextCheckCell.class, HeaderCell.class, TextDetailProxyCell.class}, null, null, null, Theme.key_windowBackgroundWhite));
+            themeDescriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
+        }
 
 //        themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
         themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_actionBarDefault));
