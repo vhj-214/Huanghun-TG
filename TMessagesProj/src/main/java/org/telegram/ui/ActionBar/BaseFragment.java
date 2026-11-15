@@ -63,6 +63,7 @@ import org.telegram.ui.ArticleViewer;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Stories.StoryViewer;
 import org.telegram.ui.bots.BotWebViewAttachedSheet;
@@ -560,7 +561,48 @@ public abstract class BaseFragment {
             actionBar.setBackgroundColor(Color.TRANSPARENT);
             actionBar.setCastShadows(false);
         }
+        applyTransparentSettingsSections(fragmentView);
         clearOpaqueSettingsFills(fragmentView);
+        // Native settings lists bind their cells after onResume(). Clear the
+        // theme-white cell backgrounds again after that first layout pass;
+        // otherwise the wallpaper is immediately covered by opaque rows.
+        fragmentView.post(() -> {
+            if (fragmentView != null) {
+                clearOpaqueSettingsFills(fragmentView);
+            }
+        });
+        fragmentView.postDelayed(() -> {
+            if (fragmentView != null) {
+                clearOpaqueSettingsFills(fragmentView);
+            }
+        }, 120);
+    }
+
+    /** Replace the legacy opaque white section renderer only on wallpaper-backed settings pages. */
+    private void applyTransparentSettingsSections(View view) {
+        if (view instanceof RecyclerListView) {
+            final Paint glassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            ((RecyclerListView) view).setSections(
+                    sectionView -> !(sectionView instanceof org.telegram.ui.Cells.ShadowSectionCell),
+                    AndroidUtilities.dp(12),
+                    AndroidUtilities.dp(16),
+                    (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                        int baseColor = Theme.getColor(Theme.key_windowBackgroundWhite, getResourceProvider());
+                        boolean darkSurface = ColorUtils.calculateLuminance(baseColor) < 0.5f;
+                        int glassAlpha = Math.round((darkSurface ? 0x26 : 0x20) * alpha);
+                        glassPaint.setColor(ColorUtils.setAlphaComponent(baseColor, glassAlpha));
+                        float radius = Math.max(topRadius, bottomRadius);
+                        canvas.drawRoundRect(rect, radius, radius, glassPaint);
+                    },
+                    false
+            );
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                applyTransparentSettingsSections(group.getChildAt(i));
+            }
+        }
     }
 
     private void clearOpaqueSettingsFills(View view) {

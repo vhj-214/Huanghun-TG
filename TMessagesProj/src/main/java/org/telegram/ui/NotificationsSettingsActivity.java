@@ -555,7 +555,7 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
 
         listView = new RecyclerListView(context);
         listView.setSections();
-        actionBar.setAdaptiveBackground(listView);
+        actionBar.setAdaptiveBackground(listView, false, -1, -1);
         listView.setItemAnimator(null);
         listView.setLayoutAnimation(null);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false) {

@@ -314,7 +314,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         listView = new RecyclerListView(context);
         listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setSections();
-        actionBar.setAdaptiveBackground(listView);
+        actionBar.setAdaptiveBackground(listView, false, -1, -1);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false) {
             @Override
             public boolean supportsPredictiveItemAnimations() {

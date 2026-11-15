@@ -107,7 +107,7 @@ public class LiteModeSettingsActivity extends BaseFragment {
 
         listView = new RecyclerListView(context);
         listView.setSections();
-        actionBar.setAdaptiveBackground(listView);
+        actionBar.setAdaptiveBackground(listView, false, -1, -1);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context));
         listView.setAdapter(adapter = new Adapter());
         DefaultItemAnimator itemAnimator = new DefaultItemAnimator();

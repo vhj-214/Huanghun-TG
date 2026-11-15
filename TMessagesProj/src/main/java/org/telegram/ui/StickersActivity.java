@@ -310,7 +310,7 @@ public class StickersActivity extends BaseFragment implements NotificationCenter
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
         listView.setSections();
-        actionBar.setAdaptiveBackground(listView);
+        actionBar.setAdaptiveBackground(listView, false, -1, -1);
         listView.setFocusable(true);
         listView.setTag(7);
         listView.listenReorder(this::whenReordered);

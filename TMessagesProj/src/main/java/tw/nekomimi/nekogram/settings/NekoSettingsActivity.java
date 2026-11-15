@@ -47,6 +47,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.DocumentSelectActivity;
 import org.telegram.ui.LaunchActivity;
+import org.telegram.ui.ThemeActivity;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -72,7 +73,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private static final int MENU_SYNC = 2;
 
     private int everydayHeaderRow, everydayEndRow;
-    private int featureDirectoryRow, generalRow, chatRow, translatorRow, petRow;
+    private int featureDirectoryRow, generalRow, chatRow, translatorRow, wallpaperRow, petRow;
     private int automationHeaderRow, automationEndRow;
     private int attentionRow, signInRow, activeRow, comebackRow;
     private int mediaHeaderRow, mediaEndRow;
@@ -92,6 +93,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         generalRow = addRow();
         chatRow = addRow();
         translatorRow = addRow();
+        wallpaperRow = addRow();
         petRow = addRow();
         everydayEndRow = addRow();
 
@@ -391,6 +393,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             NekoPetActivity.showGoodbyeForAccount(getParentActivity(), currentAccount, resourceProvider);
         } else if (position == translatorRow) {
             presentFragment(new NekoTranslatorSettingsActivity());
+        } else if (position == wallpaperRow) {
+            presentFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_HUANGHUN_WALLPAPER));
         } else if (position == aboutRow) {
             presentFragment(new NekoAboutActivity());
         } else if (position == importSettingsRow) {
@@ -463,6 +467,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                         title = R.string.General; description = R.string.HuanghunCategoryDescGeneral; icon = R.drawable.msg_theme;
                     } else if (position == translatorRow) {
                         title = R.string.TranslatorSettings; description = R.string.HuanghunCategoryDescTranslation; icon = R.drawable.ic_translate;
+                    } else if (position == wallpaperRow) {
+                        title = R.string.hfd_wallpaper; description = R.string.hfd_wallpaper_desc; icon = R.drawable.msg_background;
                     } else if (position == passcodeRow) {
                         title = R.string.PasscodeNeko; description = R.string.HuanghunCategoryDescPasscode; icon = R.drawable.msg_permissions;
                     } else if (position == experimentRow) {

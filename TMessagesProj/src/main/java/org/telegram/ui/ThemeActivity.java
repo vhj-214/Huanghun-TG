@@ -1425,7 +1425,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         ((DefaultItemAnimator) listView.getItemAnimator()).setDelayAnimations(false);
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         if (currentType != THEME_TYPE_HUANGHUN_WALLPAPER) {
-            actionBar.setAdaptiveBackground(listView);
+            actionBar.setAdaptiveBackground(listView, false, -1, -1);
         }
         listView.setOnItemClickListener((view, position, x, y) -> {
             if (position == loginWallpaperChangeRow) {

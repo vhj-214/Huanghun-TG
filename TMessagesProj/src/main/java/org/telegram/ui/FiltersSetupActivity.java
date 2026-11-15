@@ -685,7 +685,7 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             }
         };
         listView.setSections();
-        actionBar.setAdaptiveBackground(listView);
+        actionBar.setAdaptiveBackground(listView, false, -1, -1);
         DefaultItemAnimator itemAnimator = new DefaultItemAnimator();
         itemAnimator.setDurations(350);
         itemAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);

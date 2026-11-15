@@ -236,7 +236,7 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
             }
         };
         listView.setSections();
-        actionBar.setAdaptiveBackground(listView);
+        actionBar.setAdaptiveBackground(listView, false, -1, -1);
         listView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false) {
             @Override
             public boolean supportsPredictiveItemAnimations() {

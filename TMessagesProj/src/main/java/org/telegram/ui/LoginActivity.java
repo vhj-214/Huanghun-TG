@@ -829,11 +829,10 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         moreButtonView.addSubItem(2, R.drawable.msg_permissions_solar, getString(R.string.CustomApi)).setContentDescription(getString(R.string.CustomApi));
         moreButtonView.addSubItem(3, R.drawable.msg_retry_solar, getString(R.string.TestBackend));
         moreButtonView.addSubItem(100, R.drawable.msg_permissions_solar, "协议登录");
-        // Match the login wallpaper instead of leaving the overflow menu as an
-        // opaque white popup. Use a more opaque single glass surface so menu
-        // labels stay readable over bright wallpaper without looking solid.
+        // Match the login wallpaper with a translucent liquid-glass popup.
+        // 0xE0 made this menu almost opaque white and hid the wallpaper.
         moreButtonView.redrawPopup(ColorUtils.setAlphaComponent(
-                Theme.getColor(Theme.key_windowBackgroundWhite), 0xE0));
+                Theme.getColor(Theme.key_windowBackgroundWhite), 0x48));
         moreButtonView.setDelegate(id -> {
             if (id == 0) {
                 presentFragment(new ProxyListActivity(true));
