@@ -1303,9 +1303,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 dialogFrame.setStroke(AndroidUtilities.dp(1), 0x55FFFFFF);
                 protocolDialog.getWindow().setBackgroundDrawable(dialogFrame);
                 protocolDialog.getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
-                if (protocolDialog.getListView() != null) {
-                    protocolDialog.getListView().setBackgroundColor(Color.TRANSPARENT);
-                }
             }
         });
         showDialog(protocolDialog);

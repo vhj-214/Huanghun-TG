@@ -1387,8 +1387,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             // The wallpaper root owns the full surface. Keeping the ActionBar and
             // list in the same transparent hierarchy prevents the old page from
             // showing through and removes the black shadow seam at the top.
-            frameLayout = new HuanghunWallpaperLayout(context, currentAccount);
-            actionBar.setDrawBlurBackground(frameLayout);
+            HuanghunWallpaperLayout wallpaperLayout = new HuanghunWallpaperLayout(context, currentAccount);
+            frameLayout = wallpaperLayout;
+            actionBar.setDrawBlurBackground(wallpaperLayout);
             actionBar.setBackgroundColor(0x20FFFFFF);
             actionBar.setCastShadows(false);
             actionBar.setItemsColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), false);
