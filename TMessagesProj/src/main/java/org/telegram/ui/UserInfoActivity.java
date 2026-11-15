@@ -301,40 +301,27 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             actionBar.setTitleColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
             actionBar.setItemsColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText), false);
         }
-        // UniversalAdapter normally paints opaque theme cards. Remove that
-        // layer and draw a low-alpha glass section so wallpaper remains visible.
+        // UniversalAdapter normally paints opaque theme cards. Every visible
+        // cell on this page already owns its single glass surface, so do not
+        // draw another section glass underneath it; two translucent layers
+        // compound into an opaque card.
         listView.adapter.setApplyBackground(false);
         listView.setBackgroundColor(Color.TRANSPARENT);
         listView.setPadding(0,
                 AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight() + dp(8),
                 0,
                 AndroidUtilities.navigationBarHeight);
-        final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         listView.setSections(
-                view -> {
-                    if (view.getParent() != listView) return false;
-                    final int position = listView.getChildAdapterPosition(view);
-                    // The name group and bio own their glass surfaces. Exclude
-                    // them from the list's section fill so the adapter cannot
-                    // put an opaque card behind a single row.
-                    if (position == firstNameRow || position == lastNameRow || position == bioRow) {
-                        return false;
-                    }
-                    androidx.recyclerview.widget.RecyclerView.ViewHolder holder = listView.getChildViewHolder(view);
-                    return holder != null && !UniversalAdapter.isShadow(holder.getItemViewType());
-                },
+                view -> false,
                 UniversalAdapter::isShadow,
                 dp(12),
                 16,
-                (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
-                    sectionGlassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x26 : 0x20) * alpha));
-                    float radius = Math.max(topRadius, bottomRadius);
-                    canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
-                },
+                (canvas, rect, topRadius, bottomRadius, alpha) -> { },
                 false
         );
         listView.setClipToPadding(false);
+        listView.listenReorder((sectionId, reorderedItems) -> saveAccountOrder(reorderedItems));
+        listView.allowReorder(true);
         if (parentLayout != null && parentLayout.isRightLayout()) {
             actionBar.setBackButtonImage(R.drawable.ic_ab_close);
         }
@@ -375,6 +362,37 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
     private static final int BUTTON_LOGOUT = 11;
 
     private final ArrayList<Integer> accountNumbers = new ArrayList<>();
+    private static final String ACCOUNT_ORDER_KEY = "huanghun_user_info_account_order";
+
+    private ArrayList<Integer> getSavedAccountOrder() {
+        ArrayList<Integer> result = new ArrayList<>();
+        String saved = MessagesController.getGlobalMainSettings().getString(ACCOUNT_ORDER_KEY, "");
+        if (!TextUtils.isEmpty(saved)) {
+            for (String value : saved.split(",")) {
+                try {
+                    int account = Integer.parseInt(value);
+                    if (account >= 0 && account < UserConfig.MAX_ACCOUNT_COUNT && !result.contains(account)) {
+                        result.add(account);
+                    }
+                } catch (Exception ignore) {
+                }
+            }
+        }
+        return result;
+    }
+
+    private void saveAccountOrder(ArrayList<UItem> reorderedItems) {
+        StringBuilder order = new StringBuilder();
+        for (UItem item : reorderedItems) {
+            if (!item.instanceOf(SettingsActivity.AccountCell.Factory.class)) continue;
+            if (order.length() > 0) order.append(',');
+            order.append(item.intValue);
+        }
+        if (order.length() > 0) {
+            MessagesController.getGlobalMainSettings().edit().putString(ACCOUNT_ORDER_KEY, order.toString()).apply();
+        }
+    }
+
     private void updateAccounts() {
         accountNumbers.clear();
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
@@ -383,7 +401,15 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
                 accountNumbers.add(a);
             }
         }
+        final ArrayList<Integer> savedOrder = getSavedAccountOrder();
         Collections.sort(accountNumbers, (o1, o2) -> {
+            int saved1 = savedOrder.indexOf(o1);
+            int saved2 = savedOrder.indexOf(o2);
+            if (saved1 >= 0 || saved2 >= 0) {
+                if (saved1 < 0) return 1;
+                if (saved2 < 0) return -1;
+                return Integer.compare(saved1, saved2);
+            }
             long l1 = UserConfig.getInstance(o1).loginTime;
             long l2 = UserConfig.getInstance(o2).loginTime;
             if (l1 > l2) {
@@ -504,9 +530,11 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             if (!hasAddAccount) {
                 items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
             }
+            adapter.reorderSectionStart();
             for (int i = 0; i < accountNumbers.size(); ++i) {
                 items.add(SettingsActivity.AccountCell.Factory.of(i, accountNumbers.get(i)));
             }
+            adapter.reorderSectionEnd();
         }
         final int remainingAccountSlots = Math.max(0, UserConfig.MAX_ACCOUNT_COUNT - activatedAccounts);
         items.add(UItem.asCustomShadow(new HuanghunAccountSummaryView(getParentActivity(), activatedAccounts, remainingAccountSlots), LayoutHelper.WRAP_CONTENT));

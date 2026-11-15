@@ -557,8 +557,11 @@ public abstract class BaseFragment {
                 || simpleName.contains("AutoDeleteMessages") || simpleName.contains("WallpapersList"))) return;
 
         fragmentView.setBackground(Theme.getCachedWallpaper());
+        if (getParentActivity() != null && getParentActivity().getWindow() != null) {
+            getParentActivity().getWindow().setStatusBarColor(Color.TRANSPARENT);
+        }
         if (actionBar != null) {
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setWallpaperBackground(Theme.getCachedWallpaperNonBlocking());
             actionBar.setCastShadows(false);
         }
         applyTransparentSettingsSections(fragmentView);
@@ -576,6 +579,20 @@ public abstract class BaseFragment {
                 clearOpaqueSettingsFills(fragmentView);
             }
         }, 120);
+        // Sticker packs, chat folders and several native settings lists bind
+        // their rows asynchronously. A one-shot cleanup races that binding
+        // and leaves white panels behind, so clean them during the draw pass
+        // while this fragment is visible.
+        fragmentView.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                if (fragmentView == null) {
+                    return true;
+                }
+                clearOpaqueSettingsFills(fragmentView);
+                return true;
+            }
+        });
     }
 
     /** Replace the legacy opaque white section renderer only on wallpaper-backed settings pages. */

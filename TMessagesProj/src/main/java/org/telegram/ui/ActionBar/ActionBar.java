@@ -2209,6 +2209,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         invalidate();
     }
 
+    /** Paint the same wallpaper used by a wallpaper-backed settings page. */
+    public void setWallpaperBackground(Drawable wallpaper) {
+        actionBarColor = Color.TRANSPARENT;
+        setBackgroundDrawable(wallpaper);
+        setShadowAlpha(0);
+        invalidate();
+    }
+
     private int forcedMenuWidth;
     private boolean hasForcedMenuWidth;
 
@@ -2515,6 +2523,24 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             } else if (titleTextView[0] != null) {
                 titleTextView[0].setAlpha(1.0f - onTopAnimated);
             }
+        }
+
+        // Wallpaper-backed settings pages use -1/-1 to request a transparent
+        // action bar. Keep the wallpaper drawable instead of replacing it
+        // with a transparent ColorDrawable, which exposes the black window
+        // background above child settings fragments.
+        if (adaptive_topColorKey == -1 && adaptive_lowerColorKey == -1) {
+            Drawable wallpaper = Theme.getCachedWallpaperNonBlocking();
+            if (wallpaper != null) {
+                setWallpaperBackground(wallpaper);
+            } else {
+                setBackgroundColor(Color.TRANSPARENT);
+            }
+            setShadowAlpha(0);
+            if (blurredBackground) {
+                invalidate();
+            }
+            return;
         }
 
         final float factor = onTopAnimated;
