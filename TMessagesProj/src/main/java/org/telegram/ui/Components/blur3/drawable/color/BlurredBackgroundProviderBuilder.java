@@ -29,6 +29,7 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
     private ColorProvider backgroundColor;
     private ColorProvider liquidGlassTintColor;
     private float strokeWidthTop, strokeWidthBottom, shadowRadius, shadowDx, shadowDy;
+    private float backdropAlpha = 1f;
 
     public BlurredBackgroundProviderBuilder setShadowColor(@ColorInt int light, @ColorInt int dark) {
         shadowColor = create(light, dark);
@@ -52,6 +53,17 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
 
     public BlurredBackgroundProviderBuilder setLiquidGlassTintColor(ColorProvider colorProvider) {
         liquidGlassTintColor = colorProvider;
+        return this;
+    }
+
+    /**
+     * Scales the opacity of the entire glass fill, including the blurred
+     * backdrop and the milky liquid-glass pass. Lower values keep the sharp
+     * wallpaper behind the surface visible instead of replacing it with the
+     * frosted snapshot.
+     */
+    public BlurredBackgroundProviderBuilder setBackdropAlpha(float backdropAlpha) {
+        this.backdropAlpha = Math.max(0f, Math.min(1f, backdropAlpha));
         return this;
     }
 
@@ -134,6 +146,11 @@ public class BlurredBackgroundProviderBuilder implements BlurredBackgroundProvid
     @Override
     public float getShadowDy() {
         return shadowDy;
+    }
+
+    @Override
+    public float getBackdropAlpha() {
+        return backdropAlpha;
     }
 
     private static boolean useLiquidGlassMaterial() {

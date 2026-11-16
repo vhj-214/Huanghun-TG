@@ -16,6 +16,15 @@ import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProvider
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProviderBuilder;
 
 public class BlurredBackgroundProviderImpl {
+    /**
+     * Opacity of the glass fill used by the chat action bar pills and the
+     * chat top panel card (add contact / translate / pinned message...).
+     * 0.50 keeps the frosted look while letting half of the sharp wallpaper
+     * behind the chat chrome remain visible. Lower it to make the wallpaper
+     * stronger, raise it for a more solid panel.
+     */
+    public static final float CHAT_TOP_GLASS_OPACITY = 0.50f;
+
     public static BlurredBackgroundProvider mainTabs(Theme.ResourcesProvider resourcesProvider) {
         if (LiteMode.isLiquidGlassEnabled()) {
             return mainNavigationTransparentGlass(resourcesProvider);
@@ -231,16 +240,22 @@ public class BlurredBackgroundProviderImpl {
                         // Keep the fallback translucent as well. A fully opaque
                         // fallback is the white card seen on devices where the
                         // blur source is unavailable or is still being rebuilt.
-                        return Theme.multAlpha(colorBg, 0.24f);
+                        return Theme.multAlpha(colorBg, 0.14f);
                     }
 
                     // The previous 0.76/0.85 alpha hid the wallpaper and made
                     // the common header/pinned panel look like a white sheet.
                     // Keep a readable but genuinely translucent liquid-glass
                     // surface for every chat type.
-                    final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.34f : 0.27f;
+                    final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.20f : 0.16f;
                     return Theme.multAlpha(colorBg, alpha);
                 })
+                // The blurred snapshot and the milky liquid-glass pass used to
+                // be composed at full opacity, so even a low tint looked like a
+                // solid panel. Half opacity keeps the frosted character while
+                // letting the sharp wallpaper behind the chat header and the
+                // "add contact / translate" card clearly show through.
+                .setBackdropAlpha(CHAT_TOP_GLASS_OPACITY)
                 .setStrokeColorTop(0xFFFFFFFF, 0x20FFFFFF)
                 .setStrokeColorBottom(0xFFFFFFFF, 0x14FFFFFF)
                 .setShadowColor(0x20000000, 0)
@@ -272,12 +287,13 @@ public class BlurredBackgroundProviderImpl {
                         ? Theme.key_actionBarDefault
                         : Theme.key_chat_topPanelBackground, r);
                 if (!checkBlurEnabled(resourcesProvider)) {
-                    return Theme.multAlpha(colorBg, 0.24f);
+                    return Theme.multAlpha(colorBg, 0.14f);
                 }
 
-                final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.34f : 0.27f;
+                final float alpha = LiteMode.isLiquidGlassEnabled() ? 0.20f : 0.16f;
                 return Theme.multAlpha(colorBg, alpha);
             })
+            .setBackdropAlpha(CHAT_TOP_GLASS_OPACITY)
             .setStrokeColorTop(0, 0)
             .setStrokeColorBottom(0, 0)
             .setShadowColor(0, 0)

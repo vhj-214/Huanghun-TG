@@ -189,9 +189,15 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
         if (Color.alpha(backgroundColor) == 255) {
             c.drawColor(backgroundColor);
         } else {
+            // Let the sharp wallpaper show through the frosted snapshot. The
+            // fill node contains the blurred source, the milky liquid-glass
+            // veil and (for AGSL) the refraction effect, so fading this node
+            // keeps every layer consistent instead of turning the surface into
+            // an opaque sheet.
+            renderNodeFill.setAlpha(backdropAlpha);
             c.drawRenderNode(renderNodeFill);
             if (liquidGlassEffect == null && Color.alpha(backgroundColor) != 0) {
-                c.drawColor(backgroundColor);
+                c.drawColor(Theme.multAlpha(backgroundColor, backdropAlpha));
             }
         }
         if (strokeColorTop != 0) {
@@ -251,6 +257,13 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
     public void invalidateDisplayList() {
         renderNodeInvalidated = true;
+    }
+
+    @Override
+    public BlurredBackgroundDrawable setBackdropAlpha(float backdropAlpha) {
+        super.setBackdropAlpha(backdropAlpha);
+        renderNodeInvalidated = true;
+        return this;
     }
 
     @Override

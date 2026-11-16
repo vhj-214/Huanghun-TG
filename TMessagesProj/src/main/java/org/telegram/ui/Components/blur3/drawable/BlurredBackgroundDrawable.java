@@ -215,6 +215,9 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
             setStrokeWidth(provider.getStrokeWidthTop(), provider.getStrokeWidthBottom());
             setShadowParams(provider.getShadowRadius(), provider.getShadowDx(), provider.getShadowDy());
         }
+        if (colorProvider != null) {
+            setBackdropAlpha(colorProvider.getBackdropAlpha());
+        }
         return this;
     }
 
@@ -390,6 +393,23 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
     }
 
     protected int alpha = 255;
+
+    /**
+     * Opacity of the glass fill itself (blurred backdrop + liquid-glass veil +
+     * tint). The view alpha ({@link #alpha}) stays independent so visibility
+     * animations keep working; this value only controls how much of the
+     * surface is composed over the wallpaper underneath.
+     */
+    protected float backdropAlpha = 1f;
+
+    public BlurredBackgroundDrawable setBackdropAlpha(float backdropAlpha) {
+        this.backdropAlpha = Math.max(0f, Math.min(1f, backdropAlpha));
+        return this;
+    }
+
+    public float getBackdropAlpha() {
+        return backdropAlpha;
+    }
 
     @Override
     public void setAlpha(int alpha) {
@@ -622,11 +642,14 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
 
 
     private void drawSourceAny(Canvas canvas, BlurredBackgroundSource source) {
-        if (alpha == 0) {
+        if (alpha == 0 || backdropAlpha == 0) {
             return;
         }
 
-        final int backgroundColor = Theme.multAlpha(this.backgroundColor, alpha / 255f);
+        // The view alpha is applied by the save-layer below, so the fill parts
+        // only carry the surface translucency here; multiplying both would fade
+        // the glass twice during visibility animations.
+        final int backgroundColor = Theme.multAlpha(this.backgroundColor, backdropAlpha);
         if (Color.alpha(shadowColor) > 0 && alpha == 255 && shadowAlpha > 0) {
             shadowPaint.setShadowLayer(shadowLayerRadius, shadowLayerDx, shadowLayerDy, Theme.multAlpha(shadowColor, shadowAlpha));
             boundProps.drawShadows(canvas, shadowPaint, inAppKeyboardOptimization);
@@ -645,6 +668,12 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
                     boundProps.boundsWithPadding.right, boundProps.boundsWithPadding.bottom, alpha);
         }
 
+        final int surfaceAlpha = Math.round(255 * backdropAlpha);
+        final boolean fadeSource = surfaceAlpha != 255;
+        if (fadeSource) {
+            canvas.saveLayerAlpha(boundProps.boundsWithPadding.left, boundProps.boundsWithPadding.top,
+                    boundProps.boundsWithPadding.right, boundProps.boundsWithPadding.bottom, surfaceAlpha);
+        }
         canvas.save();
         canvas.clipPath(boundProps.path);
         canvas.translate(
@@ -654,13 +683,16 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         canvas.translate(-sL, -sT);
         source.draw(canvas, sL, sT, sR, sB);
         canvas.restore();
+        if (fadeSource) {
+            canvas.restore();
+        }
 
         if (Color.alpha(backgroundColor) > 0) {
             backgroundColorPaint.setColor(backgroundColor);
             boundProps.draw(canvas, backgroundColorPaint);
         }
 
-        drawCrossVersionLiquidGlass(canvas);
+        drawCrossVersionLiquidGlass(canvas, surfaceAlpha);
         drawStrokeInternalIfNeeded(canvas);
 
         if (needSaveLayer) {
@@ -673,9 +705,13 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
     }
 
     private void drawSourceColorImpl(Canvas canvas, int sourceColor) {
+        final int effectiveAlpha = Math.round(alpha * backdropAlpha);
+        if (effectiveAlpha == 0) {
+            return;
+        }
         final int fillColor = ColorUtils.compositeColors(this.backgroundColor, sourceColor);
         if (Color.alpha(fillColor) == 0 && Color.alpha(shadowColor) == 0) {
-            drawCrossVersionLiquidGlass(canvas);
+            drawCrossVersionLiquidGlass(canvas, effectiveAlpha);
             return;
         }
 
@@ -686,12 +722,16 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
             boundProps.boundsWithPadding.right + ninePatchDrawablePadding.right,
             boundProps.boundsWithPadding.bottom + ninePatchDrawablePadding.bottom
         );
-        ninePatchDrawable.setAlpha(alpha);
+        ninePatchDrawable.setAlpha(effectiveAlpha);
         ninePatchDrawable.draw(canvas);
-        drawCrossVersionLiquidGlass(canvas);
+        drawCrossVersionLiquidGlass(canvas, effectiveAlpha);
     }
 
     private void drawSourceBitmap(Canvas canvas, BlurredBackgroundSourceBitmap source) {
+        final int effectiveAlpha = Math.round(alpha * backdropAlpha);
+        if (effectiveAlpha == 0) {
+            return;
+        }
         final Bitmap newBitmap = source.getBitmap();
         final Bitmap oldBitmap = bitmapInShader;
 
@@ -715,25 +755,25 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
                 boundProps.boundsWithPadding.right + ninePatchDrawablePadding.right,
                 boundProps.boundsWithPadding.bottom + ninePatchDrawablePadding.bottom
             );
-            ninePatchDrawable.setAlpha(alpha);
+            ninePatchDrawable.setAlpha(effectiveAlpha);
             ninePatchDrawable.draw(canvas);
         }
 
-        if (bitmapShader != null && newBitmap != null && !newBitmap.isRecycled() && alpha > 0) {
+        if (bitmapShader != null && newBitmap != null && !newBitmap.isRecycled() && effectiveAlpha > 0) {
             bitmapShaderMatrix.set(source.getMatrix());
             bitmapShaderMatrix.postTranslate(-sourceOffsetX, -sourceOffsetY);
             bitmapShader.setLocalMatrix(bitmapShaderMatrix);
-            backgroundBitmapPaint.setAlpha(alpha);
+            backgroundBitmapPaint.setAlpha(effectiveAlpha);
             boundProps.draw(canvas, backgroundBitmapPaint);
         }
 
-        final int backgroundColor = Theme.multAlpha(this.backgroundColor, alpha / 255f);
+        final int backgroundColor = Theme.multAlpha(this.backgroundColor, effectiveAlpha / 255f);
         if (Color.alpha(backgroundColor) > 0) {
             backgroundBitmapFill.setColor(backgroundColor);
             boundProps.draw(canvas, backgroundBitmapFill);
         }
 
-        drawCrossVersionLiquidGlass(canvas);
+        drawCrossVersionLiquidGlass(canvas, effectiveAlpha);
         drawStrokeInternalIfNeeded(canvas);
     }
 
@@ -743,14 +783,15 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
      * receive this software-composited glass pass: milky tint, diagonal sheen,
      * and a two-sided rim for the thick iOS-style edge.
      */
-    private void drawCrossVersionLiquidGlass(Canvas canvas) {
-        if (!LiteMode.isLiquidGlassEnabled() || alpha == 0
+    private void drawCrossVersionLiquidGlass(Canvas canvas, int effectiveAlpha) {
+        if (!LiteMode.isLiquidGlassEnabled() || effectiveAlpha == 0
                 || boundProps.boundsWithPadding.isEmpty()) {
             return;
         }
 
         final Rect bounds = boundProps.boundsWithPadding;
         final boolean dark = Theme.isCurrentThemeDark();
+        final float a = effectiveAlpha / 255f;
         canvas.save();
         canvas.clipPath(boundProps.path);
 
@@ -758,19 +799,19 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         liquidGlassPaint.setShader(new LinearGradient(
                 bounds.left, bounds.top, bounds.right, bounds.bottom,
                 dark
-                        ? new int[] { 0x38FFFFFF, 0x0CFFFFFF, 0x18000000 }
-                        : new int[] { 0x58FFFFFF, 0x14FFFFFF, 0x10000000 },
+                        ? new int[] { Theme.multAlpha(0x38FFFFFF, a), Theme.multAlpha(0x0CFFFFFF, a), Theme.multAlpha(0x18000000, a) }
+                        : new int[] { Theme.multAlpha(0x58FFFFFF, a), Theme.multAlpha(0x14FFFFFF, a), Theme.multAlpha(0x10000000, a) },
                 new float[] { 0f, 0.44f, 1f }, Shader.TileMode.CLAMP));
         canvas.drawPath(boundProps.path, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
 
         liquidGlassRimPaint.setStyle(Paint.Style.STROKE);
         liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.7f), 1f));
-        liquidGlassRimPaint.setColor(dark ? 0x58FFFFFF : 0x72FFFFFF);
+        liquidGlassRimPaint.setColor(Theme.multAlpha(dark ? 0x58FFFFFF : 0x72FFFFFF, a));
         canvas.drawPath(boundProps.path, liquidGlassRimPaint);
 
         liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.55f), 1f));
-        liquidGlassRimPaint.setColor(dark ? 0x28000000 : 0x22000000);
+        liquidGlassRimPaint.setColor(Theme.multAlpha(dark ? 0x28000000 : 0x22000000, a));
         canvas.drawPath(boundProps.path, liquidGlassRimPaint);
         canvas.restore();
     }
