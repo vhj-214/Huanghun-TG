@@ -26,6 +26,7 @@ import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
 import android.view.ViewParent;
 import android.view.Window;
 import android.view.accessibility.AccessibilityManager;
@@ -37,6 +38,7 @@ import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.SimpleItemAnimator;
 
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
@@ -541,9 +543,16 @@ public abstract class BaseFragment {
 
     /** Apply the settings wallpaper consistently to legacy settings fragments. */
     private void applySettingsGlassWallpaper() {
-        if (fragmentView == null || fragmentView instanceof org.telegram.ui.Components.LoginBackgroundLayout || Theme.getCachedWallpaper() == null) return;
+        if (fragmentView == null || fragmentView instanceof org.telegram.ui.Components.LoginBackgroundLayout) return;
+        // Never wait for Theme's wallpaper worker on the UI thread while a page
+        // is being opened. If the cache is not ready, retain the page's safe
+        // native background and let the next resume apply the wallpaper.
+        final Drawable cachedWallpaper = Theme.getCachedWallpaperNonBlocking();
+        if (cachedWallpaper == null) return;
         final String name = getClass().getName();
-        if (!name.startsWith("org.telegram.ui.") || name.equals("org.telegram.ui.SettingsActivity")) return;
+        boolean huanghunServiceScreen = name.equals("com.Huanghun.HuanghunServiceActivity")
+                || name.equals("com.Huanghun.HuanghunDeviceDetailsActivity");
+        if ((!name.startsWith("org.telegram.ui.") && !huanghunServiceScreen) || name.equals("org.telegram.ui.SettingsActivity")) return;
         final String simpleName = name.substring(name.lastIndexOf('.') + 1);
         // This covers the complete Settings -> Chat through Power Saving
         // navigation chain, including child screens opened from those entries.
@@ -560,14 +569,27 @@ public abstract class BaseFragment {
                 || simpleName.contains("QuickReplies") || simpleName.contains("SaveToGallery")
                 || simpleName.contains("LiteMode") || simpleName.contains("AutoDeleteMessages")
                 || simpleName.contains("WallpapersList") || simpleName.contains("PeerColor")
-                || simpleName.contains("Reactions") || simpleName.contains("PinnedReactions"))) return;
+                || simpleName.contains("Reactions") || simpleName.contains("PinnedReactions")
+                || simpleName.contains("HuanghunService") || simpleName.contains("HuanghunDeviceDetails"))) return;
 
-        fragmentView.setBackground(Theme.getCachedWallpaper());
+        Drawable rootWallpaper = cloneWallpaperForView(cachedWallpaper, fragmentView);
+        if (rootWallpaper == null) {
+            rootWallpaper = cachedWallpaper;
+        }
+        fragmentView.setBackground(rootWallpaper);
         if (getParentActivity() != null && getParentActivity().getWindow() != null) {
             getParentActivity().getWindow().setStatusBarColor(Color.TRANSPARENT);
         }
         if (actionBar != null) {
-            actionBar.setWallpaperBackground(Theme.getCachedWallpaperNonBlocking());
+            // Do not attach the same Drawable instance to both sibling views:
+            // Drawable has a single callback owner. For non-cloneable wallpaper
+            // types the transparent ActionBar reveals the root wallpaper below.
+            Drawable actionBarWallpaper = cloneWallpaperForView(cachedWallpaper, actionBar);
+            if (actionBarWallpaper != null) {
+                actionBar.setWallpaperBackground(actionBarWallpaper);
+            } else {
+                actionBar.setBackgroundColor(Color.TRANSPARENT);
+            }
             actionBar.setCastShadows(false);
         }
         applyTransparentSettingsSections(fragmentView);
@@ -577,18 +599,43 @@ public abstract class BaseFragment {
         // backgrounds from a per-frame drawing callback: doing so races
         // RecyclerView/blurred wallpaper rendering and briefly exposes the
         // window black fallback on every scroll frame.
-        fragmentView.post(() -> {
-            if (fragmentView != null) {
-                clearOpaqueSettingsFills(fragmentView);
+        final View targetView = fragmentView;
+        targetView.post(() -> {
+            if (fragmentView == targetView && !isPaused && !isFinished && targetView.getParent() != null) {
+                clearOpaqueSettingsFills(targetView);
             }
         });
     }
 
+    @Nullable
+    private Drawable cloneWallpaperForView(@NonNull Drawable source, @NonNull View target) {
+        Drawable.ConstantState constantState = source.getConstantState();
+        if (constantState == null) {
+            return null;
+        }
+        try {
+            return constantState.newDrawable(target.getResources()).mutate();
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return null;
+        }
+    }
+
     /** Replace the legacy opaque white section renderer only on wallpaper-backed settings pages. */
     private void applyTransparentSettingsSections(View view) {
+        if (view instanceof WebView) {
+            return;
+        }
         if (view instanceof RecyclerListView) {
+            RecyclerListView listView = (RecyclerListView) view;
+            // Wallpaper-backed glass rows are translucent. RecyclerView's default
+            // change cross-fade draws old and new holders over one another, which
+            // appears as ghosted text and panels during async refreshes.
+            if (listView.getItemAnimator() instanceof SimpleItemAnimator) {
+                ((SimpleItemAnimator) listView.getItemAnimator()).setSupportsChangeAnimations(false);
+            }
             final Paint glassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            ((RecyclerListView) view).setSections(
+            listView.setSections(
                     sectionView -> !(sectionView instanceof org.telegram.ui.Cells.ShadowSectionCell),
                     AndroidUtilities.dp(12),
                     AndroidUtilities.dp(16),
@@ -612,6 +659,11 @@ public abstract class BaseFragment {
     }
 
     private void clearOpaqueSettingsFills(View view) {
+        // WebView owns an internal rendering hierarchy; its page background is
+        // controlled by the HTML/CSS and must not be rewritten recursively.
+        if (view instanceof WebView) {
+            return;
+        }
         if (view != fragmentView && view.getBackground() instanceof ColorDrawable) {
             int color = ((ColorDrawable) view.getBackground()).getColor();
             if (color == Theme.getColor(Theme.key_windowBackgroundWhite)

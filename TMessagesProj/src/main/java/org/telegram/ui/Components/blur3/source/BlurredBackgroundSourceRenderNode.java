@@ -86,11 +86,10 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
         if (inRecording) {
             throw new IllegalStateException();
         }
-
-        inRecording = true;
-
         renderNode.setPosition(0, 0, width, height);
-        recordingCanvas = renderNode.beginRecording(width, height);
+        RecordingCanvas canvas = renderNode.beginRecording(width, height);
+        recordingCanvas = canvas;
+        inRecording = true;
         return recordingCanvas;
     }
 
@@ -99,9 +98,12 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
             throw new IllegalStateException();
         }
 
-        renderNode.endRecording();
-        inRecording = false;
-        recordingCanvas = null;
+        try {
+            renderNode.endRecording();
+        } finally {
+            inRecording = false;
+            recordingCanvas = null;
+        }
     }
 
     public boolean isRecordingCanvas(Canvas canvas) {

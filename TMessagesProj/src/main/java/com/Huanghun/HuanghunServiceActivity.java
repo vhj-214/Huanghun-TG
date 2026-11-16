@@ -1,6 +1,8 @@
 package com.Huanghun;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
@@ -28,6 +30,7 @@ import java.util.regex.Pattern;
 public class HuanghunServiceActivity extends BaseFragment {
     private TextSettingsCell checkUpdateCell;
     private TextSettingsCell updateCell;
+    private TextSettingsCell deviceDetailsCell;
     private TextInfoPrivacyCell infoCell;
     private boolean loading;
 
@@ -43,11 +46,19 @@ public class HuanghunServiceActivity extends BaseFragment {
         });
 
         FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        root.setBackgroundColor(Color.TRANSPARENT);
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        root.addView(content, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+        content.setBackground(createGlassPanel());
+        content.setClipToOutline(true);
+        content.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8));
+        FrameLayout.LayoutParams contentParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP);
+        contentParams.leftMargin = AndroidUtilities.dp(12);
+        contentParams.rightMargin = AndroidUtilities.dp(12);
+        contentParams.topMargin = AndroidUtilities.statusBarHeight + AndroidUtilities.dp(64);
+        contentParams.bottomMargin = AndroidUtilities.dp(16);
+        root.addView(content, contentParams);
 
         checkUpdateCell = new TextSettingsCell(context);
         checkUpdateCell.setTextAndValue("检查客户端更新", "立即检查", false);
@@ -59,13 +70,26 @@ public class HuanghunServiceActivity extends BaseFragment {
         updateCell.setOnClickListener(v -> updateConfiguration());
         content.addView(updateCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56));
 
+        deviceDetailsCell = new TextSettingsCell(context);
+        deviceDetailsCell.setTextAndValue("查看本机详情", "打开", false);
+        deviceDetailsCell.setOnClickListener(v -> presentFragment(new HuanghunDeviceDetailsActivity()));
+        content.addView(deviceDetailsCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56));
+
         infoCell = new TextInfoPrivacyCell(context);
-        infoCell.setBackgroundDrawable(Theme.getThemedDrawableByKey(context, R.drawable.greydivider_bottom, Theme.key_windowBackgroundGrayShadow));
+        infoCell.setBackgroundColor(Color.TRANSPARENT);
         infoCell.setText("检查客户端更新会比较本机版本与服务器版本。发现新版后可通过管理员配置的 HTTPS 更新链接打开外部更新页面。代理获取请前往：设置 → 数据和存储 → 代理设置。");
         content.addView(infoCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         fragmentView = root;
         return fragmentView;
+    }
+
+    private GradientDrawable createGlassPanel() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Theme.isCurrentThemeDark() ? 0x3D111820 : 0x38FFFFFF);
+        drawable.setCornerRadius(AndroidUtilities.dp(18));
+        drawable.setStroke(AndroidUtilities.dp(1), Theme.isCurrentThemeDark() ? 0x30FFFFFF : 0x55FFFFFF);
+        return drawable;
     }
 
     private void checkForUpdates() {
@@ -289,6 +313,7 @@ public class HuanghunServiceActivity extends BaseFragment {
     public void onFragmentDestroy() {
         checkUpdateCell = null;
         updateCell = null;
+        deviceDetailsCell = null;
         infoCell = null;
         super.onFragmentDestroy();
     }

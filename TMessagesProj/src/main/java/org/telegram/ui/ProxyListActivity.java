@@ -1177,6 +1177,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 }
 
                 boolean checking = false;
+                boolean initialCheckCompleted = false;
                 if (!wasCheckedAllList) {
                     for (SharedConfig.ProxyInfo info : proxyList) {
                         if (info.checking || info.availableCheckTime == 0) {
@@ -1186,9 +1187,15 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     }
                     if (!checking) {
                         wasCheckedAllList = true;
+                        initialCheckCompleted = true;
                     }
                 }
-                if (!checking) {
+                // A full adapter refresh calls updateRows(), which in turn starts
+                // proxy checks again. Doing that for every subsequent health-check
+                // completion creates a refresh/probe loop and makes the list flicker.
+                // Keep the initial one-time refresh (to apply the first sorted order),
+                // then update only the individual row above.
+                if (initialCheckCompleted) {
                     updateRows(true);
                 }
             }

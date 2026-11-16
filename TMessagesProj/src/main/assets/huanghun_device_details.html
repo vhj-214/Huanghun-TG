@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>本机详情 · 黄昏</title>
+<style>
+:root{--glass:rgba(255,255,255,.42);--glass-strong:rgba(255,255,255,.56);--line:rgba(255,255,255,.48);--text:#18251f;--muted:#58675f;--accent:#168dc0;--teal:#168f82;--warn:#bd7812;--radius:18px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:transparent!important;-webkit-text-size-adjust:100%}
+body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.55;padding:calc(env(safe-area-inset-top) + 56px) 14px env(safe-area-inset-bottom)}
+.wrap{max-width:940px;margin:0 auto;padding:14px 0 32px}
+.glass{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);-webkit-backdrop-filter:blur(22px) saturate(1.25);backdrop-filter:blur(22px) saturate(1.25);box-shadow:0 8px 28px rgba(20,35,28,.10),inset 0 1px 0 rgba(255,255,255,.30)}
+.hero{padding:20px;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;width:210px;height:210px;right:-90px;top:-100px;background:radial-gradient(circle,rgba(56,189,248,.18),transparent 68%);pointer-events:none}
+.brand{color:var(--muted);font-size:12px;letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#36a978;box-shadow:0 0 8px rgba(54,169,120,.65)}
+h1{font-size:clamp(22px,5vw,30px);line-height:1.25;margin:12px 0 7px;overflow-wrap:anywhere}
+.sub{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.chip{background:var(--glass-strong);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12px;color:var(--muted)}
+.chip b{color:var(--text);font-weight:650}
+.clock{margin-top:14px;padding:14px 16px;border-radius:15px;background:rgba(255,255,255,.34);border:1px solid var(--line)}
+.clock-label{color:var(--muted);font-size:12px}
+.time{color:var(--accent);font-size:clamp(26px,6vw,36px);font-variant-numeric:tabular-nums;font-weight:700;line-height:1.25;margin-top:3px}
+.date{font-size:13px;margin-top:3px}.tz{color:var(--muted);font-size:11px}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.stat{padding:14px;min-width:0}
+.label{color:var(--muted);font-size:12px}
+.value{font-size:clamp(18px,4.4vw,22px);font-weight:700;overflow-wrap:anywhere;margin-top:4px;font-variant-numeric:tabular-nums}
+.bar{height:5px;border-radius:6px;background:rgba(24,37,31,.13);margin-top:9px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:inherit;background:var(--accent);transition:width .35s ease}
+.stat:nth-child(2) .bar i{background:var(--teal)}.stat:nth-child(3) .bar i{background:var(--warn)}.stat:nth-child(4) .bar i{background:#7b68bd}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+.card{padding:15px 16px 5px;min-width:0}
+.card h2{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:7px}
+.card h2:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid rgba(30,50,40,.12);font-size:13px}
+.key{color:var(--muted)}.val{overflow-wrap:anywhere}
+code{background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.42);border-radius:5px;padding:1px 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+footer{text-align:center;color:var(--muted);font-size:11px;line-height:1.65;padding:16px 8px 0}
+@media(min-width:700px){body{padding-left:22px;padding-right:22px}.hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(230px,.8fr);align-items:center;gap:18px}.clock{margin-top:0}.stats{grid-template-columns:repeat(4,minmax(0,1fr))}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card.wide{grid-column:1/-1}.row{grid-template-columns:145px minmax(0,1fr)}}
+@media(max-width:360px){.row{grid-template-columns:96px minmax(0,1fr);gap:7px;font-size:12px}.hero,.card{padding-left:13px;padding-right:13px}}
+@media(prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero glass">
+    <div>
+      <div class="brand"><span class="dot"></span>本机客户端与设备信息 · 本地读取</div>
+      <h1><span id="deviceManufacturer">读取中</span> <span id="deviceModel"></span></h1>
+      <div class="sub" id="appSummary">正在读取本机应用、设备和系统信息…</div>
+      <div class="chips">
+        <span class="chip">客户端 <b id="chipAppVersion">—</b></span>
+        <span class="chip">系统 <b id="chipAndroid">—</b></span>
+        <span class="chip">架构 <b id="chipAbi">—</b></span>
+        <span class="chip">刷新率 <b id="chipRefresh">—</b></span>
+        <span class="chip">语言 <b id="chipLanguage">—</b></span>
+      </div>
+    </div>
+    <div class="clock"><div class="clock-label">本机时间 · <span id="clockZone">读取时区中</span></div><div class="time" id="clockTime">--:--:--</div><div class="date" id="clockDate">—</div><div class="tz" id="clockTz">本地时区</div></div>
+  </header>
+  <section class="stats">
+    <div class="stat glass"><div class="label">可用内存 · 总量 <span id="memTotalLabel">—</span></div><div class="value" id="memVal">—</div><div class="bar"><i id="memBar"></i></div></div>
+    <div class="stat glass"><div class="label">可用存储 · 总量 <span id="storTotalLabel">—</span></div><div class="value" id="storVal">—</div><div class="bar"><i id="storBar"></i></div></div>
+    <div class="stat glass"><div class="label">电量 · <span id="battState">读取中</span></div><div class="value" id="battVal">—</div><div class="bar"><i id="battBar"></i></div></div>
+    <div class="stat glass"><div class="label">黄昏客户端版本</div><div class="value" id="appVersionVal">读取中</div><div class="bar"><i style="width:100%"></i></div></div>
+  </section>
+  <main class="grid">
+    <section class="card glass">
+      <h2>客户端与设备</h2>
+      <div class="row"><div class="key">应用名称</div><div class="val" id="appNameValue">—</div></div>
+      <div class="row"><div class="key">客户端版本</div><div class="val" id="appVersionValue">—</div></div>
+      <div class="row"><div class="key">版本号 / 构建号</div><div class="val" id="appVersionCodeValue">—</div></div>
+      <div class="row"><div class="key">应用包名</div><div class="val"><code id="packageValue">—</code></div></div>
+      <div class="row"><div class="key">设备厂商</div><div class="val" id="manufacturerValue">—</div></div>
+      <div class="row"><div class="key">设备型号</div><div class="val" id="modelValue">—</div></div>
+      <div class="row"><div class="key">设备代号 / 产品</div><div class="val"><code id="deviceValue">—</code> / <code id="productValue">—</code></div></div>
+      <div class="row"><div class="key">硬件平台</div><div class="val" id="hardwareValue">—</div></div>
+      <div class="row"><div class="key">CPU 架构 ABI</div><div class="val"><code id="abiValue">—</code></div></div>
+    </section>
+    <section class="card glass">
+      <h2>Android 系统</h2>
+      <div class="row"><div class="key">系统版本</div><div class="val" id="androidVersion">—</div></div>
+      <div class="row"><div class="key">系统构建版本</div><div class="val" id="androidBuildValue">—</div></div>
+      <div class="row"><div class="key">安全补丁</div><div class="val" id="securityPatchValue">—</div></div>
+      <div class="row"><div class="key">语言区域</div><div class="val"><code id="languageValue">—</code></div></div>
+      <div class="row"><div class="key">时区</div><div class="val" id="timezoneValue">—</div></div>
+      <div class="row"><div class="key">逻辑处理器</div><div class="val" id="nativeCores">—</div></div>
+      <div class="row"><div class="key">低内存状态</div><div class="val" id="lowMemoryValue">—</div></div>
+    </section>
+    <section class="card glass">
+      <h2>屏幕显示</h2>
+      <div class="row"><div class="key">物理分辨率</div><div class="val" id="nativeResolution">—</div></div>
+      <div class="row"><div class="key">屏幕密度</div><div class="val" id="nativeDensity">—</div></div>
+      <div class="row"><div class="key">刷新率</div><div class="val" id="nativeRefresh">—</div></div>
+      <div class="row"><div class="key">WebView 视口</div><div class="val" id="rtViewport">—</div></div>
+      <div class="row"><div class="key">设备像素比</div><div class="val" id="rtDpr">—</div></div>
+      <div class="row"><div class="key">屏幕方向</div><div class="val" id="rtOrient">—</div></div>
+    </section>
+    <section class="card glass">
+      <h2>内存与存储</h2>
+      <div class="row"><div class="key">总运行内存</div><div class="val" id="memoryTotalValue">—</div></div>
+      <div class="row"><div class="key">已用内存</div><div class="val" id="memUsedText">—</div></div>
+      <div class="row"><div class="key">应用堆内存上限</div><div class="val" id="appMemoryLimit">—</div></div>
+      <div class="row"><div class="key">总存储容量</div><div class="val" id="storageTotalValue">—</div></div>
+      <div class="row"><div class="key">已用存储</div><div class="val" id="storUsedText">—</div></div>
+    </section>
+    <section class="card glass wide">
+      <h2>WebView 运行时</h2>
+      <div class="row"><div class="key">网页平台</div><div class="val" id="rtPlatform">—</div></div>
+      <div class="row"><div class="key">在线状态</div><div class="val" id="rtOnline">—</div></div>
+      <div class="row"><div class="key">网络类型</div><div class="val" id="rtNetType">—</div></div>
+      <div class="row"><div class="key">浏览器语言</div><div class="val" id="rtLang">—</div></div>
+      <div class="row"><div class="key">Cookie 启用</div><div class="val" id="rtCookie">—</div></div>
+      <div class="row"><div class="key">触摸支持</div><div class="val" id="rtTouch">—</div></div>
+      <div class="row"><div class="key">用户代理 UA</div><div class="val" id="rtUA">—</div></div>
+      <div class="row"><div class="key">页面运行时长</div><div class="val" id="uptimeVal">00:00</div></div>
+      <div class="row"><div class="key">采集时间</div><div class="val" id="rtStamp">—</div></div>
+    </section>
+  </main>
+  <footer>设备与客户端信息由本机应用读取；网络状态等由 WebView 运行时读取。页面数据仅显示在本机，不会上传。内存与存储为打开页面时的瞬时快照。</footer>
+</div>
+<script>
+(function(){
+  var started=Date.now();
+  function $(id){return document.getElementById(id);}
+  function text(id,value){var el=$(id);if(el)el.textContent=(value===undefined||value===null||value==='')?'未知':String(value);}
+  function n(value){var result=Number(value);return isFinite(result)?result:0;}
+  function pct(used,total){return total>0?Math.round(used/total*1000)/10:0;}
+  function pad(value){return value<10?'0'+value:String(value);}
+  function tick(){
+    var now=new Date();
+    text('clockTime',new Intl.DateTimeFormat('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(now));
+    text('clockDate',new Intl.DateTimeFormat('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(now));
+    var zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'本地时区';
+    var offset=-now.getTimezoneOffset()/60,sign=offset>=0?'+':'-';
+    text('clockZone',zone);text('clockTz','UTC'+sign+Math.abs(offset)+' · '+zone);
+    var sec=Math.floor((Date.now()-started)/1000),h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+    text('uptimeVal',(h>0?pad(h)+':':'')+pad(m)+':'+pad(s));
+  }
+  tick();setInterval(tick,1000);
+  function updateViewport(){text('rtViewport',window.innerWidth+' × '+window.innerHeight+' px');text('rtDpr',window.devicePixelRatio?window.devicePixelRatio.toFixed(2):'不可用');text('rtOrient',window.innerWidth>=window.innerHeight?'横屏（Landscape）':'竖屏（Portrait）');}
+  updateViewport();window.addEventListener('resize',updateViewport);window.addEventListener('orientationchange',updateViewport);
+  text('rtPlatform',navigator.platform||'未知');text('rtOnline',navigator.onLine?'已联网':'离线');text('rtLang',navigator.language||'未知');
+  text('rtCookie',navigator.cookieEnabled?'已启用':'未启用');text('rtTouch',('ontouchstart' in navigator)?'支持触摸（'+(navigator.maxTouchPoints||1)+' 点）':'不支持触摸');
+  text('rtUA',navigator.userAgent||'未知');text('rtStamp',new Date().toLocaleString('zh-CN',{hour12:false}));
+  var conn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  text('rtNetType',conn?((conn.effectiveType||'未知').toUpperCase()+(conn.downlink?' · 下行约 '+conn.downlink+' Mbps':'')):'浏览器未提供网络信息');
+  window.setDeviceInfo=function(info){
+    info=info||{};
+    var appVersion=info.appVersion||'未知',code=info.appVersionCode||'未知';
+    var manufacturer=info.manufacturer||'未知',model=info.model||'未知';
+    text('deviceManufacturer',manufacturer);text('deviceModel',model);text('appNameValue',info.appName);text('appVersionVal',appVersion);
+    text('appVersionValue',appVersion);text('appVersionCodeValue',code);text('packageValue',info.packageName);
+    text('manufacturerValue',manufacturer);text('modelValue',model);text('deviceValue',info.device);text('productValue',info.product);
+    text('hardwareValue',info.hardware);text('abiValue',info.abi);text('chipAbi',info.abi);text('chipLanguage',info.language);
+    text('chipAppVersion',appVersion+' · '+code);text('chipAndroid','Android '+(info.androidRelease||'未知')+' / SDK '+(info.sdk||'未知'));
+    text('appSummary',(info.appName||'本机应用')+' '+appVersion+'（版本号 '+code+'），运行于 Android '+(info.androidRelease||'未知')+'。');
+    text('androidVersion','Android '+(info.androidRelease||'未知')+'（SDK '+(info.sdk||'未知')+'）');
+    text('androidBuildValue',info.androidBuild);text('securityPatchValue',info.securityPatch);text('languageValue',info.language);text('timezoneValue',info.timezone);
+    text('nativeCores',n(info.cores)+' 个逻辑核心');text('lowMemoryValue',info.lowMemory?'是（系统处于低内存状态）':'否');
+    text('nativeResolution',n(info.screenWidth)+' × '+n(info.screenHeight)+' 像素');
+    text('nativeDensity',n(info.density).toFixed(2)+'（'+n(info.densityDpi)+' dpi）');
+    text('nativeRefresh',n(info.refreshRate).toFixed(1)+' Hz');text('chipRefresh',n(info.refreshRate).toFixed(1)+' Hz');
+    var memTotal=n(info.memoryTotal),memAvailable=n(info.memoryAvailable),memUsed=Math.max(0,memTotal-memAvailable),memoryPercent=pct(memUsed,memTotal);
+    text('memTotalLabel',memTotal.toFixed(2)+' GB');text('memVal',memAvailable.toFixed(2)+' GB 可用');
+    text('memoryTotalValue',memTotal.toFixed(2)+' GB（可用 '+memAvailable.toFixed(2)+' GB）');
+    text('memUsedText',memUsed.toFixed(2)+' GB · 占用 '+memoryPercent+'%');text('appMemoryLimit',n(info.appMemoryLimit).toFixed(1)+' MB');
+    if($('memBar'))$('memBar').style.width=memoryPercent+'%';
+    var storageTotal=n(info.storageTotal),storageFree=n(info.storageFree),storageUsed=Math.max(0,storageTotal-storageFree),storagePercent=pct(storageUsed,storageTotal);
+    text('storTotalLabel',storageTotal.toFixed(2)+' GB');text('storVal',storageFree.toFixed(2)+' GB 可用');
+    text('storageTotalValue',storageTotal.toFixed(2)+' GB（可用 '+storageFree.toFixed(2)+' GB）');text('storUsedText',storageUsed.toFixed(2)+' GB · 占用 '+storagePercent+'%');
+    if($('storBar'))$('storBar').style.width=storagePercent+'%';
+    var battery=n(info.batteryPercent);
+    if(battery>=0){text('battVal',battery+' %');text('battState',info.charging?'充电中':'未充电');if($('battBar'))$('battBar').style.width=battery+'%';}
+    else{text('battVal','不可用');text('battState','系统未提供电量');}
+  };
+})();
+</script>
+</body>
+</html>

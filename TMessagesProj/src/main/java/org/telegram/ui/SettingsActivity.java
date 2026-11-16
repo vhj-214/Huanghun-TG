@@ -329,30 +329,52 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
             @Override
             protected void dispatchDraw(Canvas canvas) {
-                if (Build.VERSION.SDK_INT >= 31 && scrollableViewNoiseSuppressor != null) {
+                if (Build.VERSION.SDK_INT >= 31 && canvas.isHardwareAccelerated() && scrollableViewNoiseSuppressor != null) {
                     blur3_InvalidateBlur();
 
                     final int width = getMeasuredWidth();
                     final int height = getMeasuredHeight();
                     if (iBlur3SourceGlassFrosted != null && !iBlur3SourceGlassFrosted.inRecording()) {
-                        //if (iBlur3SourceGlassFrosted.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
-                        final Canvas c = iBlur3SourceGlassFrosted.beginRecording(width, height);
-                        c.drawColor(hasSettingsWallpaperLayer() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
-                        if (SharedConfig.chatBlurEnabled()) {
-                            scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_FROSTED_GLASS);
+                        boolean recording = false;
+                        try {
+                            final Canvas c = iBlur3SourceGlassFrosted.beginRecording(width, height);
+                            recording = true;
+                            c.drawColor(hasSettingsWallpaperLayer() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
+                            if (SharedConfig.chatBlurEnabled()) {
+                                scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_FROSTED_GLASS);
+                            }
+                        } catch (Throwable error) {
+                            FileLog.e(error);
+                        } finally {
+                            if (recording) {
+                                try {
+                                    iBlur3SourceGlassFrosted.endRecording();
+                                } catch (Throwable error) {
+                                    FileLog.e(error);
+                                }
+                            }
                         }
-                        iBlur3SourceGlassFrosted.endRecording();
-                        //}
                     }
                     if (iBlur3SourceGlass != null && !iBlur3SourceGlass.inRecording()) {
-                        //if (iBlur3SourceGlass.needUpdateDisplayList(width, height) || iBlur3Invalidated) {
-                        final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
-                        c.drawColor(hasSettingsWallpaperLayer() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
-                        if (SharedConfig.chatBlurEnabled()) {
-                            scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
+                        boolean recording = false;
+                        try {
+                            final Canvas c = iBlur3SourceGlass.beginRecording(width, height);
+                            recording = true;
+                            c.drawColor(hasSettingsWallpaperLayer() ? Color.TRANSPARENT : getThemedColor(Theme.key_windowBackgroundWhite));
+                            if (SharedConfig.chatBlurEnabled()) {
+                                scrollableViewNoiseSuppressor.draw(c, DownscaleScrollableNoiseSuppressor.DRAW_GLASS);
+                            }
+                        } catch (Throwable error) {
+                            FileLog.e(error);
+                        } finally {
+                            if (recording) {
+                                try {
+                                    iBlur3SourceGlass.endRecording();
+                                } catch (Throwable error) {
+                                    FileLog.e(error);
+                                }
+                            }
                         }
-                        iBlur3SourceGlass.endRecording();
-                        //}
                     }
                     iBlur3Invalidated = false;
                 }
@@ -364,15 +386,20 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
             @Override
             public void drawBlurRect(Canvas canvas, float y, Rect rectTmp, Paint blurScrimPaint, boolean top) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null) {
+                if (!canvas.isHardwareAccelerated() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !SharedConfig.chatBlurEnabled() || iBlur3SourceGlassFrosted == null) {
                     canvas.drawRect(rectTmp, blurScrimPaint);
                     return;
                 }
 
-                canvas.save();
-                canvas.translate(0, -y);
-                iBlur3SourceGlassFrosted.draw(canvas, rectTmp.left, rectTmp.top + y, rectTmp.right, rectTmp.bottom + y);
-                canvas.restore();
+                final int saveCount = canvas.save();
+                try {
+                    canvas.translate(0, -y);
+                    iBlur3SourceGlassFrosted.draw(canvas, rectTmp.left, rectTmp.top + y, rectTmp.right, rectTmp.bottom + y);
+                } catch (RuntimeException error) {
+                    FileLog.e(error);
+                } finally {
+                    canvas.restoreToCount(saveCount);
+                }
 
                 final int oldScrimAlpha = blurScrimPaint.getAlpha();
                 blurScrimPaint.setAlpha(ChatActivity.ACTION_BAR_BLUR_ALPHA);
@@ -488,7 +515,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
         });
         iBlur3Capture = new ViewGroupPartRenderer(listView, contentView, listView::drawChild);
-        listView.addEdgeEffectListener(() -> listView.postOnAnimation(this::blur3_InvalidateBlur));
+        listView.addEdgeEffectListener(() -> {
+            final UniversalRecyclerView sourceList = listView;
+            sourceList.postOnAnimation(() -> {
+                if (isFinished || fragmentView == null || contentView == null || listView != sourceList || sourceList.getParent() == null) {
+                    return;
+                }
+                blur3_InvalidateBlur();
+            });
+        });
         contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
         actionBarBackground = new View(context) {
@@ -2544,7 +2579,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private void blur3_InvalidateBlur() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || scrollableViewNoiseSuppressor == null) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || scrollableViewNoiseSuppressor == null
+                || fragmentView == null || contentView == null || actionBar == null || iBlur3Capture == null
+                || isFinished || fragmentView.getMeasuredWidth() <= 0 || fragmentView.getMeasuredHeight() <= 0) {
             return;
         }
 
@@ -2556,8 +2593,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         iBlur3PositionMainTabs.set(0, mainTabTop, fragmentView.getMeasuredWidth(), mainTabBottom);
         iBlur3PositionMainTabs.inset(0, LiteMode.isLiquidGlassEnabled() ? 0 : -dp(48));
 
-        scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, hasMainTabs ? 2 : 1);
-        scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+        try {
+            scrollableViewNoiseSuppressor.setupRenderNodes(iBlur3Positions, hasMainTabs ? 2 : 1);
+            scrollableViewNoiseSuppressor.invalidateResultRenderNodes(iBlur3Capture, fragmentView.getMeasuredWidth(), fragmentView.getMeasuredHeight());
+        } catch (RuntimeException error) {
+            FileLog.e(error);
+        }
     }
 
     @Override

@@ -52,7 +52,10 @@ public class DownscaleScrollableNoiseSuppressor {
 
     public void draw(Canvas canvas, int index) {
         if (!canvas.isHardwareAccelerated()) {
-            throw new IllegalStateException();
+            // This renderer is backed by hardware RenderNodes and cannot be
+            // replayed onto a software Canvas. Treat it as a transparent blur
+            // fallback instead of crashing screenshots, tests or software draws.
+            return;
         }
 
         if (!isLiquidGlassEnabled && simpleMode) {
@@ -70,6 +73,9 @@ public class DownscaleScrollableNoiseSuppressor {
     }
 
     public void drawInline(Canvas canvas, int index) {
+        if (!canvas.isHardwareAccelerated()) {
+            return;
+        }
         final int a;
         if (!isLiquidGlassEnabled && simpleMode) {
             a = 0;

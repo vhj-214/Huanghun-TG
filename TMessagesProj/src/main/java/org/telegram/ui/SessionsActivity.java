@@ -659,7 +659,7 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
     }
 
     public void loadSessions(boolean silent) {
-        if (loading) {
+        if (isFinished || loading) {
             return;
         }
         if (!silent) {
@@ -668,6 +668,10 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
         if (currentType == 0) {
             TL_account.getAuthorizations req = new TL_account.getAuthorizations();
             int reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                if (isFinished) {
+                    loading = false;
+                    return;
+                }
                 loading = false;
                 int oldItemsCount = listAdapter != null ? listAdapter.getItemCount() : 0;
                 if (error == null) {
@@ -710,6 +714,10 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
         } else {
             TL_account.getWebAuthorizations req = new TL_account.getWebAuthorizations();
             int reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                if (isFinished) {
+                    loading = false;
+                    return;
+                }
                 loading = false;
                 if (error == null) {
                     sessions.clear();
