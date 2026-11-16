@@ -281,6 +281,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private RLottieDrawable sunDrawable;
 
     private boolean highlightSensitiveRow;
+    private boolean wallpaperPickerOpened;
+    private boolean wallpaperChangedWhilePaused;
     public ThemeActivity highlightSensitiveRow() {
         this.highlightSensitiveRow = true;
         return this;
@@ -1163,7 +1165,21 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.locationPermissionGranted) {
             updateSunTime(null, true);
-        } else if (id == NotificationCenter.didSetNewWallpapper || id == NotificationCenter.emojiLoaded) {
+        } else if (id == NotificationCenter.didSetNewWallpapper) {
+            if (currentType == THEME_TYPE_BASIC) {
+                if (isPaused) {
+                    wallpaperChangedWhilePaused = true;
+                } else if (listAdapter != null && textSizeRow >= 0) {
+                    // The chat preview is the only row in Chat Settings that needs
+                    // repainting for a wallpaper change; invalidating every attached
+                    // row makes the glass sections flash while the wallpaper reloads.
+                    listAdapter.notifyItemChanged(textSizeRow);
+                }
+            } else if (listView != null) {
+                listView.invalidateViews();
+            }
+            updateMenuItem();
+        } else if (id == NotificationCenter.emojiLoaded) {
             if (listView != null) {
                 listView.invalidateViews();
             }
@@ -1466,6 +1482,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     ((TextCheckCell) view).setChecked(!animations);
                 }
             } else if (position == backgroundRow) {
+                wallpaperPickerOpened = true;
                 presentFragment(new WallpapersListActivity(WallpapersListActivity.TYPE_ALL));
             } else if (position == dynamicVideoWallpaperRow) {
                 chooseDynamicVideoWallpaper();
@@ -1906,7 +1923,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
             updateWallpaperListInsets();
         }
-        listView.setPadding(0, listView.getPaddingTop(), 0, bottom);
+        int topPadding = currentType == THEME_TYPE_HUANGHUN_WALLPAPER ? listView.getPaddingTop() : 0;
+        listView.setPadding(0, topPadding, 0, bottom);
         listView.setClipToPadding(false);
     }
     /** Keep the wallpaper list below the translucent ActionBar now that its root fills the window. */
@@ -2023,7 +2041,16 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     public void onResume() {
         super.onResume();
         if (listAdapter != null) {
-            updateRows(true);
+            if (currentType == THEME_TYPE_BASIC && (wallpaperPickerOpened || wallpaperChangedWhilePaused)) {
+                wallpaperPickerOpened = false;
+                boolean refreshWallpaperPreview = wallpaperChangedWhilePaused;
+                wallpaperChangedWhilePaused = false;
+                if (refreshWallpaperPreview && textSizeRow >= 0) {
+                    listAdapter.notifyItemChanged(textSizeRow);
+                }
+            } else {
+                updateRows(true);
+            }
         }
     }
 
