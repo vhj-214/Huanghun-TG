@@ -1166,16 +1166,20 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         if (id == NotificationCenter.locationPermissionGranted) {
             updateSunTime(null, true);
         } else if (id == NotificationCenter.didSetNewWallpapper) {
+            // Preview teardown can publish this event more than once. Keep a covered
+            // page's background untouched during the return transition; onResume
+            // applies the latest cached wallpaper after this page is visible again.
+            boolean wallpaperSurfaceChanged = !isPaused && refreshSettingsGlassWallpaper();
             if (currentType == THEME_TYPE_BASIC) {
                 if (isPaused) {
                     wallpaperChangedWhilePaused = true;
-                } else if (listAdapter != null && textSizeRow >= 0) {
+                } else if (wallpaperSurfaceChanged && listAdapter != null && textSizeRow >= 0) {
                     // The chat preview is the only row in Chat Settings that needs
                     // repainting for a wallpaper change; invalidating every attached
                     // row makes the glass sections flash while the wallpaper reloads.
                     listAdapter.notifyItemChanged(textSizeRow);
                 }
-            } else if (listView != null) {
+            } else if (wallpaperSurfaceChanged && listView != null) {
                 listView.invalidateViews();
             }
             updateMenuItem();
@@ -1404,11 +1408,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             // list in the same transparent hierarchy prevents the old page from
             // showing through and removes the black shadow seam at the top.
             HuanghunWallpaperLayout wallpaperLayout = new HuanghunWallpaperLayout(context, currentAccount);
-            // ActionBarLayout lays a normal fragment view out below the ActionBar
-            // sibling. Opt into the full-screen path used by the other wallpaper
-            // settings pages so the wallpaper also paints behind the translucent
-            // ActionBar and status bar instead of exposing the black window.
-            wallpaperLayout.setFitsSystemWindows(true);
+            // Keep the original ActionBarLayout geometry so wallpaper list content
+            // remains below the toolbar instead of shifting up into it.
             frameLayout = wallpaperLayout;
             actionBar.setDrawBlurBackground(wallpaperLayout);
             actionBar.setBackgroundColor(0x20FFFFFF);

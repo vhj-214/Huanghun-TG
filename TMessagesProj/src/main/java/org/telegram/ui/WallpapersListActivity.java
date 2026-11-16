@@ -1077,7 +1077,11 @@ public class WallpapersListActivity extends BaseFragment implements Notification
             fillWallpapersWithCustom();
             loadWallpapers(false);
         } else if (id == NotificationCenter.didSetNewWallpapper) {
-            if (listView != null) {
+            // The preview can post while this list is paused underneath its exit
+            // animation. Let onResume apply the latest wallpaper instead of
+            // replacing the background during that transition.
+            boolean wallpaperSurfaceChanged = !isPaused && refreshSettingsGlassWallpaper();
+            if (wallpaperSurfaceChanged && listView != null) {
                 listView.invalidateViews();
             }
             if (actionBar != null) {

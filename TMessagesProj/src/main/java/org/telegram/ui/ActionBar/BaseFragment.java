@@ -15,12 +15,12 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
@@ -601,41 +601,55 @@ public abstract class BaseFragment {
                 || simpleName.contains("Logout")
                 || simpleName.contains("HuanghunService") || simpleName.contains("HuanghunDeviceDetails"))) return;
 
-        // Native Telegram settings pages use a plain FrameLayout. Let that root
-        // occupy the status-bar/action-bar area before putting the wallpaper on it;
-        // otherwise the wallpaper starts below the bar and the window black fallback
-        // remains visible at the top of every child page.
-        fragmentView.setFitsSystemWindows(true);
-        Drawable rootWallpaper = cloneWallpaperForView(cachedWallpaper, fragmentView);
-        if (rootWallpaper == null) {
-            rootWallpaper = cachedWallpaper;
+        // Keep the fragment in its normal layout below the ActionBar. Both surfaces
+        // use the navigation container as one shared wallpaper viewport, so their
+        // independently clipped backgrounds join without moving page content.
+        View wallpaperViewport = parentLayout != null ? parentLayout.getView() : null;
+        if (wallpaperViewport == null) {
+            wallpaperViewport = fragmentView.getRootView();
         }
-        fragmentView.setBackground(rootWallpaper);
+        if (wallpaperViewport == null) {
+            wallpaperViewport = fragmentView;
+        }
+        final int scrim = Theme.isCurrentThemeDark() ? 0x1F000000 : 0x14FFFFFF;
+        boolean rootWallpaperMatches = isWallpaperViewportDrawable(fragmentView.getBackground(), cachedWallpaper, fragmentView, wallpaperViewport);
+        boolean actionBarWallpaperMatches = false;
+        if (actionBar != null) {
+            Drawable currentActionBarBackground = actionBar.getBackground();
+            if (currentActionBarBackground instanceof LayerDrawable) {
+                LayerDrawable layers = (LayerDrawable) currentActionBarBackground;
+                actionBarWallpaperMatches = layers.getNumberOfLayers() >= 2
+                        && isWallpaperViewportDrawable(layers.getDrawable(0), cachedWallpaper, actionBar, wallpaperViewport)
+                        && layers.getDrawable(1) instanceof ColorDrawable
+                        && ((ColorDrawable) layers.getDrawable(1)).getColor() == scrim;
+            }
+        }
+        if (!rootWallpaperMatches) {
+            Drawable rootWallpaper = createWallpaperViewportDrawable(cachedWallpaper, fragmentView, wallpaperViewport);
+            if (rootWallpaper == null) {
+                rootWallpaper = cloneWallpaperForView(cachedWallpaper, fragmentView);
+            }
+            if (rootWallpaper == null) {
+                rootWallpaper = cachedWallpaper;
+            }
+            fragmentView.setBackground(rootWallpaper);
+        }
         glassWallpaperRoots.put(fragmentView, Boolean.TRUE);
         if (getParentActivity() != null && getParentActivity().getWindow() != null) {
             getParentActivity().getWindow().setStatusBarColor(Color.TRANSPARENT);
         }
         if (actionBar != null) {
-            // Pages such as FiltersSetupActivity animate the bar towards
-            // actionBarDefault while scrolling; on a glass page that reads as a black
-            // strip flashing over the wallpaper.
             actionBar.disableAdaptiveBackground();
-            // Reuse the surface across resumes: rasterising a slice allocates a bitmap,
-            // and dialogs/sheets resume the page frequently.
-            if (appliedActionBarWallpaper == null
-                    || appliedActionBarWallpaperSource != cachedWallpaper
-                    || actionBar.getBackground() != appliedActionBarWallpaper) {
-                appliedActionBarWallpaperSource = cachedWallpaper;
-                appliedActionBarWallpaper = createActionBarWallpaper(cachedWallpaper, actionBar);
-            }
-            Drawable actionBarWallpaper = appliedActionBarWallpaper;
-            if (actionBarWallpaper != null) {
-                actionBar.setWallpaperBackground(actionBarWallpaper);
-            } else {
-                // The fragment view is laid out *below* the action bar, so a transparent
-                // action bar exposes the window's black surface. Keep a themed colour
-                // instead of producing a black strip.
-                actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
+            if (!actionBarWallpaperMatches) {
+                Drawable actionBarWallpaper = createWallpaperViewportDrawable(cachedWallpaper, actionBar, wallpaperViewport);
+                if (actionBarWallpaper != null) {
+                    actionBar.setWallpaperBackground(new LayerDrawable(new Drawable[]{
+                            actionBarWallpaper,
+                            new ColorDrawable(scrim)
+                    }));
+                } else {
+                    actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
+                }
             }
             actionBar.setCastShadows(false);
         }
@@ -652,6 +666,14 @@ public abstract class BaseFragment {
                 clearOpaqueSettingsFills(targetView);
             }
         });
+    }
+
+    protected final boolean refreshSettingsGlassWallpaper() {
+        Drawable oldRootBackground = fragmentView != null ? fragmentView.getBackground() : null;
+        Drawable oldActionBarBackground = actionBar != null ? actionBar.getBackground() : null;
+        applySettingsGlassWallpaper();
+        return fragmentView != null && oldRootBackground != fragmentView.getBackground()
+                || actionBar != null && oldActionBarBackground != actionBar.getBackground();
     }
 
     private int wallpaperApplyAttempt;
@@ -672,72 +694,6 @@ public abstract class BaseFragment {
         }
         return false;
     }
-    private Drawable appliedActionBarWallpaper;
-    private Drawable appliedActionBarWallpaperSource;
-
-    /**
-     * Build the action-bar surface for the current wallpaper.
-     *
-     * Photo wallpapers are plain {@link BitmapDrawable}s and can be cloned. Gradient,
-     * pattern and motion wallpapers are {@code MotionBackgroundDrawable} instances that
-     * expose no {@link Drawable.ConstantState}; they cannot be cloned and previously
-     * left the action bar transparent over the black window. Rasterise one top slice of
-     * such a wallpaper and add the same light glass scrim used by the settings pages.
-     */
-    @Nullable
-    private Drawable createActionBarWallpaper(@NonNull Drawable source, @NonNull ActionBar actionBar) {
-        Drawable wallpaper = cloneWallpaperForView(source, actionBar);
-        if (wallpaper == null) {
-            wallpaper = rasterizeWallpaperSlice(source, actionBar);
-        }
-        if (wallpaper == null) {
-            return null;
-        }
-        final int scrim = Theme.isCurrentThemeDark() ? 0x1F000000 : 0x14FFFFFF;
-        try {
-            return new LayerDrawable(new Drawable[]{wallpaper, new ColorDrawable(scrim)});
-        } catch (Throwable error) {
-            FileLog.e(error);
-            return wallpaper;
-        }
-    }
-
-    @Nullable
-    private Drawable rasterizeWallpaperSlice(@NonNull Drawable source, @NonNull ActionBar actionBar) {
-        final Rect oldBounds = source.copyBounds();
-        Bitmap bitmap = null;
-        try {
-            int width = actionBar.getWidth();
-            if (width <= 0 && parentLayout != null && parentLayout.getView() != null) {
-                width = parentLayout.getView().getWidth();
-            }
-            if (width <= 0) {
-                width = AndroidUtilities.displaySize.x;
-            }
-            final int height = Math.max(ActionBar.getCurrentActionBarHeight() + AndroidUtilities.statusBarHeight, 1);
-            if (width <= 0) {
-                return null;
-            }
-            int wallpaperHeight = fragmentView != null ? fragmentView.getHeight() : 0;
-            if (wallpaperHeight < height) {
-                wallpaperHeight = AndroidUtilities.displaySize.y;
-            }
-            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            final Canvas canvas = new Canvas(bitmap);
-            source.setBounds(0, 0, width, Math.max(wallpaperHeight, height));
-            source.draw(canvas);
-            return new BitmapDrawable(actionBar.getResources(), bitmap);
-        } catch (Throwable error) {
-            FileLog.e(error);
-            if (bitmap != null) {
-                bitmap.recycle();
-            }
-            return null;
-        } finally {
-            source.setBounds(oldBounds);
-        }
-    }
-
     @Nullable
     private Drawable cloneWallpaperForView(@NonNull Drawable source, @NonNull View target) {
         Drawable.ConstantState constantState = source.getConstantState();
@@ -749,6 +705,91 @@ public abstract class BaseFragment {
         } catch (Throwable error) {
             FileLog.e(error);
             return null;
+        }
+    }
+
+    @Nullable
+    private Drawable createWallpaperViewportDrawable(@NonNull Drawable source, @NonNull View target, @NonNull View viewport) {
+        Drawable wallpaper = cloneWallpaperForView(source, target);
+        if (wallpaper == null) {
+            wallpaper = source;
+        }
+        wallpaper.setCallback(viewport);
+        if (wallpaper instanceof org.telegram.ui.Components.MotionBackgroundDrawable) {
+            ((org.telegram.ui.Components.MotionBackgroundDrawable) wallpaper).setParentView(viewport);
+        }
+        return new WallpaperViewportDrawable(wallpaper, source, target, viewport);
+    }
+
+    private boolean isWallpaperViewportDrawable(@Nullable Drawable drawable, @NonNull Drawable source, @NonNull View target, @NonNull View viewport) {
+        if (!(drawable instanceof WallpaperViewportDrawable)) {
+            return false;
+        }
+        WallpaperViewportDrawable wallpaper = (WallpaperViewportDrawable) drawable;
+        return wallpaper.source == source && wallpaper.target == target && wallpaper.viewport == viewport;
+    }
+
+    /** Draw one clipped part of a wallpaper against a shared full-page coordinate system. */
+    private static final class WallpaperViewportDrawable extends Drawable {
+        private final Drawable wallpaper;
+        private final Drawable source;
+        private final View target;
+        private final View viewport;
+        private final int[] targetLocation = new int[2];
+        private final int[] viewportLocation = new int[2];
+
+        private WallpaperViewportDrawable(Drawable wallpaper, Drawable source, View target, View viewport) {
+            this.wallpaper = wallpaper;
+            this.source = source;
+            this.target = target;
+            this.viewport = viewport;
+        }
+
+        @Override
+        public void draw(@NonNull Canvas canvas) {
+            final Rect bounds = getBounds();
+            if (bounds.isEmpty()) {
+                return;
+            }
+            target.getLocationInWindow(targetLocation);
+            viewport.getLocationInWindow(viewportLocation);
+            int width = viewport.getWidth();
+            int height = viewport.getHeight();
+            if (width <= 0) {
+                width = Math.max(target.getWidth(), bounds.width());
+            }
+            if (height <= 0) {
+                height = Math.max(target.getHeight(), bounds.height());
+            }
+
+            final int offsetX = targetLocation[0] - viewportLocation[0];
+            final int offsetY = targetLocation[1] - viewportLocation[1];
+            final Rect previousBounds = wallpaper.copyBounds();
+            try {
+                final int left = bounds.left - offsetX;
+                final int top = bounds.top - offsetY;
+                wallpaper.setBounds(left, top, left + width, top + height);
+                wallpaper.draw(canvas);
+            } finally {
+                wallpaper.setBounds(previousBounds);
+            }
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            wallpaper.setAlpha(alpha);
+            invalidateSelf();
+        }
+
+        @Override
+        public void setColorFilter(@Nullable ColorFilter colorFilter) {
+            wallpaper.setColorFilter(colorFilter);
+            invalidateSelf();
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
         }
     }
 
