@@ -1388,6 +1388,11 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             // list in the same transparent hierarchy prevents the old page from
             // showing through and removes the black shadow seam at the top.
             HuanghunWallpaperLayout wallpaperLayout = new HuanghunWallpaperLayout(context, currentAccount);
+            // ActionBarLayout lays a normal fragment view out below the ActionBar
+            // sibling. Opt into the full-screen path used by the other wallpaper
+            // settings pages so the wallpaper also paints behind the translucent
+            // ActionBar and status bar instead of exposing the black window.
+            wallpaperLayout.setFitsSystemWindows(true);
             frameLayout = wallpaperLayout;
             actionBar.setDrawBlurBackground(wallpaperLayout);
             actionBar.setBackgroundColor(0x20FFFFFF);
@@ -1426,6 +1431,11 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         if (currentType != THEME_TYPE_HUANGHUN_WALLPAPER) {
             actionBar.setAdaptiveBackground(listView, false, -1, -1);
+        } else {
+            // The root now starts at the top of the window, so keep the first row
+            // below the translucent ActionBar while rows scroll underneath it.
+            actionBar.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateWallpaperListInsets());
+            updateWallpaperListInsets();
         }
         listView.setOnItemClickListener((view, position, x, y) -> {
             if (position == loginWallpaperChangeRow) {
@@ -1893,8 +1903,28 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
     @Override
     public void onInsets(int left, int top, int right, int bottom) {
-        listView.setPadding(0, 0, 0, bottom);
+        if (currentType == THEME_TYPE_HUANGHUN_WALLPAPER) {
+            updateWallpaperListInsets();
+        }
+        listView.setPadding(0, listView.getPaddingTop(), 0, bottom);
         listView.setClipToPadding(false);
+    }
+    /** Keep the wallpaper list below the translucent ActionBar now that its root fills the window. */
+    private void updateWallpaperListInsets() {
+        if (listView == null || actionBar == null) {
+            return;
+        }
+        int topInset = actionBar.getMeasuredHeight();
+        if (!actionBar.getOccupyStatusBar()) {
+            topInset += AndroidUtilities.statusBarHeight;
+        }
+        if (topInset <= 0) {
+            topInset = ActionBar.getCurrentActionBarHeight() + AndroidUtilities.statusBarHeight;
+        }
+        if (listView.getPaddingTop() != topInset) {
+            listView.setPadding(0, topInset, 0, listView.getPaddingBottom());
+            listView.setClipToPadding(false);
+        }
     }
 
     private void editTheme() {
