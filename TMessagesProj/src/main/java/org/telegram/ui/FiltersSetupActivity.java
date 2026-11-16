@@ -7,6 +7,8 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
@@ -52,6 +54,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
 import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.TextCheckCell;
+import org.telegram.ui.Cells.ShadowSectionCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
@@ -70,6 +73,7 @@ import org.telegram.ui.Components.Premium.PremiumFeatureBottomSheet;
 import org.telegram.ui.Components.ProgressButton;
 import org.telegram.ui.Components.RLottieImageView;
 import org.telegram.ui.Components.RecyclerListView;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import org.telegram.ui.Components.UndoView;
 
 import java.util.ArrayList;
@@ -82,6 +86,7 @@ import tw.nekomimi.nekogram.settings.HuanghunPrivacyFolderActivity;
 public class FiltersSetupActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
     private RecyclerListView listView;
+    private final Paint sectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private ListAdapter adapter;
     private ItemTouchHelper itemTouchHelper;
     private UndoView undoView;
@@ -652,6 +657,21 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         super.onFragmentDestroy();
     }
 
+    /** Keep the first folder below the translucent bar while the list scrolls underneath it. */
+    private void updateListInsets() {
+        if (listView == null || actionBar == null) {
+            return;
+        }
+        int topInset = actionBar.getMeasuredHeight();
+        if (!actionBar.getOccupyStatusBar()) {
+            topInset += AndroidUtilities.statusBarHeight;
+        }
+        if (listView.getPaddingTop() != topInset) {
+            listView.setPadding(0, topInset, 0, listView.getPaddingBottom());
+            listView.setClipToPadding(false);
+        }
+    }
+
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
@@ -669,9 +689,15 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
             actionBar.setBackButtonImage(R.drawable.ic_ab_close);
         }
 
-        fragmentView = new FrameLayout(context);
-        FrameLayout frameLayout = (FrameLayout) fragmentView;
-        frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        // Full-screen wallpaper root: the legacy gray FrameLayout left the area
+        // below the sections on windowBackgroundGray (black in this theme).
+        HuanghunWallpaperLayout frameLayout = new HuanghunWallpaperLayout(context, currentAccount);
+        frameLayout.setFitsSystemWindows(true);
+        fragmentView = frameLayout;
+        actionBar.setDrawBlurBackground(frameLayout);
+        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setCastShadows(false);
+        actionBar.disableAdaptiveBackground();
 
         listView = new RecyclerListView(context) {
             @Override
@@ -684,8 +710,13 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
                 return super.onTouchEvent(e);
             }
         };
-        listView.setSections();
-        actionBar.setAdaptiveBackground(listView, false, -1, -1);
+        listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof HintInnerCell),
+                AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    sectionPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                    sectionPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
+                    float radius = Math.max(topRadius, bottomRadius);
+                    canvas.drawRoundRect(rect, radius, radius, sectionPaint);
+                }, false);
         DefaultItemAnimator itemAnimator = new DefaultItemAnimator();
         itemAnimator.setDurations(350);
         itemAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
@@ -698,6 +729,8 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         itemTouchHelper = new ItemTouchHelper(new TouchHelperCallback());
         itemTouchHelper.attachToRecyclerView(listView);
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        actionBar.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateListInsets());
+        updateListInsets();
         listView.setAdapter(adapter = new ListAdapter(context));
         listView.setOnItemClickListener((view, position, x, y) -> {
             if (position < 0 || position >= items.size()) {
@@ -932,7 +965,6 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
                     break;
                 case VIEW_TYPE_FILTER:
                     FilterCell filterCell = new FilterCell(mContext);
-                    filterCell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
                     filterCell.setOnReorderButtonTouchListener((v, event) -> {
                         if (event.getAction() == MotionEvent.ACTION_DOWN) {
                             itemTouchHelper.startDrag(listView.getChildViewHolder(filterCell));
@@ -1272,7 +1304,8 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();
 
         themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_CELLBACKGROUNDCOLOR, new Class[]{HeaderCell.class, TextCell.class, FilterCell.class, SuggestedFilterCell.class}, null, null, null, Theme.key_windowBackgroundWhite));
-        themeDescriptions.add(new ThemeDescription(fragmentView, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_windowBackgroundGray));
+        // The root paints the settings wallpaper; a theme-owned background would
+        // repaint it gray/black on every theme refresh.
 
 //        themeDescriptions.add(new ThemeDescription(actionBar, ThemeDescription.FLAG_BACKGROUND, null, null, null, null, Theme.key_actionBarDefault));
         themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_actionBarDefault));

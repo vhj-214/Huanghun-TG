@@ -64,6 +64,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.LoginBackgroundLayout;
 import org.telegram.ui.Components.QRCodeBottomSheet;
 import org.telegram.ui.Components.SectionsScrollView;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -107,6 +108,8 @@ public class ProxySettingsActivity extends BaseFragment {
 
     private boolean addingNewProxy;
     private final boolean loginBackground;
+    /** Same translucent surface used by the Huanghun settings pages. */
+    private static final int GLASS_SURFACE_COLOR = 0x20FFFFFF;
 
     private SharedConfig.ProxyInfo currentProxyInfo;
 
@@ -190,9 +193,31 @@ public class ProxySettingsActivity extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (!loginBackground && actionBar != null) {
+            // Keep the translucent bar even after a theme refresh restores the
+            // opaque action-bar colour.
+            actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+            actionBar.setCastShadows(false);
+            updateScrollInsets();
+        }
         AndroidUtilities.requestAdjustResize(getParentActivity(), classGuid);
         clipboardManager.addPrimaryClipChangedListener(clipChangedListener);
         updatePasteCell();
+    }
+
+    /** Keep the first field below the translucent action bar while scrolling underneath it. */
+    private void updateScrollInsets() {
+        if (scrollView == null || actionBar == null) {
+            return;
+        }
+        int topInset = actionBar.getMeasuredHeight();
+        if (!actionBar.getOccupyStatusBar()) {
+            topInset += AndroidUtilities.statusBarHeight;
+        }
+        if (scrollView.getPaddingTop() != topInset) {
+            scrollView.setPadding(0, topInset, 0, scrollView.getPaddingBottom());
+            scrollView.setClipToPadding(false);
+        }
     }
 
     @Override
@@ -263,25 +288,35 @@ public class ProxySettingsActivity extends BaseFragment {
         doneItem = actionBar.createMenu().addItemWithWidth(done_button, R.drawable.ic_ab_done, AndroidUtilities.dp(56));
         doneItem.setContentDescription(LocaleController.getString(R.string.Done));
 
-        fragmentView = loginBackground ? new LoginBackgroundLayout(context) : new FrameLayout(context);
-        FrameLayout frameLayout = (FrameLayout) fragmentView;
         if (loginBackground) {
+            LoginBackgroundLayout loginRoot = new LoginBackgroundLayout(context);
+            loginRoot.setFitsSystemWindows(true);
+            fragmentView = loginRoot;
             actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
             actionBar.setCastShadows(false);
         } else {
-            // Keep the wallpaper/fallback supplied by BaseFragment visible.
-            fragmentView.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            // The edit screen owns a full-screen wallpaper root. The previous transparent
+            // FrameLayout was laid out below the action bar, so the bar showed the black
+            // window surface instead of glass.
+            HuanghunWallpaperLayout wallpaperRoot = new HuanghunWallpaperLayout(context, currentAccount);
+            wallpaperRoot.setFitsSystemWindows(true);
+            fragmentView = wallpaperRoot;
+            actionBar.setDrawBlurBackground(wallpaperRoot);
+            actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
             actionBar.setCastShadows(false);
         }
+        FrameLayout frameLayout = (FrameLayout) fragmentView;
 
 //        linearLayout2 = new SectionsScrollView.SectionsLinearLayout(context);
 //        scrollView = new SectionsScrollView(context, linearLayout2, resourceProvider);
         scrollView = new ScrollView(context);
         scrollView.setBackgroundColor(Color.TRANSPARENT);
         scrollView.setFillViewport(true);
+        scrollView.setClipToPadding(false);
         AndroidUtilities.setScrollViewEdgeEffectColor(scrollView, Theme.getColor(Theme.key_actionBarDefault));
         frameLayout.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        actionBar.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateScrollInsets());
+        updateScrollInsets();
 
         linearLayout2 = new LinearLayout(context);
         linearLayout2.setOrientation(LinearLayout.VERTICAL);

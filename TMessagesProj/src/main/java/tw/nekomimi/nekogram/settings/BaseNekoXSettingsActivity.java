@@ -7,6 +7,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.view.View;
@@ -140,6 +141,16 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
 
         listView.setItemAnimator(itemAnimator);
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT));
+        listView.addOnChildAttachStateChangeListener(new RecyclerView.OnChildAttachStateChangeListener() {
+            @Override
+            public void onChildViewAttachedToWindow(@NonNull View child) {
+                clearOpaqueSettingsBackgrounds(child);
+            }
+
+            @Override
+            public void onChildViewDetachedFromWindow(@NonNull View child) {
+            }
+        });
         actionBar.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateSettingsListInsets());
         updateSettingsListInsets();
 
@@ -183,6 +194,11 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
     }
 
     private void applyHuanghunSettingsActionBarGlass() {
+        if (actionBar == null) {
+            return;
+        }
+        // Stop the stock scroll-driven black action-bar animation on wallpaper pages.
+        actionBar.disableAdaptiveBackground();
         // Do not let the opaque adaptive action-bar recreate a white strip after
         // a page is resumed or its theme is refreshed.
         actionBar.setBackgroundColor(0x20FFFFFF);
@@ -479,6 +495,26 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         return rowMapReverse;
     }
 
+    /** Remove legacy opaque white/gray fills from every recycled settings cell. */
+    private void clearOpaqueSettingsBackgrounds(View view) {
+        if (view == null || view instanceof ShadowSectionCell) {
+            return;
+        }
+        if (view != fragmentView && view.getBackground() instanceof ColorDrawable) {
+            int color = ((ColorDrawable) view.getBackground()).getColor();
+            if (color == getThemedColor(Theme.key_windowBackgroundWhite)
+                    || color == getThemedColor(Theme.key_windowBackgroundGray)) {
+                view.setBackgroundColor(Color.TRANSPARENT);
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                clearOpaqueSettingsBackgrounds(group.getChildAt(i));
+            }
+        }
+    }
+
     @Override
     public ArrayList<ThemeDescription> getThemeDescriptions() {
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();
@@ -573,6 +609,7 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
                     onBindDefaultViewHolder(holder, position);
                 }
             }
+            clearOpaqueSettingsBackgrounds(holder.itemView);
         }
 
         protected void onBindCustomViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {

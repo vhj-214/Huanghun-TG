@@ -21,6 +21,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.LayoutHelper;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 
 import java.util.ArrayList;
 import java.util.regex.Matcher;
@@ -33,6 +34,8 @@ public class HuanghunServiceActivity extends BaseFragment {
     private TextSettingsCell deviceDetailsCell;
     private TextInfoPrivacyCell infoCell;
     private boolean loading;
+    /** Same translucent surface used by the Huanghun settings pages. */
+    private static final int GLASS_SURFACE_COLOR = 0x20FFFFFF;
 
     @Override
     public View createView(Context context) {
@@ -45,8 +48,13 @@ public class HuanghunServiceActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Color.TRANSPARENT);
+        // The page owns a full-screen wallpaper root: the legacy transparent FrameLayout
+        // was laid out below the action bar, leaving a black strip behind the status bar.
+        HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        root.setFitsSystemWindows(true);
+        actionBar.setDrawBlurBackground(root);
+        actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+        actionBar.setCastShadows(false);
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setBackground(createGlassPanel());

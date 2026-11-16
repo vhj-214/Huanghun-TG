@@ -28,6 +28,8 @@ import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.messenger.AndroidUtilities;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 
 import java.util.Locale;
 import java.util.TimeZone;
@@ -35,6 +37,8 @@ import java.util.TimeZone;
 /** Read-only local device and client version details rendered by the bundled HTML page. */
 public class HuanghunDeviceDetailsActivity extends BaseFragment {
     private static final String DETAILS_URL = "file:///android_asset/huanghun_device_details.html";
+    /** Same translucent surface used by the Huanghun settings pages. */
+    private static final int GLASS_SURFACE_COLOR = 0x20FFFFFF;
 
     private WebView webView;
     private JSONObject pendingDeviceInfo;
@@ -51,8 +55,13 @@ public class HuanghunDeviceDetailsActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Color.TRANSPARENT);
+        // Full-screen wallpaper root: a transparent legacy FrameLayout was laid out
+        // below the action bar, which exposed the window's black surface on top.
+        HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
+        root.setFitsSystemWindows(true);
+        actionBar.setDrawBlurBackground(root);
+        actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+        actionBar.setCastShadows(false);
 
         webView = new WebView(context);
         webView.setBackgroundColor(Color.TRANSPARENT);
@@ -87,7 +96,11 @@ public class HuanghunDeviceDetailsActivity extends BaseFragment {
                 }
             }
         });
-        root.addView(webView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // The bundled page already reserves 56px for the action bar in CSS. Offset the
+        // WebView by the status bar so that reservation lines up with the real bar.
+        FrameLayout.LayoutParams webViewParams = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT);
+        webViewParams.topMargin = actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0;
+        root.addView(webView, webViewParams);
         webView.loadUrl(DETAILS_URL);
         fragmentView = root;
         return fragmentView;

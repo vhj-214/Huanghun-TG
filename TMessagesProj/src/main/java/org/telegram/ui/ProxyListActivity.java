@@ -82,11 +82,14 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import tw.nekomimi.nekogram.utils.AlertUtil;
 import tw.nekomimi.nekogram.utils.ProxyUtil;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 
 public class ProxyListActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
     private final static boolean IS_PROXY_ROTATION_AVAILABLE = true;
     private static final int MENU_DELETE = 0;
     private static final int MENU_SHARE = 1;
+    /** Same translucent surface used by the Huanghun settings pages. */
+    private static final int GLASS_SURFACE_COLOR = 0x20FFFFFF;
 
     private ListAdapter listAdapter;
     private RecyclerListView listView;
@@ -472,13 +475,24 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
         listAdapter = new ListAdapter(context);
 
-        fragmentView = loginBackground ? new LoginBackgroundLayout(context) : new FrameLayout(context);
-        if (!loginBackground) {
-            // The wallpaper/glass root owns the surface; do not briefly paint
-            // the legacy gray window background during list creation.
-            fragmentView.setBackgroundColor(Color.TRANSPARENT);
-        } else {
+        if (loginBackground) {
+            LoginBackgroundLayout loginRoot = new LoginBackgroundLayout(context);
+            // The login flow has no action bar; this proxy entry point does, so the
+            // login wallpaper must also cover the status bar / action-bar strip.
+            loginRoot.setFitsSystemWindows(true);
+            fragmentView = loginRoot;
             actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setCastShadows(false);
+        } else {
+            // Settings entry point: the proxy page owns a full-screen wallpaper root.
+            // The legacy FrameLayout was laid out below the action bar, so its
+            // transparent top strip exposed the window's black surface.
+            HuanghunWallpaperLayout wallpaperRoot = new HuanghunWallpaperLayout(context, currentAccount);
+            wallpaperRoot.setFitsSystemWindows(true);
+            wallpaperRoot.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateListInsets());
+            fragmentView = wallpaperRoot;
+            actionBar.setDrawBlurBackground(wallpaperRoot);
+            actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
             actionBar.setCastShadows(false);
         }
         FrameLayout frameLayout = (FrameLayout) fragmentView;
@@ -494,29 +508,24 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                         canvas.drawRoundRect(rect, AndroidUtilities.dp(16), AndroidUtilities.dp(16), loginSectionPaint);
                     }, false);
         } else {
-            // The default section renderer paints an opaque
-            // windowBackgroundWhite. Use a stable translucent glass surface
-            // instead, so scrolling cannot reveal a white rectangle.
+            // The default section renderer paints an opaque windowBackgroundWhite.
+            // Use the same liquid-glass surface as the Huanghun settings pages so the
+            // wallpaper stays visible through every row while scrolling.
             listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell),
                     AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                        int surface = Theme.getColor(Theme.key_windowBackgroundWhite);
-                        loginSectionPaint.setColor(Color.argb((int) (0x28 * alpha),
-                                Color.red(surface), Color.green(surface), Color.blue(surface)));
-                        canvas.drawRoundRect(rect, AndroidUtilities.dp(16), AndroidUtilities.dp(16), loginSectionPaint);
+                        loginSectionPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                        loginSectionPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
+                        float radius = Math.max(topRadius, bottomRadius);
+                        canvas.drawRoundRect(rect, radius, radius, loginSectionPaint);
                     }, false);
-        }
-        // Do not animate opaque action-bar colors with list scroll position.
-        actionBar.setBackgroundColor(Color.TRANSPARENT);
-        actionBar.setCastShadows(false);
-        if (loginBackground) {
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setCastShadows(false);
         }
         ((DefaultItemAnimator) listView.getItemAnimator()).setDelayAnimations(false);
         ((DefaultItemAnimator) listView.getItemAnimator()).setTranslationInterpolator(CubicBezierInterpolator.DEFAULT);
         listView.setVerticalScrollBarEnabled(false);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT));
+        actionBar.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateListInsets());
+        updateListInsets();
         listView.setAdapter(listAdapter);
         listView.setOnItemClickListener((view, position) -> {
             if (position == useProxyRow) {
@@ -751,6 +760,26 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         });
 
         return fragmentView;
+    }
+
+    /**
+     * Keep the first proxy row below the translucent action bar while still letting the
+     * list scroll underneath it. Without this inset the legacy list started at y = 0 and
+     * its first row was hidden behind the bar.
+     */
+    private void updateListInsets() {
+        if (listView == null || actionBar == null) {
+            return;
+        }
+        int topInset = actionBar.getMeasuredHeight();
+        if (!actionBar.getOccupyStatusBar()) {
+            topInset += AndroidUtilities.statusBarHeight;
+        }
+        final int bottomInset = AndroidUtilities.navigationBarHeight;
+        if (listView.getPaddingTop() != topInset || listView.getPaddingBottom() != bottomInset) {
+            listView.setPadding(0, topInset, 0, bottomInset);
+            listView.setClipToPadding(false);
+        }
     }
 
     @Override
@@ -1125,6 +1154,13 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     @Override
     public void onResume() {
         super.onResume();
+        if (!loginBackground && actionBar != null) {
+            // A theme refresh or a resumed page can restore the opaque action-bar
+            // colour; keep the translucent glass surface instead of a black strip.
+            actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+            actionBar.setCastShadows(false);
+            updateListInsets();
+        }
         if (listAdapter != null) {
             listAdapter.notifyDataSetChanged();
         }

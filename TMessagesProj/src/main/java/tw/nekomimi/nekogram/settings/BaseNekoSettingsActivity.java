@@ -7,6 +7,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.text.SpannableStringBuilder;
@@ -145,6 +146,16 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         listAdapter = createAdapter(context);
 
         listView.setAdapter(listAdapter);
+        listView.addOnChildAttachStateChangeListener(new RecyclerView.OnChildAttachStateChangeListener() {
+            @Override
+            public void onChildViewAttachedToWindow(@NonNull View child) {
+                clearOpaqueSettingsBackgrounds(child);
+            }
+
+            @Override
+            public void onChildViewDetachedFromWindow(@NonNull View child) {
+            }
+        });
         listView.setOnItemClickListener(this::onItemClick);
         listView.setClipToPadding(false);
         actionBar.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateSettingsListInsets());
@@ -208,10 +219,14 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
     /** Keep every Huanghun settings page in the same wallpaper-backed glass mode. */
     private void applyHuanghunSettingsActionBarGlass() {
-        if (!hasWhiteActionBar() || actionBar == null) {
+        if (actionBar == null) {
             return;
         }
         // Never restore the opaque adaptive action-bar on Huanghun settings pages.
+        actionBar.disableAdaptiveBackground();
+        if (!hasWhiteActionBar()) {
+            return;
+        }
         // The root owns the complete surface, including the status-bar area.
         actionBar.setBackgroundColor(0x20FFFFFF);
         actionBar.setCastShadows(false);
@@ -470,6 +485,26 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         }
     }
 
+    /** Remove legacy opaque white/gray fills from every recycled settings cell. */
+    private void clearOpaqueSettingsBackgrounds(View view) {
+        if (view == null || view instanceof ShadowSectionCell) {
+            return;
+        }
+        if (view != fragmentView && view.getBackground() instanceof ColorDrawable) {
+            int color = ((ColorDrawable) view.getBackground()).getColor();
+            if (color == getThemedColor(Theme.key_windowBackgroundWhite)
+                    || color == getThemedColor(Theme.key_windowBackgroundGray)) {
+                view.setBackgroundColor(Color.TRANSPARENT);
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                clearOpaqueSettingsBackgrounds(group.getChildAt(i));
+            }
+        }
+    }
+
     protected abstract class BaseListAdapter extends RecyclerListView.SelectionAdapter {
 
         protected final Context mContext;
@@ -502,6 +537,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
             }
             var payload = holder.getPayload();
             onBindViewHolder(holder, position, PARTIAL.equals(payload));
+            clearOpaqueSettingsBackgrounds(holder.itemView);
         }
 
         @NonNull

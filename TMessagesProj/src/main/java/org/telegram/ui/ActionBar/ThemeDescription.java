@@ -265,7 +265,7 @@ public class ThemeDescription {
         }
         if (viewToInvalidate != null && listClasses == null && listClassesFieldName == null) {
             if ((changeFlags & FLAG_CHECKTAG) == 0 || checkTag(currentKey, viewToInvalidate)) {
-                if ((changeFlags & FLAG_BACKGROUND) != 0) {
+                if ((changeFlags & FLAG_BACKGROUND) != 0 && !BaseFragment.isInGlassPage(viewToInvalidate)) {
                     Drawable background = viewToInvalidate.getBackground();
                     if (background instanceof MessageBackgroundDrawable) {
                         ((MessageBackgroundDrawable) background).setColor(color);
@@ -529,7 +529,10 @@ public class ThemeDescription {
                             }
                         }
                     } else if ((changeFlags & FLAG_CELLBACKGROUNDCOLOR) != 0) {
-                        child.setBackgroundColor(color);
+                        // Wallpaper-backed settings pages paint their rows on a shared
+                        // translucent section; an opaque cell colour would punch a
+                        // white (or black) hole through the glass.
+                        child.setBackgroundColor(BaseFragment.isInGlassPage(child) ? Color.TRANSPARENT : color);
                     } else if ((changeFlags & FLAG_TEXTCOLOR) != 0) {
                         if (child instanceof TextView) {
                             ((TextView) child).setTextColor(color);

@@ -16,9 +16,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -68,6 +73,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Stories.StoryViewer;
+import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import org.telegram.ui.bots.BotWebViewAttachedSheet;
 
 import java.util.ArrayList;
@@ -543,12 +549,34 @@ public abstract class BaseFragment {
 
     /** Apply the settings wallpaper consistently to legacy settings fragments. */
     private void applySettingsGlassWallpaper() {
-        if (fragmentView == null || fragmentView instanceof org.telegram.ui.Components.LoginBackgroundLayout) return;
+        if (fragmentView == null
+                || fragmentView instanceof org.telegram.ui.Components.LoginBackgroundLayout
+                || fragmentView instanceof HuanghunWallpaperLayout) {
+            // Pages that own a wallpaper-backed root (login, NekoX settings, Huanghun
+            // feature screens) paint the wallpaper themselves, including the area
+            // behind the action bar. Applying the legacy surface on top would only
+            // add a second, misaligned wallpaper layer.
+            return;
+        }
         // Never wait for Theme's wallpaper worker on the UI thread while a page
         // is being opened. If the cache is not ready, retain the page's safe
         // native background and let the next resume apply the wallpaper.
         final Drawable cachedWallpaper = Theme.getCachedWallpaperNonBlocking();
-        if (cachedWallpaper == null) return;
+        if (cachedWallpaper == null) {
+            // The wallpaper cache is rebuilt on the theme worker. Retry a few times
+            // instead of leaving the page permanently on the window's black fallback.
+            if (wallpaperApplyAttempt < 4) {
+                wallpaperApplyAttempt++;
+                final View retryTarget = fragmentView;
+                retryTarget.postDelayed(() -> {
+                    if (fragmentView == retryTarget && !isPaused && !isFinished) {
+                        applySettingsGlassWallpaper();
+                    }
+                }, 220);
+            }
+            return;
+        }
+        wallpaperApplyAttempt = 0;
         final String name = getClass().getName();
         boolean huanghunServiceScreen = name.equals("com.Huanghun.HuanghunServiceActivity")
                 || name.equals("com.Huanghun.HuanghunDeviceDetailsActivity");
@@ -570,25 +598,44 @@ public abstract class BaseFragment {
                 || simpleName.contains("LiteMode") || simpleName.contains("AutoDeleteMessages")
                 || simpleName.contains("WallpapersList") || simpleName.contains("PeerColor")
                 || simpleName.contains("Reactions") || simpleName.contains("PinnedReactions")
+                || simpleName.contains("Logout")
                 || simpleName.contains("HuanghunService") || simpleName.contains("HuanghunDeviceDetails"))) return;
 
+        // Native Telegram settings pages use a plain FrameLayout. Let that root
+        // occupy the status-bar/action-bar area before putting the wallpaper on it;
+        // otherwise the wallpaper starts below the bar and the window black fallback
+        // remains visible at the top of every child page.
+        fragmentView.setFitsSystemWindows(true);
         Drawable rootWallpaper = cloneWallpaperForView(cachedWallpaper, fragmentView);
         if (rootWallpaper == null) {
             rootWallpaper = cachedWallpaper;
         }
         fragmentView.setBackground(rootWallpaper);
+        glassWallpaperRoots.put(fragmentView, Boolean.TRUE);
         if (getParentActivity() != null && getParentActivity().getWindow() != null) {
             getParentActivity().getWindow().setStatusBarColor(Color.TRANSPARENT);
         }
         if (actionBar != null) {
-            // Do not attach the same Drawable instance to both sibling views:
-            // Drawable has a single callback owner. For non-cloneable wallpaper
-            // types the transparent ActionBar reveals the root wallpaper below.
-            Drawable actionBarWallpaper = cloneWallpaperForView(cachedWallpaper, actionBar);
+            // Pages such as FiltersSetupActivity animate the bar towards
+            // actionBarDefault while scrolling; on a glass page that reads as a black
+            // strip flashing over the wallpaper.
+            actionBar.disableAdaptiveBackground();
+            // Reuse the surface across resumes: rasterising a slice allocates a bitmap,
+            // and dialogs/sheets resume the page frequently.
+            if (appliedActionBarWallpaper == null
+                    || appliedActionBarWallpaperSource != cachedWallpaper
+                    || actionBar.getBackground() != appliedActionBarWallpaper) {
+                appliedActionBarWallpaperSource = cachedWallpaper;
+                appliedActionBarWallpaper = createActionBarWallpaper(cachedWallpaper, actionBar);
+            }
+            Drawable actionBarWallpaper = appliedActionBarWallpaper;
             if (actionBarWallpaper != null) {
                 actionBar.setWallpaperBackground(actionBarWallpaper);
             } else {
-                actionBar.setBackgroundColor(Color.TRANSPARENT);
+                // The fragment view is laid out *below* the action bar, so a transparent
+                // action bar exposes the window's black surface. Keep a themed colour
+                // instead of producing a black strip.
+                actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
             }
             actionBar.setCastShadows(false);
         }
@@ -605,6 +652,90 @@ public abstract class BaseFragment {
                 clearOpaqueSettingsFills(targetView);
             }
         });
+    }
+
+    private int wallpaperApplyAttempt;
+
+    /** Roots that paint the settings wallpaper themselves; theme refreshes must not repaint them. */
+    private static final java.util.WeakHashMap<View, Boolean> glassWallpaperRoots = new java.util.WeakHashMap<>();
+    /** Recycler lists that already received the glass section renderer and child cleanup. */
+    private static final java.util.WeakHashMap<View, Boolean> glassSettingsLists = new java.util.WeakHashMap<>();
+
+    public static boolean isInGlassPage(@Nullable View view) {
+        View current = view;
+        while (current != null) {
+            if (glassWallpaperRoots.containsKey(current)) {
+                return true;
+            }
+            final ViewParent parent = current.getParent();
+            current = parent instanceof View ? (View) parent : null;
+        }
+        return false;
+    }
+    private Drawable appliedActionBarWallpaper;
+    private Drawable appliedActionBarWallpaperSource;
+
+    /**
+     * Build the action-bar surface for the current wallpaper.
+     *
+     * Photo wallpapers are plain {@link BitmapDrawable}s and can be cloned. Gradient,
+     * pattern and motion wallpapers are {@code MotionBackgroundDrawable} instances that
+     * expose no {@link Drawable.ConstantState}; they cannot be cloned and previously
+     * left the action bar transparent over the black window. Rasterise one top slice of
+     * such a wallpaper and add the same light glass scrim used by the settings pages.
+     */
+    @Nullable
+    private Drawable createActionBarWallpaper(@NonNull Drawable source, @NonNull ActionBar actionBar) {
+        Drawable wallpaper = cloneWallpaperForView(source, actionBar);
+        if (wallpaper == null) {
+            wallpaper = rasterizeWallpaperSlice(source, actionBar);
+        }
+        if (wallpaper == null) {
+            return null;
+        }
+        final int scrim = Theme.isCurrentThemeDark() ? 0x1F000000 : 0x14FFFFFF;
+        try {
+            return new LayerDrawable(new Drawable[]{wallpaper, new ColorDrawable(scrim)});
+        } catch (Throwable error) {
+            FileLog.e(error);
+            return wallpaper;
+        }
+    }
+
+    @Nullable
+    private Drawable rasterizeWallpaperSlice(@NonNull Drawable source, @NonNull ActionBar actionBar) {
+        final Rect oldBounds = source.copyBounds();
+        Bitmap bitmap = null;
+        try {
+            int width = actionBar.getWidth();
+            if (width <= 0 && parentLayout != null && parentLayout.getView() != null) {
+                width = parentLayout.getView().getWidth();
+            }
+            if (width <= 0) {
+                width = AndroidUtilities.displaySize.x;
+            }
+            final int height = Math.max(ActionBar.getCurrentActionBarHeight() + AndroidUtilities.statusBarHeight, 1);
+            if (width <= 0) {
+                return null;
+            }
+            int wallpaperHeight = fragmentView != null ? fragmentView.getHeight() : 0;
+            if (wallpaperHeight < height) {
+                wallpaperHeight = AndroidUtilities.displaySize.y;
+            }
+            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            final Canvas canvas = new Canvas(bitmap);
+            source.setBounds(0, 0, width, Math.max(wallpaperHeight, height));
+            source.draw(canvas);
+            return new BitmapDrawable(actionBar.getResources(), bitmap);
+        } catch (Throwable error) {
+            FileLog.e(error);
+            if (bitmap != null) {
+                bitmap.recycle();
+            }
+            return null;
+        } finally {
+            source.setBounds(oldBounds);
+        }
     }
 
     @Nullable
@@ -628,6 +759,21 @@ public abstract class BaseFragment {
         }
         if (view instanceof RecyclerListView) {
             RecyclerListView listView = (RecyclerListView) view;
+            if (!glassSettingsLists.containsKey(listView)) {
+                glassSettingsLists.put(listView, Boolean.TRUE);
+                // Cells are recycled and rebound while scrolling; a one-shot cleanup in
+                // onResume leaves every newly bound white cell visible.
+                listView.addOnChildAttachStateChangeListener(new RecyclerListView.OnChildAttachStateChangeListener() {
+                    @Override
+                    public void onChildViewAttachedToWindow(@NonNull View child) {
+                        clearOpaqueSettingsFills(child);
+                    }
+
+                    @Override
+                    public void onChildViewDetachedFromWindow(@NonNull View child) {
+                    }
+                });
+            }
             // Wallpaper-backed glass rows are translucent. RecyclerView's default
             // change cross-fade draws old and new holders over one another, which
             // appears as ghosted text and panels during async refreshes.

@@ -2428,11 +2428,28 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private boolean adaptiveBackground, adaptiveBackgroundHideTitle;
+    private boolean adaptiveBackgroundDisabled;
     private int adaptive_topColorKey;
     private int adaptive_lowerColorKey;
     private boolean onTop = true;
     private float onTopAnimated = 1.0f;
     private ValueAnimator adaptive_animator;
+    /**
+     * Stops the scroll-driven colour animation of the action bar.
+     *
+     * Wallpaper-backed pages keep one stable translucent surface; animating the bar
+     * towards {@code actionBarDefault} would flash an opaque black strip over the glass.
+     */
+    public void disableAdaptiveBackground() {
+        adaptiveBackgroundDisabled = true;
+        adaptiveBackground = false;
+        if (adaptive_animator != null) {
+            adaptive_animator.cancel();
+            adaptive_animator = null;
+        }
+        setShadowAlpha(0);
+    }
+
     public void setAdaptiveBackground(RecyclerView list) {
         setAdaptiveBackground(list, false, Theme.key_windowBackgroundGray, Theme.key_actionBarDefault);
     }
@@ -2443,6 +2460,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         this.adaptive_topColorKey = topColorKey;
         this.adaptive_lowerColorKey = lowerColorKey;
         final Runnable checkScroll = () -> {
+            if (adaptiveBackgroundDisabled) return;
             final boolean onTop = !list.canScrollVertically(-1);
             if (ActionBar.this.onTop == onTop) return;
             if (adaptive_animator != null)
@@ -2486,6 +2504,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         this.adaptive_lowerColorKey = lowerColorKey;
         adaptive_updateColor();
         final Runnable checkScroll = () -> {
+            if (adaptiveBackgroundDisabled) return;
             final boolean onTop = !list.canScrollVertically(-1);
             if (ActionBar.this.onTop == onTop) return;
             if (adaptive_animator != null)
@@ -2516,7 +2535,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
     }
     private void adaptive_updateColor() {
-        if (!adaptiveBackground) return;
+        if (adaptiveBackgroundDisabled || !adaptiveBackground) return;
         if (adaptiveBackgroundHideTitle) {
             if (titlesContainer != null) {
                 titlesContainer.setAlpha(1.0f - onTopAnimated);
