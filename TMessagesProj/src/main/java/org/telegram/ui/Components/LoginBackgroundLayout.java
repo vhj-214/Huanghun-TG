@@ -26,9 +26,14 @@ import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceWrapped;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.chat.WallpaperBitmapProvider;
 import tw.nekomimi.nekogram.helpers.LoginWallpaperHelper;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPalette;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassSurface;
 
 /** Login surface with a dedicated portrait wallpaper and translucent glass controls. */
 public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
+    private final HuanghunGlassSurface backdropSurface = HuanghunGlassSurface.get(this);
+    private final HuanghunGlassPalette glassPalette = new HuanghunGlassPalette(
+            HuanghunGlassPalette.VARIANT_OVERLAY, Theme.isCurrentThemeDark(), 0.5f);
     private final WallpaperBitmapProvider wallpaperProvider = new WallpaperBitmapProvider();
     private final BlurredBackgroundSourceWrapped glassSource = new BlurredBackgroundSourceWrapped();
     private final BlurredBackgroundSourceColor fallbackSource = new BlurredBackgroundSourceColor();
@@ -51,27 +56,10 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
     }
 
     public BlurredBackgroundColorProvider getGlassColorProvider() {
-        return new BlurredBackgroundColorProvider() {
-            @Override
-            public int getShadowColor() {
-                return 0;
-            }
-
-            @Override
-            public int getBackgroundColor() {
-                return scrimPaint.getColor();
-            }
-
-            @Override
-            public int getStrokeColorTop() {
-                return 0;
-            }
-
-            @Override
-            public int getStrokeColorBottom() {
-                return 0;
-            }
-        };
+        // The iOS-style palette doubles as a BlurredBackgroundProvider, so every
+        // login control also receives the one-pixel bright top rim and the soft
+        // ambient shadow instead of a flat translucent rectangle.
+        return glassPalette;
     }
 
     public int getStatusBarSurfaceColor() {
@@ -100,8 +88,9 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
             loginWallpaper = new ColorDrawable(Theme.getColor(Theme.key_windowBackgroundGray));
         }
         Drawable surface = loginWallpaper;
-        int scrimAlpha = 0x18;
-        scrimPaint.setColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhite), scrimAlpha));
+        glassPalette.update(HuanghunGlassPalette.VARIANT_OVERLAY, Theme.isCurrentThemeDark(),
+                backdropSurface.getWallpaperLuminance());
+        scrimPaint.setColor(glassPalette.getTintColor());
         // Keep an opaque surface behind the separately drawn wallpaper. The
         // wallpaper view can be temporarily empty (for example during measure)
         // or unable to draw a recycled bitmap; transparency would expose black.
@@ -171,6 +160,11 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
         }
         updateSourceSize();
         updateSurfaceColors();
+        try {
+            backdropSurface.setWallpaper(drawable);
+        } catch (RuntimeException | OutOfMemoryError error) {
+            FileLog.e(error);
+        }
     }
 
     private void updateSourceSize() {
@@ -178,6 +172,7 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
             ((BlurredBackgroundSourceBitmap) glassSource.getSource()).setParentSize(
                     getMeasuredWidth(), getMeasuredHeight(), 0);
         }
+        backdropSurface.setViewportSize(getMeasuredWidth(), getMeasuredHeight(), 0);
     }
 
     private void updateSurfaceColors() {
@@ -189,11 +184,11 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
         if (Color.alpha(bottom) == 0) {
             bottom = Theme.getColor(Theme.key_windowBackgroundWhite);
         }
-        // A low-opacity tint keeps the portrait visible through the glass
-        // controls instead of turning the login screen into a white surface.
-        int tint = Theme.getColor(Theme.key_windowBackgroundWhite);
-        int alpha = 0x18;
-        scrimPaint.setColor(ColorUtils.setAlphaComponent(tint, alpha));
+        // The palette tint is the milky body of the material. It is applied to
+        // the controls and to their shadow, not painted flat over the photo.
+        glassPalette.update(HuanghunGlassPalette.VARIANT_OVERLAY, Theme.isCurrentThemeDark(),
+                backdropSurface.getWallpaperLuminance());
+        scrimPaint.setColor(glassPalette.getTintColor());
         statusBarColor = ColorUtils.compositeColors(scrimPaint.getColor(), top);
         navigationBarColor = ColorUtils.compositeColors(scrimPaint.getColor(), bottom);
     }
@@ -212,7 +207,14 @@ public class LoginBackgroundLayout extends SizeNotifierFrameLayout {
         }
         boolean result = super.drawChild(canvas, child, drawingTime);
         if (child == backgroundView) {
-            // Contrast tint belongs behind the controls, not above their text.
+            // Replace the sharp portrait with the frosted backdrop, then keep a
+            // very light tint so white glass controls still have contrast.
+            final int save = canvas.save();
+            canvas.clipRect(0, 0, getWidth(), getHeight());
+            if (!backdropSurface.drawBackdrop(canvas, getWidth(), getHeight())) {
+                canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundGray));
+            }
+            canvas.restoreToCount(save);
             canvas.drawRect(0, 0, getWidth(), getHeight(), scrimPaint);
         }
         return result;

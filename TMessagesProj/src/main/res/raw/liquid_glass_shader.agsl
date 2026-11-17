@@ -116,8 +116,10 @@ half4 main(float2 fragCoord) {
   float specularAmount = clamp(specular_strength, 0.0, 2.0);
   // A restrained milky body tint prevents the material from looking like a
   // plain transparent overlay while keeping the captured wallpaper visible.
-  float bodyAlpha = clamp(0.028 + clamp(frost_amount, 0.0, 1.0) * 0.12, 0.0, 0.16);
-  surface = srcOver(half4(0.92, 0.95, 1.0, bodyAlpha), surface);
+  // Huanghun iOS-style body: frost now also drives the milkiness, which is
+  // what separates a frosted panel from a plain transparent tint.
+  float bodyAlpha = clamp(0.050 + clamp(frost_amount, 0.0, 1.0) * 0.26, 0.0, 0.34);
+  surface = srcOver(half4(0.94, 0.96, 1.0, bodyAlpha), surface);
   float topLight = 1.0 - smoothstep(-size.y * 0.22, size.y * 0.62, p.y);
   float leftLight = 1.0 - smoothstep(-size.x * 0.18, size.x * 0.58, p.x);
   float fresnel = pow(clamp(1.0 - abs(normal.z), 0.0, 1.0), 1.55)
@@ -125,17 +127,18 @@ half4 main(float2 fragCoord) {
   float3 lightDirection = normalize(float3(-0.36, -0.52, 0.78));
   float specular = pow(max(dot(normal, lightDirection), 0.0), 14.0)
       * specularAmount * clamp(reflection_strength, 0.0, 2.0);
-  float rimAlpha = edge * (0.075 + 0.16 * topLight * leftLight + 0.20 * fresnel + 0.18 * specular);
+  // Bright top rim, soft bottom rim: the signature of an iOS glass edge.
+  float rimAlpha = edge * (0.065 + 0.24 * topLight * leftLight + 0.24 * fresnel + 0.20 * specular);
 
   // Broad, low-opacity reflection gives a suspended glass look while leaving
   // fine wallpaper lines visible through the body of the material.
   float diagonal = 1.0 - smoothstep(0.12, 0.86,
       abs((p.x / max(size.x, 1.0)) + (p.y / max(size.y, 1.0)) * 0.72));
-  float sheenAlpha = diagonal * topLight * inside * (0.032 + fresnel * 0.045) * specularAmount;
+  float sheenAlpha = diagonal * topLight * inside * (0.045 + fresnel * 0.060) * specularAmount;
   // The clamp used to be a constant 0.28. Scaling it with the user's highlight
   // strength keeps specular_strength == 1.0 pixel identical to the old build
   // while still letting the slider push the rim brighter or softer.
-  float highlightAlpha = clamp(rimAlpha + sheenAlpha, 0.0, 0.42 * max(specularAmount, 0.35));
+  float highlightAlpha = clamp(rimAlpha + sheenAlpha, 0.0, 0.55 * max(specularAmount, 0.35));
   highlightAlpha *= clamp(reflection_strength, 0.0, 2.0);
   half4 reflection = half4(highlightAlpha, highlightAlpha, highlightAlpha, highlightAlpha);
 

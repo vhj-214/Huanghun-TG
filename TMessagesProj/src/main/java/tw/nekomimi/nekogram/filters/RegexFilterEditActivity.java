@@ -37,6 +37,7 @@ import java.util.regex.PatternSyntaxException;
 
 import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import tw.nekomimi.nekogram.utils.LocaleUtil;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
 
 
 public class RegexFilterEditActivity extends BaseFragment {
@@ -177,8 +178,7 @@ public class RegexFilterEditActivity extends BaseFragment {
 
         HuanghunWallpaperLayout wallpaperRoot = new HuanghunWallpaperLayout(context, currentAccount);
         fragmentView = wallpaperRoot;
-        actionBar.setDrawBlurBackground(wallpaperRoot);
-        actionBar.setBackgroundColor(0x20FFFFFF);
+        HuanghunGlassPage.applyActionBar(actionBar, wallpaperRoot);
 
         LinearLayout linearLayout = new LinearLayout(context);
         linearLayout.setOrientation(LinearLayout.VERTICAL);

@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import tw.nekomimi.nekogram.helpers.HuanghunCallVideoLibraryHelper;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
 
 /**
  * 通话内置视频库浏览与删除页。
@@ -83,8 +84,7 @@ public class HuanghunCallVideoLibraryActivity extends BaseFragment {
 
         HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         fragmentView = root;
-        actionBar.setDrawBlurBackground(root);
-        actionBar.setBackgroundColor(0x20FFFFFF);
+        HuanghunGlassPage.applyActionBar(actionBar, root);
 
         int topOffset = 0;
         if (deleteMode) {

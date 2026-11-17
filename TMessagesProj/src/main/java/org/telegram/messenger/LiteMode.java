@@ -67,7 +67,10 @@ public class LiteMode {
         FLAG_AUTOPLAY_VIDEOS |
         FLAG_AUTOPLAY_GIFS |
         FLAG_CHAT_THANOS |
-        FLAG_PARTICLES
+        FLAG_PARTICLES |
+        // Huanghun: the iOS-style glass material is the default look on medium
+        // and high tier devices. Low tier keeps the plain translucent fallback.
+        FLAG_LIQUID_GLASS
     ); // 204383
     public static int PRESET_HIGH = (
         FLAGS_ANIMATED_STICKERS |
@@ -81,7 +84,8 @@ public class LiteMode {
         FLAG_CALLS_ANIMATIONS |
         FLAG_AUTOPLAY_VIDEOS |
         FLAG_AUTOPLAY_GIFS |
-        FLAG_PARTICLES
+        FLAG_PARTICLES |
+        FLAG_LIQUID_GLASS
     ); // 262143
     public static int PRESET_POWER_SAVER = 0;
 
@@ -252,7 +256,13 @@ public class LiteMode {
         if (!preferences.contains("lite_mode6")) {
             if (preferences.contains("lite_mode5")) {
                 defaultValue = preferences.getInt("lite_mode5", defaultValue);
-                defaultValue &=~ FLAG_LIQUID_GLASS;
+                // Huanghun: the old migration stripped FLAG_LIQUID_GLASS because
+                // the material looked broken. It is the app's default look now,
+                // so keep whatever the device tier decided above instead of
+                // forcing every upgraded install back to the flat fallback.
+                if (defaultValue != PRESET_POWER_SAVER) {
+                    defaultValue |= FLAG_LIQUID_GLASS;
+                }
                 preferences.edit().putInt("lite_mode6", defaultValue).apply();
             } else if (preferences.contains("lite_mode4")) {
                 defaultValue = preferences.getInt("lite_mode4", defaultValue);

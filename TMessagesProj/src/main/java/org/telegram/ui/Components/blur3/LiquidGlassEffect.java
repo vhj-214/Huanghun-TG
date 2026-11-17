@@ -15,14 +15,16 @@ public class LiquidGlassEffect {
 
     /**
      * Huanghun: values used when the caller does not supply the extra tuning
-     * knobs. They are the reference values of the original shader.
+     * knobs. They describe the iOS-style material used across the app: a milky
+     * frosted body, a strong top rim light, almost no colour dispersion and
+     * minimal grain.
      */
-    private static final float DEFAULT_SPECULAR_STRENGTH = 1f;
-    private static final float DEFAULT_DISPERSION_STRENGTH = 1f;
-    private static final float DEFAULT_FROST_AMOUNT = 0f;
-    private static final float DEFAULT_FRESNEL_STRENGTH = 1f;
-    private static final float DEFAULT_REFLECTION_STRENGTH = 1f;
-    private static final float DEFAULT_GRAIN_AMOUNT = 0f;
+    private static final float DEFAULT_SPECULAR_STRENGTH = 1.55f;
+    private static final float DEFAULT_DISPERSION_STRENGTH = 0.55f;
+    private static final float DEFAULT_FROST_AMOUNT = 0.58f;
+    private static final float DEFAULT_FRESNEL_STRENGTH = 1.45f;
+    private static final float DEFAULT_REFLECTION_STRENGTH = 1.25f;
+    private static final float DEFAULT_GRAIN_AMOUNT = 0.06f;
 
     /**
      * Sentinel used so the very first {@link #update} call always pushes every

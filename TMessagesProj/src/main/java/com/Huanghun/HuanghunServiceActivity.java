@@ -26,6 +26,7 @@ import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
 
 /** Huanghun service configuration and update screen. */
 public class HuanghunServiceActivity extends BaseFragment {
@@ -52,9 +53,7 @@ public class HuanghunServiceActivity extends BaseFragment {
         // was laid out below the action bar, leaving a black strip behind the status bar.
         HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         root.setFitsSystemWindows(true);
-        actionBar.setDrawBlurBackground(root);
-        actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
-        actionBar.setCastShadows(false);
+        HuanghunGlassPage.applyActionBar(actionBar, root);
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setBackground(createGlassPanel());

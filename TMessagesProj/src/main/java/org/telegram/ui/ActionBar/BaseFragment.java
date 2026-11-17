@@ -68,6 +68,7 @@ import org.telegram.messenger.utils.LeakDetector;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.ui.ArticleViewer;
 import org.telegram.ui.Components.Bulletin;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
@@ -83,6 +84,10 @@ import tw.nekomimi.nekogram.helpers.CloudStorageHelper;
 import tw.nekomimi.nekogram.helpers.UserHelper;
 import tw.nekomimi.nekogram.helpers.MessageHelper;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassBackdropDrawable;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPainter;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPalette;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassSurface;
 import xyz.nextalone.nagram.NaConfig;
 
 public abstract class BaseFragment {
@@ -520,6 +525,12 @@ public abstract class BaseFragment {
                 sheetsStack.remove(i);
             }
         }
+        // Drop the glass bookkeeping for this page. The glass viewport itself is
+        // shared by the navigation container and stays alive for the next page.
+        if (fragmentView != null) {
+            glassSurfaces.remove(fragmentView);
+            glassWallpaperRoots.remove(fragmentView);
+        }
     }
 
     public boolean needDelayOpenAnimation() {
@@ -562,18 +573,17 @@ public abstract class BaseFragment {
         // is being opened. If the cache is not ready, retain the page's safe
         // native background and let the next resume apply the wallpaper.
         final Drawable cachedWallpaper = Theme.getCachedWallpaperNonBlocking();
-        if (cachedWallpaper == null) {
-            // The wallpaper cache is rebuilt on the theme worker. Retry a few times
-            // instead of leaving the page permanently on the window's black fallback.
-            if (wallpaperApplyAttempt < 4) {
-                wallpaperApplyAttempt++;
-                final View retryTarget = fragmentView;
-                retryTarget.postDelayed(() -> {
-                    if (fragmentView == retryTarget && !isPaused && !isFinished) {
-                        applySettingsGlassWallpaper();
-                    }
-                }, 220);
-            }
+        if (cachedWallpaper == null && wallpaperApplyAttempt < 4) {
+            // The wallpaper cache is rebuilt on the theme worker. Retry a few
+            // times, then continue: the glass surface paints a theme-coloured
+            // material when no wallpaper exists, so the page is never black.
+            wallpaperApplyAttempt++;
+            final View retryTarget = fragmentView;
+            retryTarget.postDelayed(() -> {
+                if (fragmentView == retryTarget && !isPaused && !isFinished) {
+                    applySettingsGlassWallpaper();
+                }
+            }, 220);
             return;
         }
         wallpaperApplyAttempt = 0;
@@ -601,9 +611,9 @@ public abstract class BaseFragment {
                 || simpleName.contains("Logout")
                 || simpleName.contains("HuanghunService") || simpleName.contains("HuanghunDeviceDetails"))) return;
 
-        // Keep the fragment in its normal layout below the ActionBar. Both surfaces
-        // use the navigation container as one shared wallpaper viewport, so their
-        // independently clipped backgrounds join without moving page content.
+        // iOS-style glass: the whole page is backed by one blurred backdrop and
+        // every material on top of it (action bar, section cards, overlays)
+        // shares the same source, so the surfaces line up without seams.
         View wallpaperViewport = parentLayout != null ? parentLayout.getView() : null;
         if (wallpaperViewport == null) {
             wallpaperViewport = fragmentView.getRootView();
@@ -611,28 +621,22 @@ public abstract class BaseFragment {
         if (wallpaperViewport == null) {
             wallpaperViewport = fragmentView;
         }
-        final int scrim = Theme.isCurrentThemeDark() ? 0x1F000000 : 0x14FFFFFF;
-        boolean rootWallpaperMatches = isWallpaperViewportDrawable(fragmentView.getBackground(), cachedWallpaper, fragmentView, wallpaperViewport);
-        boolean actionBarWallpaperMatches = false;
-        if (actionBar != null) {
-            Drawable currentActionBarBackground = actionBar.getBackground();
-            if (currentActionBarBackground instanceof LayerDrawable) {
-                LayerDrawable layers = (LayerDrawable) currentActionBarBackground;
-                actionBarWallpaperMatches = layers.getNumberOfLayers() >= 2
-                        && isWallpaperViewportDrawable(layers.getDrawable(0), cachedWallpaper, actionBar, wallpaperViewport)
-                        && layers.getDrawable(1) instanceof ColorDrawable
-                        && ((ColorDrawable) layers.getDrawable(1)).getColor() == scrim;
-            }
+        HuanghunGlassSurface glassSurface = null;
+        if (wallpaperViewport instanceof ViewGroup) {
+            glassSurface = HuanghunGlassSurface.get((ViewGroup) wallpaperViewport);
+            glassSurface.setViewportSize(wallpaperViewport.getWidth(), wallpaperViewport.getHeight(), 0);
+            glassSurface.setWallpaper(cachedWallpaper);
+            glassSurface.onThemeChanged();
         }
-        if (!rootWallpaperMatches) {
-            Drawable rootWallpaper = createWallpaperViewportDrawable(cachedWallpaper, fragmentView, wallpaperViewport);
-            if (rootWallpaper == null) {
-                rootWallpaper = cloneWallpaperForView(cachedWallpaper, fragmentView);
+        if (glassSurface != null) {
+            glassSurfaces.put(fragmentView, glassSurface);
+        }
+        if (glassSurface != null) {
+            glassSurface.registerBackdropView(fragmentView);
+            if (!(fragmentView.getBackground() instanceof HuanghunGlassBackdropDrawable)) {
+                fragmentView.setBackground(new HuanghunGlassBackdropDrawable(glassSurface));
             }
-            if (rootWallpaper == null) {
-                rootWallpaper = cachedWallpaper;
-            }
-            fragmentView.setBackground(rootWallpaper);
+            ensureGlassLayoutListener(wallpaperViewport, glassSurface);
         }
         glassWallpaperRoots.put(fragmentView, Boolean.TRUE);
         if (getParentActivity() != null && getParentActivity().getWindow() != null) {
@@ -640,16 +644,22 @@ public abstract class BaseFragment {
         }
         if (actionBar != null) {
             actionBar.disableAdaptiveBackground();
-            if (!actionBarWallpaperMatches) {
-                Drawable actionBarWallpaper = createWallpaperViewportDrawable(cachedWallpaper, actionBar, wallpaperViewport);
-                if (actionBarWallpaper != null) {
-                    actionBar.setWallpaperBackground(new LayerDrawable(new Drawable[]{
-                            actionBarWallpaper,
-                            new ColorDrawable(scrim)
-                    }));
-                } else {
-                    actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
+            boolean applied = false;
+            if (glassSurface != null) {
+                BlurredBackgroundDrawable current = glassActionBarBackgrounds.get(actionBar);
+                if (current == null || actionBar.getBackground() != current) {
+                    current = glassSurface.createBackground(actionBar, HuanghunGlassPalette.VARIANT_ACTION_BAR, 0);
+                    if (current != null) {
+                        glassActionBarBackgrounds.put(actionBar, current);
+                        actionBar.setWallpaperBackground(current);
+                    }
                 }
+                applied = current != null && actionBar.getBackground() == current;
+            }
+            if (!applied) {
+                // Last-resort surface: a translucent theme colour, never a
+                // transparent bar (transparency is what shows the black window).
+                actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
             }
             actionBar.setCastShadows(false);
         }
@@ -676,10 +686,33 @@ public abstract class BaseFragment {
                 || actionBar != null && oldActionBarBackground != actionBar.getBackground();
     }
 
+    private static final java.util.WeakHashMap<View, Boolean> glassLayoutWatch = new java.util.WeakHashMap<>();
+
+    /**
+     * Uploads the glass backdrop once the viewport has a real size. Registering
+     * a listener (instead of re-applying on every resume) keeps the first frame
+     * correct even when the page is opened before the navigation container has
+     * been measured.
+     */
+    private static void ensureGlassLayoutListener(@NonNull View viewport, @NonNull HuanghunGlassSurface surface) {
+        if (glassLayoutWatch.containsKey(viewport)) {
+            return;
+        }
+        glassLayoutWatch.put(viewport, Boolean.TRUE);
+        viewport.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            surface.setViewportSize(right - left, bottom - top, 0);
+            surface.setWallpaper(Theme.getCachedWallpaperNonBlocking());
+        });
+    }
+
     private int wallpaperApplyAttempt;
 
     /** Roots that paint the settings wallpaper themselves; theme refreshes must not repaint them. */
     private static final java.util.WeakHashMap<View, Boolean> glassWallpaperRoots = new java.util.WeakHashMap<>();
+    /** Glass viewport used by each wallpaper-backed page. */
+    private static final java.util.WeakHashMap<View, HuanghunGlassSurface> glassSurfaces = new java.util.WeakHashMap<>();
+    /** Action bar glass background per bar, so onResume never rebuilds it. */
+    private static final java.util.WeakHashMap<View, BlurredBackgroundDrawable> glassActionBarBackgrounds = new java.util.WeakHashMap<>();
     /** Recycler lists that already received the glass section renderer and child cleanup. */
     private static final java.util.WeakHashMap<View, Boolean> glassSettingsLists = new java.util.WeakHashMap<>();
 
@@ -793,6 +826,24 @@ public abstract class BaseFragment {
         }
     }
 
+    /** Glass viewport this page paints with, or {@code null} before the first resume. */
+    @Nullable
+    private HuanghunGlassSurface resolveGlassSurface() {
+        if (fragmentView != null) {
+            final HuanghunGlassSurface surface = glassSurfaces.get(fragmentView);
+            if (surface != null) {
+                return surface;
+            }
+        }
+        if (parentLayout != null) {
+            final View view = parentLayout.getView();
+            if (view instanceof ViewGroup) {
+                return HuanghunGlassSurface.get((ViewGroup) view);
+            }
+        }
+        return null;
+    }
+
     /** Replace the legacy opaque white section renderer only on wallpaper-backed settings pages. */
     private void applyTransparentSettingsSections(View view) {
         if (view instanceof WebView) {
@@ -821,18 +872,17 @@ public abstract class BaseFragment {
             if (listView.getItemAnimator() instanceof SimpleItemAnimator) {
                 ((SimpleItemAnimator) listView.getItemAnimator()).setSupportsChangeAnimations(false);
             }
-            final Paint glassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            final HuanghunGlassSurface sectionSurface = resolveGlassSurface();
+            final float sectionLuminance = sectionSurface != null ? sectionSurface.getWallpaperLuminance() : 0.5f;
+            final HuanghunGlassPalette cardPalette = new HuanghunGlassPalette(
+                    HuanghunGlassPalette.VARIANT_CARD, Theme.isCurrentThemeDark(), sectionLuminance);
             listView.setSections(
                     sectionView -> !(sectionView instanceof org.telegram.ui.Cells.ShadowSectionCell),
                     AndroidUtilities.dp(12),
                     AndroidUtilities.dp(16),
                     (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                        int baseColor = Theme.getColor(Theme.key_windowBackgroundWhite, getResourceProvider());
-                        boolean darkSurface = ColorUtils.calculateLuminance(baseColor) < 0.5f;
-                        int glassAlpha = Math.round((darkSurface ? 0x26 : 0x20) * alpha);
-                        glassPaint.setColor(ColorUtils.setAlphaComponent(baseColor, glassAlpha));
-                        float radius = Math.max(topRadius, bottomRadius);
-                        canvas.drawRoundRect(rect, radius, radius, glassPaint);
+                        cardPalette.update(HuanghunGlassPalette.VARIANT_CARD, Theme.isCurrentThemeDark(), sectionLuminance);
+                        HuanghunGlassPainter.drawPanel(canvas, rect, Math.max(topRadius, bottomRadius), cardPalette);
                     },
                     false
             );

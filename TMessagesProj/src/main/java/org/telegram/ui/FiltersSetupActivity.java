@@ -82,6 +82,9 @@ import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.folder.FolderIconHelper;
 import tw.nekomimi.nekogram.helpers.HuanghunPrivacyFolderHelper;
 import tw.nekomimi.nekogram.settings.HuanghunPrivacyFolderActivity;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPalette;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPainter;
 
 public class FiltersSetupActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
@@ -694,9 +697,7 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
         HuanghunWallpaperLayout frameLayout = new HuanghunWallpaperLayout(context, currentAccount);
         frameLayout.setFitsSystemWindows(true);
         fragmentView = frameLayout;
-        actionBar.setDrawBlurBackground(frameLayout);
-        actionBar.setBackgroundColor(0x20FFFFFF);
-        actionBar.setCastShadows(false);
+        HuanghunGlassPage.applyActionBar(actionBar, frameLayout);
         actionBar.disableAdaptiveBackground();
 
         listView = new RecyclerListView(context) {
@@ -710,13 +711,11 @@ public class FiltersSetupActivity extends BaseFragment implements NotificationCe
                 return super.onTouchEvent(e);
             }
         };
+        final HuanghunGlassPalette filtersSectionPalette = HuanghunGlassPage.palette(
+                (ViewGroup) fragmentView, HuanghunGlassPalette.VARIANT_CARD);
         listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof HintInnerCell),
-                AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    sectionPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
-                    sectionPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
-                    float radius = Math.max(topRadius, bottomRadius);
-                    canvas.drawRoundRect(rect, radius, radius, sectionPaint);
-                }, false);
+                AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) ->
+                        HuanghunGlassPainter.drawPanel(canvas, rect, Math.max(topRadius, bottomRadius), filtersSectionPalette), false);
         DefaultItemAnimator itemAnimator = new DefaultItemAnimator();
         itemAnimator.setDurations(350);
         itemAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);

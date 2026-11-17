@@ -66,6 +66,9 @@ import tw.nekomimi.nekogram.config.cell.WithKey;
 import tw.nekomimi.nekogram.config.cell.WithOnClick;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPalette;
+import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPainter;
 
 public class BaseNekoXSettingsActivity extends BaseFragment {
 
@@ -123,7 +126,7 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         // and makes chat, emoji and privacy pages visually consistent.
         frameLayout.setFitsSystemWindows(true);
         fragmentView = frameLayout;
-        actionBar.setDrawBlurBackground(frameLayout);
+        HuanghunGlassPage.applyActionBar(actionBar, frameLayout);
         updateSettingsWallpaperBackground(frameLayout);
 
         listView = createListView(context);
@@ -158,8 +161,9 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         frameLayout.addView(tooltip, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.LEFT, 8, 0, 8, 8));
 
         // setSections(true) uses the default opaque theme section drawable.
-        // Keep wallpaper/video visible through every NekoX settings page.
-        final Paint glassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        // The Huanghun renderer draws the shared frosted material instead.
+        final HuanghunGlassPalette glassPalette = HuanghunGlassPage.palette(
+                (ViewGroup) fragmentView, HuanghunGlassPalette.VARIANT_CARD);
         listView.setSections(
                 view -> {
                     if (view.getParent() != listView) {
@@ -171,12 +175,8 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
                 viewType -> viewType != CellGroup.ITEM_TYPE_DIVIDER,
                 dp(12),
                 18,
-                (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                    glassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
-                    glassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
-                    float radius = Math.max(topRadius, bottomRadius);
-                    canvas.drawRoundRect(rect, radius, radius, glassPaint);
-                },
+                (canvas, rect, topRadius, bottomRadius, alpha) ->
+                        HuanghunGlassPainter.drawPanel(canvas, rect, Math.max(topRadius, bottomRadius), glassPalette),
                 false
         );
         applyHuanghunSettingsActionBarGlass();
@@ -197,11 +197,16 @@ public class BaseNekoXSettingsActivity extends BaseFragment {
         if (actionBar == null) {
             return;
         }
+        if (fragmentView instanceof ViewGroup) {
+            // iOS-style frosted bar fed by the blurred page backdrop.
+            HuanghunGlassPage.applyActionBar(actionBar, (ViewGroup) fragmentView);
+            return;
+        }
         // Stop the stock scroll-driven black action-bar animation on wallpaper pages.
         actionBar.disableAdaptiveBackground();
         // Do not let the opaque adaptive action-bar recreate a white strip after
         // a page is resumed or its theme is refreshed.
-        actionBar.setBackgroundColor(0x20FFFFFF);
+        actionBar.setBackgroundColor(Theme.isCurrentThemeDark() ? 0x331C1C1E : 0x30FFFFFF);
         actionBar.setCastShadows(false);
     }
 
