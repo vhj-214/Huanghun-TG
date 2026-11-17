@@ -1954,7 +1954,11 @@ public class SharedConfig {
     }
 
     public static boolean chatBlurEnabled() {
-        return canBlurChat() && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR);
+        // Liquid Glass needs the captured wallpaper/source behind the surface.
+        // Do not let a stale Chat Blur checkbox silently downgrade it to a
+        // flat color drawable.
+        return LiteMode.isLiquidGlassEnabled()
+                || canBlurChat() && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR);
     }
 
     public static class BackgroundActivityPrefs {

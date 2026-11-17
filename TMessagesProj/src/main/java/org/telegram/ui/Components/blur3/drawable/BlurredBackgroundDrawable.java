@@ -805,12 +805,21 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         canvas.drawPath(boundProps.path, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
 
-        // A second low-alpha pass creates a soft diagonal sheen without turning
-        // the captured wallpaper into an opaque white panel.
+        // A broad diagonal reflection gives the surface a thick iOS-style body
+        // without turning the captured wallpaper into an opaque white panel.
         liquidGlassPaint.setShader(new LinearGradient(
                 bounds.left, bounds.top, bounds.right, bounds.bottom,
-                dark ? 0x22000000 : 0x2AFFFFFF,
-                0x00000000, Shader.TileMode.CLAMP));
+                dark ? 0x2EFFFFFF : 0x42FFFFFF,
+                dark ? 0x08000000 : 0x00000000, Shader.TileMode.CLAMP));
+        canvas.drawPath(boundProps.path, liquidGlassPaint);
+        liquidGlassPaint.setShader(null);
+
+        // A vertical volume pass creates a translucent core instead of the
+        // flat single tint used by the old fallback implementation.
+        liquidGlassPaint.setShader(new LinearGradient(
+                bounds.left, bounds.top, bounds.left, bounds.bottom,
+                dark ? 0x1CFFFFFF : 0x30FFFFFF,
+                dark ? 0x2C000000 : 0x12000000, Shader.TileMode.CLAMP));
         canvas.drawPath(boundProps.path, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
 
