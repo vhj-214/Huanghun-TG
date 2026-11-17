@@ -75,13 +75,13 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
           certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
           printf '%s\n' "$certs"
-          expected_cert='aaa141c163a126bdbe05f1698a7c5ada97478d713fbe745db225f148312ab118'
-          if grep -q 'CN=Android Debug' <<< "$certs" && grep -q "Signer #1 certificate SHA-256 digest: $expected_cert" <<< "$certs"; then
+          expected_cert='52013a967b6f40d49ea4afa88d14e3149d14455d56d6eceebd3a4e89f26314c7'
+          if grep -q "Signer #1 certificate SHA-256 digest: $expected_cert" <<< "$certs"; then
             echo '### APK 签名' >> "$GITHUB_STEP_SUMMARY"
-            echo "已验证使用固定 Staging Debug 证书签名（SHA-256: $expected_cert）。连续 Staging 构建可保持相同签名。" >> "$GITHUB_STEP_SUMMARY"
+            echo "已验证使用用户提供的 MT JKS 签名（SHA-256: $expected_cert）。" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Unexpected Staging signing certificate; expected SHA-256 $expected_cert: $apk" >&2
-            echo 'APK 签名异常：证书与固定的 Staging Debug 密钥不一致，已阻止发布。' >> "$GITHUB_STEP_SUMMARY"
+            echo 'APK 签名异常：证书与用户提供的 MT JKS 不一致，已阻止发布。' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           ls -lh "$apk"
