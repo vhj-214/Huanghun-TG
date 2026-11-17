@@ -21871,12 +21871,8 @@ public class ChatActivity extends BaseFragment implements
         );
     }
 
-    private GradientDrawable createPrivacyLockDrawable(int color, int stroke, int radiusDp) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
-        drawable.setCornerRadius(dp(radiusDp));
-        drawable.setStroke(Math.max(1, dp(1)), stroke);
-        return drawable;
+    private Drawable createPrivacyLockDrawable(int color, int stroke, int radiusDp) {
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(dp(radiusDp));
     }
 
     private View createProtectedChatLockView(Context context) {

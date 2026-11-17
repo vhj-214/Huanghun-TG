@@ -1296,10 +1296,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 // Use one rounded glass surface. The previous blue stroke sat
                 // outside the dialog's own rounded content background and
                 // produced the visible double-layer/white-edge artifact.
-                GradientDrawable dialogFrame = new GradientDrawable();
-                dialogFrame.setColor(Theme.isCurrentThemeDark() ? 0xD91B222A : 0xD9F5F8FF);
-                dialogFrame.setCornerRadius(AndroidUtilities.dp(20));
-                dialogFrame.setStroke(AndroidUtilities.dp(1), Theme.isCurrentThemeDark() ? 0x5AFFFFFF : 0x72FFFFFF);
+                Drawable dialogFrame = new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(20));
                 protocolDialog.getWindow().setBackgroundDrawable(dialogFrame);
                 protocolDialog.getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
             }
@@ -1352,10 +1349,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             .create();
         disclaimerDialog.setOnShowListener(ignored -> {
             if (disclaimerDialog.getWindow() != null) {
-                GradientDrawable glass = new GradientDrawable();
-                glass.setColor(Theme.isCurrentThemeDark() ? 0xD91B222A : 0xD9F5F8FF);
-                glass.setCornerRadius(AndroidUtilities.dp(20));
-                glass.setStroke(AndroidUtilities.dp(1), Theme.isCurrentThemeDark() ? 0x5AFFFFFF : 0x72FFFFFF);
+                Drawable glass = new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(20));
                 disclaimerDialog.getWindow().setBackgroundDrawable(glass);
                 disclaimerDialog.getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
             }

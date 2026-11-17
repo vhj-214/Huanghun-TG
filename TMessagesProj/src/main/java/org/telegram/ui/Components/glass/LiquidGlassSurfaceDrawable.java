@@ -1,7 +1,6 @@
 package org.telegram.ui.Components.glass;
 
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -76,10 +75,10 @@ public final class LiquidGlassSurfaceDrawable extends Drawable {
 
         float outer = Math.max(1f, AndroidUtilities.dpf2(0.9f));
         rim.setStrokeWidth(outer);
-        rim.setColor(withAlpha(dark ? 0xA8FFFFFF : 0xD0FFFFFF, a));
+        rim.setColor(LiquidGlassMaterial.withAlpha(LiquidGlassMaterial.outerRim(dark), a));
         canvas.drawRoundRect(rect, radius, radius, rim);
         rim.setStrokeWidth(Math.max(1f, AndroidUtilities.dpf2(2.0f)));
-        rim.setColor(withAlpha(dark ? 0x42000000 : 0x30000000, a));
+        rim.setColor(LiquidGlassMaterial.withAlpha(LiquidGlassMaterial.innerRim(dark), a));
         canvas.drawRoundRect(rect, radius, radius, rim);
     }
 
@@ -100,17 +99,15 @@ public final class LiquidGlassSurfaceDrawable extends Drawable {
         float glowRadius = Math.max(width, height) * 0.92f;
 
         bodyGradient = new LinearGradient(left, top, right, bottom,
-                dark ? new int[] { 0x642A3944, 0x2618212A, 0x3A10151A }
-                     : new int[] { 0x82FFFFFF, 0x2CFFFFFF, 0x261C2730 },
+                new int[] { LiquidGlassMaterial.bodyTop(dark), LiquidGlassMaterial.bodyMiddle(dark), LiquidGlassMaterial.bodyBottom(dark) },
                 new float[] { 0f, 0.42f, 1f }, Shader.TileMode.CLAMP);
         glowGradient = new RadialGradient(cx, cy, glowRadius,
-                dark ? new int[] { 0x42FFFFFF, 0x10000000, 0x00000000 }
-                     : new int[] { 0x76FFFFFF, 0x1EFFFFFF, 0x00000000 },
+                new int[] { LiquidGlassMaterial.cornerGlow(dark), dark ? 0x10000000 : 0x1EFFFFFF, 0x00000000 },
                 new float[] { 0f, 0.32f, 1f }, Shader.TileMode.CLAMP);
         lowerGradient = new LinearGradient(left, top, left, bottom,
-                0x00000000, dark ? 0x3C000000 : 0x18000000, Shader.TileMode.CLAMP);
+                0x00000000, LiquidGlassMaterial.lowerShade(dark), Shader.TileMode.CLAMP);
         highlightGradient = new LinearGradient(left, top, right, bottom,
-                dark ? 0x1EFFFFFF : 0x38FFFFFF, 0x00000000, Shader.TileMode.CLAMP);
+                LiquidGlassMaterial.broadReflection(dark), 0x00000000, Shader.TileMode.CLAMP);
     }
 
     @Override
@@ -120,10 +117,6 @@ public final class LiquidGlassSurfaceDrawable extends Drawable {
         glowGradient = null;
         lowerGradient = null;
         highlightGradient = null;
-    }
-
-    private static int withAlpha(int color, float alpha) {
-        return Color.argb(Math.round(Color.alpha(color) * alpha), Color.red(color), Color.green(color), Color.blue(color));
     }
 
     @Override public void setAlpha(int alpha) { drawableAlpha = Math.max(0, Math.min(255, alpha)); invalidateSelf(); }

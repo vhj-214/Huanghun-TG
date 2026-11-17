@@ -8851,12 +8851,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
-    private GradientDrawable createPrivacyBubbleDrawable(int fillColor, int strokeColor, int radiusDp) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(fillColor);
-        drawable.setCornerRadius(dp(radiusDp));
-        drawable.setStroke(Math.max(1, dp(1)), strokeColor);
-        return drawable;
+    private Drawable createPrivacyBubbleDrawable(int fillColor, int strokeColor, int radiusDp) {
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(dp(radiusDp));
     }
 
     private void showPrivacyPrecheck(long dialogId, Runnable onVerified) {

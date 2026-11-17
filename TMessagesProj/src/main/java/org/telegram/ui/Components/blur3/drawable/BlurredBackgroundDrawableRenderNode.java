@@ -19,6 +19,7 @@ import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.blur3.LiquidGlassEffect;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
+import org.telegram.ui.Components.glass.LiquidGlassMaterial;
 
 @RequiresApi(api = Build.VERSION_CODES.Q)
 public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawable {
@@ -166,12 +167,12 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     boundProps.liquidIntensity,
                     boundProps.liquidIndex,
                     backgroundColor,
-                    1.85f, // Pronounced upper-left bevel
-                    1.00f, // Visible edge-only chromatic separation
-                    0.62f, // Real frosted body, not a flat transparent fill
-                    1.65f, // Strong rounded-edge Fresnel response
-                    1.55f, // Broad soft environment reflection
-                    0.10f  // Fine micro-surface grain
+                    LiquidGlassMaterial.SPECULAR_STRENGTH,
+                    LiquidGlassMaterial.DISPERSION_STRENGTH,
+                    LiquidGlassMaterial.FROST_AMOUNT,
+                    LiquidGlassMaterial.FRESNEL_STRENGTH,
+                    LiquidGlassMaterial.REFLECTION_STRENGTH,
+                    LiquidGlassMaterial.GRAIN_AMOUNT
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);

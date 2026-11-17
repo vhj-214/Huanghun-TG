@@ -14,6 +14,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProvider;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundProviderBuilder;
+import org.telegram.ui.Components.glass.LiquidGlassMaterial;
 
 public class BlurredBackgroundProviderImpl {
     /**
@@ -23,7 +24,7 @@ public class BlurredBackgroundProviderImpl {
      * behind the chat chrome remain visible. Lower it to make the wallpaper
      * stronger, raise it for a more solid panel.
      */
-    public static final float CHAT_TOP_GLASS_OPACITY = 0.82f;
+    public static final float CHAT_TOP_GLASS_OPACITY = LiquidGlassMaterial.BACKDROP_ALPHA;
 
     public static BlurredBackgroundProvider mainTabs(Theme.ResourcesProvider resourcesProvider) {
         if (LiteMode.isLiquidGlassEnabled()) {

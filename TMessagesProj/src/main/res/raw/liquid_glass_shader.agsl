@@ -100,6 +100,9 @@ half4 main(float2 fragCoord) {
   topLeft *= 1.0 - smoothstep(-size.x * 0.38, size.x * 0.62, p.x);
   float bottomRight = smoothstep(-size.x * 0.15, size.x * 0.72, p.x)
       * smoothstep(-size.y * 0.12, size.y * 0.72, p.y);
+  float environmentReflection = fresnel
+      * clamp(reflection_strength, 0.0, 2.5)
+      * (0.10 + topLeft * 0.12);
 
   float innerLight = (1.0 - smoothstep(-min(size.x, size.y) * 0.42,
       -edgeWidth * 0.8, sd)) * topLeft;
@@ -112,7 +115,7 @@ half4 main(float2 fragCoord) {
       * topLeft * (0.035 + directLight * 0.10);
 
   surface.rgb *= half3(1.0 - lowerRim);
-  surface.rgb = clamp(surface.rgb + half3(upperRim + sheen), 0.0, 1.0);
+  surface.rgb = clamp(surface.rgb + half3(upperRim + sheen + environmentReflection), 0.0, 1.0);
 
   float grain = (glassNoise(fragCoord + center * 0.37) - 0.5)
       * clamp(grain_amount, 0.0, 1.0) * 0.018;
