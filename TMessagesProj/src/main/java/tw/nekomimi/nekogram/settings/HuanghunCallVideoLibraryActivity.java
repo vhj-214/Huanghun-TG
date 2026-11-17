@@ -229,12 +229,8 @@ public class HuanghunCallVideoLibraryActivity extends BaseFragment {
         return view;
     }
 
-    private GradientDrawable createGlassDrawable(int color, int strokeColor, int radiusDp) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
-        drawable.setCornerRadius(AndroidUtilities.dp(radiusDp));
-        drawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), strokeColor);
-        return drawable;
+    private android.graphics.drawable.Drawable createGlassDrawable(int color, int strokeColor, int radiusDp) {
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(radiusDp));
     }
 
     private final class VideoAdapter extends RecyclerListView.SelectionAdapter {

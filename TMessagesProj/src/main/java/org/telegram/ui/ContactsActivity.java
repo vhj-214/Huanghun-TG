@@ -297,10 +297,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private android.graphics.drawable.Drawable createHuanghunContactsGlassDrawable() {
         // Keep this surface translucent and borderless: the section renderer below
         // supplies the adaptive group shape, while this is only for the search field.
-        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
-        drawable.setColor(0x20FFFFFF);
-        drawable.setCornerRadius(dp(18));
-        return drawable;
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(dp(18));
     }
 
     /** Keep the top bar in the wallpaper blur drawing path, including the status bar. */

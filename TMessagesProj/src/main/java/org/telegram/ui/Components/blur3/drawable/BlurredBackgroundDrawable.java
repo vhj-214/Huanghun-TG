@@ -799,26 +799,39 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         liquidGlassPaint.setShader(new LinearGradient(
                 bounds.left, bounds.top, bounds.right, bounds.bottom,
                 dark
-                        ? new int[] { Theme.multAlpha(0x38FFFFFF, a), Theme.multAlpha(0x0CFFFFFF, a), Theme.multAlpha(0x18000000, a) }
-                        : new int[] { Theme.multAlpha(0x58FFFFFF, a), Theme.multAlpha(0x14FFFFFF, a), Theme.multAlpha(0x10000000, a) },
-                new float[] { 0f, 0.44f, 1f }, Shader.TileMode.CLAMP));
+                        ? new int[] { Theme.multAlpha(0x30FFFFFF, a), Theme.multAlpha(0x08FFFFFF, a), Theme.multAlpha(0x1C000000, a) }
+                        : new int[] { Theme.multAlpha(0x46FFFFFF, a), Theme.multAlpha(0x0EFFFFFF, a), Theme.multAlpha(0x0C000000, a) },
+                new float[] { 0f, 0.40f, 1f }, Shader.TileMode.CLAMP));
+        canvas.drawPath(boundProps.path, liquidGlassPaint);
+        liquidGlassPaint.setShader(null);
+
+        // A second low-alpha pass creates a soft diagonal sheen without turning
+        // the captured wallpaper into an opaque white panel.
+        liquidGlassPaint.setShader(new LinearGradient(
+                bounds.left, bounds.top, bounds.right, bounds.bottom,
+                dark ? 0x22000000 : 0x2AFFFFFF,
+                0x00000000, Shader.TileMode.CLAMP));
         canvas.drawPath(boundProps.path, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
 
         liquidGlassRimPaint.setStyle(Paint.Style.STROKE);
         liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.7f), 1f));
-        liquidGlassRimPaint.setColor(Theme.multAlpha(dark ? 0x58FFFFFF : 0x72FFFFFF, a));
+        liquidGlassRimPaint.setColor(Theme.multAlpha(dark ? 0x62FFFFFF : 0x82FFFFFF, a));
         canvas.drawPath(boundProps.path, liquidGlassRimPaint);
 
         liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.55f), 1f));
-        liquidGlassRimPaint.setColor(Theme.multAlpha(dark ? 0x28000000 : 0x22000000, a));
+        liquidGlassRimPaint.setColor(Theme.multAlpha(dark ? 0x38000000 : 0x26000000, a));
         canvas.drawPath(boundProps.path, liquidGlassRimPaint);
         canvas.restore();
     }
 
     protected final void drawCrossVersionLiquidGlassRect(Canvas canvas,
             float left, float top, float right, float bottom, float radius) {
-        if (!LiteMode.isLiquidGlassEnabled() || alpha == 0) {
+        // The RenderNode caller reaches this method after a shader failure in
+        // the same frame. In that case disableLiquidGlassEffect() has already
+        // switched off the persisted flag, so consulting LiteMode here would
+        // skip the fallback and leave a visually empty/opaque surface.
+        if (alpha == 0) {
             return;
         }
         final boolean dark = Theme.isCurrentThemeDark();
@@ -826,17 +839,23 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         liquidGlassPaint.setShader(new LinearGradient(
                 left, top, right, bottom,
                 dark
-                        ? new int[] { 0x38FFFFFF, 0x0CFFFFFF, 0x18000000 }
-                        : new int[] { 0x58FFFFFF, 0x14FFFFFF, 0x10000000 },
-                new float[] { 0f, 0.44f, 1f }, Shader.TileMode.CLAMP));
+                        ? new int[] { 0x30FFFFFF, 0x08FFFFFF, 0x1C000000 }
+                        : new int[] { 0x46FFFFFF, 0x0EFFFFFF, 0x0C000000 },
+                new float[] { 0f, 0.40f, 1f }, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassPaint);
+        liquidGlassPaint.setShader(null);
+        liquidGlassPaint.setShader(new LinearGradient(
+                left, top, right, bottom,
+                dark ? 0x22000000 : 0x2AFFFFFF,
+                0x00000000, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
         liquidGlassRimPaint.setStyle(Paint.Style.STROKE);
         liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.7f), 1f));
-        liquidGlassRimPaint.setColor(dark ? 0x58FFFFFF : 0x72FFFFFF);
+        liquidGlassRimPaint.setColor(dark ? 0x62FFFFFF : 0x82FFFFFF);
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassRimPaint);
         liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.55f), 1f));
-        liquidGlassRimPaint.setColor(dark ? 0x28000000 : 0x22000000);
+        liquidGlassRimPaint.setColor(dark ? 0x38000000 : 0x26000000);
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassRimPaint);
     }
 

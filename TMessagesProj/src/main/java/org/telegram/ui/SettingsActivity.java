@@ -298,12 +298,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
      * 设置首页专用的单层中性玻璃卡片。只替换实体白色表面，不改变图标、文字或点击反馈。
      */
     private static Drawable createHuanghunSettingsGlassDrawable() {
-        GradientDrawable drawable = new GradientDrawable();
-        // Borderless, low-alpha glass: the live wallpaper remains visible even while
-        // motion/video wallpaper is playing; no fixed white edge is drawn.
-        drawable.setColor(0x20FFFFFF);
-        drawable.setCornerRadius(dp(20));
-        return drawable;
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(dp(20));
     }
 
     private boolean ignoreClearViews;

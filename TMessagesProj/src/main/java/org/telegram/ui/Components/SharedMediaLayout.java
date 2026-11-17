@@ -1594,12 +1594,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
      */
     private Drawable createHuanghunProfileMemberGlassDrawable() {
         // 与资料页其它卡片保持同一套中性、单层玻璃，避免浅色壁纸上产生蓝紫偏色或白板感。
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(0x20FFFFFF);
-        drawable.setCornerRadius(dp(18));
-        drawable.setStroke(Math.max(1, dp(1)), 0x5CFFFFFF);
-        // 共享媒体与共同群行的框体与内容高度一致，避免标题或成员信息落到边框之外。
-        return new InsetDrawable(drawable, 0, 0, 0, 0);
+        // 共享媒体与共同群行使用统一低开销液态玻璃，避免独立 GradientDrawable
+        // 与主玻璃材质出现明显的白板/硬边差异。
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(dp(18));
     }
 
     /**

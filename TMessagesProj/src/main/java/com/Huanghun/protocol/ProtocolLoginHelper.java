@@ -647,11 +647,8 @@ public final class ProtocolLoginHelper {
         return view;
     }
 
-    private static GradientDrawable createRoundedBackground(int color, int radius) {
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(color);
-        background.setCornerRadius(radius);
-        return background;
+    private static android.graphics.drawable.Drawable createRoundedBackground(int color, int radius) {
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(radius);
     }
 
     private static View createMetricCard(Activity activity, String label, int value, int accentColor) {

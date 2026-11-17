@@ -315,7 +315,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         inputWrap.setOrientation(LinearLayout.VERTICAL);
         inputWrap.setGravity(Gravity.CENTER_VERTICAL);
         inputWrap.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
-        inputWrap.setBackground(roundedBackground(getThemedColor(Theme.key_windowBackgroundGray), AndroidUtilities.dp(12)));
+        inputWrap.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(12)));
         input.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         inputWrap.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         form.addView(inputWrap, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, inputHeight, 0, 0, 0, addChooseGap ? 5 : 12));
@@ -337,7 +337,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
         inputWrap.setOrientation(LinearLayout.VERTICAL);
         inputWrap.setGravity(Gravity.CENTER_VERTICAL);
         inputWrap.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
-        inputWrap.setBackground(roundedBackground(getThemedColor(Theme.key_windowBackgroundGray), AndroidUtilities.dp(12)));
+        inputWrap.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(12)));
         target.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         inputWrap.addView(target, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         row.addView(inputWrap, new LinearLayout.LayoutParams(0, AndroidUtilities.dp(50), 1f));
@@ -656,7 +656,7 @@ public class HuanghunSignInActivity extends BaseNekoSettingsActivity implements 
             super(context);
             setOrientation(VERTICAL);
             setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(14));
-            setBackground(roundedBackground(0xe6eaf3d7, AndroidUtilities.dp(14), 0x66889b6d, AndroidUtilities.dp(1)));
+            setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(14)));
             setElevation(0);
             setClickable(true);
             setFocusable(true);

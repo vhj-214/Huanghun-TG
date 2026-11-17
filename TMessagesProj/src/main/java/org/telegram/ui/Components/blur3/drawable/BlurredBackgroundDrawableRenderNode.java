@@ -55,11 +55,13 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     }
 
     private LiquidGlassEffect liquidGlassEffect;
+    private boolean liquidGlassShaderFailed;
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setLiquidGlassEffectAllowed() {
         try {
             liquidGlassEffect = new LiquidGlassEffect(renderNodeFill);
+            liquidGlassShaderFailed = false;
         } catch (Throwable error) {
             disableLiquidGlassEffect(error);
         }
@@ -67,6 +69,7 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
     private void disableLiquidGlassEffect(Throwable error) {
         liquidGlassEffect = null;
+        liquidGlassShaderFailed = true;
         try {
             renderNodeFill.setRenderEffect(null);
         } catch (RuntimeException ignored) {
@@ -163,19 +166,19 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     boundProps.liquidIntensity,
                     boundProps.liquidIndex,
                     backgroundColor,
-                    1.3f,  // Default highlight strength
-                    0.9f,  // Default edge dispersion
-                    0.42f, // Default frosted body
-                    1.2f,  // Default Fresnel edge reflection
-                    1.15f, // Default environment reflection
-                    0.12f  // Default micro-surface grain
+                    1.45f, // Strong but narrow upper-left bevel
+                    0.68f, // Subtle chromatic edge separation
+                    0.24f, // Keep wallpaper detail visible through the body
+                    1.35f, // Fresnel reflection on rounded edges
+                    1.30f, // Soft environment reflection
+                    0.06f  // Nearly invisible micro-surface grain
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);
             }
         }
         source.draw(c, sL, sT, sR, sB);
-        if (liquidGlassEffect == null && liquidGlassEnabled) {
+        if (liquidGlassEffect == null && (liquidGlassEnabled || liquidGlassShaderFailed)) {
             drawCrossVersionLiquidGlassRect(c, 0, 0,
                     boundProps.boundsWithPadding.width(),
                     boundProps.boundsWithPadding.height(),
