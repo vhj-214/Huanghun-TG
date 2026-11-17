@@ -165,12 +165,6 @@ android {
             keyAlias alias
             keyPassword pwd
         }
-        mtStaging {
-            storeFile project.file('release.keystore')
-            storePassword 'xxs10086'
-            keyAlias '黄昏客户端'
-            keyPassword 'xxs10086'
-        }
     }
 
         buildTypes {
@@ -185,8 +179,8 @@ android {
         staging {
             debuggable = false
             jniDebuggable = false
-            // Use the user-provided MT Manager keystore for the public staging APK.
-            signingConfig = signingConfigs.mtStaging
+            // Keep the public Staging APK compatible with previously distributed builds.
+            signingConfig = signingConfigs.stagingDebug
             minifyEnabled = true
             shrinkResources = true
             multiDexEnabled = true
