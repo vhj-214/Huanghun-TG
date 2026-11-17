@@ -1282,6 +1282,9 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
     }
 
     private Drawable createHuanghunGlassDrawable() {
-        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(dp(20));
+        final GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Theme.isCurrentThemeDark() ? 0x26000000 : 0x20FFFFFF);
+        drawable.setCornerRadius(dp(20));
+        return drawable;
     }
 }

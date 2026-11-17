@@ -46,29 +46,6 @@ jobs:
         env:
           NATIVE_TARGET: universal
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
-      - name: Re-sign aligned APK with fixed Debug certificate
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          apks=(TMessagesProj/build/outputs/apk/staging/*-universal.apk)
-          if [ "${#apks[@]}" -ne 1 ]; then
-            echo "Expected exactly one universal staging APK before signing, found ${#apks[@]}" >&2
-            exit 1
-          fi
-          apk="${apks[0]}"
-          aligned="${apk%.apk}-aligned.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -P 16 4 "$apk" "$aligned"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
-            --ks TMessagesProj/staging-debug.keystore \
-            --ks-pass pass:android \
-            --ks-key-alias androiddebugkey \
-            --key-pass pass:android \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --out "$apk" "$aligned"
-          rm -f "$aligned"
       - name: Verify directly installable universal APK
         shell: bash
         run: |

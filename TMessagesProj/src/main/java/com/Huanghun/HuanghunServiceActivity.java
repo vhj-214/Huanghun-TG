@@ -92,8 +92,12 @@ public class HuanghunServiceActivity extends BaseFragment {
         return fragmentView;
     }
 
-    private android.graphics.drawable.Drawable createGlassPanel() {
-        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(18));
+    private GradientDrawable createGlassPanel() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Theme.isCurrentThemeDark() ? 0x3D111820 : 0x38FFFFFF);
+        drawable.setCornerRadius(AndroidUtilities.dp(18));
+        drawable.setStroke(AndroidUtilities.dp(1), Theme.isCurrentThemeDark() ? 0x30FFFFFF : 0x55FFFFFF);
+        return drawable;
     }
 
     private void checkForUpdates() {

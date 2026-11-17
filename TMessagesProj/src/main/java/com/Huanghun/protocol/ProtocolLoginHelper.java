@@ -647,8 +647,11 @@ public final class ProtocolLoginHelper {
         return view;
     }
 
-    private static android.graphics.drawable.Drawable createRoundedBackground(int color, int radius) {
-        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(radius);
+    private static GradientDrawable createRoundedBackground(int color, int radius) {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(color);
+        background.setCornerRadius(radius);
+        return background;
     }
 
     private static View createMetricCard(Activity activity, String label, int value, int accentColor) {
@@ -721,7 +724,7 @@ public final class ProtocolLoginHelper {
                 LinearLayout content = new LinearLayout(activity);
                 content.setOrientation(LinearLayout.VERTICAL);
                 content.setPadding(padding, AndroidUtilities.dp(15), padding, AndroidUtilities.dp(10));
-                content.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(22)));
+                content.setBackgroundColor(Color.WHITE);
 
                 titleView = createTextView(activity, "当前账号正在加载中", 21, Color.rgb(22, 35, 63));
                 content.addView(titleView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));

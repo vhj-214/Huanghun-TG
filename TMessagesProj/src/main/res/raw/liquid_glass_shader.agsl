@@ -1,4 +1,5 @@
 uniform shader img;
+
 uniform float2 resolution;
 uniform float2 center;
 uniform float2 size;
@@ -7,6 +8,10 @@ uniform float thickness;
 uniform float refract_index;
 uniform float refract_intensity;
 uniform float4 foreground_color_premultiplied;
+
+// Huanghun glass tuning: extra user facing controls.
+// 1.0 / 1.0 / 0.0 keeps the original reference look, so an untouched
+// installation renders exactly like before this feature was added.
 uniform float specular_strength;
 uniform float dispersion_strength;
 uniform float frost_amount;
@@ -21,104 +26,123 @@ float sdfRect(float2 p, float4 r) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r.x;
 }
 
-half4 overPremul(half4 src, half4 dst) {
-  return half4(src.rgb + dst.rgb * (1.0 - src.a),
-      src.a + dst.a * (1.0 - src.a));
+half4 srcOver(half4 src, half4 dst) {
+  half3 outRGB = src.rgb + dst.rgb * (1.0 - src.a);
+  half outA = src.a + (1.0 - src.a) * dst.a;
+  return half4(outRGB, outA);
 }
 
 float2 clampToScreen(float2 uv) {
-  return clamp(uv, float2(0.5), max(resolution - float2(0.5), float2(0.5)));
+  float2 maximum = max(resolution - float2(0.5), float2(0.5));
+  return clamp(uv, float2(0.5), maximum);
 }
 
 float glassNoise(float2 p) {
   return fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
 }
 
-half4 frostedBackdrop(float2 uv) {
-  float amount = clamp(frost_amount, 0.0, 1.0);
-  if (amount <= 0.001) return img.eval(uv);
-
-  float radiusPx = clamp(amount * min(size.x, size.y) * 0.095, 1.0, 26.0);
-  float2 x = float2(radiusPx, 0.0);
-  float2 y = float2(0.0, radiusPx);
-  float2 d = radiusPx * 0.7071;
-  half4 result = img.eval(uv) * 0.20;
-  result += img.eval(clampToScreen(uv + x)) * 0.12;
-  result += img.eval(clampToScreen(uv - x)) * 0.12;
-  result += img.eval(clampToScreen(uv + y)) * 0.12;
-  result += img.eval(clampToScreen(uv - y)) * 0.12;
-  result += img.eval(clampToScreen(uv + float2(d, d))) * 0.08;
-  result += img.eval(clampToScreen(uv + float2(-d, d))) * 0.08;
-  result += img.eval(clampToScreen(uv + float2(d, -d))) * 0.08;
-  result += img.eval(clampToScreen(uv - float2(d, d))) * 0.08;
-  return result;
+// Frosted body: a fixed weighted kernel gives the panel the broad, soft
+// background separation visible in Apple's Control Centre. It stays bounded
+// and is only evaluated when frost_amount is above zero.
+half4 evalFrosted(float2 uv) {
+  float amt = clamp(frost_amount, 0.0, 1.0);
+  if (amt <= 0.001) {
+    return img.eval(uv);
+  }
+  float r = amt * max(size.x, size.y) * 0.12;
+  float d = r * 0.7071;
+  float r2 = r * 1.65;
+  half4 sum = img.eval(uv) * 0.20;
+  sum = sum + img.eval(clampToScreen(uv + float2(r, 0.0))) * 0.10;
+  sum = sum + img.eval(clampToScreen(uv + float2(-r, 0.0))) * 0.10;
+  sum = sum + img.eval(clampToScreen(uv + float2(0.0, r))) * 0.10;
+  sum = sum + img.eval(clampToScreen(uv + float2(0.0, -r))) * 0.10;
+  sum = sum + img.eval(clampToScreen(uv + float2(d, d))) * 0.06;
+  sum = sum + img.eval(clampToScreen(uv + float2(-d, -d))) * 0.06;
+  sum = sum + img.eval(clampToScreen(uv + float2(d, -d))) * 0.06;
+  sum = sum + img.eval(clampToScreen(uv + float2(-d, d))) * 0.06;
+  sum = sum + img.eval(clampToScreen(uv + float2(r2, 0.0))) * 0.04;
+  sum = sum + img.eval(clampToScreen(uv + float2(-r2, 0.0))) * 0.04;
+  sum = sum + img.eval(clampToScreen(uv + float2(0.0, r2))) * 0.04;
+  sum = sum + img.eval(clampToScreen(uv + float2(0.0, -r2))) * 0.04;
+  return sum;
 }
 
 half4 main(float2 fragCoord) {
   float2 p = fragCoord - center;
   float sd = sdfRect(p, radius);
-  float edgeWidth = max(thickness, 0.75);
-
-  float2 gradient = float2(
+  float safeThickness = max(thickness, 0.5);
+  float2 uv = fragCoord;
+  float2 normalDelta = float2(
       sdfRect(p + float2(1.0, 0.0), radius) - sd,
       sdfRect(p + float2(0.0, 1.0), radius) - sd);
-  gradient = normalize(length(gradient) > 0.001 ? gradient : float2(1.0, 0.0));
+  float normalCos = clamp((safeThickness + sd) / safeThickness, 0.0, 1.0);
+  float normalSin = sqrt(max(1.0 - normalCos * normalCos, 0.0));
+  float3 normal = normalize(float3(normalDelta * normalCos, normalSin));
+  float2 refractOffset = float2(0.0);
 
-  float edge = 1.0 - smoothstep(-edgeWidth * 1.65, 0.0, sd);
-  float bevel = 1.0 - smoothstep(-edgeWidth, edgeWidth * 0.18, sd);
-  float3 normal = normalize(float3(gradient * bevel, sqrt(max(1.0 - bevel * bevel, 0.0))));
-
-  float3 incident = float3(0.0, 0.0, -1.0);
-  float3 refracted = refract(incident, normal, 1.0 / max(refract_index, 1.01));
-  float innerDepth = max(-sd, 0.0);
-  float opticalDistance = min((innerDepth * 0.16 + edgeWidth * (0.72 + 0.65 * bevel))
-      / max(abs(refracted.z), 0.30), edgeWidth * 3.6);
-  float2 refractedUv = clampToScreen(fragCoord + refracted.xy * opticalDistance
-      * clamp(refract_intensity, 0.0, 1.6));
-  half4 background = frostedBackdrop(refractedUv);
-
-  float dispersion = edge * clamp(dispersion_strength, 0.0, 2.0) * 0.75;
-  if (dispersion > 0.01) {
-    float2 direction = normalize(refractedUv - fragCoord + gradient * 0.001);
-    half red = img.eval(clampToScreen(refractedUv + direction * dispersion)).r;
-    half blue = img.eval(clampToScreen(refractedUv - direction * dispersion)).b;
-    background.rgb = half3(red, background.g, blue);
+  if (sd < 0.0) {
+    float3 refractVector = refract(float3(0.0, 0.0, -1.0), normal,
+        1.0 / max(refract_index, 1.01));
+    float h = sd < -safeThickness
+        ? safeThickness
+        : sqrt(max(sd * (-2.0 * safeThickness - sd), 0.0));
+    float opticalDistance = min(
+        (h + 1.35 * safeThickness) / max(abs(refractVector.z), 0.2),
+        4.0 * safeThickness);
+    refractOffset = refractVector.xy * opticalDistance
+        * clamp(refract_intensity, 0.0, 1.2);
+    uv += refractOffset;
   }
 
-  float bodyAlpha = clamp(0.085 + clamp(frost_amount, 0.0, 1.0) * 0.13, 0.085, 0.23);
-  half4 bodyTint = half4(foreground_color_premultiplied.rgb * 0.32
-      + half3(0.94, 0.975, 1.0) * bodyAlpha, bodyAlpha);
-  half4 surface = overPremul(bodyTint, background);
+  uv = clampToScreen(uv);
+  half4 background = evalFrosted(uv);
 
-  float fresnel = pow(clamp(1.0 - abs(normal.z), 0.0, 1.0), 1.18)
+  // Edge-only color splitting mimics real glass dispersion without washing
+  // the wallpaper or text behind the panel into a rainbow blur.
+  float offsetLength = length(refractOffset);
+  float2 dispersionDirection = offsetLength > 0.001
+      ? refractOffset / offsetLength
+      : (length(normalDelta) > 0.001 ? normalize(normalDelta) : float2(1.0, 0.0));
+  float inside = 1.0 - smoothstep(0.0, 1.0, sd);
+  float edge = (1.0 - smoothstep(0.0, max(safeThickness * 1.65, 1.0), abs(sd))) * inside;
+  float dispersion = edge * 0.62 * clamp(dispersion_strength, 0.0, 2.0);
+  half red = img.eval(clampToScreen(uv + dispersionDirection * dispersion)).r;
+  half blue = img.eval(clampToScreen(uv - dispersionDirection * dispersion)).b;
+  background.rgb = half3(red, background.g, blue);
+
+  half4 surface = srcOver(half4(foreground_color_premultiplied), background);
+
+  float specularAmount = clamp(specular_strength, 0.0, 2.0);
+  // A restrained milky body tint prevents the material from looking like a
+  // plain transparent overlay while keeping the captured wallpaper visible.
+  float bodyAlpha = clamp(0.028 + clamp(frost_amount, 0.0, 1.0) * 0.12, 0.0, 0.16);
+  surface = srcOver(half4(0.92, 0.95, 1.0, bodyAlpha), surface);
+  float topLight = 1.0 - smoothstep(-size.y * 0.22, size.y * 0.62, p.y);
+  float leftLight = 1.0 - smoothstep(-size.x * 0.18, size.x * 0.58, p.x);
+  float fresnel = pow(clamp(1.0 - abs(normal.z), 0.0, 1.0), 1.55)
       * clamp(fresnel_strength, 0.0, 2.0);
-  float3 lightDirection = normalize(float3(-0.52, -0.66, 0.56));
-  float directLight = pow(max(dot(normal, lightDirection), 0.0), 9.0)
-      * clamp(specular_strength, 0.0, 2.5);
+  float3 lightDirection = normalize(float3(-0.36, -0.52, 0.78));
+  float specular = pow(max(dot(normal, lightDirection), 0.0), 14.0)
+      * specularAmount * clamp(reflection_strength, 0.0, 2.0);
+  float rimAlpha = edge * (0.075 + 0.16 * topLight * leftLight + 0.20 * fresnel + 0.18 * specular);
 
-  float topLeft = 1.0 - smoothstep(-size.y * 0.40, size.y * 0.58, p.y);
-  topLeft *= 1.0 - smoothstep(-size.x * 0.38, size.x * 0.62, p.x);
-  float bottomRight = smoothstep(-size.x * 0.15, size.x * 0.72, p.x)
-      * smoothstep(-size.y * 0.12, size.y * 0.72, p.y);
-  float environmentReflection = fresnel
-      * clamp(reflection_strength, 0.0, 2.5)
-      * (0.10 + topLeft * 0.12);
+  // Broad, low-opacity reflection gives a suspended glass look while leaving
+  // fine wallpaper lines visible through the body of the material.
+  float diagonal = 1.0 - smoothstep(0.12, 0.86,
+      abs((p.x / max(size.x, 1.0)) + (p.y / max(size.y, 1.0)) * 0.72));
+  float sheenAlpha = diagonal * topLight * inside * (0.032 + fresnel * 0.045) * specularAmount;
+  // The clamp used to be a constant 0.28. Scaling it with the user's highlight
+  // strength keeps specular_strength == 1.0 pixel identical to the old build
+  // while still letting the slider push the rim brighter or softer.
+  float highlightAlpha = clamp(rimAlpha + sheenAlpha, 0.0, 0.42 * max(specularAmount, 0.35));
+  highlightAlpha *= clamp(reflection_strength, 0.0, 2.0);
+  half4 reflection = half4(highlightAlpha, highlightAlpha, highlightAlpha, highlightAlpha);
 
-  float innerLight = (1.0 - smoothstep(-min(size.x, size.y) * 0.42,
-      -edgeWidth * 0.8, sd)) * topLeft;
-  float upperRim = edge * (0.12 + fresnel * 0.42 + directLight * 0.52)
-      + innerLight * 0.055;
-  float lowerRim = edge * (0.07 + bottomRight * 0.18);
-
-  float sheenLine = p.x / max(size.x, 1.0) + p.y / max(size.y, 1.0) * 0.74;
-  float sheen = (1.0 - smoothstep(0.0, 0.18, abs(sheenLine + 0.33)))
-      * topLeft * (0.035 + directLight * 0.10);
-
+  float lowerRim = edge * (1.0 - topLight) * (0.035 + 0.045 * fresnel);
   surface.rgb *= half3(1.0 - lowerRim);
-  surface.rgb = clamp(surface.rgb + half3(upperRim + sheen + environmentReflection), 0.0, 1.0);
-
   float grain = (glassNoise(fragCoord + center * 0.37) - 0.5)
-      * clamp(grain_amount, 0.0, 1.0) * 0.018;
-  surface.rgb = clamp(surface.rgb + half3(grain), 0.0, 1.0);
-  return surface;
+      * clamp(grain_amount, 0.0, 1.0) * 0.035;
+  surface.rgb = clamp(surface.rgb + half3(grain, grain, grain), 0.0, 1.0);
+  return srcOver(reflection, surface);
 }

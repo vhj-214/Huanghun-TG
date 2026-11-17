@@ -994,7 +994,7 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         input.setMinLines(6);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         input.setText(NekoConfig.huanghunBlockedKeywords.String());
-        input.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(16)));
+        input.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhiteInputField));
         input.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(10), AndroidUtilities.dp(12), AndroidUtilities.dp(10));
         container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(180)));
 
@@ -1271,8 +1271,12 @@ public class NekoExtensionsActivity extends BaseNekoSettingsActivity implements 
         return hint;
     }
 
-    private android.graphics.drawable.Drawable privacyRoundedDrawable(int color, int strokeColor, int radiusDp, int strokeDp) {
-        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(radiusDp));
+    private GradientDrawable privacyRoundedDrawable(int color, int strokeColor, int radiusDp, int strokeDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(AndroidUtilities.dp(radiusDp));
+        drawable.setStroke(Math.max(1, AndroidUtilities.dp(strokeDp)), strokeColor);
+        return drawable;
     }
 
     private int privacyBlend(int color1, int color2, float amount) {

@@ -356,15 +356,19 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
         private final TextView title;
         private final TextView description;
         private final ImageView arrow;
-        private final android.graphics.drawable.Drawable cardBackground;
-        private final android.graphics.drawable.Drawable iconBackground;
+        private final GradientDrawable cardBackground;
+        private final GradientDrawable iconBackground;
 
         FeatureCell(Context context) {
             super(context);
             setFocusable(true);
             setClickable(true);
 
-            cardBackground = new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(18));
+            cardBackground = new GradientDrawable();
+            cardBackground.setCornerRadius(AndroidUtilities.dp(18));
+            cardBackground.setColor(ColorUtils.setAlphaComponent(
+                    getThemedColor(Theme.key_windowBackgroundWhite), Theme.isCurrentThemeDark() ? 44 : 150));
+            cardBackground.setStroke(AndroidUtilities.dp(1), ColorUtils.setAlphaComponent(Color.WHITE, Theme.isCurrentThemeDark() ? 30 : 115));
             setBackground(cardBackground);
             setForeground(Theme.createSelectorDrawable(ColorUtils.setAlphaComponent(Color.WHITE, 45), Theme.RIPPLE_MASK_ROUNDRECT_6DP, AndroidUtilities.dp(18)));
 
@@ -373,7 +377,10 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
             setLayoutParams(params);
 
             FrameLayout iconHolder = new FrameLayout(context);
-            iconBackground = new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(14));
+            iconBackground = new GradientDrawable();
+            iconBackground.setCornerRadius(AndroidUtilities.dp(14));
+            iconBackground.setColor(ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), 30));
+            iconBackground.setStroke(AndroidUtilities.dp(1), ColorUtils.setAlphaComponent(getThemedColor(Theme.key_windowBackgroundWhiteBlueText4), 45));
             iconHolder.setBackground(iconBackground);
             addView(iconHolder, LayoutHelper.createFrame(46, 46, Gravity.LEFT | Gravity.CENTER_VERTICAL, 14, 0, 0, 0));
 
@@ -429,7 +436,11 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
             params.setMargins(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
             setLayoutParams(params);
 
-            setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(24)));
+            GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{0x8C5C84D8, 0x7250BEB1, 0x6695D3B3});
+            background.setCornerRadius(AndroidUtilities.dp(24));
+            background.setStroke(AndroidUtilities.dp(1), 0x66FFFFFF);
+            setBackground(background);
 
             LinearLayout textLayout = new LinearLayout(context);
             textLayout.setOrientation(LinearLayout.VERTICAL);

@@ -9,7 +9,6 @@ import androidx.annotation.RequiresApi;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.R;
-import org.telegram.ui.Components.glass.LiquidGlassMaterial;
 
 @RequiresApi(api = 33)
 public class LiquidGlassEffect {
@@ -18,12 +17,12 @@ public class LiquidGlassEffect {
      * Huanghun: values used when the caller does not supply the extra tuning
      * knobs. They are the reference values of the original shader.
      */
-    private static final float DEFAULT_SPECULAR_STRENGTH = LiquidGlassMaterial.SPECULAR_STRENGTH;
-    private static final float DEFAULT_DISPERSION_STRENGTH = LiquidGlassMaterial.DISPERSION_STRENGTH;
-    private static final float DEFAULT_FROST_AMOUNT = LiquidGlassMaterial.FROST_AMOUNT;
-    private static final float DEFAULT_FRESNEL_STRENGTH = LiquidGlassMaterial.FRESNEL_STRENGTH;
-    private static final float DEFAULT_REFLECTION_STRENGTH = LiquidGlassMaterial.REFLECTION_STRENGTH;
-    private static final float DEFAULT_GRAIN_AMOUNT = LiquidGlassMaterial.GRAIN_AMOUNT;
+    private static final float DEFAULT_SPECULAR_STRENGTH = 1f;
+    private static final float DEFAULT_DISPERSION_STRENGTH = 1f;
+    private static final float DEFAULT_FROST_AMOUNT = 0f;
+    private static final float DEFAULT_FRESNEL_STRENGTH = 1f;
+    private static final float DEFAULT_REFLECTION_STRENGTH = 1f;
+    private static final float DEFAULT_GRAIN_AMOUNT = 0f;
 
     /**
      * Sentinel used so the very first {@link #update} call always pushes every

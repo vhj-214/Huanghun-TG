@@ -19,7 +19,6 @@ import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.blur3.LiquidGlassEffect;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
-import org.telegram.ui.Components.glass.LiquidGlassMaterial;
 
 @RequiresApi(api = Build.VERSION_CODES.Q)
 public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawable {
@@ -56,13 +55,11 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     }
 
     private LiquidGlassEffect liquidGlassEffect;
-    private boolean liquidGlassShaderFailed;
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setLiquidGlassEffectAllowed() {
         try {
             liquidGlassEffect = new LiquidGlassEffect(renderNodeFill);
-            liquidGlassShaderFailed = false;
         } catch (Throwable error) {
             disableLiquidGlassEffect(error);
         }
@@ -70,7 +67,6 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
     private void disableLiquidGlassEffect(Throwable error) {
         liquidGlassEffect = null;
-        liquidGlassShaderFailed = true;
         try {
             renderNodeFill.setRenderEffect(null);
         } catch (RuntimeException ignored) {
@@ -167,19 +163,19 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     boundProps.liquidIntensity,
                     boundProps.liquidIndex,
                     backgroundColor,
-                    LiquidGlassMaterial.SPECULAR_STRENGTH,
-                    LiquidGlassMaterial.DISPERSION_STRENGTH,
-                    LiquidGlassMaterial.FROST_AMOUNT,
-                    LiquidGlassMaterial.FRESNEL_STRENGTH,
-                    LiquidGlassMaterial.REFLECTION_STRENGTH,
-                    LiquidGlassMaterial.GRAIN_AMOUNT
+                    1.3f,  // Default highlight strength
+                    0.9f,  // Default edge dispersion
+                    0.42f, // Default frosted body
+                    1.2f,  // Default Fresnel edge reflection
+                    1.15f, // Default environment reflection
+                    0.12f  // Default micro-surface grain
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);
             }
         }
         source.draw(c, sL, sT, sR, sB);
-        if (liquidGlassEffect == null && (liquidGlassEnabled || liquidGlassShaderFailed)) {
+        if (liquidGlassEffect == null && liquidGlassEnabled) {
             drawCrossVersionLiquidGlassRect(c, 0, 0,
                     boundProps.boundsWithPadding.width(),
                     boundProps.boundsWithPadding.height(),

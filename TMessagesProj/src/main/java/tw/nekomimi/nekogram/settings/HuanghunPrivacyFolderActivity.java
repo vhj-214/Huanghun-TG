@@ -89,20 +89,26 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         );
     }
 
-    private android.graphics.drawable.Drawable privacyShape(int color, int stroke, int radiusDp) {
-        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(radiusDp));
+    private GradientDrawable privacyShape(int color, int stroke, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(AndroidUtilities.dp(radiusDp));
+        drawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), stroke);
+        return drawable;
     }
 
     private void showUnlockDialog(Context context) {
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(6));
-        container.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(22)));
+        container.setBackground(privacyShape(0x20FFFFFF,
+                getThemedColor(Theme.key_windowBackgroundWhiteGrayText2), 22));
 
         LinearLayout hero = new LinearLayout(context);
         hero.setOrientation(LinearLayout.VERTICAL);
         hero.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(13), AndroidUtilities.dp(16), AndroidUtilities.dp(13));
-        hero.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(17)));
+        hero.setBackground(privacyShape(0x20FFFFFF,
+                getThemedColor(Theme.key_windowBackgroundWhiteGrayText2), 17));
         TextView tag = new TextView(context);
         tag.setText("本机安全保护");
         tag.setTextSize(12);

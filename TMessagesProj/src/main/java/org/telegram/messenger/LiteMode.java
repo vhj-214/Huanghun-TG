@@ -55,8 +55,7 @@ public class LiteMode {
         FLAG_ANIMATED_EMOJI_REACTIONS_PREMIUM |
         FLAG_AUTOPLAY_GIFS |
         FLAG_CHAT_THANOS |
-        FLAG_PARTICLES |
-        FLAG_LIQUID_GLASS
+        FLAG_PARTICLES
     ); // 198684
     public static int PRESET_MEDIUM = (
         FLAGS_ANIMATED_STICKERS |
@@ -68,8 +67,7 @@ public class LiteMode {
         FLAG_AUTOPLAY_VIDEOS |
         FLAG_AUTOPLAY_GIFS |
         FLAG_CHAT_THANOS |
-        FLAG_PARTICLES |
-        FLAG_LIQUID_GLASS
+        FLAG_PARTICLES
     ); // 204383
     public static int PRESET_HIGH = (
         FLAGS_ANIMATED_STICKERS |
@@ -83,8 +81,7 @@ public class LiteMode {
         FLAG_CALLS_ANIMATIONS |
         FLAG_AUTOPLAY_VIDEOS |
         FLAG_AUTOPLAY_GIFS |
-        FLAG_PARTICLES |
-        FLAG_LIQUID_GLASS
+        FLAG_PARTICLES
     ); // 262143
     public static int PRESET_POWER_SAVER = 0;
 
@@ -98,7 +95,6 @@ public class LiteMode {
     private static int value;
     private static boolean loaded;
     private static boolean legacyGlassMigrationChecked;
-    private static final String LIQUID_GLASS_DEFAULT_MIGRATION = "liquid_glass_default_v3";
 
     public static int getValue() {
         return getValue(false);
@@ -320,20 +316,7 @@ public class LiteMode {
         }
 
         int prevValue = value;
-        boolean shouldEnableLiquidGlass = !preferences.getBoolean(LIQUID_GLASS_DEFAULT_MIGRATION, false);
         value = preferences.getInt("lite_mode6", defaultValue);
-        if (shouldEnableLiquidGlass) {
-            // The previous release shipped the material and its UI bindings but
-            // forgot to include the flag in every preset. Existing installations
-            // therefore kept rendering the legacy blur path forever. Apply this
-            // one-time migration so a normal launch actually reaches the new
-            // RenderNode/RuntimeShader pipeline.
-            value |= FLAG_LIQUID_GLASS;
-            preferences.edit()
-                    .putInt("lite_mode6", value)
-                    .putBoolean(LIQUID_GLASS_DEFAULT_MIGRATION, true)
-                    .apply();
-        }
         if (loaded) {
             onFlagsUpdate(prevValue, value);
         }

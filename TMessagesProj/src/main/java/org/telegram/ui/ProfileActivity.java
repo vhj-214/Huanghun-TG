@@ -14266,8 +14266,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         private Drawable createHuanghunLiquidGlassCardDrawable() {
-            // 使用与设置/联系人页一致的低开销材质，避免独立白色卡片。
-            return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(20));
+            // 中性单层表面：不使用蓝紫渐变，避免在浅色壁纸上重新变成实体白板。
+            GradientDrawable cardDrawable = new GradientDrawable();
+            cardDrawable.setColor(0x20FFFFFF);
+            cardDrawable.setCornerRadius(AndroidUtilities.dp(20));
+            cardDrawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), 0x5CFFFFFF);
+            // 卡片与内容使用同一完整高度，避免固定 60dp 信息行的文字落到被缩短的外框之外。
+            return new InsetDrawable(cardDrawable, 0, 0, 0, 0);
         }
 
         public void setBackground(View view, int viewType) {

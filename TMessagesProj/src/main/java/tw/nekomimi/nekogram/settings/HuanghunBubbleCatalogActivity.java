@@ -216,7 +216,10 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
             setWillNotDraw(false);
             setPadding(AndroidUtilities.dp(5), AndroidUtilities.dp(5), AndroidUtilities.dp(5), AndroidUtilities.dp(5));
 
-            setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(14)));
+            GradientDrawable card = new GradientDrawable();
+            card.setColor(0x20FFFFFF);
+            card.setCornerRadius(AndroidUtilities.dp(14));
+            setBackground(card);
             setOnClickListener(v -> onStyleTapped(style));
 
             preview = new ImageView(context);
