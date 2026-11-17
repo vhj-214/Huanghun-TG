@@ -57,9 +57,6 @@ import tw.nekomimi.nekogram.ui.cells.AccountCell;
 import tw.nekomimi.nekogram.ui.cells.EmojiSetCell;
 import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 import tw.nekomimi.nekogram.helpers.DynamicVideoWallpaperHelper;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPalette;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPainter;
 
 public abstract class BaseNekoSettingsActivity extends BaseFragment {
 
@@ -123,7 +120,7 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         // panels on emoji, sticker and privacy-related pages.
         updateSettingsWallpaperBackground(frameLayout);
 
-        HuanghunGlassPage.applyActionBar(actionBar, frameLayout);
+        actionBar.setDrawBlurBackground(frameLayout);
 
         listView = new BlurredRecyclerView(context);
         // Keep the list surface transparent so section glass can reveal the
@@ -189,17 +186,21 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         });
 
         // The default RecyclerListView section renderer paints an opaque white card.
-        // The Huanghun renderer draws the shared frosted material instead: milky
-        // body, bright top rim, darker bottom rim, so group cards read as glass
-        // on top of the blurred page backdrop.
-        final HuanghunGlassPalette sectionPalette = HuanghunGlassPage.palette(
-                (ViewGroup) fragmentView, HuanghunGlassPalette.VARIANT_CARD);
+        // This is the actual background behind every Huanghun settings group, so keep
+        // the wallpaper/video visible and use one low-alpha, borderless glass surface.
+        final Paint sectionGlassPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         listView.setSections(
                 view -> view.getParent() == listView && !(view instanceof ShadowSectionCell),
                 dp(12),
                 18,
-                (canvas, rect, topRadius, bottomRadius, alpha) ->
-                        HuanghunGlassPainter.drawPanel(canvas, rect, Math.max(topRadius, bottomRadius), sectionPalette),
+                (canvas, rect, topRadius, bottomRadius, alpha) -> {
+                    // setAlpha replaces the alpha from setColor. Keep the section
+                    // surface genuinely translucent so the wallpaper is visible.
+                    sectionGlassPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                    sectionGlassPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x26 : 0x20) * alpha));
+                    float radius = Math.max(topRadius, bottomRadius);
+                    canvas.drawRoundRect(rect, radius, radius, sectionGlassPaint);
+                },
                 false
         );
         applyHuanghunSettingsActionBarGlass();
@@ -221,18 +222,13 @@ public abstract class BaseNekoSettingsActivity extends BaseFragment {
         if (actionBar == null) {
             return;
         }
-        if (fragmentView instanceof ViewGroup) {
-            // iOS-style frosted bar fed by the blurred page backdrop.
-            HuanghunGlassPage.applyActionBar(actionBar, (ViewGroup) fragmentView);
-            return;
-        }
         // Never restore the opaque adaptive action-bar on Huanghun settings pages.
         actionBar.disableAdaptiveBackground();
         if (!hasWhiteActionBar()) {
             return;
         }
         // The root owns the complete surface, including the status-bar area.
-        actionBar.setBackgroundColor(Theme.isCurrentThemeDark() ? 0x331C1C1E : 0x30FFFFFF);
+        actionBar.setBackgroundColor(0x20FFFFFF);
         actionBar.setCastShadows(false);
     }
 

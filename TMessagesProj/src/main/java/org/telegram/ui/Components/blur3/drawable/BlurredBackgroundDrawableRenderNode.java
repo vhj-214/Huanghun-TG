@@ -32,7 +32,6 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     private final Paint paintShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintStrokeTop = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintStrokeBottom = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint paintSoftwareFallback = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private boolean renderNodeInvalidated;
 
@@ -164,16 +163,12 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     boundProps.liquidIntensity,
                     boundProps.liquidIndex,
                     backgroundColor,
-                    // Huanghun iOS-style material: stronger rim light, a much
-                    // softer frosted body (this is the parameter that actually
-                    // reads as "milky glass"), restrained dispersion and low
-                    // grain so the surface stays clean on top of photos.
-                    1.55f, // specular highlight strength
-                    0.55f, // edge dispersion
-                    0.58f, // frosted body
-                    1.45f, // Fresnel edge reflection
-                    1.25f, // environment reflection
-                    0.06f  // micro-surface grain
+                    1.3f,  // Default highlight strength
+                    0.9f,  // Default edge dispersion
+                    0.42f, // Default frosted body
+                    1.2f,  // Default Fresnel edge reflection
+                    1.15f, // Default environment reflection
+                    0.12f  // Default micro-surface grain
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);
@@ -236,28 +231,7 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
         }
 
         if (!canvas.isHardwareAccelerated()) {
-            // Software canvases (screenshot, some custom views, transition
-            // renderers) cannot replay a RenderNode. Draw the source, then the
-            // translucent body and rims so the surface is never fully
-            // transparent — a transparent action bar is what exposed the black
-            // window background in earlier builds.
             drawSource(canvas, source);
-            if (!boundProps.boundsWithPadding.isEmpty()) {
-                canvas.save();
-                canvas.translate(boundProps.boundsWithPadding.left, boundProps.boundsWithPadding.top);
-                if (Color.alpha(backgroundColor) != 0) {
-                    paintSoftwareFallback.setStyle(Paint.Style.FILL);
-                    paintSoftwareFallback.setColor(backgroundColor);
-                    boundProps.draw(canvas, paintSoftwareFallback);
-                }
-                if (Color.alpha(strokeColorTop) != 0 || Color.alpha(strokeColorBottom) != 0) {
-                    paintSoftwareFallback.setStyle(Paint.Style.STROKE);
-                    paintSoftwareFallback.setStrokeWidth(Math.max(1f, boundProps.strokeWidthTop));
-                    paintSoftwareFallback.setColor(strokeColorTop != 0 ? strokeColorTop : strokeColorBottom);
-                    canvas.drawPath(boundProps.path, paintSoftwareFallback);
-                }
-                canvas.restore();
-            }
             return;
         }
 

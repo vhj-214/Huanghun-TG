@@ -83,9 +83,6 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 import tw.nekomimi.nekogram.utils.AlertUtil;
 import tw.nekomimi.nekogram.utils.ProxyUtil;
 import tw.nekomimi.nekogram.settings.HuanghunWallpaperLayout;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPalette;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPainter;
 
 public class ProxyListActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
     private final static boolean IS_PROXY_ROTATION_AVAILABLE = true;
@@ -494,7 +491,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             wallpaperRoot.setFitsSystemWindows(true);
             wallpaperRoot.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateListInsets());
             fragmentView = wallpaperRoot;
-            HuanghunGlassPage.applyActionBar(actionBar, wallpaperRoot);
+            actionBar.setDrawBlurBackground(wallpaperRoot);
+            actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+            actionBar.setCastShadows(false);
         }
         FrameLayout frameLayout = (FrameLayout) fragmentView;
 
@@ -502,12 +501,11 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         // The proxy page is displayed over the settings wallpaper. Keep the
         // list itself transparent; stock cells and sections are opaque.
         listView.setBackgroundColor(Color.TRANSPARENT);
-        final HuanghunGlassPalette proxySectionPalette = HuanghunGlassPage.palette(
-                (ViewGroup) fragmentView, HuanghunGlassPalette.VARIANT_CARD);
         if (loginBackground) {
             listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell),
                     AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                        HuanghunGlassPainter.drawPanel(canvas, rect, AndroidUtilities.dp(16), proxySectionPalette);
+                        loginSectionPaint.setColor(Color.argb((int) (0x4D * alpha), 255, 255, 255));
+                        canvas.drawRoundRect(rect, AndroidUtilities.dp(16), AndroidUtilities.dp(16), loginSectionPaint);
                     }, false);
         } else {
             // The default section renderer paints an opaque windowBackgroundWhite.
@@ -515,7 +513,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             // wallpaper stays visible through every row while scrolling.
             listView.setSections(view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell),
                     AndroidUtilities.dp(12), AndroidUtilities.dp(16), (canvas, rect, topRadius, bottomRadius, alpha) -> {
-                        HuanghunGlassPainter.drawPanel(canvas, rect, Math.max(topRadius, bottomRadius), proxySectionPalette);
+                        loginSectionPaint.setColor(Theme.isCurrentThemeDark() ? Color.BLACK : Color.WHITE);
+                        loginSectionPaint.setAlpha(Math.round((Theme.isCurrentThemeDark() ? 0x32 : 0x2A) * alpha));
+                        float radius = Math.max(topRadius, bottomRadius);
+                        canvas.drawRoundRect(rect, radius, radius, loginSectionPaint);
                     }, false);
         }
         ((DefaultItemAnimator) listView.getItemAnimator()).setDelayAnimations(false);

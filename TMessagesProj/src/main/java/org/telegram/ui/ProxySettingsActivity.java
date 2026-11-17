@@ -70,7 +70,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
 
 public class ProxySettingsActivity extends BaseFragment {
 
@@ -302,7 +301,9 @@ public class ProxySettingsActivity extends BaseFragment {
             HuanghunWallpaperLayout wallpaperRoot = new HuanghunWallpaperLayout(context, currentAccount);
             wallpaperRoot.setFitsSystemWindows(true);
             fragmentView = wallpaperRoot;
-            HuanghunGlassPage.applyActionBar(actionBar, wallpaperRoot);
+            actionBar.setDrawBlurBackground(wallpaperRoot);
+            actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+            actionBar.setCastShadows(false);
         }
         FrameLayout frameLayout = (FrameLayout) fragmentView;
 

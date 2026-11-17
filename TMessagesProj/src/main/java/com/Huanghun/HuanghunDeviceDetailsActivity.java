@@ -50,7 +50,6 @@ import java.io.FileReader;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
 
 /** Read-only local device and client version details rendered by the bundled HTML page. */
 public class HuanghunDeviceDetailsActivity extends BaseFragment {
@@ -77,7 +76,9 @@ public class HuanghunDeviceDetailsActivity extends BaseFragment {
         // below the action bar, which exposed the window's black surface on top.
         HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
         root.setFitsSystemWindows(true);
-        HuanghunGlassPage.applyActionBar(actionBar, root);
+        actionBar.setDrawBlurBackground(root);
+        actionBar.setBackgroundColor(GLASS_SURFACE_COLOR);
+        actionBar.setCastShadows(false);
 
         webView = new WebView(context);
         webView.setBackgroundColor(Color.TRANSPARENT);

@@ -31,7 +31,6 @@ import java.util.Locale;
 
 import tw.nekomimi.nekogram.NekoConfig;
 import tw.nekomimi.nekogram.helpers.HuanghunBubbleStyleHelper;
-import tw.nekomimi.nekogram.ui.glass.HuanghunGlassPage;
 
 /**
  * Local Huanghun bubble catalog. Every positive style ID maps directly to one user-provided
@@ -71,7 +70,8 @@ public class HuanghunBubbleCatalogActivity extends BaseFragment {
         favorites.addAll(HuanghunBubbleStyleHelper.readFavorites());
         updateBatchPresentation();
         HuanghunWallpaperLayout root = new HuanghunWallpaperLayout(context, currentAccount);
-        HuanghunGlassPage.applyActionBar(actionBar, root);
+        actionBar.setDrawBlurBackground(root);
+        actionBar.setBackgroundColor(0x20FFFFFF);
 
         listView = new RecyclerListView(context);
         listView.setLayoutManager(new GridLayoutManager(context, 3));
