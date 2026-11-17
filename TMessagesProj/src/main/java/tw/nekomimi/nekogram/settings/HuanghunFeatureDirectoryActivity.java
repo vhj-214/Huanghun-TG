@@ -429,11 +429,7 @@ public class HuanghunFeatureDirectoryActivity extends BaseNekoSettingsActivity {
             params.setMargins(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
             setLayoutParams(params);
 
-            GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{0x8C5C84D8, 0x7250BEB1, 0x6695D3B3});
-            background.setCornerRadius(AndroidUtilities.dp(24));
-            background.setStroke(AndroidUtilities.dp(1), 0x66FFFFFF);
-            setBackground(background);
+            setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(24)));
 
             LinearLayout textLayout = new LinearLayout(context);
             textLayout.setOrientation(LinearLayout.VERTICAL);

@@ -166,12 +166,12 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
                     boundProps.liquidIntensity,
                     boundProps.liquidIndex,
                     backgroundColor,
-                    1.45f, // Strong but narrow upper-left bevel
-                    0.68f, // Subtle chromatic edge separation
-                    0.24f, // Keep wallpaper detail visible through the body
-                    1.35f, // Fresnel reflection on rounded edges
-                    1.30f, // Soft environment reflection
-                    0.06f  // Nearly invisible micro-surface grain
+                    1.85f, // Pronounced upper-left bevel
+                    1.00f, // Visible edge-only chromatic separation
+                    0.62f, // Real frosted body, not a flat transparent fill
+                    1.65f, // Strong rounded-edge Fresnel response
+                    1.55f, // Broad soft environment reflection
+                    0.10f  // Fine micro-surface grain
                 );
             } catch (Throwable error) {
                 disableLiquidGlassEffect(error);

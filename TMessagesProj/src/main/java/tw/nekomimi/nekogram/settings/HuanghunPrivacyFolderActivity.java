@@ -89,12 +89,8 @@ public class HuanghunPrivacyFolderActivity extends BaseFragment {
         );
     }
 
-    private GradientDrawable privacyShape(int color, int stroke, int radiusDp) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
-        drawable.setCornerRadius(AndroidUtilities.dp(radiusDp));
-        drawable.setStroke(Math.max(1, AndroidUtilities.dp(1)), stroke);
-        return drawable;
+    private android.graphics.drawable.Drawable privacyShape(int color, int stroke, int radiusDp) {
+        return new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(radiusDp));
     }
 
     private void showUnlockDialog(Context context) {

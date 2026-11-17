@@ -721,7 +721,7 @@ public final class ProtocolLoginHelper {
                 LinearLayout content = new LinearLayout(activity);
                 content.setOrientation(LinearLayout.VERTICAL);
                 content.setPadding(padding, AndroidUtilities.dp(15), padding, AndroidUtilities.dp(10));
-                content.setBackgroundColor(Color.WHITE);
+                content.setBackground(new org.telegram.ui.Components.glass.LiquidGlassSurfaceDrawable(AndroidUtilities.dp(22)));
 
                 titleView = createTextView(activity, "当前账号正在加载中", 21, Color.rgb(22, 35, 63));
                 content.addView(titleView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));

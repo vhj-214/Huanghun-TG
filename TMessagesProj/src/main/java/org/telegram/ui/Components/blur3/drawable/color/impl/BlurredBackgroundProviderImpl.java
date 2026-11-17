@@ -23,7 +23,7 @@ public class BlurredBackgroundProviderImpl {
      * behind the chat chrome remain visible. Lower it to make the wallpaper
      * stronger, raise it for a more solid panel.
      */
-    public static final float CHAT_TOP_GLASS_OPACITY = 0.50f;
+    public static final float CHAT_TOP_GLASS_OPACITY = 0.82f;
 
     public static BlurredBackgroundProvider mainTabs(Theme.ResourcesProvider resourcesProvider) {
         if (LiteMode.isLiquidGlassEnabled()) {

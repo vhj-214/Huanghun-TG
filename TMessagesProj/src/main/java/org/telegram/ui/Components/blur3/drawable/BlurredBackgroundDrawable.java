@@ -839,23 +839,32 @@ public abstract class BlurredBackgroundDrawable extends Drawable {
         liquidGlassPaint.setShader(new LinearGradient(
                 left, top, right, bottom,
                 dark
-                        ? new int[] { 0x30FFFFFF, 0x08FFFFFF, 0x1C000000 }
-                        : new int[] { 0x46FFFFFF, 0x0EFFFFFF, 0x0C000000 },
-                new float[] { 0f, 0.40f, 1f }, Shader.TileMode.CLAMP));
+                        ? new int[] { 0x58FFFFFF, 0x16FFFFFF, 0x30000000 }
+                        : new int[] { 0x70FFFFFF, 0x22FFFFFF, 0x18000000 },
+                new float[] { 0f, 0.34f, 1f }, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
+
         liquidGlassPaint.setShader(new LinearGradient(
-                left, top, right, bottom,
-                dark ? 0x22000000 : 0x2AFFFFFF,
+                left, top, left, bottom,
+                dark ? 0x26FFFFFF : 0x38FFFFFF,
                 0x00000000, Shader.TileMode.CLAMP));
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassPaint);
         liquidGlassPaint.setShader(null);
+
+        liquidGlassPaint.setShader(new LinearGradient(
+                left, top, right, bottom,
+                dark ? 0x00000000 : 0x18000000,
+                dark ? 0x32000000 : 0x00000000, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassPaint);
+        liquidGlassPaint.setShader(null);
+
         liquidGlassRimPaint.setStyle(Paint.Style.STROKE);
-        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.7f), 1f));
-        liquidGlassRimPaint.setColor(dark ? 0x62FFFFFF : 0x82FFFFFF);
+        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(1.0f), 1f));
+        liquidGlassRimPaint.setColor(dark ? 0x9AFFFFFF : 0xC4FFFFFF);
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassRimPaint);
-        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(0.55f), 1f));
-        liquidGlassRimPaint.setColor(dark ? 0x38000000 : 0x26000000);
+        liquidGlassRimPaint.setStrokeWidth(Math.max(dpf2(1.8f), 1f));
+        liquidGlassRimPaint.setColor(dark ? 0x48000000 : 0x30000000);
         canvas.drawRoundRect(left, top, right, bottom, radius, radius, liquidGlassRimPaint);
     }
 
