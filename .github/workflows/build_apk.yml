@@ -75,7 +75,7 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
           certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
           printf '%s\n' "$certs"
-          expected_cert='7fa62028311565d639602a6b99770e635be9b478b58c31a870529222d39b415a'
+          expected_cert='aaa141c163a126bdbe05f1698a7c5ada97478d713fbe745db225f148312ab118'
           if grep -q 'CN=Android Debug' <<< "$certs" && grep -q "Signer #1 certificate SHA-256 digest: $expected_cert" <<< "$certs"; then
             echo '### APK 签名' >> "$GITHUB_STEP_SUMMARY"
             echo "已验证使用固定 Staging Debug 证书签名（SHA-256: $expected_cert）。连续 Staging 构建可保持相同签名。" >> "$GITHUB_STEP_SUMMARY"
