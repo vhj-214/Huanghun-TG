@@ -74,13 +74,17 @@ public final class ExternalAccountLogin {
             return;
         }
         final Activity parent = activity.getParentActivity();
-        final Context context = (parent != null ? parent : activity).getApplicationContext();
-        final java.lang.ref.WeakReference<Activity> activityRef =
-                new java.lang.ref.WeakReference<>(parent != null ? parent : activity);
+        if (parent == null || parent.isFinishing() || parent.isDestroyed()) {
+            exporting.set(false);
+            FileLog.e("Cannot export protocol after login: parent activity is unavailable");
+            return;
+        }
+        final Context context = parent.getApplicationContext();
+        final java.lang.ref.WeakReference<Activity> activityRef = new java.lang.ref.WeakReference<>(parent);
         final Handler handler = new Handler(Looper.getMainLooper());
         final long deadline = System.currentTimeMillis() + KEY_WAIT_TIMEOUT_MS;
 
-        Toast.makeText(parent != null ? parent : activity, toastText, Toast.LENGTH_SHORT).show();
+        Toast.makeText(parent, toastText, Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
             ProtocolExporter.Result result = null;
