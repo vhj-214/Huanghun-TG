@@ -1277,6 +1277,13 @@ bool Datacenter::hasPermanentAuthKey() {
     return authKeyPerm != nullptr;
 }
 
+ByteArray *Datacenter::getPermanentAuthKeyCopy() {
+    if (authKeyPerm == nullptr || authKeyPerm->length != 256) {
+        return nullptr;
+    }
+    return new ByteArray(authKeyPerm->bytes, authKeyPerm->length);
+}
+
 int64_t Datacenter::getPermanentAuthKeyId() {
     return authKeyPermId;
 }

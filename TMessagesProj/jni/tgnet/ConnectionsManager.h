@@ -51,6 +51,8 @@ public:
     int32_t getCurrentPingTime();
     uint32_t getCurrentDatacenterId();
     int64_t getCurrentAuthKeyId();
+    // 返回当前主 DC 的 256 字节永久授权密钥；未登录时为空。
+    std::vector<uint8_t> getCurrentAuthKey();
     bool isTestBackend();
     int32_t getTimeDifference();
     int32_t sendRequest(TLObject *object, onCompleteFunc onComplete, onQuickAckFunc onQuickAck, onRequestClearFunc onClear, uint32_t flags, uint32_t datacenterId, ConnectionType connectionType, bool immediate);

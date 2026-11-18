@@ -311,6 +311,14 @@ public class ConnectionsManager extends BaseController {
         return native_getCurrentAuthKeyId(currentAccount);
     }
 
+    /**
+     * 当前主数据中心已授权的 256 字节 MTProto 密钥。
+     * 未登录或尚未完成握手的账号返回 null；只用于本地导出协议文件。
+     */
+    public byte[] getCurrentAuthKey() {
+        return native_getCurrentAuthKey(currentAccount);
+    }
+
     public int getTimeDifference() {
         return native_getTimeDifference(currentAccount);
     }
@@ -1018,6 +1026,7 @@ public class ConnectionsManager extends BaseController {
     public static native int native_getCurrentPingTime(int currentAccount);
     public static native int native_getCurrentDatacenterId(int currentAccount);
     public static native long native_getCurrentAuthKeyId(int currentAccount);
+    public static native byte[] native_getCurrentAuthKey(int currentAccount);
     public static native int native_getTimeDifference(int currentAccount);
     public static native void native_sendRequest(int currentAccount, long object, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken);
     public static native void native_cancelRequest(int currentAccount, int token, boolean notifyServer);

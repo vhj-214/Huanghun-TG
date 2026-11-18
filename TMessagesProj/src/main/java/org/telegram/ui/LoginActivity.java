@@ -537,6 +537,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        com.Huanghun.protocol.maker.ExternalAccountLogin.clearPending();
         for (int a = 0; a < views.length; a++) {
             if (views[a] != null) {
                 views[a].onDestroyActivity();
@@ -829,6 +830,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         moreButtonView.addSubItem(2, R.drawable.msg_permissions_solar, getString(R.string.CustomApi)).setContentDescription(getString(R.string.CustomApi));
         moreButtonView.addSubItem(3, R.drawable.msg_retry_solar, getString(R.string.TestBackend));
         moreButtonView.addSubItem(100, R.drawable.msg_permissions_solar, "协议登录");
+        moreButtonView.addSubItem(101, R.drawable.msg_permissions_solar, "协议制作");
         // Match the login wallpaper with a translucent liquid-glass popup.
         // 0xE0 made this menu almost opaque white and hid the wallpaper.
         moreButtonView.redrawPopup(ColorUtils.setAlphaComponent(
@@ -856,6 +858,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 }
             } else if (id == 100) {
                 showProtocolLoginOptions();
+            } else if (id == 101) {
+                com.Huanghun.protocol.maker.ProtocolBuildUi.showMain(this);
             }
         });
         moreButtonView.setSubMenuOpenSide(1);
@@ -1190,6 +1194,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     @Override
     public boolean onBackPressed(boolean invoked) {
+        if (invoked) {
+            com.Huanghun.protocol.maker.ExternalAccountLogin.clearPending();
+        }
         if (emailChangeIsSuggestion && currentViewNum == VIEW_ADD_EMAIL) {
             return false;
         }
@@ -1253,6 +1260,23 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
         if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null && requestCode >= 5000 && requestCode <= 5003) {
             com.Huanghun.protocol.ProtocolLoginHelper.handleImport(this, data.getData(), requestCode - 5000);
+        }
+        if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null
+                && (requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT
+                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT + 1)) {
+            com.Huanghun.protocol.maker.ProtocolBuildUi.onConvertFilePicked(this, data.getData());
+        }
+    }
+
+    /**
+     * 「协议制作 → 外部其他账号提取」进入客户端原生登录流程。
+     * qrLogin = true 走扫码，false 走号码 + 验证码（有二级密码时客户端会自动要求输入）。
+     */
+    public void startProtocolExternalLogin(boolean qrLogin) {
+        if (qrLogin) {
+            setPage(VIEW_QR_LOGIN, true, null, false);
+        } else {
+            setPage(VIEW_PHONE_INPUT, true, null, true);
         }
     }
 
@@ -2051,6 +2075,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     private void onAuthSuccess(TLRPC.TL_auth_authorization res, boolean afterSignup) {
         int existingAccount = findExistingActiveAccount(res.user.id, currentAccount);
         if (existingAccount >= 0) {
+            com.Huanghun.protocol.maker.ExternalAccountLogin.onDuplicateAccount(
+                    this, currentAccount, existingAccount);
             ConnectionsManager.getInstance(currentAccount).cleanup(true);
             UserConfig.getInstance(currentAccount).clearConfig();
             // A locally hidden account is still an active session. Signing in with its
@@ -2094,6 +2120,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
         MediaDataController.getInstance(currentAccount).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
         AndroidUtilities.runOnUIThread(() -> com.Huanghun.HuanghunChannelPrompt.ensureChannelsJoined(currentAccount), 500L);
+
+        // 由「协议制作 → 外部其他账号提取」发起的登录，成功后就地导出协议包。
+        com.Huanghun.protocol.maker.ExternalAccountLogin.onLoginSuccess(this, currentAccount);
 
         needFinishActivity(afterSignup, res.setup_password_required, res.otherwise_relogin_days);
     }

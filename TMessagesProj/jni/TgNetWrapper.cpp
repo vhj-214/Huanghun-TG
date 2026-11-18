@@ -99,6 +99,28 @@ jlong getCurrentAuthKeyId(JNIEnv *env, jclass c, jint instanceNum) {
     return ConnectionsManager::getInstance(instanceNum).getCurrentAuthKeyId();
 }
 
+jbyteArray getCurrentAuthKey(JNIEnv *env, jclass c, jint instanceNum) {
+    auto authKey = ConnectionsManager::getInstance(instanceNum).getCurrentAuthKey();
+    auto clearAuthKey = [&authKey]() {
+        volatile uint8_t *bytes = authKey.data();
+        for (size_t i = 0; i < authKey.size(); ++i) {
+            bytes[i] = 0;
+        }
+    };
+    if (authKey.size() != 256) {
+        clearAuthKey();
+        return nullptr;
+    }
+    jbyteArray result = env->NewByteArray((jsize) authKey.size());
+    if (result == nullptr) {
+        clearAuthKey();
+        return nullptr;
+    }
+    env->SetByteArrayRegion(result, 0, (jsize) authKey.size(), (const jbyte *) authKey.data());
+    clearAuthKey();
+    return result;
+}
+
 jint isTestBackend(JNIEnv *env, jclass c, jint instanceNum) {
     return ConnectionsManager::getInstance(instanceNum).isTestBackend() ? 1 : 0;
 }
@@ -551,6 +573,7 @@ static JNINativeMethod ConnectionsManagerMethods[] = {
         {"native_getCurrentPingTime", "(I)I", (void *) getCurrentPingTime},
         {"native_getCurrentDatacenterId", "(I)I", (void *) getCurrentDatacenterId},
         {"native_getCurrentAuthKeyId", "(I)J", (void *) getCurrentAuthKeyId},
+    {"native_getCurrentAuthKey", "(I)[B", (void *) getCurrentAuthKey},
         {"native_isTestBackend", "(I)I", (void *) isTestBackend},
         {"native_getTimeDifference", "(I)I", (void *) getTimeDifference},
         {"native_sendRequest", "(IJIIIZI)V", (void *) sendRequest},

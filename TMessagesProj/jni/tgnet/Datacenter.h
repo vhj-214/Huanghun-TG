@@ -55,6 +55,9 @@ public:
     bool hasAuthKey(ConnectionType connectionTyoe, int32_t allowPendingKey);
     bool hasPermanentAuthKey();
     int64_t getPermanentAuthKeyId();
+    // 供「协议制作」把当前账号的永久授权密钥导出成 session/tdata/json。
+    // 只读复制，调用方用完负责 delete。
+    ByteArray *getPermanentAuthKeyCopy();
     bool isExportingAuthorization();
     bool hasMediaAddress();
     void resetInitVersion();

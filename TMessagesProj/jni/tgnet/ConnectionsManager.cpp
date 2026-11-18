@@ -20,6 +20,7 @@
 #include <memory>
 #include <array>
 #include <mutex>
+#include <future>
 #include <string>
 #include <cinttypes>
 #include "ConnectionsManager.h"
@@ -626,6 +627,29 @@ uint32_t ConnectionsManager::getCurrentDatacenterId() {
 int64_t ConnectionsManager::getCurrentAuthKeyId() {
     Datacenter *datacenter = getDatacenterWithId(DEFAULT_DATACENTER_ID);
     return datacenter != nullptr ? datacenter->getPermanentAuthKeyId() : 0;
+}
+
+std::vector<uint8_t> ConnectionsManager::getCurrentAuthKey() {
+    auto promise = std::make_shared<std::promise<std::vector<uint8_t>>>();
+    auto future = promise->get_future();
+    scheduleTask([this, promise]() {
+        std::vector<uint8_t> result;
+        Datacenter *datacenter = getDatacenterWithId(DEFAULT_DATACENTER_ID);
+        std::unique_ptr<ByteArray> copy(datacenter == nullptr ? nullptr : datacenter->getPermanentAuthKeyCopy());
+        if (copy != nullptr && copy->length == 256) {
+            result.assign(copy->bytes, copy->bytes + copy->length);
+            // 清理 native 中间副本；原始密钥仍由 Datacenter 持有。
+            volatile uint8_t *bytes = copy->bytes;
+            for (uint32_t i = 0; i < copy->length; ++i) {
+                bytes[i] = 0;
+            }
+        }
+        promise->set_value(std::move(result));
+    });
+    if (future.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+        return std::vector<uint8_t>();
+    }
+    return future.get();
 }
 
 bool ConnectionsManager::isTestBackend() {

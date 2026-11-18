@@ -1209,7 +1209,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 break;
             }
             case 103: {
-                presentFragment(new HuanghunServiceActivity());
+                presentFragment(new HuanghunServiceActivity(getCurrentAccount()));
                 break;
             }
         }

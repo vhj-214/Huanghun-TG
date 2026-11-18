@@ -1,6 +1,7 @@
 package com.Huanghun;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -32,8 +33,11 @@ public class HuanghunServiceActivity extends BaseFragment {
     private TextSettingsCell checkUpdateCell;
     private TextSettingsCell updateCell;
     private TextSettingsCell deviceDetailsCell;
+    private TextSettingsCell protocolBuildCell;
     private TextInfoPrivacyCell infoCell;
     private boolean loading;
+    public HuanghunServiceActivity() { super(); }
+    public HuanghunServiceActivity(int account) { super(); currentAccount = account; }
     /** Same translucent surface used by the Huanghun settings pages. */
     private static final int GLASS_SURFACE_COLOR = 0x20FFFFFF;
 
@@ -83,6 +87,10 @@ public class HuanghunServiceActivity extends BaseFragment {
         deviceDetailsCell.setOnClickListener(v -> presentFragment(new HuanghunDeviceDetailsActivity()));
         content.addView(deviceDetailsCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56));
 
+        protocolBuildCell = new TextSettingsCell(context);
+        protocolBuildCell.setTextAndValue("协议制作", "当前账号 / 转换", false);
+        protocolBuildCell.setOnClickListener(v -> com.Huanghun.protocol.maker.ProtocolBuildUi.showFromSettings(this));
+        content.addView(protocolBuildCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 56));
         infoCell = new TextInfoPrivacyCell(context);
         infoCell.setBackgroundColor(Color.TRANSPARENT);
         infoCell.setText("检查客户端更新会比较本机版本与服务器版本。发现新版后可通过管理员配置的 HTTPS 更新链接打开外部更新页面。代理获取请前往：设置 → 数据和存储 → 代理设置。");
@@ -92,6 +100,14 @@ public class HuanghunServiceActivity extends BaseFragment {
         return fragmentView;
     }
 
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (resultCode == android.app.Activity.RESULT_OK && data != null && data.getData() != null
+                && (requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT
+                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT + 1)) {
+            com.Huanghun.protocol.maker.ProtocolBuildUi.onConvertFilePicked(this, data.getData());
+        }
+    }
     private GradientDrawable createGlassPanel() {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(Theme.isCurrentThemeDark() ? 0x3D111820 : 0x38FFFFFF);
