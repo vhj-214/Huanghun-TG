@@ -88,7 +88,7 @@ public final class ProtocolExporter {
     }
 
     /**
-     * 导出单个账号：生成临时目录 → 打包 → 落到「黄昏/协议制作」。
+     * 导出单个账号：分别打包 session、JSON、tdata，再放入同名总压缩包。
      */
     public static Result export(Context context, int accountNum, int formats) throws Exception {
         ProtocolAccount account = readAccount(context, accountNum);
@@ -110,7 +110,7 @@ public final class ProtocolExporter {
             throw new Exception("没有选择有效的协议格式");
         }
         formats &= FORMAT_ALL;
-        String baseName = account.displayName();
+        String baseName = account.fileName();
         File workDir = null;
         try {
             workDir = ProtocolPaths.createTemporaryDirectory(context, "export_");
@@ -132,9 +132,38 @@ public final class ProtocolExporter {
                 }
             }
 
+            File bundleDir = new File(workDir, "bundle");
+            if (!bundleDir.mkdir()) {
+                throw new Exception("无法创建总压缩包临时目录");
+            }
+            if ((formats & FORMAT_TELETHON) != 0) {
+                File sessionZipDir = new File(bundleDir, "session");
+                if (!sessionZipDir.mkdir()) {
+                    throw new Exception("无法创建 session 压缩包目录");
+                }
+                ZipUtil.zipFile(new File(workDir, baseName + ".session"),
+                        new File(sessionZipDir, baseName + ".zip"));
+            }
+            if ((formats & FORMAT_JSON) != 0) {
+                File jsonZipDir = new File(bundleDir, "json");
+                if (!jsonZipDir.mkdir()) {
+                    throw new Exception("无法创建 JSON 压缩包目录");
+                }
+                ZipUtil.zipFile(new File(workDir, baseName + ".json"),
+                        new File(jsonZipDir, baseName + ".zip"));
+            }
+            if ((formats & FORMAT_TDATA) != 0) {
+                File tdataZipDir = new File(bundleDir, "tdata");
+                if (!tdataZipDir.mkdir()) {
+                    throw new Exception("无法创建 tdata 压缩包目录");
+                }
+                ZipUtil.zipDirectoryWithRoot(new File(workDir, "tdata"),
+                        new File(tdataZipDir, baseName + ".zip"));
+            }
+
             ProtocolPaths.Resolved resolved = ProtocolPaths.resolveOutputDirectory(context);
             File zipFile = ProtocolPaths.uniqueTarget(resolved.directory, baseName, ".zip");
-            ZipUtil.zipDirectory(workDir, zipFile);
+            ZipUtil.zipDirectory(bundleDir, zipFile);
             if (!zipFile.isFile() || zipFile.length() <= 0) {
                 throw new Exception("压缩包写入失败");
             }

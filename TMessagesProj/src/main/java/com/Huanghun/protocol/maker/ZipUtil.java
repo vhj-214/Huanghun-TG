@@ -21,7 +21,7 @@ public final class ZipUtil {
     private ZipUtil() {
     }
 
-    /** 把目录内容打包到 zipFile，条目路径相对于 sourceDir。 */
+    /** 把目录完整打包到 zipFile，条目路径相对于 sourceDir。 */
     public static void zipDirectory(File sourceDir, File zipFile) throws IOException {
         if (sourceDir == null || !sourceDir.isDirectory() || zipFile == null) {
             throw new IOException("压缩源目录或目标文件无效");
@@ -30,6 +30,47 @@ public final class ZipUtil {
             SessionCodec.ensureParent(zipFile);
             try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(zipFile))) {
                 zipInto(output, sourceDir, "");
+            }
+        } catch (IOException error) {
+            //noinspection ResultOfMethodCallIgnored
+            zipFile.delete();
+            throw error;
+        }
+    }
+
+    /** 把文件直接压缩为 ZIP，ZIP 内保留源文件名。 */
+    public static void zipFile(File sourceFile, File zipFile) throws IOException {
+        if (sourceFile == null || !sourceFile.isFile() || zipFile == null) {
+            throw new IOException("压缩源文件或目标文件无效");
+        }
+        try {
+            SessionCodec.ensureParent(zipFile);
+            try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(zipFile));
+                 FileInputStream input = new FileInputStream(sourceFile)) {
+                output.putNextEntry(new ZipEntry(sourceFile.getName()));
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, read);
+                }
+                output.closeEntry();
+            }
+        } catch (IOException error) {
+            //noinspection ResultOfMethodCallIgnored
+            zipFile.delete();
+            throw error;
+        }
+    }
+
+    /** 把目录压缩为 ZIP，并在包内保留该目录名（例如 tdata/）。 */
+    public static void zipDirectoryWithRoot(File sourceDir, File zipFile) throws IOException {
+        if (sourceDir == null || !sourceDir.isDirectory() || zipFile == null) {
+            throw new IOException("压缩源目录或目标文件无效");
+        }
+        try {
+            SessionCodec.ensureParent(zipFile);
+            try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(zipFile))) {
+                zipInto(output, sourceDir, sourceDir.getName());
             }
         } catch (IOException error) {
             //noinspection ResultOfMethodCallIgnored
@@ -47,9 +88,6 @@ public final class ZipUtil {
         byte[] buffer = new byte[8192];
         for (File child : children) {
             String entryName = prefix.isEmpty() ? child.getName() : prefix + "/" + child.getName();
-            if (!shouldInclude(child, prefix)) {
-                continue;
-            }
             if (child.isDirectory()) {
                 zipInto(output, child, entryName);
             } else {
@@ -63,22 +101,6 @@ public final class ZipUtil {
                 output.closeEntry();
             }
         }
-    }
-
-    /** Keep only stable protocol artifacts; SQLite journal files are temporary. */
-    private static boolean shouldInclude(File child, String prefix) {
-        String name = child.getName();
-        String lower = name.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains(".session-journal")) {
-            return false;
-        }
-        if (!prefix.isEmpty()) {
-            return true;
-        }
-        if (child.isDirectory()) {
-            return "tdata".equalsIgnoreCase(name);
-        }
-        return lower.endsWith(".session") || lower.endsWith(".json");
     }
 
     /**

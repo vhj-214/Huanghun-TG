@@ -47,6 +47,23 @@ public final class ProtocolAccount {
         return sanitize(base) + "_" + sanitize(region);
     }
 
+    /** 仅使用号码数字作为导出文件名，避免国家名称等信息产生多余符号。 */
+    public String fileName() {
+        if (phone != null && !phone.isEmpty()) {
+            StringBuilder digits = new StringBuilder(phone.length());
+            for (int i = 0; i < phone.length(); i++) {
+                char c = phone.charAt(i);
+                if (c >= '0' && c <= '9') {
+                    digits.append(c);
+                }
+            }
+            if (digits.length() > 0) {
+                return digits.toString();
+            }
+        }
+        return userId != 0 ? String.valueOf(userId) : "account";
+    }
+
     public String label() {
         StringBuilder sb = new StringBuilder();
         sb.append(phone == null || phone.isEmpty() ? "未知号码" : phone);

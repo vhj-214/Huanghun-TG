@@ -244,6 +244,17 @@
         <span class="chev">›</span>
       </button>
 
+      <button class="card" onclick="go('passkey')">
+        <span class="ico i-mint">
+          <svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l7-7 3 3-7 7"/><path d="M16 7l2 2M6 15h.01"/></svg>
+        </span>
+        <span class="meta">
+          <h3>外部 Passkey 制作</h3>
+          <p>从 session、JSON 或 tdata 注册并导出 Passkey</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
       <div class="path">
         <span>输出目录</span>
         <code>/storage/emulated/0/黄昏/协议制作/</code>
@@ -321,6 +332,35 @@
       <div class="note">若账号开启二级密码，验证过程中会要求输入密码；该密码只用于本次认证，不会保存。</div>
     </section>
 
+    <!-- 外部 Passkey 制作 -->
+    <section class="screen" id="screen-passkey">
+      <button class="back" onclick="go('home')">‹ 返回</button>
+      <p class="lead">选择要导入的账号格式。JSON 和 tdata 会在本机临时转换为 session，再通过黄昏客户端连接注册 Passkey。</p>
+
+      <button class="card" onclick="HH.passkey('session')">
+        <span class="ico i-indigo">
+          <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></svg>
+        </span>
+        <span class="meta"><h3>Session 文件</h3><p>选择 .session 文件</p></span>
+        <span class="chev">›</span>
+      </button>
+      <button class="card" onclick="HH.passkey('json')">
+        <span class="ico i-mint">
+          <svg viewBox="0 0 24 24"><path d="M9 4c-2 0-3 1-3 3v2c0 1.5-1 2-2 2 1 0 2 .5 2 2v2c0 2 1 3 3 3"/><path d="M15 4c2 0 3 1 3 3v2c0 1.5 1 2 2 2-1 0-2 .5-2 2v2c0 2-1 3-3 3"/></svg>
+        </span>
+        <span class="meta"><h3>JSON 文件</h3><p>选择包含 auth_key 的 .json 文件</p></span>
+        <span class="chev">›</span>
+      </button>
+      <button class="card" onclick="HH.passkey('tdata')">
+        <span class="ico i-amber">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </span>
+        <span class="meta"><h3>tdata 文件夹</h3><p>选择完整的 Telegram Desktop tdata 目录</p></span>
+        <span class="chev">›</span>
+      </button>
+      <div class="note">注册会修改所选 Telegram 账号的 Passkey 设置。生成的 ZIP 含可登录账号的私钥文件，请仅处理本人账号并安全保管。API 请求使用黄昏客户端当前配置，不读取输入文件中的 API ID/hash；tdata 暂不支持设置了本地密码的目录。Telegram 可能要求 session/tdata 授权已满 24 小时；未满一天时可能无法创建，请等待满一天后重试。注册可能成功或失败，失败原因会显示在结果中。</div>
+    </section>
+
     <!-- 处理中 -->
     <section class="screen" id="screen-busy">
       <div class="busy">
@@ -365,12 +405,12 @@
     </section>
   </div>
 
-  <footer>黄昏 · 协议制作 · 本地处理，不上传服务器</footer>
+  <footer>黄昏 · 本地解析；Passkey 注册请求仅发送至 Telegram，不上传至黄昏服务器</footer>
 </div>
 
 <script>
 (function(){
-  var screens = ['home','convert','external','busy','result','error'];
+  var screens = ['home','convert','external','passkey','busy','result','error'];
   var settingsMode = false;
 
   window.go = function(name){
@@ -423,8 +463,8 @@
       if (external) external.style.display = '';
       var sub = document.getElementById('subtitle');
       if (sub) sub.textContent = settingsMode
-        ? '当前账号 · 转换 · 外部提取'
-        : '转换 · 外部账号提取';
+        ? '当前账号 · 转换 · 外部提取 · Passkey'
+        : '转换 · 外部账号提取 · Passkey';
     },
     busy: function(title, text){
       document.getElementById('busy-title').textContent = title || '正在处理…';
@@ -481,6 +521,13 @@
         window.Huanghun.external(String(mode || 'phone'));
       } else {
         window.HH.error('外部提取桥接不可用，请关闭页面后重试');
+      }
+    },
+    passkey: function(kind){
+      if (window.Huanghun && window.Huanghun.passkey) {
+        window.Huanghun.passkey(String(kind || 'session'));
+      } else {
+        window.HH.error('Passkey 制作桥接不可用，请关闭页面后重试');
       }
     }
   };

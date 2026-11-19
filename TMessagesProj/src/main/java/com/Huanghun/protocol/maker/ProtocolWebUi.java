@@ -356,6 +356,16 @@ public final class ProtocolWebUi {
         }
 
         @JavascriptInterface
+        public void passkey(String kind) {
+            AndroidUtilities.runOnUIThread(() -> {
+                BaseFragment fragment = fragmentRef.get();
+                if (fragment != null) {
+                    ProtocolBuildUi.externalPasskeyFromUi(fragment, kind);
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void close() {
             AndroidUtilities.runOnUIThread(ProtocolWebUi::dismissCurrent);
         }

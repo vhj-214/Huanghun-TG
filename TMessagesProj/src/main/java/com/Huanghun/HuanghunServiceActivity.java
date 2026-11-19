@@ -104,8 +104,17 @@ public class HuanghunServiceActivity extends BaseFragment {
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
         if (resultCode == android.app.Activity.RESULT_OK && data != null && data.getData() != null
                 && (requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT
-                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT + 1)) {
-            com.Huanghun.protocol.maker.ProtocolBuildUi.onConvertFilePicked(this, data.getData());
+                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT_TDATA
+                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_CONVERT_JSON)) {
+            com.Huanghun.protocol.maker.ProtocolBuildUi.onConvertFilePicked(
+                    this, data.getData(), requestCode);
+        }
+        if (resultCode == android.app.Activity.RESULT_OK && data != null && data.getData() != null
+                && (requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_PASSKEY_SESSION
+                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_PASSKEY_JSON
+                || requestCode == com.Huanghun.protocol.maker.ProtocolBuildUi.REQUEST_PICK_PASSKEY_TDATA)) {
+            com.Huanghun.protocol.maker.ProtocolBuildUi.onExternalPasskeyFilePicked(
+                    this, data.getData(), requestCode);
         }
     }
     private GradientDrawable createGlassPanel() {

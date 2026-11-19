@@ -49,7 +49,7 @@ public final class ProtocolConverter {
                 ZipUtil.unzip(input, workDir);
                 root = workDir;
             }
-            collect(root, loaded, 0);
+            collect(root, loaded, 0, context);
         } catch (Exception e) {
             loaded.failures.add(describe(e));
         } finally {
@@ -60,7 +60,7 @@ public final class ProtocolConverter {
         return loaded;
     }
 
-    private static void collect(File node, Loaded loaded, int depth) {
+    private static void collect(File node, Loaded loaded, int depth, Context context) {
         if (node == null || depth > 4) {
             return;
         }
@@ -85,8 +85,21 @@ public final class ProtocolConverter {
             if (children != null) {
                 java.util.Arrays.sort(children, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
                 for (File child : children) {
-                    collect(child, loaded, depth + 1);
+                    collect(child, loaded, depth + 1, context);
                 }
+            }
+            return;
+        }
+        if (node.isFile() && ZipUtil.isZip(node)) {
+            File unpacked = null;
+            try {
+                unpacked = ProtocolPaths.createTemporaryDirectory(context, "inner_zip_");
+                ZipUtil.unzip(node, unpacked);
+                collect(unpacked, loaded, depth + 1, context);
+            } catch (Exception e) {
+                loaded.failures.add(node.getName() + "：" + describe(e));
+            } finally {
+                ProtocolPaths.deleteRecursive(unpacked);
             }
             return;
         }
