@@ -11,9 +11,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
@@ -147,7 +149,8 @@ public final class ProtocolBuildUi {
         intent.setType(json ? "application/json" : "*/*");
         intent.putExtra(Intent.EXTRA_MIME_TYPES, json
                 ? new String[]{"application/json", "text/json", "*/*"}
-                : new String[]{"application/x-sqlite3", "application/octet-stream", "*/*"});
+                : new String[]{"application/x-sqlite3", "application/octet-stream",
+                "application/zip", "application/x-zip-compressed", "*/*"});
         try {
             fragment.startActivityForResult(intent, json
                     ? REQUEST_PICK_PASSKEY_JSON : REQUEST_PICK_PASSKEY_SESSION);
@@ -265,7 +268,7 @@ public final class ProtocolBuildUi {
         String kind = requestCode == REQUEST_PICK_PASSKEY_TDATA ? "tdata"
                 : requestCode == REQUEST_PICK_PASSKEY_JSON ? "json" : "session";
         String label = "tdata".equals(kind) ? "tdata 文件夹"
-                : "json".equals(kind) ? "JSON 文件" : "session 文件";
+                : "json".equals(kind) ? "json 文件" : "session 文件或协议 ZIP 压缩包";
         confirmSensitiveAction(activity,
                 "即将使用所选 " + label + " 在 Telegram 账号上注册一个新的 Passkey，并导出包含私钥的 .Passkey 凭据压缩包。\n\n"
                         + "该凭据可用于登录账号，生成文件会保存在 /storage/emulated/0/黄昏/协议制作/。请只处理本人账号并妥善保管。\n\n"
@@ -341,6 +344,10 @@ public final class ProtocolBuildUi {
     }
 
     private static void convertSelectedFile(Activity activity, Uri uri, int formats) {
+        convertSelectedFile(activity, uri, formats, "");
+    }
+
+    private static void convertSelectedFile(Activity activity, Uri uri, int formats, String localPasscode) {
         if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
             requestStorageAccess(activity);
             return;
@@ -353,6 +360,7 @@ public final class ProtocolBuildUi {
             File temp = null;
             ProtocolConverter.Result result = null;
             String failure = null;
+            boolean passwordRequired = false;
             try {
                 if (DocumentsContract.isTreeUri(uri)) {
                     temp = ProtocolPaths.createTemporaryDirectory(context, "picked_tdata_");
@@ -362,7 +370,15 @@ public final class ProtocolBuildUi {
                     temp = ProtocolPaths.createTemporaryFile(context, "picked_file_", selectedExtension(context, uri));
                     copyUriToFile(context, uri, temp);
                 }
-                result = ProtocolConverter.convert(context, temp, formats);
+                result = ProtocolConverter.convert(context, temp, formats, localPasscode);
+                passwordRequired = (localPasscode == null || localPasscode.isEmpty())
+                        && hasTdataPasscodeFailure(result.failures);
+                if (passwordRequired) {
+                    for (File file : result.zipFiles) {
+                        //noinspection ResultOfMethodCallIgnored
+                        file.delete();
+                    }
+                }
             } catch (Throwable error) {
                 failure = ProtocolConverter.describe(error);
                 FileLog.e(error);
@@ -373,6 +389,7 @@ public final class ProtocolBuildUi {
             }
             final ProtocolConverter.Result converted = result;
             final String reason = failure;
+            final boolean requestPassword = passwordRequired;
             handler.post(() -> {
                 Activity owner = activityRef.get();
                 if (owner == null || owner.isFinishing() || owner.isDestroyed()) {
@@ -380,6 +397,13 @@ public final class ProtocolBuildUi {
                 }
                 if (converted == null) {
                     showError(owner, "转换失败：" + reason);
+                    return;
+                }
+                if (requestPassword) {
+                    requestTdataPasscode(owner,
+                            () -> showError(owner, "已取消 tdata 解密。"),
+                            passcode -> convertSelectedFile(owner, uri, formats, passcode),
+                            "检测到压缩包或 tdata 目录中的 Telegram Desktop 本地密码保护。请输入本地密码；这不是 Telegram 两步验证密码。");
                     return;
                 }
                 if (converted.zipFiles.isEmpty()) {
@@ -395,6 +419,10 @@ public final class ProtocolBuildUi {
     }
 
     private static void createExternalPasskey(Activity activity, Uri uri, String kind) {
+        createExternalPasskey(activity, uri, kind, "");
+    }
+
+    private static void createExternalPasskey(Activity activity, Uri uri, String kind, String localPasscode) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
@@ -410,6 +438,7 @@ public final class ProtocolBuildUi {
             File temp = null;
             ExternalPasskeyMaker.Result result = null;
             String failure = null;
+            boolean passwordRequired = false;
             try {
                 if ("tdata".equals(kind)) {
                     temp = ProtocolPaths.createTemporaryDirectory(context, "picked_passkey_tdata_");
@@ -420,9 +449,14 @@ public final class ProtocolBuildUi {
                             "json".equals(kind) ? ".json" : ".session");
                     copyUriToFile(context, uri, temp);
                 }
-                result = ExternalPasskeyMaker.create(context, temp, kind);
+                result = ExternalPasskeyMaker.create(context, temp, kind, localPasscode);
+                passwordRequired = (localPasscode == null || localPasscode.isEmpty())
+                        && ((result != null && hasTdataPasscodeFailure(result.failures))
+                        || (failure != null && failure.contains("tdata 本地密码")));
             } catch (Throwable error) {
                 failure = ProtocolConverter.describe(error);
+                passwordRequired = (localPasscode == null || localPasscode.isEmpty())
+                        && failure.contains("tdata 本地密码");
                 FileLog.e(error);
             } finally {
                 if (temp != null) {
@@ -431,13 +465,28 @@ public final class ProtocolBuildUi {
             }
             final ExternalPasskeyMaker.Result created = result;
             final String reason = failure;
+            final boolean requestPassword = passwordRequired;
             handler.post(() -> {
                 Activity owner = activityRef.get();
                 if (owner == null || owner.isFinishing() || owner.isDestroyed()) {
                     return;
                 }
                 if (created == null) {
+                    if (requestPassword) {
+                        requestTdataPasscode(owner,
+                                () -> showError(owner, "已取消 tdata 解密。"),
+                                passcode -> createExternalPasskey(owner, uri, kind, passcode),
+                                "检测到 Telegram Desktop tdata 设置了本地密码。请输入本地密码；这不是 Telegram 两步验证密码。");
+                        return;
+                    }
                     showError(owner, "外部 Passkey 制作失败：" + reason);
+                    return;
+                }
+                if (requestPassword) {
+                    requestTdataPasscode(owner,
+                            () -> showError(owner, "已取消 tdata 解密。"),
+                            passcode -> createExternalPasskey(owner, uri, kind, passcode),
+                            "检测到压缩包中的 Telegram Desktop tdata 设置了本地密码。请输入本地密码；这不是 Telegram 两步验证密码。");
                     return;
                 }
                 if (created.zipFiles.isEmpty()) {
@@ -450,6 +499,58 @@ public final class ProtocolBuildUi {
                 showResult(owner, created.zipFiles, created.failures, created.publicDirectory);
             });
         }, "protocol-passkey-create").start();
+    }
+
+    private interface PasswordPromptCallback {
+        void onPassword(String password);
+    }
+
+    private static boolean hasTdataPasscodeFailure(List<String> failures) {
+        if (failures == null) {
+            return false;
+        }
+        for (String failure : failures) {
+            if (failure != null && failure.contains("tdata 本地密码")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void requestTdataPasscode(Activity activity, Runnable onCancel,
+                                             PasswordPromptCallback callback, String message) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
+        EditText input = new EditText(activity);
+        input.setSingleLine(true);
+        input.setHint("Telegram Desktop 本地密码");
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        int padding = AndroidUtilities.dp(24);
+        input.setPadding(padding, AndroidUtilities.dp(12), padding, AndroidUtilities.dp(12));
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("需要 tdata 本地密码")
+                .setMessage(message + "\n密码仅在本机用于解密，不会上传或保存。")
+                .setView(input)
+                .setPositiveButton("解密并继续", (d, which) -> { })
+                .setNegativeButton("取消", (d, which) -> {
+                    if (onCancel != null) onCancel.run();
+                })
+                .create();
+        styleDialog(dialog);
+        dialog.show();
+        View positiveButton = dialog.getButton(-1);
+        if (positiveButton != null) {
+            positiveButton.setOnClickListener(v -> {
+                String password = input.getText() == null ? "" : input.getText().toString();
+                if (password.isEmpty()) {
+                    Toast.makeText(activity, "请输入 Telegram Desktop 本地密码。", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                dialog.dismiss();
+                if (callback != null) callback.onPassword(password);
+            });
+        }
     }
 
     private static void copyUriToFile(Context context, Uri uri, File target) throws Exception {

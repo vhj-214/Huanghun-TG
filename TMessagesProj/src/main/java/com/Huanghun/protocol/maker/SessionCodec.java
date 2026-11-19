@@ -3,15 +3,18 @@ package com.Huanghun.protocol.maker;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Build;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.BuildVars;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * session / tdata / json 三种协议格式的读写。
@@ -131,12 +134,43 @@ public final class SessionCodec {
     public static File writeJson(ProtocolAccount account, File target) throws Exception {
         ensureParent(target);
         JSONObject payload = new JSONObject();
+        Locale locale = Locale.getDefault();
+        String language = locale.getLanguage() == null || locale.getLanguage().isEmpty()
+                ? "en" : locale.getLanguage();
+        String sessionName = target.getName();
+        if (sessionName.toLowerCase(Locale.ROOT).endsWith(".json")) {
+            sessionName = sessionName.substring(0, sessionName.length() - 5);
+        }
         payload.put("auth_key", hex(account.authKey));
         payload.put("dc_id", account.dcId);
         payload.put("user_id", account.userId);
         payload.put("api_id", account.apiId);
         payload.put("api_hash", account.apiHash);
+        payload.put("app_hash", account.apiHash);
+        payload.put("device_model", Build.MODEL == null ? "Android" : Build.MODEL);
+        payload.put("system_version", Build.VERSION.RELEASE == null ? "Android" : Build.VERSION.RELEASE);
+        payload.put("app_version", BuildVars.BUILD_VERSION_STRING + " Android");
+        payload.put("system_lang_code", locale.toLanguageTag());
+        payload.put("lang_pack", "android");
+        payload.put("lang_code", language);
+        payload.put("pid", android.os.Process.myPid());
         payload.put("is_bot", account.isBot);
+        payload.put("twofa", JSONObject.NULL);
+        payload.put("password", JSONObject.NULL);
+        payload.put("app_id", account.apiId);
+        payload.put("session_file", sessionName);
+        payload.put("device", Build.MODEL == null ? "Android" : Build.MODEL);
+        payload.put("sex", JSONObject.NULL);
+        payload.put("avatar", "img/default.png");
+        payload.put("username", account.username == null ? "" : account.username);
+        payload.put("package_id", "");
+        payload.put("installer", "");
+        payload.put("ipv6", false);
+        payload.put("SDK", "Android " + Build.VERSION.SDK_INT);
+        payload.put("sdk", "Android " + Build.VERSION.SDK_INT);
+        payload.put("system_lang_pack", locale.toLanguageTag());
+        payload.put("premium", account.premium == null ? JSONObject.NULL : account.premium);
+        payload.put("reg_time", JSONObject.NULL);
         if (account.phone != null && !account.phone.isEmpty()) {
             payload.put("phone", account.phone);
         }
@@ -244,46 +278,147 @@ public final class SessionCodec {
     /** 读取 json（支持单个对象或数组，字段与转换工具保持一致）。 */
     public static List<ProtocolAccount> readJson(File file) throws Exception {
         String text = new String(readAll(file), StandardCharsets.UTF_8);
-        Object root = text.trim().startsWith("[") ? new JSONArray(text) : new JSONObject(text);
+        Object root;
+        try {
+            String trimmed = text.trim();
+            if (!trimmed.isEmpty() && trimmed.charAt(0) == '\ufeff') {
+                trimmed = trimmed.substring(1).trim();
+            }
+            if (trimmed.isEmpty()) {
+                throw new Exception("JSON 文件为空");
+            }
+            root = trimmed.startsWith("[") ? new JSONArray(trimmed) : new JSONObject(trimmed);
+        } catch (Exception parseError) {
+            throw new Exception("无法直接解析该 JSON；如果文件经过密码加密，请提供文件密码并先解密，或选择未加密的协议 JSON。", parseError);
+        }
         List<ProtocolAccount> result = new ArrayList<>();
         if (root instanceof JSONArray) {
             JSONArray array = (JSONArray) root;
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.optJSONObject(i);
-                addJsonAccount(item, file.getName(), result);
+                addJsonAccount(item, file, result);
             }
         } else {
-            addJsonAccount((JSONObject) root, file.getName(), result);
+            addJsonAccount((JSONObject) root, file, result);
         }
         if (result.isEmpty()) {
-            throw new Exception("JSON 里没有可用的 auth_key");
+            throw new Exception("JSON 里没有可用的 auth_key；若文件经过密码加密，请提供文件密码并先解密；若 JSON 通过 session_file 引用授权，请将对应的 .session 文件与 JSON 一起放入同一个 ZIP 后上传");
         }
         return result;
     }
 
-    private static void addJsonAccount(JSONObject item, String source, List<ProtocolAccount> out) {
-        if (item == null || !item.has("auth_key")) {
+    private static void addJsonAccount(JSONObject item, File sourceFile, List<ProtocolAccount> out) {
+        if (item == null || sourceFile == null) {
             return;
         }
+        ProtocolAccount companion = null;
+        byte[] key = null;
         try {
-            byte[] key = unhex(item.getString("auth_key"));
+            key = item.has("auth_key") ? unhex(item.optString("auth_key", "")) : null;
             if (key == null || key.length != ProtocolAccount.KEY_SIZE) {
+                if (key != null) {
+                    java.util.Arrays.fill(key, (byte) 0);
+                }
+                companion = readCompanionSession(item, sourceFile);
+                key = companion == null || companion.authKey == null ? null
+                        : java.util.Arrays.copyOf(companion.authKey, companion.authKey.length);
+            }
+            if (key == null || key.length != ProtocolAccount.KEY_SIZE) {
+                if (key != null) java.util.Arrays.fill(key, (byte) 0);
                 return;
             }
-            ProtocolAccount account = new ProtocolAccount(key, item.optInt("dc_id", 2));
+            int dcId = item.has("dc_id") ? item.optInt("dc_id", 2)
+                    : companion == null ? 2 : companion.dcId;
+            ProtocolAccount account = new ProtocolAccount(key, dcId);
             account.userId = item.optLong("user_id", 0);
-            account.apiId = item.optInt("api_id", 0);
-            account.apiHash = item.optString("api_hash", "");
+            account.apiId = item.optInt("api_id", item.optInt("app_id", 0));
+            account.apiHash = item.optString("api_hash", item.optString("app_hash", ""));
             account.isBot = item.optBoolean("is_bot", false);
             account.phone = item.optString("phone", "");
             account.country = item.optString("country", "");
-            account.source = source;
+            account.username = item.optString("username", "");
+            account.premium = item.isNull("premium") || !item.has("premium")
+                    ? null : item.optBoolean("premium", false);
+            account.source = sourceFile.getName();
             out.add(account);
         } catch (Exception ignore) {
+            if (key != null) java.util.Arrays.fill(key, (byte) 0);
+        } finally {
+            if (companion != null && companion.authKey != null) {
+                java.util.Arrays.fill(companion.authKey, (byte) 0);
+            }
         }
     }
 
+    /** JSON sidecars may reference a sibling Telethon/Pyrogram session instead of embedding auth_key. */
+    private static ProtocolAccount readCompanionSession(JSONObject item, File jsonFile) {
+        File parent = jsonFile.getParentFile();
+        if (parent == null) {
+            return null;
+        }
+        String reference = item.optString("session_file", "").trim();
+        ArrayList<File> candidates = new ArrayList<>();
+        if (!reference.isEmpty()) {
+            File relative = new File(parent, reference);
+            candidates.add(relative);
+            if (!reference.toLowerCase(java.util.Locale.ROOT).endsWith(".session")) {
+                candidates.add(new File(parent, reference + ".session"));
+            }
+            File named = new File(reference);
+            String base = named.getName();
+            if (!base.isEmpty() && !".".equals(base) && !"..".equals(base)) {
+                candidates.add(new File(parent, base));
+                if (!base.toLowerCase(java.util.Locale.ROOT).endsWith(".session")) {
+                    candidates.add(new File(parent, base + ".session"));
+                }
+            }
+        }
+        String jsonName = jsonFile.getName();
+        if (jsonName.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
+            candidates.add(new File(parent, jsonName.substring(0, jsonName.length() - 5) + ".session"));
+        }
+        for (File candidate : candidates) {
+            try {
+                String parentPath = parent.getCanonicalPath();
+                if (!candidate.getCanonicalPath().startsWith(parentPath + File.separator)
+                        || !candidate.isFile() || ZipUtil.isZip(candidate)) {
+                    continue;
+                }
+                List<ProtocolAccount> accounts = readSession(candidate, KIND_AUTO);
+                try {
+                    long wantedUserId = item.optLong("user_id", 0);
+                    for (ProtocolAccount account : accounts) {
+                        if (wantedUserId == 0 || account.userId == 0 || account.userId == wantedUserId) {
+                            return account.copy();
+                        }
+                    }
+                } finally {
+                    zeroAuthKeys(accounts);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        return null;
+    }
+
     // ------------------------------------------------------------------ 工具
+
+    static boolean isSqliteDatabase(File file) {
+        if (file == null || !file.isFile() || file.length() < 16) {
+            return false;
+        }
+        byte[] signature = new byte[]{'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f', 'o', 'r', 'm', 'a', 't', ' ', '3', 0};
+        try (java.io.FileInputStream input = new java.io.FileInputStream(file)) {
+            for (byte expected : signature) {
+                if (input.read() != (expected & 0xff)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception ignore) {
+            return false;
+        }
+    }
 
     private static SQLiteDatabase openReadOnly(File file) throws Exception {
         return SQLiteDatabase.openDatabase(file.getAbsolutePath(), null, SQLiteDatabase.OPEN_READONLY);

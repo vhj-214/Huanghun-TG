@@ -17,7 +17,7 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * Minimal, read-only Telegram Desktop tdata reader.
  *
- * <p>This reader supports the standard Telegram Desktop tdata layout without a
+ * <p>This reader supports the standard Telegram Desktop tdata layout with or without a
  * local passcode. It decrypts data only in the application's private temporary
  * import directory, extracts the 256-byte MTProto authorization key, and returns
  * it to the existing server-verification path. No credentials are logged or
@@ -31,6 +31,10 @@ public final class TdataParser {
     }
 
     public static ArrayList<ProtocolParser.SessionData> parse(File tdataDirectory) throws Exception {
+        return parse(tdataDirectory, "");
+    }
+
+    public static ArrayList<ProtocolParser.SessionData> parse(File tdataDirectory, String localPasscode) throws Exception {
         if (tdataDirectory == null || !tdataDirectory.isDirectory()) {
             throw new IOException("tdata 目录不存在");
         }
@@ -39,34 +43,37 @@ public final class TdataParser {
             throw new IOException("tdata 中缺少 key_datas");
         }
 
-        byte[] localKey = readLocalKey(keyDatas);
-        File[] accountFiles = tdataDirectory.listFiles(file -> file.isFile()
-                && !"key_datas".equals(file.getName())
-                && file.getName().endsWith("s"));
-        if (accountFiles == null || accountFiles.length == 0) {
-            throw new IOException("tdata 中未找到账号授权数据");
-        }
-        Arrays.sort(accountFiles, Comparator.comparing(File::getName));
-
-        ArrayList<ProtocolParser.SessionData> result = new ArrayList<>();
-        for (File accountFile : accountFiles) {
-            try {
-                ProtocolParser.SessionData session = readAccountAuthorization(accountFile, localKey);
-                if (session != null) {
-                    result.add(session);
-                }
-            } catch (Exception ignore) {
-                // A multi-account tdata may contain stale or unrelated files.
-                // Other valid account files must still be considered.
+        byte[] localKey = readLocalKey(keyDatas, localPasscode);
+        try {
+            File[] accountFiles = tdataDirectory.listFiles(file -> file.isFile()
+                    && !"key_datas".equals(file.getName())
+                    && file.getName().endsWith("s"));
+            if (accountFiles == null || accountFiles.length == 0) {
+                throw new IOException("tdata 中未找到账号授权数据");
             }
+            Arrays.sort(accountFiles, Comparator.comparing(File::getName));
+
+            ArrayList<ProtocolParser.SessionData> result = new ArrayList<>();
+            for (File accountFile : accountFiles) {
+                try {
+                    ProtocolParser.SessionData session = readAccountAuthorization(accountFile, localKey);
+                    if (session != null) {
+                        result.add(session);
+                    }
+                } catch (Exception ignore) {
+                    // A multi-account tdata may contain stale or unrelated files.
+                }
+            }
+            if (result.isEmpty()) {
+                throw new IOException("tdata 中没有可用的 MTProto 授权密钥");
+            }
+            return result;
+        } finally {
+            Arrays.fill(localKey, (byte) 0);
         }
-        if (result.isEmpty()) {
-            throw new IOException("tdata 中没有可用的 MTProto 授权密钥");
-        }
-        return result;
     }
 
-    private static byte[] readLocalKey(File keyDatas) throws Exception {
+    private static byte[] readLocalKey(File keyDatas, String localPasscode) throws Exception {
         byte[] payload = readTdfPayload(keyDatas);
         Cursor cursor = new Cursor(payload);
         byte[] salt = cursor.readByteArray();
@@ -74,9 +81,19 @@ public final class TdataParser {
         byte[] encryptedInfo = cursor.readByteArray();
         cursor.requireFinished();
 
-        byte[] passcodeHash = digest("SHA-512", concat(salt, salt));
-        byte[] passcodeKey = pbkdf2Sha512(passcodeHash, salt, 1, 256);
-        byte[] localKey = decryptLocal(encryptedKey, passcodeKey);
+        byte[] passcodeBytes = (localPasscode == null ? "" : localPasscode).getBytes(StandardCharsets.UTF_8);
+        byte[] passcodeHash = digest("SHA-512", concat(salt, passcodeBytes, salt));
+        byte[] passcodeKey = pbkdf2Sha512(passcodeHash, salt, passcodeBytes.length == 0 ? 1 : 100000, 256);
+        byte[] localKey;
+        try {
+            localKey = decryptLocal(encryptedKey, passcodeKey);
+        } catch (Exception error) {
+            throw new IOException("tdata 本地密码不正确或文件已损坏；如果设置了 Telegram Desktop 本地密码，请输入正确密码后重试", error);
+        } finally {
+            Arrays.fill(passcodeBytes, (byte) 0);
+            Arrays.fill(passcodeHash, (byte) 0);
+            Arrays.fill(passcodeKey, (byte) 0);
+        }
         if (localKey.length != 256) {
             throw new IOException("tdata 本地密钥长度无效");
         }

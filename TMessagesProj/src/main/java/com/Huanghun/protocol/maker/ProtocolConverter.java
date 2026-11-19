@@ -40,6 +40,10 @@ public final class ProtocolConverter {
      * 把任意输入展开成账号列表。
      */
     public static Loaded load(Context context, File input) {
+        return load(context, input, "");
+    }
+
+    public static Loaded load(Context context, File input, String localPasscode) {
         Loaded loaded = new Loaded();
         File workDir = null;
         try {
@@ -49,7 +53,7 @@ public final class ProtocolConverter {
                 ZipUtil.unzip(input, workDir);
                 root = workDir;
             }
-            collect(root, loaded, 0, context);
+            collect(root, loaded, 0, context, localPasscode);
         } catch (Exception e) {
             loaded.failures.add(describe(e));
         } finally {
@@ -57,17 +61,60 @@ public final class ProtocolConverter {
                 ProtocolPaths.deleteRecursive(workDir);
             }
         }
+        deduplicateAccounts(loaded.accounts);
         return loaded;
     }
 
-    private static void collect(File node, Loaded loaded, int depth, Context context) {
-        if (node == null || depth > 4) {
+    private static void deduplicateAccounts(List<ProtocolAccount> accounts) {
+        ArrayList<ProtocolAccount> unique = new ArrayList<>();
+        for (ProtocolAccount candidate : accounts) {
+            ProtocolAccount existing = null;
+            for (ProtocolAccount account : unique) {
+                if (account.authKey != null && candidate.authKey != null
+                        && java.util.Arrays.equals(account.authKey, candidate.authKey)) {
+                    existing = account;
+                    break;
+                }
+            }
+            if (existing == null) {
+                unique.add(candidate);
+            } else {
+                if ((existing.phone == null || existing.phone.isEmpty()) && candidate.phone != null) {
+                    existing.phone = candidate.phone;
+                }
+                if (existing.userId == 0) {
+                    existing.userId = candidate.userId;
+                }
+                if ((existing.country == null || existing.country.isEmpty()) && candidate.country != null) {
+                    existing.country = candidate.country;
+                }
+                if ((existing.username == null || existing.username.isEmpty()) && candidate.username != null) {
+                    existing.username = candidate.username;
+                }
+                if (existing.premium == null) {
+                    existing.premium = candidate.premium;
+                }
+                if (candidate.authKey != null) {
+                    java.util.Arrays.fill(candidate.authKey, (byte) 0);
+                }
+            }
+        }
+        accounts.clear();
+        accounts.addAll(unique);
+    }
+
+    private static void collect(File node, Loaded loaded, int depth, Context context, String localPasscode) {
+        if (node == null) {
+            return;
+        }
+        if (depth > 6) {
+            loaded.failures.add(node.getName() + "：压缩包嵌套层级超过 6 层，已停止扫描");
             return;
         }
         if (node.isDirectory()) {
             if (new File(node, "key_datas").isFile()) {
                 try {
-                    List<ProtocolParser.SessionData> sessions = TdataParser.parse(node);
+                    List<ProtocolParser.SessionData> sessions = TdataParser.parse(node, localPasscode);
                     if (sessions.isEmpty()) {
                         loaded.failures.add(node.getName() + "：tdata 里没有授权数据");
                     }
@@ -85,7 +132,7 @@ public final class ProtocolConverter {
             if (children != null) {
                 java.util.Arrays.sort(children, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
                 for (File child : children) {
-                    collect(child, loaded, depth + 1, context);
+                    collect(child, loaded, depth + 1, context, localPasscode);
                 }
             }
             return;
@@ -95,7 +142,7 @@ public final class ProtocolConverter {
             try {
                 unpacked = ProtocolPaths.createTemporaryDirectory(context, "inner_zip_");
                 ZipUtil.unzip(node, unpacked);
-                collect(unpacked, loaded, depth + 1, context);
+                collect(unpacked, loaded, depth + 1, context, localPasscode);
             } catch (Exception e) {
                 loaded.failures.add(node.getName() + "：" + describe(e));
             } finally {
@@ -105,14 +152,28 @@ public final class ProtocolConverter {
         }
         String name = node.getName().toLowerCase(java.util.Locale.ROOT);
         try {
-            if (name.endsWith(".session")) {
+            if (name.endsWith(".session") || SessionCodec.isSqliteDatabase(node)) {
                 loaded.accounts.addAll(SessionCodec.readSession(node, SessionCodec.KIND_AUTO));
-            } else if (name.endsWith(".json")) {
+            } else if (name.endsWith(".json") || looksLikeJson(node)) {
                 loaded.accounts.addAll(SessionCodec.readJson(node));
             }
         } catch (Exception e) {
             loaded.failures.add(node.getName() + "：" + describe(e));
         }
+    }
+
+    private static boolean looksLikeJson(File file) {
+        try (java.io.FileInputStream input = new java.io.FileInputStream(file)) {
+            int value;
+            while ((value = input.read()) != -1) {
+                if (value == ' ' || value == '\n' || value == '\r' || value == '\t') {
+                    continue;
+                }
+                return value == '{' || value == '[';
+            }
+        } catch (Exception ignore) {
+        }
+        return false;
     }
 
     private static ProtocolAccount fromSessionData(ProtocolParser.SessionData data, String source) {
@@ -128,17 +189,30 @@ public final class ProtocolConverter {
      * 转换并落盘。每个账号一个 zip，里面放本次要求的全部格式。
      */
     public static Result convert(Context context, File input, int formats) {
+        return convert(context, input, formats, "");
+    }
+
+    public static Result convert(Context context, File input, int formats, String localPasscode) {
         Result result = new Result(ProtocolPaths.resolveOutputDirectory(context).isPublic);
-        Loaded loaded = load(context, input);
+        Loaded loaded = load(context, input, localPasscode);
         result.failures.addAll(loaded.failures);
         if (loaded.accounts.isEmpty()) {
             return result;
         }
         try {
+            ArrayList<ProtocolAccount> verifiedAccounts = new ArrayList<>();
             for (ProtocolAccount account : loaded.accounts) {
+                account.apiId = BuildVars.APP_ID;
+                account.apiHash = BuildVars.APP_HASH;
+                String validationFailure = ProtocolSessionVerifier.verify(account);
+                if (validationFailure != null) {
+                    result.failures.add(account.displayName() + "：" + validationFailure);
+                } else {
+                    verifiedAccounts.add(account);
+                }
+            }
+            for (ProtocolAccount account : verifiedAccounts) {
                 try {
-                    account.apiId = BuildVars.APP_ID;
-                    account.apiHash = BuildVars.APP_HASH;
                     if (account.country == null || account.country.isEmpty()) {
                         account.country = CountryCodes.resolve(account.phone);
                     }

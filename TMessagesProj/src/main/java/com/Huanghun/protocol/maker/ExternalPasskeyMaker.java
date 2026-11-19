@@ -48,7 +48,7 @@ public final class ExternalPasskeyMaker {
     private static final int REQUEST_FLAGS = ConnectionsManager.RequestFlagWithoutLogin
             | ConnectionsManager.RequestFlagEnableUnauthorized;
     private static final long RPC_TIMEOUT_SECONDS = 30;
-    private static final int MAX_ACCOUNTS = 20;
+    private static final int MAX_ACCOUNTS = 100;
     private static final String PASSKEY_ORIGIN = "https://web.telegram.org";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -90,6 +90,11 @@ public final class ExternalPasskeyMaker {
 
     /** Called from a worker thread. The input is a copied file or a copied tdata directory. */
     public static Result create(Context context, File input, String kind) throws Exception {
+        return create(context, input, kind, "");
+    }
+
+    /** Called from a worker thread; localPasscode is used only to unlock Telegram Desktop tdata. */
+    public static Result create(Context context, File input, String kind, String localPasscode) throws Exception {
         if (context == null || input == null) {
             throw new IOException("缺少输入文件");
         }
@@ -106,7 +111,7 @@ public final class ExternalPasskeyMaker {
                 if (!input.isDirectory()) {
                     throw new IOException("请选择完整的 tdata 文件夹");
                 }
-                ArrayList<ProtocolParser.SessionData> sessions = TdataParser.parse(input);
+                ArrayList<ProtocolParser.SessionData> sessions = TdataParser.parse(input, localPasscode);
                 int index = 0;
                 for (ProtocolParser.SessionData session : sessions) {
                     File converted = new File(convertedDirectory, "tdata_" + (++index) + ".session");
@@ -140,34 +145,38 @@ public final class ExternalPasskeyMaker {
                 }
             } else if ("session".equalsIgnoreCase(kind)) {
                 if (!input.isFile()) {
-                    throw new IOException("请选择 .session 文件");
+                    throw new IOException("请选择 .session 文件或包含 session 的协议 ZIP 压缩包");
                 }
-                ProtocolParser.SessionData session;
+                ProtocolConverter.Loaded imported = ProtocolConverter.load(context, input, localPasscode);
+                result.failures.addAll(imported.failures);
+                int index = 0;
                 try {
-                    session = ProtocolParser.parseTelethonSession(input);
-                } catch (Exception telethonError) {
-                    // Pyrogram's session database omits server_address; normalize it through
-                    // the same temporary Telethon-session writer used for JSON imports.
-                    List<ProtocolAccount> parsedAccounts = SessionCodec.readSession(input, SessionCodec.KIND_AUTO);
-                    if (parsedAccounts.isEmpty()) {
-                        throw telethonError;
+                    for (ProtocolAccount account : imported.accounts) {
+                        ProtocolParser.SessionData session = new ProtocolParser.SessionData();
+                        session.authKey = account.authKey == null
+                                ? null : Arrays.copyOf(account.authKey, account.authKey.length);
+                        session.dcId = account.dcId;
+                        session.userId = account.userId;
+                        parsed.add(session);
+                        String source = account.source == null || account.source.isEmpty()
+                                ? input.getName() : account.source;
+                        accounts.add(new InputAccount(session, account.phone,
+                                source + " #" + (++index)));
                     }
-                    ProtocolAccount account = parsedAccounts.get(0);
-                    File converted = new File(convertedDirectory, "session_1.session");
-                    try {
-                        SessionCodec.writeTelethonSession(account, converted);
-                        session = ProtocolParser.parseTelethonSession(converted);
-                    } finally {
-                        zeroAccounts(parsedAccounts);
-                    }
+                } finally {
+                    zeroAccounts(imported.accounts);
                 }
-                parsed.add(session);
-                accounts.add(new InputAccount(session, "", input.getName()));
             } else {
                 throw new IOException("不支持的输入格式");
             }
 
+            if (hasTdataPasscodeFailure(result.failures)) {
+                return result;
+            }
             if (accounts.isEmpty()) {
+                if (!result.failures.isEmpty()) {
+                    return result;
+                }
                 throw new IOException("没有找到可用的授权会话");
             }
             if (accounts.size() > MAX_ACCOUNTS) {
@@ -581,6 +590,14 @@ public final class ExternalPasskeyMaker {
         for (ProtocolAccount account : accounts) {
             if (account != null && account.authKey != null) Arrays.fill(account.authKey, (byte) 0);
         }
+    }
+
+    private static boolean hasTdataPasscodeFailure(List<String> failures) {
+        if (failures == null) return false;
+        for (String failure : failures) {
+            if (failure != null && failure.contains("tdata 本地密码")) return true;
+        }
+        return false;
     }
 
     private static String failureDetails(String source, Throwable error) {

@@ -16,6 +16,8 @@ public final class ProtocolAccount {
     public long userId;
     public String phone = "";
     public String country = "";
+    public String username = "";
+    public Boolean premium;
     public int apiId;
     public String apiHash = "";
     public boolean isBot;
@@ -96,6 +98,8 @@ public final class ProtocolAccount {
         out.userId = userId;
         out.phone = phone;
         out.country = country;
+        out.username = username;
+        out.premium = premium;
         out.apiId = apiId;
         out.apiHash = apiHash;
         out.isBot = isBot;

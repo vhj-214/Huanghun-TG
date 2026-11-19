@@ -65,6 +65,8 @@ public final class ProtocolExporter {
         ProtocolAccount account = new ProtocolAccount(authKey, dcId);
         account.userId = user.id;
         account.phone = user.phone == null ? "" : user.phone;
+        account.username = user.username == null ? "" : user.username;
+        account.premium = user.premium;
         account.country = CountryCodes.resolve(account.phone);
         account.apiId = BuildVars.APP_ID;
         account.apiHash = BuildVars.APP_HASH;
