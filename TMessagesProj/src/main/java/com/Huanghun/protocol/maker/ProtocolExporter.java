@@ -18,11 +18,13 @@ import java.util.List;
 public final class ProtocolExporter {
 
     public static final int FORMAT_TELETHON = 1;
+    /** Deprecated: the exported bundle intentionally does not include Pyrogram's duplicate session. */
     public static final int FORMAT_PYROGRAM = 1 << 1;
     public static final int FORMAT_JSON = 1 << 2;
     public static final int FORMAT_TDATA = 1 << 3;
+    /** The stable bundle contains only the verified session, JSON metadata and tdata. */
     public static final int FORMAT_ALL =
-            FORMAT_TELETHON | FORMAT_PYROGRAM | FORMAT_JSON | FORMAT_TDATA;
+            FORMAT_TELETHON | FORMAT_JSON | FORMAT_TDATA;
 
     private ProtocolExporter() {
     }
@@ -114,9 +116,6 @@ public final class ProtocolExporter {
             workDir = ProtocolPaths.createTemporaryDirectory(context, "export_");
             if ((formats & FORMAT_TELETHON) != 0) {
                 SessionCodec.writeTelethonSession(account, new File(workDir, baseName + ".session"));
-            }
-            if ((formats & FORMAT_PYROGRAM) != 0) {
-                SessionCodec.writePyrogramSession(account, new File(workDir, baseName + "_pyrogram.session"));
             }
             if ((formats & FORMAT_JSON) != 0) {
                 SessionCodec.writeJson(account, new File(workDir, baseName + ".json"));

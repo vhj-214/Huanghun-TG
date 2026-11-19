@@ -47,6 +47,9 @@ public final class ZipUtil {
         byte[] buffer = new byte[8192];
         for (File child : children) {
             String entryName = prefix.isEmpty() ? child.getName() : prefix + "/" + child.getName();
+            if (!shouldInclude(child, prefix)) {
+                continue;
+            }
             if (child.isDirectory()) {
                 zipInto(output, child, entryName);
             } else {
@@ -60,6 +63,22 @@ public final class ZipUtil {
                 output.closeEntry();
             }
         }
+    }
+
+    /** Keep only stable protocol artifacts; SQLite journal files are temporary. */
+    private static boolean shouldInclude(File child, String prefix) {
+        String name = child.getName();
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains(".session-journal")) {
+            return false;
+        }
+        if (!prefix.isEmpty()) {
+            return true;
+        }
+        if (child.isDirectory()) {
+            return "tdata".equalsIgnoreCase(name);
+        }
+        return lower.endsWith(".session") || lower.endsWith(".json");
     }
 
     /**

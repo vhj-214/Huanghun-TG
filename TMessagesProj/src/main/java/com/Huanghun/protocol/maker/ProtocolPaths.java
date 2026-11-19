@@ -11,9 +11,8 @@ import java.util.UUID;
 /**
  * 协议文件的落盘位置与命名规则。
  *
- * <p>目标目录固定为公共存储的 {@code /storage/emulated/0/黄昏/协议制作/}；
- * 在 Android 11+ 上如果没有拿到全盘读写权限，则退到应用外部私有目录，
- * 并把这个真实路径回报给界面显示，避免用户以为文件没生成。</p>
+ * <p>目标目录固定为公共存储的 {@code /storage/emulated/0/黄昏/协议制作/}。
+ * 协议文件不能退回应用私有目录；Android 11+ 由界面先引导用户授予「所有文件访问」权限。</p>
  */
 public final class ProtocolPaths {
 
@@ -39,18 +38,7 @@ public final class ProtocolPaths {
         if (ensureWritable(publicRoot)) {
             return new Resolved(publicRoot, true);
         }
-        File externalFiles = context.getExternalFilesDir(null);
-        if (externalFiles != null) {
-            File privateRoot = new File(externalFiles,
-                    FOLDER_ROOT + File.separator + FOLDER_BUILD);
-            if (ensureWritable(privateRoot)) {
-                return new Resolved(privateRoot, false);
-            }
-        }
-        File cacheRoot = new File(context.getFilesDir(),
-                FOLDER_ROOT + File.separator + FOLDER_BUILD);
-        ensureWritable(cacheRoot);
-        return new Resolved(cacheRoot, false);
+        throw new IllegalStateException("无法写入公共目录 /storage/emulated/0/黄昏/协议制作/，请授予所有文件访问权限");
     }
 
     private static boolean ensureWritable(File directory) {

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>协议制作</title>
+<style>
+  :root{
+    --bg-1:#101323; --bg-2:#191534; --bg-3:#2b1a2d;
+    --card:rgba(255,255,255,.055);
+    --card-active:rgba(255,255,255,.11);
+    --stroke:rgba(255,255,255,.10);
+    --title:#f4f6ff;
+    --text:#c9cfe4;
+    --muted:#8a93b2;
+    --amber:#ffb25e;
+    --indigo:#8b9bff;
+    --mint:#5ee2b0;
+    --coral:#ff8f6b;
+    --radius:20px;
+  }
+  body.light{
+    --bg-1:#f4f6fc; --bg-2:#eef1fa; --bg-3:#f7f0ea;
+    --card:rgba(255,255,255,.92);
+    --card-active:rgba(240,244,255,.98);
+    --stroke:rgba(20,32,60,.10);
+    --title:#16233f;
+    --text:#3d4a68;
+    --muted:#7d88a3;
+    --amber:#c9761b;
+    --indigo:#4557c8;
+    --mint:#0f9a6c;
+    --coral:#c9542c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:-apple-system,"Roboto","Noto Sans SC","PingFang SC",sans-serif;
+    background:linear-gradient(160deg,var(--bg-1) 0%,var(--bg-2) 48%,var(--bg-3) 100%);
+    color:var(--text);
+    display:flex;flex-direction:column;
+    min-height:100%;
+    overflow:hidden;
+  }
+  .wrap{position:relative;flex:1;display:flex;flex-direction:column;min-height:0;}
+  .glow{
+    position:absolute;top:-30%;left:-20%;right:-20%;height:52%;
+    background:radial-gradient(60% 60% at 30% 20%,rgba(139,155,255,.34),transparent 70%),
+               radial-gradient(50% 50% at 82% 0%,rgba(255,178,94,.28),transparent 72%);
+    pointer-events:none;filter:blur(6px);
+  }
+  header{
+    position:relative;display:flex;align-items:center;
+    padding:18px 20px 10px;flex:0 0 auto;
+  }
+  .brand{
+    display:flex;align-items:center;flex:1;min-width:0;
+  }
+  .brand .logo{margin-right:9px;}
+  .logo{
+    width:34px;height:34px;border-radius:12px;flex:0 0 auto;
+    background:linear-gradient(140deg,var(--amber),#ff7d6b 55%,var(--indigo));
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 18px rgba(255,140,90,.28);
+    font-size:15px;font-weight:700;color:#1a1024;
+  }
+  .brand h1{font-size:17px;margin:0;color:var(--title);font-weight:650;letter-spacing:.2px;}
+  .brand p{margin:2px 0 0;font-size:11.5px;color:var(--muted);letter-spacing:.3px;}
+  .close{
+    width:34px;height:34px;border-radius:50%;border:1px solid var(--stroke);
+    background:var(--card);color:var(--text);font-size:17px;line-height:1;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  .close:active{background:var(--card-active);transform:scale(.94);}
+  .scroll{
+    position:relative;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+    padding:6px 18px 18px;-webkit-overflow-scrolling:touch;
+  }
+  .scroll::-webkit-scrollbar{width:0;}
+  .lead{
+    margin:4px 2px 14px;font-size:12.5px;line-height:1.6;color:var(--muted);
+  }
+  .lead b{color:var(--text);font-weight:600;}
+  .card{
+    position:relative;display:flex;align-items:center;
+    width:100%;text-align:left;padding:15px 15px;
+    border-radius:var(--radius);border:1px solid var(--stroke);
+    background:var(--card);
+    color:var(--text);font-family:inherit;
+    margin-bottom:11px;transition:transform .12s ease,background .16s ease;
+    cursor:pointer;
+  }
+  .card:active{transform:scale(.985);background:var(--card-active);}
+  .ico{
+    margin-right:13px;
+    width:44px;height:44px;border-radius:14px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid rgba(255,255,255,.10);
+  }
+  body.light .ico{border-color:rgba(20,32,60,.07);}
+  .ico svg{width:22px;height:22px;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .i-amber{background:rgba(255,178,94,.14);} .i-amber svg{stroke:var(--amber);}
+  .i-indigo{background:rgba(139,155,255,.14);} .i-indigo svg{stroke:var(--indigo);}
+  .i-mint{background:rgba(94,226,176,.14);} .i-mint svg{stroke:var(--mint);}
+  .i-coral{background:rgba(255,143,107,.14);} .i-coral svg{stroke:var(--coral);}
+  .meta{flex:1;min-width:0;}
+  .meta h3{margin:0;font-size:14.5px;color:var(--title);font-weight:600;letter-spacing:.2px;}
+  .meta p{margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--muted);}
+  .chev{flex:0 0 auto;color:var(--muted);font-size:18px;opacity:.75;}
+  .section{
+    display:flex;align-items:center;margin:6px 2px 10px;
+    font-size:11.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);
+  }
+  .section span{margin-right:8px;}
+  .section::after{content:"";flex:1;height:1px;background:var(--stroke);}
+  .note{
+    margin:6px 0 12px;padding:12px 13px;border-radius:14px;
+    border:1px dashed rgba(255,143,107,.34);
+    background:rgba(255,143,107,.07);
+    font-size:11.5px;line-height:1.6;color:var(--muted);
+  }
+  .note b{color:var(--coral);font-weight:600;}
+  .path{
+    margin:2px 0 0;padding:11px 13px;border-radius:14px;
+    background:rgba(0,0,0,.16);border:1px solid var(--stroke);
+    font-size:11px;line-height:1.55;color:var(--muted);
+    word-break:break-all;
+  }
+  body.light .path{background:rgba(20,32,60,.045);}
+  .path span{display:block;font-size:10.5px;letter-spacing:.6px;margin-bottom:3px;opacity:.75;}
+  .path code{color:var(--text);font-family:ui-monospace,Menlo,monospace;font-size:11px;}
+  .screen{display:none;animation:fade .18s ease;}
+  .screen.on{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .back{
+    display:inline-flex;align-items:center;margin:0 0 12px;
+    padding:7px 12px;border-radius:999px;border:1px solid var(--stroke);
+    background:var(--card);color:var(--text);font-size:12px;font-family:inherit;
+  }
+  .back:active{background:var(--card-active);}
+  .busy{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:42px 16px;text-align:center;
+  }
+  .busy .ring{margin-bottom:16px;}
+  .busy p{margin-top:10px;}
+  .ring{
+    width:46px;height:46px;border-radius:50%;
+    border:3px solid rgba(255,255,255,.12);
+    border-top-color:var(--amber);border-right-color:var(--indigo);
+    animation:spin .9s linear infinite;
+  }
+  body.light .ring{border-color:rgba(20,32,60,.10);border-top-color:var(--amber);border-right-color:var(--indigo);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .busy h2{margin:0;font-size:15px;color:var(--title);font-weight:600;}
+  .busy p{margin:0;font-size:12px;color:var(--muted);line-height:1.6;}
+  .result-head{display:flex;align-items:center;gap:11px;margin:2px 0 14px;}
+  .result-head .tick{margin-right:11px;}
+  .tick{
+    width:40px;height:40px;border-radius:50%;flex:0 0 auto;
+    background:rgba(94,226,176,.14);border:1px solid rgba(94,226,176,.35);
+    display:flex;align-items:center;justify-content:center;color:var(--mint);font-size:19px;
+  }
+  .tick.bad{background:rgba(255,143,107,.12);border-color:rgba(255,143,107,.35);color:var(--coral);}
+  .result-head h2{margin:0;font-size:15.5px;color:var(--title);font-weight:600;}
+  .result-head p{margin:3px 0 0;font-size:11.5px;color:var(--muted);}
+  .file{
+    display:flex;align-items:center;padding:11px 13px;margin-bottom:8px;
+    border-radius:13px;background:var(--card);border:1px solid var(--stroke);
+  }
+  .file .nm{flex:1;min-width:0;font-size:12.5px;color:var(--title);word-break:break-all;}
+  .file .sz{font-size:11px;color:var(--muted);flex:0 0 auto;margin-left:10px;}
+  .fail{
+    margin:8px 0 0;padding:10px 12px;border-radius:12px;
+    background:rgba(255,143,107,.08);border:1px solid rgba(255,143,107,.22);
+    font-size:11.5px;line-height:1.6;color:var(--muted);word-break:break-word;
+  }
+  .actions{display:flex;margin-top:14px;}
+  .actions .btn + .btn{margin-left:10px;}
+  .btn{
+    flex:1;padding:12px 14px;border-radius:14px;border:1px solid var(--stroke);
+    background:var(--card);color:var(--text);font-size:13px;font-family:inherit;font-weight:550;
+  }
+  .btn.primary{
+    background:linear-gradient(135deg,rgba(255,178,94,.92),rgba(255,125,107,.92));
+    color:#20131f;border-color:transparent;
+  }
+  .btn:active{transform:scale(.985);opacity:.9;}
+  footer{
+    flex:0 0 auto;padding:10px 20px 16px;font-size:10.5px;color:var(--muted);
+    text-align:center;letter-spacing:.3px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="glow"></div>
+  <header>
+    <div class="brand">
+      <div class="logo">黄</div>
+      <div>
+        <h1>协议制作</h1>
+        <p id="subtitle">会话 · JSON · tdata 一键打包</p>
+      </div>
+    </div>
+    <button class="close" onclick="HH.close()">✕</button>
+  </header>
+
+  <div class="scroll">
+    <!-- 主菜单 -->
+    <section class="screen on" id="screen-home">
+      <p class="lead">选择一个任务开始。<b>协议文件等同于账号密码</b>，仅用于本人账号，请勿上传或转发。</p>
+
+      <button class="card" onclick="HH.exportLocal()">
+        <span class="ico i-amber">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        </span>
+        <span class="meta">
+          <h3>本机账号提取</h3>
+          <p>导出当前已登录账号的 session、JSON 与 tdata</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <button class="card" onclick="go('convert')">
+        <span class="ico i-indigo">
+          <svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/></svg>
+        </span>
+        <span class="meta">
+          <h3>协议转换</h3>
+          <p>Session / JSON / tdata 三种输入分别选择</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <button class="card" id="card-external" onclick="go('external')">
+        <span class="ico i-coral">
+          <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        </span>
+        <span class="meta">
+          <h3>外部账号提取</h3>
+          <p>只提取协议，不保存登录状态、不切换账号</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <div class="path">
+        <span>输出目录</span>
+        <code>/storage/emulated/0/黄昏/协议制作/</code>
+      </div>
+    </section>
+
+    <!-- 协议转换 -->
+    <section class="screen" id="screen-convert">
+      <button class="back" onclick="go('home')">‹ 返回</button>
+      <p class="lead">选择一种输入类型，每个入口只处理一种格式，输出统一为协议压缩包。</p>
+
+      <button class="card" onclick="HH.convert('session')">
+        <span class="ico i-indigo">
+          <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg>
+        </span>
+        <span class="meta">
+          <h3>Session 协议</h3>
+          <p>选择 .session 文件，或包含会话的 .zip 压缩包</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <button class="card" onclick="HH.convert('json')">
+        <span class="ico i-mint">
+          <svg viewBox="0 0 24 24"><path d="M9 4c-2 0-3 1-3 3v2c0 1.5-1 2-2 2 1 0 2 .5 2 2v2c0 2 1 3 3 3"/><path d="M15 4c2 0 3 1 3 3v2c0 1.5 1 2 2 2-1 0-2 .5-2 2v2c0 2-1 3-3 3"/></svg>
+        </span>
+        <span class="meta">
+          <h3>JSON 协议</h3>
+          <p>选择 .json 文件，读取 auth_key 后重新打包</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <button class="card" onclick="HH.convert('tdata')">
+        <span class="ico i-amber">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </span>
+        <span class="meta">
+          <h3>tdata 文件夹</h3>
+          <p>选择完整的 tdata 目录，保留其中有效授权数据</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <div class="note">转换会重新生成包含授权密钥的协议文件，请确认你<b>有权处理</b>该账号。</div>
+    </section>
+
+    <!-- 外部提取 -->
+    <section class="screen" id="screen-external">
+      <button class="back" onclick="go('home')">‹ 返回</button>
+      <p class="lead">使用 Telegram 官方验证方式取得授权密钥，导出完成后<b>立即清理临时会话</b>，不会保存为正式账号。</p>
+
+      <button class="card" onclick="HH.external('phone')">
+        <span class="ico i-coral">
+          <svg viewBox="0 0 24 24"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M11 18h2"/></svg>
+        </span>
+        <span class="meta">
+          <h3>号码 + 验证码</h3>
+          <p>适用于可以接收 Telegram 验证码的账号</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <button class="card" onclick="HH.external('qr')">
+        <span class="ico i-indigo">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><path d="M14 14h3v3h-3zM20 14v3M14 20h6"/></svg>
+        </span>
+        <span class="meta">
+          <h3>扫码提取</h3>
+          <p>用 Telegram 扫码授权，二维码有效期约 30 秒</p>
+        </span>
+        <span class="chev">›</span>
+      </button>
+
+      <div class="note">若账号开启二级密码，验证过程中会要求输入密码；该密码只用于本次认证，不会保存。</div>
+    </section>
+
+    <!-- 处理中 -->
+    <section class="screen" id="screen-busy">
+      <div class="busy">
+        <div class="ring"></div>
+        <h2 id="busy-title">正在处理…</h2>
+        <p id="busy-text">请保持应用在前台，处理完成后会自动显示结果。</p>
+      </div>
+    </section>
+
+    <!-- 结果 -->
+    <section class="screen" id="screen-result">
+      <div class="result-head">
+        <div class="tick" id="result-tick">✓</div>
+        <div>
+          <h2 id="result-title">协议制作完成</h2>
+          <p id="result-sub">文件已保存到公共目录</p>
+        </div>
+      </div>
+      <div id="result-files"></div>
+      <div id="result-fails"></div>
+      <div class="path" id="result-path"><span>保存位置</span><code></code></div>
+      <div class="actions">
+        <button class="btn" onclick="go('home')">返回首页</button>
+        <button class="btn primary" onclick="HH.close()">完成</button>
+      </div>
+    </section>
+
+    <!-- 错误 -->
+    <section class="screen" id="screen-error">
+      <div class="result-head">
+        <div class="tick bad">!</div>
+        <div>
+          <h2>操作未完成</h2>
+          <p>请根据下方提示处理后重试</p>
+        </div>
+      </div>
+      <div class="fail" id="error-text"></div>
+      <div class="actions">
+        <button class="btn" onclick="go('home')">返回首页</button>
+        <button class="btn primary" onclick="HH.close()">关闭</button>
+      </div>
+    </section>
+  </div>
+
+  <footer>黄昏 · 协议制作 · 本地处理，不上传服务器</footer>
+</div>
+
+<script>
+(function(){
+  var screens = ['home','convert','external','busy','result','error'];
+  var settingsMode = false;
+
+  window.go = function(name){
+    screens.forEach(function(id){
+      var el = document.getElementById('screen-' + id);
+      if (el) el.classList.toggle('on', id === name);
+    });
+    var scroller = document.querySelector('.scroll');
+    if (scroller) scroller.scrollTop = 0;
+    requestAnimationFrame(reportHeight);
+  };
+
+  function reportHeight(){
+    try {
+      if (!window.Huanghun || !window.Huanghun.height) return;
+      var header = document.querySelector('header');
+      var footer = document.querySelector('footer');
+      var active = document.querySelector('.screen.on');
+      var total = (header ? header.offsetHeight : 0)
+        + (footer ? footer.offsetHeight : 0)
+        + (active ? active.offsetHeight : 0)
+        + 26;
+      window.Huanghun.height(total);
+    } catch (e) {}
+  }
+  window.reportHeight = reportHeight;
+
+  function esc(text){
+    return String(text == null ? '' : text)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  function kb(size){
+    var n = Number(size || 0);
+    if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+    return Math.max(1, Math.round(n / 1024)) + ' KB';
+  }
+
+  window.HH = {
+    setTheme: function(dark){
+      document.body.classList.toggle('light', !dark);
+    },
+    setSettingsMode: function(enabled){
+      settingsMode = !!enabled;
+      var card = document.getElementById('card-external');
+      if (card) card.style.display = settingsMode ? 'none' : '';
+      var sub = document.getElementById('subtitle');
+      if (sub) sub.textContent = settingsMode
+        ? '仅导出当前账号 · 不改动登录状态'
+        : '会话 · JSON · tdata 一键打包';
+    },
+    busy: function(title, text){
+      document.getElementById('busy-title').textContent = title || '正在处理…';
+      document.getElementById('busy-text').textContent = text || '请保持应用在前台，处理完成后会自动显示结果。';
+      go('busy');
+    },
+    error: function(message){
+      document.getElementById('error-text').textContent = message || '未知错误';
+      go('error');
+    },
+    result: function(payload){
+      try {
+        var data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        var files = data.files || [];
+        var fails = data.failures || [];
+        var box = document.getElementById('result-files');
+        box.innerHTML = files.map(function(f){
+          return '<div class="file"><span class="nm">' + esc(f.name) + '</span><span class="sz">' + kb(f.size) + '</span></div>';
+        }).join('');
+        var failBox = document.getElementById('result-fails');
+        failBox.innerHTML = fails.length
+          ? '<div class="fail">未成功 ' + fails.length + ' 个：<br>' + fails.slice(0, 6).map(esc).join('<br>') + '</div>'
+          : '';
+        var pathBox = document.getElementById('result-path');
+        pathBox.querySelector('code').textContent = data.path || '/storage/emulated/0/黄昏/协议制作/';
+        document.getElementById('result-sub').textContent =
+          '共 ' + files.length + ' 个压缩包 · ' + (data.publicDirectory === false ? '应用私有目录' : '公共目录');
+        go('result');
+        requestAnimationFrame(reportHeight);
+      } catch (e) {
+        window.HH.error('结果解析失败：' + e);
+      }
+    },
+    close: function(){
+      if (window.Huanghun && window.Huanghun.close) window.Huanghun.close();
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    reportHeight();
+    setTimeout(reportHeight, 60);
+    if (window.Huanghun && window.Huanghun.ready) window.Huanghun.ready();
+  });
+})();
+</script>
+</body>
+</html>

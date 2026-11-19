@@ -6,24 +6,28 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.LoginActivity;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 功能三：外部账号提取。
+ * 外部账号的「协议提取」专用链路。
  *
- * <p>走客户端自带的登录流程（号码登录 / 扫码登录），登录成功后自动把该账号导出成协议包。
- * 客户端自己的密码页会被原样复用，有二级密码时由用户按正常流程输入。</p>
+ * <p>认证只用于取得 256 字节 auth_key：成功后立刻退出登录页并清理临时槽位，
+ * 不保存正式账号、不切换账号、不写入联系人/配置，也不触发频道初始化。
+ * 号码与扫码页面仍复用 Telegram 自己的安全输入控件。</p>
  */
 public final class ExternalAccountLogin {
 
-    /** 登录成功后最多等这么久拿 auth_key（native 建链是异步的）。 */
-    private static final long KEY_WAIT_TIMEOUT_MS = 20_000L;
-    private static final long KEY_RETRY_INTERVAL_MS = 500L;
+    /** 认证完成后最多等这么久让 native 交出 auth_key。 */
+    private static final long KEY_WAIT_TIMEOUT_MS = 12_000L;
+    private static final long KEY_RETRY_INTERVAL_MS = 250L;
 
     private static volatile int pendingAccount = -1;
     private static final AtomicBoolean exporting = new AtomicBoolean(false);
@@ -39,6 +43,10 @@ public final class ExternalAccountLogin {
         pendingAccount = -1;
     }
 
+    public static synchronized boolean isPendingFor(int accountNum) {
+        return pendingAccount == accountNum;
+    }
+
     private static synchronized boolean consumePending(int accountNum) {
         if (pendingAccount != accountNum) {
             return false;
@@ -47,72 +55,111 @@ public final class ExternalAccountLogin {
         return true;
     }
 
-    public static boolean hasPending() {
-        return pendingAccount >= 0;
+    /**
+     * 由 HTML 界面调用：进入协议专用登录页（号码或扫码）。
+     *
+     * @return 是否成功进入；false 表示当前槽位已被占用，调用方不应关闭界面。
+     */
+    public static boolean startProtocolExtraction(LoginActivity activity, boolean qrLogin) {
+        if (activity == null) {
+            return false;
+        }
+        int accountNum = activity.getCurrentAccount();
+        if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT) {
+            ProtocolBuildUi.showError(activity.getParentActivity(), "当前登录页没有可用的账号槽位，请重新进入登录页。");
+            return false;
+        }
+        if (UserConfig.getInstance(accountNum).isClientActivated()) {
+            ProtocolBuildUi.showError(activity.getParentActivity(),
+                    "当前槽位已经登录了其他账号。外部提取只使用空闲槽位，请改用「本机账号提取」，或先在账号列表中添加新账号。");
+            return false;
+        }
+        markPending(accountNum);
+        activity.startProtocolExternalLogin(qrLogin);
+        return true;
     }
 
     /**
-     * 登录成功回调。这里只做一件事：等授权密钥可用后导出协议包。
+     * 认证成功回调，必须早于官方账号落盘逻辑执行。
+     *
+     * <p>此时只把用户信息与授权密钥取到内存，随即退出登录页并清理临时槽位，
+     * 随后在后台完成协议打包。</p>
      */
-    public static void onLoginSuccess(LoginActivity activity, int accountNum) {
-        if (activity == null || !consumePending(accountNum)) {
+    public static void onExternalAuthSuccess(LoginActivity loginActivity, int accountNum, TLRPC.User user) {
+        if (loginActivity == null || user == null || !consumePending(accountNum)) {
             return;
         }
-        startExport(activity, accountNum, "登录成功，正在生成协议文件…");
-    }
-
-    /** 登录到已有账号槽位时，原槽位可用；不能丢掉本次显式发起的导出请求。 */
-    public static void onDuplicateAccount(LoginActivity activity, int attemptedAccount, int existingAccount) {
-        if (activity == null || !consumePending(attemptedAccount)) {
-            return;
-        }
-        startExport(activity, existingAccount, "检测到该账号已登录，正在导出已有账号…");
-    }
-
-    private static void startExport(LoginActivity activity, int accountNum, String toastText) {
-        if (!exporting.compareAndSet(false, true)) {
-            return;
-        }
-        final Activity parent = activity.getParentActivity();
+        final Activity parent = loginActivity.getParentActivity();
+        final long userId = user.id;
+        final String phone = user.phone == null ? "" : user.phone;
+        final boolean isBot = user.bot;
         if (parent == null || parent.isFinishing() || parent.isDestroyed()) {
-            exporting.set(false);
-            FileLog.e("Cannot export protocol after login: parent activity is unavailable");
+            cleanupTemporarySlot(accountNum);
+            return;
+        }
+        // 立即离开登录页：本次认证不会被保存，界面不应停留在验证码/密码步骤。
+        try {
+            loginActivity.finishFragment();
+        } catch (Throwable error) {
+            FileLog.e(error);
+        }
+        extractAndExport(parent, accountNum, userId, phone, isBot);
+    }
+
+    private static void extractAndExport(Activity parent, int accountNum, long userId,
+                                         String phone, boolean isBot) {
+        if (!exporting.compareAndSet(false, true)) {
+            cleanupTemporarySlot(accountNum);
             return;
         }
         final Context context = parent.getApplicationContext();
-        final java.lang.ref.WeakReference<Activity> activityRef = new java.lang.ref.WeakReference<>(parent);
+        final WeakReference<Activity> activityRef = new WeakReference<>(parent);
         final Handler handler = new Handler(Looper.getMainLooper());
-        final long deadline = System.currentTimeMillis() + KEY_WAIT_TIMEOUT_MS;
-
-        Toast.makeText(parent, toastText, Toast.LENGTH_SHORT).show();
+        Toast.makeText(parent, "正在提取协议，不会保存登录状态…", Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
             ProtocolExporter.Result result = null;
             String failure = null;
-            while (System.currentTimeMillis() < deadline) {
-                try {
-                    if (UserConfig.getInstance(accountNum).isClientActivated()) {
-                        byte[] keyProbe = ConnectionsManager.getInstance(accountNum).getCurrentAuthKey();
-                        boolean keyReady = keyProbe != null && keyProbe.length == ProtocolAccount.KEY_SIZE;
-                        if (keyProbe != null) {
-                            java.util.Arrays.fill(keyProbe, (byte) 0);
-                        }
-                        if (keyReady) {
-                            result = ProtocolExporter.export(context, accountNum, ProtocolExporter.FORMAT_ALL);
-                            break;
-                        }
+            ProtocolAccount account = null;
+            final long deadline = System.currentTimeMillis() + KEY_WAIT_TIMEOUT_MS;
+            try {
+                while (System.currentTimeMillis() < deadline) {
+                    byte[] key = ConnectionsManager.getInstance(accountNum).getCurrentAuthKey();
+                    int dcId = ConnectionsManager.getInstance(accountNum).getCurrentDatacenterId();
+                    if (key != null && key.length == ProtocolAccount.KEY_SIZE && dcId >= 1 && dcId <= 5) {
+                        account = new ProtocolAccount(key, dcId);
+                        break;
                     }
-                } catch (Throwable error) {
-                    failure = ProtocolConverter.describe(error);
-                    FileLog.e(error);
-                    break;
+                    if (key != null) {
+                        java.util.Arrays.fill(key, (byte) 0);
+                    }
+                    try {
+                        Thread.sleep(KEY_RETRY_INTERVAL_MS);
+                    } catch (InterruptedException ignore) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
-                try {
-                    Thread.sleep(KEY_RETRY_INTERVAL_MS);
-                } catch (InterruptedException ignore) {
-                    Thread.currentThread().interrupt();
-                    break;
+                if (account == null) {
+                    failure = "等待授权密钥超时，请检查网络后重试";
+                } else {
+                    account.userId = userId;
+                    account.phone = phone;
+                    account.country = CountryCodes.resolve(phone);
+                    account.apiId = BuildVars.APP_ID;
+                    account.apiHash = BuildVars.APP_HASH;
+                    account.isBot = isBot;
+                    account.source = "外部账号协议提取";
+                    result = ProtocolExporter.exportAccount(context, account, ProtocolExporter.FORMAT_ALL);
                 }
+            } catch (Throwable error) {
+                failure = ProtocolConverter.describe(error);
+                FileLog.e(error);
+            } finally {
+                if (account != null && account.authKey != null) {
+                    java.util.Arrays.fill(account.authKey, (byte) 0);
+                }
+                cleanupTemporarySlot(accountNum);
             }
             final ProtocolExporter.Result exported = result;
             final String reason = failure;
@@ -126,9 +173,23 @@ public final class ExternalAccountLogin {
                     ProtocolBuildUi.showResult(owner, java.util.Collections.singletonList(exported.zipFile),
                             java.util.Collections.emptyList(), exported.publicDirectory);
                 } else {
-                    ProtocolBuildUi.showError(owner, "协议生成失败：" + (reason == null ? "等待授权密钥超时" : reason));
+                    ProtocolBuildUi.showError(owner, "协议提取失败：" + (reason == null ? "未知错误" : reason));
                 }
             });
-        }, "protocol-export-after-login").start();
+        }, "protocol-extract-external").start();
+    }
+
+    /** 清空本次临时认证占用的槽位，确保不会留下任何可复用的登录状态。 */
+    private static void cleanupTemporarySlot(int accountNum) {
+        try {
+            ConnectionsManager.getInstance(accountNum).cleanup(true);
+        } catch (Throwable error) {
+            FileLog.e(error);
+        }
+        try {
+            UserConfig.getInstance(accountNum).clearConfig();
+        } catch (Throwable error) {
+            FileLog.e(error);
+        }
     }
 }

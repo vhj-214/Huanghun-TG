@@ -6,18 +6,12 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
-import android.text.TextUtils;
 import android.provider.OpenableColumns;
-import android.util.TypedValue;
-import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.text.TextUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
@@ -30,13 +24,13 @@ import org.telegram.ui.LoginActivity;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 「协议制作」入口的全部弹窗与流程编排。
+ * 「协议制作」流程编排。
  *
- * <p>设置入口可导出当前账号；登录页入口仅提供转换和外部账号登录。</p>
+ * <p>界面由 {@link ProtocolWebUi} 使用 HTML 渲染；本类只保留业务逻辑：
+ * 读取本机授权、选择输入、调用转换器、导出压缩包与结果提示。</p>
  */
 public final class ProtocolBuildUi {
 
@@ -45,51 +39,90 @@ public final class ProtocolBuildUi {
     private ProtocolBuildUi() {
     }
 
-    // ------------------------------------------------------------------ 主入口
+    // ------------------------------------------------------------------ 入口
 
     public static void showMain(LoginActivity fragment) {
-        Activity activity = fragment.getParentActivity();
-        if (activity == null) {
+        if (fragment == null || fragment.getParentActivity() == null) {
             return;
         }
-        String[] options = {"1  协议转换（session / tdata / json）", "2  外部其他账号提取"};
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("协议制作")
-                .setMessage("生成的协议会保存到 黄昏/协议制作/；若系统不允许写入公共目录，会退到应用私有目录。\n\n"
-                        + "重要：协议文件含有可直接登录账号的授权密钥，等同于账号密码。仅导出本人账号，勿上传或转发。")
-                .setItems(options, (d, which) -> {
-                    if (which == 0) {
-                        showConvertPicker(fragment);
-                    } else {
-                        showExternalAccounts(fragment);
-                    }
-                })
-                .create();
-        styleDialog(dialog);
-        dialog.show();
+        ProtocolWebUi.show(fragment, false);
     }
 
     /** 黄昏服务设置页：本机提取严格限定为该页面所属的当前账号。 */
     public static void showFromSettings(BaseFragment fragment) {
-        Activity activity = fragment == null ? null : fragment.getParentActivity();
-        if (activity == null) return;
-        String[] options = {"提取当前账号协议", "协议转换（session / tdata / json）"};
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("协议制作")
-                .setMessage("本机提取只会导出当前选中的账号；协议文件包含可直接登录账号的授权密钥，请妥善保管。")
-                .setItems(options, (d, which) -> {
-                    if (which == 0) confirmAndExportCurrentAccount(fragment);
-                    else showConvertPicker(fragment);
-                })
-                .setNegativeButton("取消", null)
-                .create();
-        styleDialog(dialog);
-        dialog.show();
+        if (fragment == null || fragment.getParentActivity() == null) {
+            return;
+        }
+        ProtocolWebUi.show(fragment, true);
     }
 
+    // ------------------------------------------------- HTML 界面回调的三个动作
+
+    /** HTML「本机账号提取」。 */
+    public static void exportCurrentAccount(BaseFragment fragment) {
+        confirmAndExportCurrentAccount(fragment);
+    }
+
+    /** HTML「协议转换」，kind 取 session / json / tdata。 */
+    public static void convertFromUi(BaseFragment fragment, String kind) {
+        Activity activity = fragment == null ? null : fragment.getParentActivity();
+        if (activity == null) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
+            requestStorageAccess(activity);
+            return;
+        }
+        if ("tdata".equalsIgnoreCase(kind)) {
+            try {
+                fragment.startActivityForResult(
+                        new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PICK_CONVERT + 1);
+            } catch (Throwable error) {
+                showError(activity, "打不开文件夹选择器：" + ProtocolConverter.describe(error));
+            }
+            return;
+        }
+        boolean jsonOnly = "json".equalsIgnoreCase(kind);
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(jsonOnly ? "application/json" : "*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, jsonOnly
+                ? new String[]{"application/json", "text/json", "*/*"}
+                : new String[]{"application/zip", "application/x-zip-compressed",
+                "application/octet-stream", "application/x-sqlite3", "*/*"});
+        try {
+            fragment.startActivityForResult(intent, REQUEST_PICK_CONVERT);
+        } catch (Throwable error) {
+            showError(activity, "打不开文件选择器：" + ProtocolConverter.describe(error));
+        }
+    }
+
+    /** HTML「外部账号提取」，只走协议专用链路，不保存正式账号。 */
+    public static void externalExtractFromUi(BaseFragment fragment, boolean qrLogin) {
+        Activity activity = fragment == null ? null : fragment.getParentActivity();
+        if (activity == null) {
+            return;
+        }
+        if (!(fragment instanceof LoginActivity)) {
+            showError(activity, "外部账号提取需要从登录页进入协议专用链路，请返回登录页后再试。");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
+            requestStorageAccess(activity);
+            return;
+        }
+        if (ExternalAccountLogin.startProtocolExtraction((LoginActivity) fragment, qrLogin)) {
+            ProtocolWebUi.dismissCurrent();
+        }
+    }
+
+    // -------------------------------------------------------------- 本机账号
+
     private static void confirmAndExportCurrentAccount(BaseFragment fragment) {
-        Activity activity = fragment.getParentActivity();
-        if (activity == null) return;
+        Activity activity = fragment == null ? null : fragment.getParentActivity();
+        if (activity == null) {
+            return;
+        }
         int account = fragment.getCurrentAccount();
         if (account < 0 || account >= UserConfig.MAX_ACCOUNT_COUNT
                 || !UserConfig.getInstance(account).isClientActivated()
@@ -131,16 +164,18 @@ public final class ProtocolBuildUi {
         dialog.show();
     }
 
-    // -------------------------------------------------------------- 功能一：本号
-
     private static void exportLocalAccount(BaseFragment fragment, int accountNum) {
         Activity activity = fragment.getParentActivity();
         if (activity == null) {
             return;
         }
+        if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
+            requestStorageAccess(activity);
+            return;
+        }
+        ProtocolWebUi.showBusy("正在生成协议", "正在读取本机授权密钥并写入 session、JSON 与 tdata…");
         Context context = activity.getApplicationContext();
         java.lang.ref.WeakReference<Activity> activityRef = new java.lang.ref.WeakReference<>(activity);
-        Toast.makeText(activity, "正在读取账号并生成协议…", Toast.LENGTH_SHORT).show();
         Handler handler = new Handler(Looper.getMainLooper());
         new Thread(() -> {
             ProtocolExporter.Result result = null;
@@ -168,44 +203,7 @@ public final class ProtocolBuildUi {
         }, "protocol-export-local").start();
     }
 
-    // -------------------------------------------------------------- 功能二：转换
-
-    private static void showConvertPicker(BaseFragment fragment) {
-        Activity activity = fragment.getParentActivity();
-        if (activity == null) {
-            return;
-        }
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("协议转换")
-                .setMessage("选择压缩包、.session 或 .json 文件；tdata 请用文件夹选择器选择整个目录。\n"
-                        + "支持 tdata→session、session→tdata、json→session 全部方向，转换后统一打包。")
-                .setPositiveButton("选择文件", (d, which) -> {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("*/*");
-                    intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                            "application/zip", "application/x-zip-compressed",
-                            "application/octet-stream", "application/json", "*/*"
-                    });
-                    try {
-                        fragment.startActivityForResult(intent, REQUEST_PICK_CONVERT);
-                    } catch (Throwable error) {
-                        showError(activity, "打不开文件选择器：" + ProtocolConverter.describe(error));
-                    }
-                })
-                .setNeutralButton("选择 tdata 文件夹", (d, which) -> {
-                    try {
-                        fragment.startActivityForResult(
-                                new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PICK_CONVERT + 1);
-                    } catch (Throwable error) {
-                        showError(activity, "打不开文件夹选择器：" + ProtocolConverter.describe(error));
-                    }
-                })
-                .setNegativeButton("取消", null)
-                .create();
-        styleDialog(dialog);
-        dialog.show();
-    }
+    // -------------------------------------------------------------- 协议转换
 
     /** 由发起文件选择的 Fragment 的 onActivityResultFragment 回调。 */
     public static void onConvertFilePicked(BaseFragment fragment, Uri uri) {
@@ -219,9 +217,13 @@ public final class ProtocolBuildUi {
     }
 
     private static void convertSelectedFile(Activity activity, Uri uri) {
+        if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
+            requestStorageAccess(activity);
+            return;
+        }
+        ProtocolWebUi.showBusy("正在转换协议", "正在解析所选文件并重新生成协议压缩包…");
         Context context = activity.getApplicationContext();
         java.lang.ref.WeakReference<Activity> activityRef = new java.lang.ref.WeakReference<>(activity);
-        Toast.makeText(activity, "正在读取协议…", Toast.LENGTH_SHORT).show();
         Handler handler = new Handler(Looper.getMainLooper());
         new Thread(() -> {
             File temp = null;
@@ -388,40 +390,15 @@ public final class ProtocolBuildUi {
         return ".bin";
     }
 
-    // -------------------------------------------------------------- 功能三：外部
-
-    private static void showExternalAccounts(LoginActivity fragment) {
-        Activity activity = fragment.getParentActivity();
-        if (activity == null) {
-            return;
-        }
-        String message = "登录成功后会自动生成协议包，保存位置与设置页的本机账号提取相同。\n\n"
-                + "该协议包含有可直接登录账号的授权密钥，仅可用于本人账号；不要上传或转发。\n\n"
-                + "如果账号被轮询，或者收不到验证码，请用扫码登录。\n"
-                + "二维码有效期 30 秒，请尽快扫描。";
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("外部账号提取")
-                .setMessage(message)
-                .setPositiveButton("确认本人账号 · 号码登录", (d, which) -> {
-                    ExternalAccountLogin.markPending(fragment.getCurrentAccount());
-                    fragment.startProtocolExternalLogin(false);
-                })
-                .setNeutralButton("确认本人账号 · 扫码登录", (d, which) -> {
-                    ExternalAccountLogin.markPending(fragment.getCurrentAccount());
-                    fragment.startProtocolExternalLogin(true);
-                })
-                .setNegativeButton("取消", null)
-                .create();
-        styleDialog(dialog);
-        dialog.show();
-    }
-
     // -------------------------------------------------------------- 结果与错误
 
     public static void showResult(Context context, List<File> files, List<String> failures,
                                   boolean publicDirectory) {
         if (context instanceof Activity && (((Activity) context).isFinishing()
                 || ((Activity) context).isDestroyed())) {
+            return;
+        }
+        if (ProtocolWebUi.presentResult(files, failures, publicDirectory)) {
             return;
         }
         StringBuilder message = new StringBuilder();
@@ -458,6 +435,9 @@ public final class ProtocolBuildUi {
     public static void showError(Context context, String text) {
         if (context instanceof Activity && (((Activity) context).isFinishing()
                 || ((Activity) context).isDestroyed())) {
+            return;
+        }
+        if (ProtocolWebUi.presentError(text)) {
             return;
         }
         AlertDialog dialog = new AlertDialog.Builder(context)
@@ -500,17 +480,5 @@ public final class ProtocolBuildUi {
             dialog.getWindow().setBackgroundDrawable(frame);
             dialog.getWindow().getDecorView().setBackgroundColor(0x00000000);
         });
-    }
-
-    static TextView label(Context context, String text) {
-        TextView view = new TextView(context);
-        view.setText(text);
-        view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        view.setGravity(Gravity.CENTER_VERTICAL);
-        view.setPadding(AndroidUtilities.dp(6), AndroidUtilities.dp(6),
-                AndroidUtilities.dp(6), AndroidUtilities.dp(6));
-        view.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        return view;
     }
 }

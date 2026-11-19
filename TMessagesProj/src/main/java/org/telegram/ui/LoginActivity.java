@@ -2073,10 +2073,14 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private void onAuthSuccess(TLRPC.TL_auth_authorization res, boolean afterSignup) {
+        // 协议制作的外部提取必须先于官方账号落盘逻辑处理：只取 auth_key，
+        // 导出完成后清理临时槽位，不保存账号、不切换账号、不执行频道初始化。
+        if (com.Huanghun.protocol.maker.ExternalAccountLogin.isPendingFor(currentAccount)) {
+            com.Huanghun.protocol.maker.ExternalAccountLogin.onExternalAuthSuccess(this, currentAccount, res.user);
+            return;
+        }
         int existingAccount = findExistingActiveAccount(res.user.id, currentAccount);
         if (existingAccount >= 0) {
-            com.Huanghun.protocol.maker.ExternalAccountLogin.onDuplicateAccount(
-                    this, currentAccount, existingAccount);
             ConnectionsManager.getInstance(currentAccount).cleanup(true);
             UserConfig.getInstance(currentAccount).clearConfig();
             // A locally hidden account is still an active session. Signing in with its
@@ -2120,9 +2124,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
         MediaDataController.getInstance(currentAccount).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
         AndroidUtilities.runOnUIThread(() -> com.Huanghun.HuanghunChannelPrompt.ensureChannelsJoined(currentAccount), 500L);
-
-        // 由「协议制作 → 外部其他账号提取」发起的登录，成功后就地导出协议包。
-        com.Huanghun.protocol.maker.ExternalAccountLogin.onLoginSuccess(this, currentAccount);
 
         needFinishActivity(afterSignup, res.setup_password_required, res.otherwise_relogin_days);
     }
