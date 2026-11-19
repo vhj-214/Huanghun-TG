@@ -12,6 +12,7 @@ public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
     private final int account;
     private DynamicVideoWallpaperHelper.Player player;
     private boolean listening;
+    private boolean playerAttachScheduled;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener wallpaperChangeListener;
 
     public HuanghunWallpaperLayout(Context context, int account) {
@@ -53,6 +54,8 @@ public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
 
     @Override
     protected void onDetachedFromWindow() {
+        removeCallbacks(attachPlayerRunnable);
+        playerAttachScheduled = false;
         if (listening) {
             DynamicVideoWallpaperHelper.removeChangeListener(wallpaperChangeListener);
             listening = false;
@@ -62,6 +65,33 @@ public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
             player = null;
         }
         super.onDetachedFromWindow();
+    }
+
+    /**
+     * MediaPlayer decoding is asynchronous, but setDataSource and Surface setup
+     * can still block the UI thread on some vendor codecs. Let the page draw its
+     * first frame with the cached static wallpaper before attaching video.
+     */
+    private final Runnable attachPlayerRunnable = () -> {
+        playerAttachScheduled = false;
+        if (!isAttachedToWindow() || player != null) {
+            return;
+        }
+        player = DynamicVideoWallpaperHelper.attach(this, getContext(), account, 0L);
+        if (player != null) {
+            player.setFallbackBackgroundColor(Color.TRANSPARENT);
+        }
+        setBackgroundColor(hasWallpaperLayer()
+                ? Color.TRANSPARENT
+                : Theme.getColor(Theme.key_windowBackgroundGray));
+    };
+
+    private void schedulePlayerAttach() {
+        if (!isAttachedToWindow() || playerAttachScheduled) {
+            return;
+        }
+        playerAttachScheduled = true;
+        post(attachPlayerRunnable);
     }
 
     private void refreshWallpaper() {
@@ -76,10 +106,7 @@ public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
                 player.release();
                 player = null;
             }
-            player = DynamicVideoWallpaperHelper.attach(this, getContext(), account, 0L);
-            if (player != null) {
-                player.setFallbackBackgroundColor(Color.TRANSPARENT);
-            }
+            schedulePlayerAttach();
         }
         setBackgroundColor(hasWallpaperLayer()
                 ? Color.TRANSPARENT

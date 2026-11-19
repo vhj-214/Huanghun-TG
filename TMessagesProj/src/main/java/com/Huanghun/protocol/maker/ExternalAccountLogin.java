@@ -6,11 +6,13 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.LoginActivity;
 
 import java.lang.ref.WeakReference;
@@ -77,6 +79,58 @@ public final class ExternalAccountLogin {
         markPending(accountNum);
         activity.startProtocolExternalLogin(qrLogin);
         return true;
+    }
+
+    /**
+     * 从黄昏服务页启动同一条官方登录链路。服务页本身不是 LoginActivity，
+     * 因此先打开一个空闲账号槽位的 LoginActivity，再由该页面承接手机号或扫码流程。
+     */
+    public static boolean startProtocolExtraction(BaseFragment source, boolean qrLogin) {
+        if (source instanceof LoginActivity) {
+            return startProtocolExtraction((LoginActivity) source, qrLogin);
+        }
+        Activity activity = source == null ? null : source.getParentActivity();
+        if (activity == null) {
+            return false;
+        }
+        int accountNum = findAvailableAccount();
+        if (accountNum < 0) {
+            ProtocolBuildUi.showError(activity, "没有可用的空闲账号槽位，请先退出一个账号后再进行外部提取。");
+            return false;
+        }
+        LoginActivity loginActivity = new LoginActivity(accountNum);
+        markPending(accountNum);
+        try {
+            if (!source.presentFragment(loginActivity)) {
+                consumePending(accountNum);
+                ProtocolBuildUi.showError(activity, "无法打开外部登录页面，请稍后重试。");
+                return false;
+            }
+        } catch (Throwable error) {
+            consumePending(accountNum);
+            FileLog.e(error);
+            ProtocolBuildUi.showError(activity, "无法打开外部登录页面，请稍后重试。");
+            return false;
+        }
+        // LoginActivity needs one layout pass before setPage() can switch to the
+        // protocol phone/QR screen. Keep the service page responsive meanwhile.
+        AndroidUtilities.runOnUIThread(() -> {
+            if (loginActivity.getParentActivity() != null) {
+                loginActivity.startProtocolExternalLogin(qrLogin);
+            } else {
+                consumePending(accountNum);
+            }
+        }, 120L);
+        return true;
+    }
+
+    private static int findAvailableAccount() {
+        for (int account = UserConfig.MAX_ACCOUNT_COUNT - 1; account >= 0; account--) {
+            if (!UserConfig.getInstance(account).isClientActivated()) {
+                return account;
+            }
+        }
+        return -1;
     }
 
     /**

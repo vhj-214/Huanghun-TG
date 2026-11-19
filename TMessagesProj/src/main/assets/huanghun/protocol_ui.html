@@ -211,7 +211,7 @@
     <section class="screen on" id="screen-home">
       <p class="lead">选择一个任务开始。<b>协议文件等同于账号密码</b>，仅用于本人账号，请勿上传或转发。</p>
 
-      <button class="card" onclick="HH.exportLocal()">
+      <button class="card" id="card-local" style="display:none" onclick="HH.exportLocal()">
         <span class="ico i-amber">
           <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
         </span>
@@ -416,12 +416,15 @@
     },
     setSettingsMode: function(enabled){
       settingsMode = !!enabled;
-      var card = document.getElementById('card-external');
-      if (card) card.style.display = settingsMode ? 'none' : '';
+      var local = document.getElementById('card-local');
+      var external = document.getElementById('card-external');
+      // 登录页不允许读取本机已登录账号；黄昏服务页展示完整功能。
+      if (local) local.style.display = settingsMode ? '' : 'none';
+      if (external) external.style.display = '';
       var sub = document.getElementById('subtitle');
       if (sub) sub.textContent = settingsMode
-        ? '仅导出当前账号 · 不改动登录状态'
-        : '会话 · JSON · tdata 一键打包';
+        ? '当前账号 · 转换 · 外部提取'
+        : '转换 · 外部账号提取';
     },
     busy: function(title, text){
       document.getElementById('busy-title').textContent = title || '正在处理…';
@@ -457,6 +460,28 @@
     },
     close: function(){
       if (window.Huanghun && window.Huanghun.close) window.Huanghun.close();
+    },
+    // 页面按钮通过 HH 调用，实际操作转发给 Android 注入的 Huanghun 对象。
+    exportLocal: function(){
+      if (window.Huanghun && window.Huanghun.exportLocal) {
+        window.Huanghun.exportLocal();
+      } else {
+        window.HH.error('协议制作桥接不可用，请关闭页面后重试');
+      }
+    },
+    convert: function(kind){
+      if (window.Huanghun && window.Huanghun.convert) {
+        window.Huanghun.convert(String(kind || ''));
+      } else {
+        window.HH.error('协议转换桥接不可用，请关闭页面后重试');
+      }
+    },
+    external: function(mode){
+      if (window.Huanghun && window.Huanghun.external) {
+        window.Huanghun.external(String(mode || 'phone'));
+      } else {
+        window.HH.error('外部提取桥接不可用，请关闭页面后重试');
+      }
     }
   };
 

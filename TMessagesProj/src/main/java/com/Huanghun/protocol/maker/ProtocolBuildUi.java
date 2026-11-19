@@ -103,15 +103,11 @@ public final class ProtocolBuildUi {
         if (activity == null) {
             return;
         }
-        if (!(fragment instanceof LoginActivity)) {
-            showError(activity, "外部账号提取需要从登录页进入协议专用链路，请返回登录页后再试。");
-            return;
-        }
         if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
             requestStorageAccess(activity);
             return;
         }
-        if (ExternalAccountLogin.startProtocolExtraction((LoginActivity) fragment, qrLogin)) {
+        if (ExternalAccountLogin.startProtocolExtraction(fragment, qrLogin)) {
             ProtocolWebUi.dismissCurrent();
         }
     }
