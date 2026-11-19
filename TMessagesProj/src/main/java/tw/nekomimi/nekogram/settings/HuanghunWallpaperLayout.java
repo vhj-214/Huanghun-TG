@@ -14,10 +14,24 @@ public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
     private boolean listening;
     private boolean playerAttachScheduled;
     private final DynamicVideoWallpaperHelper.WallpaperChangeListener wallpaperChangeListener;
+    private final Runnable attachPlayerRunnable;
 
     public HuanghunWallpaperLayout(Context context, int account) {
         super(context);
         this.account = account;
+        attachPlayerRunnable = () -> {
+            playerAttachScheduled = false;
+            if (!isAttachedToWindow() || player != null) {
+                return;
+            }
+            player = DynamicVideoWallpaperHelper.attach(this, getContext(), this.account, 0L);
+            if (player != null) {
+                player.setFallbackBackgroundColor(Color.TRANSPARENT);
+            }
+            setBackgroundColor(hasWallpaperLayer()
+                    ? Color.TRANSPARENT
+                    : Theme.getColor(Theme.key_windowBackgroundGray));
+        };
         wallpaperChangeListener = (changedAccount, dialogId) -> {
             if (changedAccount == this.account && dialogId == 0L && isAttachedToWindow()) {
                 AndroidUtilities.runOnUIThread(this::refreshWallpaper);
@@ -66,25 +80,6 @@ public class HuanghunWallpaperLayout extends SizeNotifierFrameLayout {
         }
         super.onDetachedFromWindow();
     }
-
-    /**
-     * MediaPlayer decoding is asynchronous, but setDataSource and Surface setup
-     * can still block the UI thread on some vendor codecs. Let the page draw its
-     * first frame with the cached static wallpaper before attaching video.
-     */
-    private final Runnable attachPlayerRunnable = () -> {
-        playerAttachScheduled = false;
-        if (!isAttachedToWindow() || player != null) {
-            return;
-        }
-        player = DynamicVideoWallpaperHelper.attach(this, getContext(), account, 0L);
-        if (player != null) {
-            player.setFallbackBackgroundColor(Color.TRANSPARENT);
-        }
-        setBackgroundColor(hasWallpaperLayer()
-                ? Color.TRANSPARENT
-                : Theme.getColor(Theme.key_windowBackgroundGray));
-    };
 
     private void schedulePlayerAttach() {
         if (!isAttachedToWindow() || playerAttachScheduled) {
