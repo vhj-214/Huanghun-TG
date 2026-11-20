@@ -22,6 +22,8 @@ import java.util.Locale;
  * <p>写出的 .session 与 Telethon、Pyrogram 各自的 SQLite 结构一致，桌面端与脚本都能直接加载。</p>
  */
 public final class SessionCodec {
+    public static final String LOCAL_ONLY_JSON_AUTH_KEY_ERROR =
+            "该 JSON 不包含本机提取数据必需的 auth_key；JSON 仅支持黄昏本机账号提取生成的数据。非本机 JSON 无法转换或创建通行密钥，请改选本机提取的 JSON，或使用 Session 文件/ZIP。";
 
     public static final int KIND_TELETHON = 0;
     public static final int KIND_PYROGRAM = 1;
@@ -292,26 +294,33 @@ public final class SessionCodec {
             throw new Exception("无法直接解析该 JSON；如果文件经过密码加密，请提供文件密码并先解密，或选择未加密的协议 JSON。", parseError);
         }
         List<ProtocolAccount> result = new ArrayList<>();
+        boolean containsNonLocalEntry = false;
         if (root instanceof JSONArray) {
             JSONArray array = (JSONArray) root;
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.optJSONObject(i);
-                addJsonAccount(item, file, result);
+                if (!addJsonAccount(item, file, result)) {
+                    containsNonLocalEntry = true;
+                }
             }
         } else {
-            addJsonAccount((JSONObject) root, file, result);
+            containsNonLocalEntry = !addJsonAccount((JSONObject) root, file, result);
+        }
+        if (containsNonLocalEntry) {
+            zeroAuthKeys(result);
+            result.clear();
+            throw new Exception(LOCAL_ONLY_JSON_AUTH_KEY_ERROR);
         }
         if (result.isEmpty()) {
-            throw new Exception("JSON 里没有可用的 auth_key；若文件经过密码加密，请提供文件密码并先解密；若 JSON 通过 session_file 引用授权，请将对应的 .session 文件与 JSON 一起放入同一个 ZIP 后上传");
+            throw new Exception(LOCAL_ONLY_JSON_AUTH_KEY_ERROR);
         }
         return result;
     }
 
-    private static void addJsonAccount(JSONObject item, File sourceFile, List<ProtocolAccount> out) {
+    private static boolean addJsonAccount(JSONObject item, File sourceFile, List<ProtocolAccount> out) {
         if (item == null || sourceFile == null) {
-            return;
+            return false;
         }
-        ProtocolAccount companion = null;
         byte[] key = null;
         try {
             key = item.has("auth_key") ? unhex(item.optString("auth_key", "")) : null;
@@ -319,16 +328,9 @@ public final class SessionCodec {
                 if (key != null) {
                     java.util.Arrays.fill(key, (byte) 0);
                 }
-                companion = readCompanionSession(item, sourceFile);
-                key = companion == null || companion.authKey == null ? null
-                        : java.util.Arrays.copyOf(companion.authKey, companion.authKey.length);
+                return false;
             }
-            if (key == null || key.length != ProtocolAccount.KEY_SIZE) {
-                if (key != null) java.util.Arrays.fill(key, (byte) 0);
-                return;
-            }
-            int dcId = item.has("dc_id") ? item.optInt("dc_id", 2)
-                    : companion == null ? 2 : companion.dcId;
+            int dcId = item.optInt("dc_id", 2);
             ProtocolAccount account = new ProtocolAccount(key, dcId);
             account.userId = item.optLong("user_id", 0);
             account.apiId = item.optInt("api_id", item.optInt("app_id", 0));
@@ -341,64 +343,11 @@ public final class SessionCodec {
                     ? null : item.optBoolean("premium", false);
             account.source = sourceFile.getName();
             out.add(account);
+            return true;
         } catch (Exception ignore) {
             if (key != null) java.util.Arrays.fill(key, (byte) 0);
-        } finally {
-            if (companion != null && companion.authKey != null) {
-                java.util.Arrays.fill(companion.authKey, (byte) 0);
-            }
+            return false;
         }
-    }
-
-    /** JSON sidecars may reference a sibling Telethon/Pyrogram session instead of embedding auth_key. */
-    private static ProtocolAccount readCompanionSession(JSONObject item, File jsonFile) {
-        File parent = jsonFile.getParentFile();
-        if (parent == null) {
-            return null;
-        }
-        String reference = item.optString("session_file", "").trim();
-        ArrayList<File> candidates = new ArrayList<>();
-        if (!reference.isEmpty()) {
-            File relative = new File(parent, reference);
-            candidates.add(relative);
-            if (!reference.toLowerCase(java.util.Locale.ROOT).endsWith(".session")) {
-                candidates.add(new File(parent, reference + ".session"));
-            }
-            File named = new File(reference);
-            String base = named.getName();
-            if (!base.isEmpty() && !".".equals(base) && !"..".equals(base)) {
-                candidates.add(new File(parent, base));
-                if (!base.toLowerCase(java.util.Locale.ROOT).endsWith(".session")) {
-                    candidates.add(new File(parent, base + ".session"));
-                }
-            }
-        }
-        String jsonName = jsonFile.getName();
-        if (jsonName.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
-            candidates.add(new File(parent, jsonName.substring(0, jsonName.length() - 5) + ".session"));
-        }
-        for (File candidate : candidates) {
-            try {
-                String parentPath = parent.getCanonicalPath();
-                if (!candidate.getCanonicalPath().startsWith(parentPath + File.separator)
-                        || !candidate.isFile() || ZipUtil.isZip(candidate)) {
-                    continue;
-                }
-                List<ProtocolAccount> accounts = readSession(candidate, KIND_AUTO);
-                try {
-                    long wantedUserId = item.optLong("user_id", 0);
-                    for (ProtocolAccount account : accounts) {
-                        if (wantedUserId == 0 || account.userId == 0 || account.userId == wantedUserId) {
-                            return account.copy();
-                        }
-                    }
-                } finally {
-                    zeroAuthKeys(accounts);
-                }
-            } catch (Exception ignore) {
-            }
-        }
-        return null;
     }
 
     // ------------------------------------------------------------------ 工具

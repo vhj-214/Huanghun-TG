@@ -13,7 +13,8 @@ import java.util.List;
 /**
  * 功能二：session / tdata / json 三种协议格式互转。
  *
- * <p>接受的输入：单个 .session 或 .json，或包含协议文件的 ZIP；tdata 输入要求 ZIP 内包含完整 tdata 目录。
+ * <p>接受的输入：单个 .session，或包含 Session 的 ZIP；JSON 仅接受含 auth_key 的本机提取数据；
+ * tdata 输入要求 ZIP 内包含完整 tdata 目录。
  * 输出统一为 zip，命名规则与本机导出保持一致。</p>
  */
 public final class ProtocolConverter {
@@ -44,8 +45,13 @@ public final class ProtocolConverter {
     }
 
     public static Loaded load(Context context, File input, String localPasscode) {
+        return load(context, input, localPasscode, "all");
+    }
+
+    public static Loaded load(Context context, File input, String localPasscode, String inputKind) {
         Loaded loaded = new Loaded();
         File workDir = null;
+        String scanKind = inputKind == null || inputKind.isEmpty() ? "all" : inputKind;
         try {
             File root = input;
             if (input != null && input.isFile() && ZipUtil.isZip(input)) {
@@ -53,7 +59,7 @@ public final class ProtocolConverter {
                 ZipUtil.unzip(input, workDir);
                 root = workDir;
             }
-            collect(root, loaded, 0, context, localPasscode);
+            collect(root, loaded, 0, context, localPasscode, scanKind);
         } catch (Exception e) {
             loaded.failures.add(describe(e));
         } finally {
@@ -103,7 +109,8 @@ public final class ProtocolConverter {
         accounts.addAll(unique);
     }
 
-    private static void collect(File node, Loaded loaded, int depth, Context context, String localPasscode) {
+    private static void collect(File node, Loaded loaded, int depth, Context context,
+                                String localPasscode, String inputKind) {
         if (node == null) {
             return;
         }
@@ -113,6 +120,9 @@ public final class ProtocolConverter {
         }
         if (node.isDirectory()) {
             if (new File(node, "key_datas").isFile()) {
+                if (!"all".equals(inputKind) && !"tdata".equalsIgnoreCase(inputKind)) {
+                    return;
+                }
                 try {
                     List<ProtocolParser.SessionData> sessions = TdataParser.parse(node, localPasscode);
                     if (sessions.isEmpty()) {
@@ -132,7 +142,7 @@ public final class ProtocolConverter {
             if (children != null) {
                 java.util.Arrays.sort(children, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
                 for (File child : children) {
-                    collect(child, loaded, depth + 1, context, localPasscode);
+                    collect(child, loaded, depth + 1, context, localPasscode, inputKind);
                 }
             }
             return;
@@ -142,7 +152,7 @@ public final class ProtocolConverter {
             try {
                 unpacked = ProtocolPaths.createTemporaryDirectory(context, "inner_zip_");
                 ZipUtil.unzip(node, unpacked);
-                collect(unpacked, loaded, depth + 1, context, localPasscode);
+                collect(unpacked, loaded, depth + 1, context, localPasscode, inputKind);
             } catch (Exception e) {
                 loaded.failures.add(node.getName() + "：" + describe(e));
             } finally {
@@ -151,10 +161,12 @@ public final class ProtocolConverter {
             return;
         }
         String name = node.getName().toLowerCase(java.util.Locale.ROOT);
+        boolean allowSession = "all".equals(inputKind) || "session".equalsIgnoreCase(inputKind);
+        boolean allowJson = "all".equals(inputKind) || "json".equalsIgnoreCase(inputKind);
         try {
-            if (name.endsWith(".session") || SessionCodec.isSqliteDatabase(node)) {
+            if (allowSession && (name.endsWith(".session") || SessionCodec.isSqliteDatabase(node))) {
                 loaded.accounts.addAll(SessionCodec.readSession(node, SessionCodec.KIND_AUTO));
-            } else if (name.endsWith(".json") || looksLikeJson(node)) {
+            } else if (allowJson && (name.endsWith(".json") || looksLikeJson(node))) {
                 loaded.accounts.addAll(SessionCodec.readJson(node));
             }
         } catch (Exception e) {
@@ -193,9 +205,14 @@ public final class ProtocolConverter {
     }
 
     public static Result convert(Context context, File input, int formats, String localPasscode) {
+        return convert(context, input, formats, "all", localPasscode);
+    }
+
+    public static Result convert(Context context, File input, int formats,
+                                 String inputKind, String localPasscode) {
         Result result = new Result(ProtocolPaths.resolveOutputDirectory(context,
                 ProtocolPaths.FOLDER_CONVERT).isPublic);
-        Loaded loaded = load(context, input, localPasscode);
+        Loaded loaded = load(context, input, localPasscode, inputKind);
         result.failures.addAll(loaded.failures);
         if (loaded.accounts.isEmpty()) {
             return result;

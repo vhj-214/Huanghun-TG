@@ -116,7 +116,7 @@ public final class ExternalPasskeyMaker {
         ArrayList<InputAccount> accounts = new ArrayList<>();
         try {
             if (input.isFile() && ZipUtil.isZip(input)) {
-                ProtocolConverter.Loaded imported = ProtocolConverter.load(context, input, localPasscode);
+                ProtocolConverter.Loaded imported = ProtocolConverter.load(context, input, localPasscode, kind);
                 result.failures.addAll(imported.failures);
                 int index = 0;
                 try {
@@ -156,7 +156,7 @@ public final class ExternalPasskeyMaker {
                 if (!input.isFile()) {
                     throw new IOException("请选择 .session 文件或包含 session 的协议 ZIP 压缩包");
                 }
-                ProtocolConverter.Loaded imported = ProtocolConverter.load(context, input, localPasscode);
+                ProtocolConverter.Loaded imported = ProtocolConverter.load(context, input, localPasscode, "session");
                 result.failures.addAll(imported.failures);
                 int index = 0;
                 try {

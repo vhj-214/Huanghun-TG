@@ -286,16 +286,95 @@ public final class ProtocolBuildUi {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
+        int sidePadding = AndroidUtilities.dp(22);
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(sidePadding, AndroidUtilities.dp(8), sidePadding, AndroidUtilities.dp(12));
+
+        TextView description = new TextView(activity);
+        description.setText("如果当前 Telegram 账号已设置两步验证密码，可在下方填写。此密码会写入生成的 Passkey 凭据，之后登录时可自动使用。");
+        description.setTextSize(14);
+        description.setTextColor(0xFF667085);
+        description.setLineSpacing(AndroidUtilities.dp(2), 1.08f);
+        content.addView(description, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout field = new LinearLayout(activity);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+        field.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        field.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(4), AndroidUtilities.dp(10),
+                AndroidUtilities.dp(4));
+        GradientDrawable fieldBackground = new GradientDrawable();
+        fieldBackground.setColor(0xFFF7F8FC);
+        fieldBackground.setCornerRadius(AndroidUtilities.dp(14));
+        fieldBackground.setStroke(AndroidUtilities.dp(1), 0xFFE0E4EC);
+        field.setBackground(fieldBackground);
+        LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        fieldParams.topMargin = AndroidUtilities.dp(18);
+        content.addView(field, fieldParams);
+
+        TextView prefix = new TextView(activity);
+        prefix.setText("2FA");
+        prefix.setTextSize(11);
+        prefix.setTextColor(0xFF5C67B7);
+        prefix.setGravity(android.view.Gravity.CENTER);
+        prefix.setPadding(AndroidUtilities.dp(9), AndroidUtilities.dp(6), AndroidUtilities.dp(9),
+                AndroidUtilities.dp(6));
+        GradientDrawable prefixBackground = new GradientDrawable();
+        prefixBackground.setColor(0xFFE9EBFF);
+        prefixBackground.setCornerRadius(AndroidUtilities.dp(9));
+        prefix.setBackground(prefixBackground);
+        field.addView(prefix, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
         EditText input = new EditText(activity);
         input.setSingleLine(true);
         input.setHint("请输入密码");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        int padding = AndroidUtilities.dp(24);
-        input.setPadding(padding, AndroidUtilities.dp(12), padding, AndroidUtilities.dp(12));
+        input.setTextSize(16);
+        input.setTextColor(0xFF202536);
+        input.setHintTextColor(0xFF98A0AF);
+        input.setBackground(null);
+        input.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(6),
+                AndroidUtilities.dp(12));
+        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        field.addView(input, inputParams);
+
+        TextView visibilityToggle = new TextView(activity);
+        visibilityToggle.setText("显示");
+        visibilityToggle.setTextSize(13);
+        visibilityToggle.setTextColor(0xFF5967C2);
+        visibilityToggle.setGravity(android.view.Gravity.CENTER);
+        visibilityToggle.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(10),
+                AndroidUtilities.dp(2), AndroidUtilities.dp(10));
+        field.addView(visibilityToggle, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        visibilityToggle.setOnClickListener(v -> {
+            boolean showPassword = "隐藏".contentEquals(visibilityToggle.getText());
+            int selection = input.getSelectionStart();
+            input.setInputType(InputType.TYPE_CLASS_TEXT | (showPassword
+                    ? InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    : InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD));
+            if (selection >= 0 && selection <= input.length()) {
+                input.setSelection(selection);
+            }
+            visibilityToggle.setText(showPassword ? "显示" : "隐藏");
+        });
+
+        TextView optionalHint = new TextView(activity);
+        optionalHint.setText("可留空，非强制要求。留空时可直接创建 Passkey。");
+        optionalHint.setTextSize(12);
+        optionalHint.setTextColor(0xFF8A92A2);
+        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hintParams.topMargin = AndroidUtilities.dp(10);
+        content.addView(optionalHint, hintParams);
+
         AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("设置可选密码")
-                .setMessage("您当前账号是否设有密码？如果已设置，请输入密码。生成的 Passkey 凭据会保存此密码，之后使用黄昏客户端登录时可自动填写；也可以留空，非强制要求。")
-                .setView(input)
+                .setTitle("Passkey 登录密码（可选）")
+                .setView(content)
                 .setPositiveButton("直接创建", (d, which) -> { })
                 .setNegativeButton("取消", null)
                 .create();
@@ -423,7 +502,7 @@ public final class ProtocolBuildUi {
                 if ("tdata".equals(inputKind) && (!temp.isFile() || !ZipUtil.isZip(temp))) {
                     throw new java.io.IOException("tdata 输入必须是包含完整 tdata 目录的 ZIP 压缩包");
                 }
-                result = ProtocolConverter.convert(context, temp, formats, localPasscode);
+                result = ProtocolConverter.convert(context, temp, formats, inputKind, localPasscode);
                 passwordRequired = (localPasscode == null || localPasscode.isEmpty())
                         && hasTdataPasscodeFailure(result.failures);
                 if (passwordRequired) {
@@ -531,7 +610,11 @@ public final class ProtocolBuildUi {
                                 "检测到 Telegram Desktop tdata 设置了本地密码。请输入本地密码；这不是 Telegram 两步验证密码。");
                         return;
                     }
-                    showError(owner, "外部【通行密钥】 Passkey 制作失败：" + reason);
+                    if (isLocalOnlyJsonError(reason)) {
+                        showError(owner, "无法创建外部【通行密钥】 Passkey：\n" + reason);
+                    } else {
+                        showError(owner, "外部【通行密钥】 Passkey 制作失败：" + reason);
+                    }
                     return;
                 }
                 if (requestPassword) {
@@ -546,7 +629,11 @@ public final class ProtocolBuildUi {
                     String detail = created.failures.isEmpty()
                             ? "没有识别到可用的授权会话。"
                             : TextUtils.join("\n", created.failures);
-                    showError(owner, "没有成功注册 Passkey：\n" + detail);
+                    if (isLocalOnlyJsonError(detail)) {
+                        showError(owner, "无法创建外部【通行密钥】 Passkey：\n" + detail);
+                    } else {
+                        showError(owner, "没有成功注册 Passkey：\n" + detail);
+                    }
                     return;
                 }
                 showResult(owner, created.zipFiles, created.failures, created.publicDirectory);
@@ -568,6 +655,10 @@ public final class ProtocolBuildUi {
             }
         }
         return false;
+    }
+
+    private static boolean isLocalOnlyJsonError(String message) {
+        return message != null && message.contains(SessionCodec.LOCAL_ONLY_JSON_AUTH_KEY_ERROR);
     }
 
     private static void requestTdataPasscode(Activity activity, Runnable onCancel,
