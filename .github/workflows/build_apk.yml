@@ -45,6 +45,7 @@ jobs:
       - name: Build with Gradle
         env:
           NATIVE_TARGET: universal
+          COMMIT_ID: ${{ github.sha }}
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify directly installable universal APK
         shell: bash
@@ -63,6 +64,11 @@ jobs:
           printf 'APK package: %s\n' "$package_info"
           if ! grep -q "^package: name='com.Huanghun' " <<< "$package_info"; then
             echo "Unexpected APK package; expected com.Huanghun: $package_info" >&2
+            exit 1
+          fi
+          version_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\\1/p" <<< "$package_info")"
+          if [[ -z "$version_code" || "$version_code" -lt 1263 ]]; then
+            echo "APK versionCode must be at least 1263; refusing a downgrade: $package_info" >&2
             exit 1
           fi
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do

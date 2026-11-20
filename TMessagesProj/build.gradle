@@ -10,7 +10,8 @@ plugins {
 def buildTimestamp = System.getenv('BUILD_TIMESTAMP') ?: '0'
 def commitId = System.getenv('COMMIT_ID')
 def verName = "${APP_VERSION_NAME}${commitId?.take(7) ? "-${commitId.take(7)}" : ''}"
-def verCode = 1261
+// Keep installable Staging builds newer than the last distributed version.
+def verCode = 1263
 
 def officialVer = APP_VERSION_NAME
 def officialCode = APP_VERSION_CODE
