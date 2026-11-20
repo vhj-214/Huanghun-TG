@@ -204,7 +204,8 @@ public final class ExternalAccountLogin {
                     account.apiHash = BuildVars.APP_HASH;
                     account.isBot = isBot;
                     account.source = "外部账号协议提取";
-                    result = ProtocolExporter.exportAccount(context, account, ProtocolExporter.FORMAT_ALL);
+                    result = ProtocolExporter.exportAccount(context, account, ProtocolExporter.FORMAT_ALL,
+                            ProtocolPaths.FOLDER_EXTERNAL_EXPORT);
                 }
             } catch (Throwable error) {
                 failure = ProtocolConverter.describe(error);

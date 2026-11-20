@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 功能二：session / tdata / json 三种协议格式互转。
  *
- * <p>接受的输入：单个 .session、单个 .json、一个 tdata 目录，或把它们装在一起的 zip。
+ * <p>接受的输入：单个 .session 或 .json，或包含协议文件的 ZIP；tdata 输入要求 ZIP 内包含完整 tdata 目录。
  * 输出统一为 zip，命名规则与本机导出保持一致。</p>
  */
 public final class ProtocolConverter {
@@ -193,7 +193,8 @@ public final class ProtocolConverter {
     }
 
     public static Result convert(Context context, File input, int formats, String localPasscode) {
-        Result result = new Result(ProtocolPaths.resolveOutputDirectory(context).isPublic);
+        Result result = new Result(ProtocolPaths.resolveOutputDirectory(context,
+                ProtocolPaths.FOLDER_CONVERT).isPublic);
         Loaded loaded = load(context, input, localPasscode);
         result.failures.addAll(loaded.failures);
         if (loaded.accounts.isEmpty()) {
@@ -216,7 +217,8 @@ public final class ProtocolConverter {
                     if (account.country == null || account.country.isEmpty()) {
                         account.country = CountryCodes.resolve(account.phone);
                     }
-                    ProtocolExporter.Result exported = ProtocolExporter.exportAccount(context, account, formats);
+                    ProtocolExporter.Result exported = ProtocolExporter.exportAccount(context, account, formats,
+                            ProtocolPaths.FOLDER_CONVERT);
                     result.zipFiles.add(exported.zipFile);
                 } catch (Exception e) {
                     result.failures.add(account.displayName() + "：" + describe(e));

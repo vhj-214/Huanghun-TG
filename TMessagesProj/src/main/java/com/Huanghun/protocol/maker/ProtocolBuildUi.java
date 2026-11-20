@@ -11,9 +11,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.text.Editable;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.InputType;
 import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -84,26 +90,23 @@ public final class ProtocolBuildUi {
             requestStorageAccess(activity);
             return;
         }
-        if ("tdata".equalsIgnoreCase(kind)) {
-            try {
-                fragment.startActivityForResult(
-                        new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_PICK_CONVERT_TDATA);
-            } catch (Throwable error) {
-                showError(activity, "打不开文件夹选择器：" + ProtocolConverter.describe(error));
-            }
-            return;
-        }
         boolean jsonOnly = "json".equalsIgnoreCase(kind);
+        boolean tdataArchive = "tdata".equalsIgnoreCase(kind);
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(jsonOnly ? "application/json" : "*/*");
+        intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_MIME_TYPES, jsonOnly
-                ? new String[]{"application/json", "text/json", "*/*"}
+                ? new String[]{"application/json", "text/json", "application/zip",
+                "application/x-zip-compressed", "application/octet-stream"}
+                : tdataArchive
+                ? new String[]{"application/zip", "application/x-zip-compressed",
+                "application/octet-stream"}
                 : new String[]{"application/zip", "application/x-zip-compressed",
-                "application/octet-stream", "application/x-sqlite3", "*/*"});
+                "application/octet-stream", "application/x-sqlite3"});
         try {
             fragment.startActivityForResult(intent,
-                    jsonOnly ? REQUEST_PICK_CONVERT_JSON : REQUEST_PICK_CONVERT);
+                    jsonOnly ? REQUEST_PICK_CONVERT_JSON
+                            : tdataArchive ? REQUEST_PICK_CONVERT_TDATA : REQUEST_PICK_CONVERT);
         } catch (Throwable error) {
             showError(activity, "打不开文件选择器：" + ProtocolConverter.describe(error));
         }
@@ -124,7 +127,7 @@ public final class ProtocolBuildUi {
         }
     }
 
-    /** HTML「外部 Passkey 制作」格式选择。 */
+    /** HTML「外部【通行密钥】 Passkey 制作」格式选择。 */
     public static void externalPasskeyFromUi(BaseFragment fragment, String kind) {
         Activity activity = fragment == null ? null : fragment.getParentActivity();
         if (activity == null) {
@@ -134,26 +137,23 @@ public final class ProtocolBuildUi {
             requestStorageAccess(activity);
             return;
         }
-        if ("tdata".equalsIgnoreCase(kind)) {
-            try {
-                fragment.startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE),
-                        REQUEST_PICK_PASSKEY_TDATA);
-            } catch (Throwable error) {
-                showError(activity, "打不开文件夹选择器：" + ProtocolConverter.describe(error));
-            }
-            return;
-        }
         boolean json = "json".equalsIgnoreCase(kind);
+        boolean tdataArchive = "tdata".equalsIgnoreCase(kind);
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(json ? "application/json" : "*/*");
+        intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_MIME_TYPES, json
-                ? new String[]{"application/json", "text/json", "*/*"}
+                ? new String[]{"application/json", "text/json", "application/zip",
+                "application/x-zip-compressed", "application/octet-stream"}
+                : tdataArchive
+                ? new String[]{"application/zip", "application/x-zip-compressed",
+                "application/octet-stream"}
                 : new String[]{"application/x-sqlite3", "application/octet-stream",
-                "application/zip", "application/x-zip-compressed", "*/*"});
+                "application/zip", "application/x-zip-compressed"});
         try {
             fragment.startActivityForResult(intent, json
-                    ? REQUEST_PICK_PASSKEY_JSON : REQUEST_PICK_PASSKEY_SESSION);
+                    ? REQUEST_PICK_PASSKEY_JSON
+                    : tdataArchive ? REQUEST_PICK_PASSKEY_TDATA : REQUEST_PICK_PASSKEY_SESSION);
         } catch (Throwable error) {
             showError(activity, "打不开文件选择器：" + ProtocolConverter.describe(error));
         }
@@ -267,13 +267,66 @@ public final class ProtocolBuildUi {
         }
         String kind = requestCode == REQUEST_PICK_PASSKEY_TDATA ? "tdata"
                 : requestCode == REQUEST_PICK_PASSKEY_JSON ? "json" : "session";
-        String label = "tdata".equals(kind) ? "tdata 文件夹"
-                : "json".equals(kind) ? "json 文件" : "session 文件或协议 ZIP 压缩包";
-        confirmSensitiveAction(activity,
-                "即将使用所选 " + label + " 在 Telegram 账号上注册一个新的 Passkey，并导出包含私钥的 .Passkey 凭据压缩包。\n\n"
-                        + "该凭据可用于登录账号，生成文件会保存在 /storage/emulated/0/黄昏/协议制作/。请只处理本人账号并妥善保管。\n\n"
-                        + "注意：Telegram 可能要求该 session/tdata 授权已满 24 小时；未满一天时可能无法创建，请等待满一天后重试。注册可能成功或失败，失败原因会显示在结果中。",
-                () -> createExternalPasskey(activity, uri, kind));
+        String label = "tdata".equals(kind) ? "tdata 压缩包"
+                : "json".equals(kind) ? "JSON 文件或 ZIP 压缩包" : "session 文件或协议 ZIP 压缩包";
+        String warning = "注意：Telegram 可能要求该 session/tdata 授权已满 24 小时；未满一天时可能无法创建，请等待满一天后重试。注册可能成功或失败，失败原因会显示在结果中。";
+        SpannableStringBuilder message = new SpannableStringBuilder();
+        message.append("即将使用所选 ").append(label)
+                .append(" 在 Telegram 账号上注册一个新的 Passkey，并导出包含私钥的 .Passkey 凭据压缩包。\n\n")
+                .append("该凭据可用于登录账号，生成文件会保存在 /storage/emulated/0/黄昏/协议制作/外部Passkey制作/。请只处理本人账号并妥善保管。\n\n");
+        int warningStart = message.length();
+        message.append(warning);
+        message.setSpan(new ForegroundColorSpan(0xFFD32F2F), warningStart, message.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        showTwoFactorPasswordPrompt(activity, uri, kind, message);
+    }
+
+    private static void showTwoFactorPasswordPrompt(Activity activity, Uri uri, String kind,
+                                                    CharSequence confirmationMessage) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
+        EditText input = new EditText(activity);
+        input.setSingleLine(true);
+        input.setHint("请输入密码");
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        int padding = AndroidUtilities.dp(24);
+        input.setPadding(padding, AndroidUtilities.dp(12), padding, AndroidUtilities.dp(12));
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("设置可选密码")
+                .setMessage("您当前账号是否设有密码？如果已设置，请输入密码。生成的 Passkey 凭据会保存此密码，之后使用黄昏客户端登录时可自动填写；也可以留空，非强制要求。")
+                .setView(input)
+                .setPositiveButton("直接创建", (d, which) -> { })
+                .setNegativeButton("取消", null)
+                .create();
+        styleDialog(dialog);
+        dialog.show();
+        View positiveButton = dialog.getButton(-1);
+        if (positiveButton != null) {
+            positiveButton.setOnClickListener(v -> {
+                String twoFactorPassword = input.getText() == null ? "" : input.getText().toString();
+                dialog.dismiss();
+                confirmSensitiveAction(activity, confirmationMessage,
+                        () -> createExternalPasskey(activity, uri, kind, twoFactorPassword, ""));
+            });
+        }
+        input.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                View button = dialog.getButton(-1);
+                if (button instanceof TextView) {
+                    ((TextView) button).setText(s == null || s.length() == 0 ? "直接创建" : "创建");
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
     }
 
     private static void showOutputFormatDialog(Activity activity, Uri uri, String inputKind) {
@@ -338,16 +391,13 @@ public final class ProtocolBuildUi {
                 dialog.dismiss();
                 confirmSensitiveAction(activity,
                         "转换会重新生成包含授权密钥的登录协议文件。该文件可直接登录对应账号，请确保你有权处理此账号。",
-                        () -> convertSelectedFile(activity, uri, outputFormats));
+                        () -> convertSelectedFile(activity, uri, outputFormats, inputKind, ""));
             });
         }
     }
 
-    private static void convertSelectedFile(Activity activity, Uri uri, int formats) {
-        convertSelectedFile(activity, uri, formats, "");
-    }
-
-    private static void convertSelectedFile(Activity activity, Uri uri, int formats, String localPasscode) {
+    private static void convertSelectedFile(Activity activity, Uri uri, int formats,
+                                            String inputKind, String localPasscode) {
         if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
             requestStorageAccess(activity);
             return;
@@ -369,6 +419,9 @@ public final class ProtocolBuildUi {
                 } else {
                     temp = ProtocolPaths.createTemporaryFile(context, "picked_file_", selectedExtension(context, uri));
                     copyUriToFile(context, uri, temp);
+                }
+                if ("tdata".equals(inputKind) && (!temp.isFile() || !ZipUtil.isZip(temp))) {
+                    throw new java.io.IOException("tdata 输入必须是包含完整 tdata 目录的 ZIP 压缩包");
                 }
                 result = ProtocolConverter.convert(context, temp, formats, localPasscode);
                 passwordRequired = (localPasscode == null || localPasscode.isEmpty())
@@ -402,7 +455,7 @@ public final class ProtocolBuildUi {
                 if (requestPassword) {
                     requestTdataPasscode(owner,
                             () -> showError(owner, "已取消 tdata 解密。"),
-                            passcode -> convertSelectedFile(owner, uri, formats, passcode),
+                            passcode -> convertSelectedFile(owner, uri, formats, inputKind, passcode),
                             "检测到压缩包或 tdata 目录中的 Telegram Desktop 本地密码保护。请输入本地密码；这不是 Telegram 两步验证密码。");
                     return;
                 }
@@ -418,11 +471,8 @@ public final class ProtocolBuildUi {
         }, "protocol-convert").start();
     }
 
-    private static void createExternalPasskey(Activity activity, Uri uri, String kind) {
-        createExternalPasskey(activity, uri, kind, "");
-    }
-
-    private static void createExternalPasskey(Activity activity, Uri uri, String kind, String localPasscode) {
+    private static void createExternalPasskey(Activity activity, Uri uri, String kind,
+                                              String twoFactorPassword, String localPasscode) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
@@ -430,7 +480,7 @@ public final class ProtocolBuildUi {
             requestStorageAccess(activity);
             return;
         }
-        ProtocolWebUi.showBusy("正在制作外部 Passkey", "正在读取会话并验证 Telegram 授权…");
+        ProtocolWebUi.showBusy("正在制作外部【通行密钥】 Passkey", "正在读取会话并验证 Telegram 授权…");
         Context context = activity.getApplicationContext();
         java.lang.ref.WeakReference<Activity> activityRef = new java.lang.ref.WeakReference<>(activity);
         Handler handler = new Handler(Looper.getMainLooper());
@@ -440,16 +490,17 @@ public final class ProtocolBuildUi {
             String failure = null;
             boolean passwordRequired = false;
             try {
-                if ("tdata".equals(kind)) {
+                if (DocumentsContract.isTreeUri(uri)) {
                     temp = ProtocolPaths.createTemporaryDirectory(context, "picked_passkey_tdata_");
                     String documentId = DocumentsContract.getTreeDocumentId(uri);
                     copyDocumentTree(context, uri, documentId, temp, 0, new TreeCopyState());
                 } else {
                     temp = ProtocolPaths.createTemporaryFile(context, "picked_passkey_",
-                            "json".equals(kind) ? ".json" : ".session");
+                            selectedExtension(context, uri));
                     copyUriToFile(context, uri, temp);
                 }
-                result = ExternalPasskeyMaker.create(context, temp, kind, localPasscode);
+                result = ExternalPasskeyMaker.create(context, temp, kind, localPasscode,
+                        twoFactorPassword);
                 passwordRequired = (localPasscode == null || localPasscode.isEmpty())
                         && ((result != null && hasTdataPasscodeFailure(result.failures))
                         || (failure != null && failure.contains("tdata 本地密码")));
@@ -475,17 +526,19 @@ public final class ProtocolBuildUi {
                     if (requestPassword) {
                         requestTdataPasscode(owner,
                                 () -> showError(owner, "已取消 tdata 解密。"),
-                                passcode -> createExternalPasskey(owner, uri, kind, passcode),
+                                passcode -> createExternalPasskey(owner, uri, kind,
+                                        twoFactorPassword, passcode),
                                 "检测到 Telegram Desktop tdata 设置了本地密码。请输入本地密码；这不是 Telegram 两步验证密码。");
                         return;
                     }
-                    showError(owner, "外部 Passkey 制作失败：" + reason);
+                    showError(owner, "外部【通行密钥】 Passkey 制作失败：" + reason);
                     return;
                 }
                 if (requestPassword) {
                     requestTdataPasscode(owner,
                             () -> showError(owner, "已取消 tdata 解密。"),
-                            passcode -> createExternalPasskey(owner, uri, kind, passcode),
+                            passcode -> createExternalPasskey(owner, uri, kind,
+                                    twoFactorPassword, passcode),
                             "检测到压缩包中的 Telegram Desktop tdata 设置了本地密码。请输入本地密码；这不是 Telegram 两步验证密码。");
                     return;
                 }
@@ -732,7 +785,7 @@ public final class ProtocolBuildUi {
         dialog.show();
     }
 
-    private static void confirmSensitiveAction(Activity activity, String message, Runnable action) {
+    private static void confirmSensitiveAction(Activity activity, CharSequence message, Runnable action) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }

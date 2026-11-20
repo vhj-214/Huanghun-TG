@@ -94,10 +94,15 @@ public final class ProtocolExporter {
      */
     public static Result export(Context context, int accountNum, int formats) throws Exception {
         ProtocolAccount account = readAccount(context, accountNum);
-        return exportAccount(context, account, formats);
+        return exportAccount(context, account, formats, ProtocolPaths.FOLDER_LOCAL_EXPORT);
     }
 
     public static Result exportAccount(Context context, ProtocolAccount account, int formats) throws Exception {
+        return exportAccount(context, account, formats, ProtocolPaths.FOLDER_LOCAL_EXPORT);
+    }
+
+    public static Result exportAccount(Context context, ProtocolAccount account, int formats,
+                                       String outputCategory) throws Exception {
         if (account == null || !account.isValid()) {
             if (account != null && account.authKey != null) {
                 Arrays.fill(account.authKey, (byte) 0);
@@ -163,7 +168,7 @@ public final class ProtocolExporter {
                         new File(tdataZipDir, baseName + ".zip"));
             }
 
-            ProtocolPaths.Resolved resolved = ProtocolPaths.resolveOutputDirectory(context);
+            ProtocolPaths.Resolved resolved = ProtocolPaths.resolveOutputDirectory(context, outputCategory);
             File zipFile = ProtocolPaths.uniqueTarget(resolved.directory, baseName, ".zip");
             ZipUtil.zipDirectory(bundleDir, zipFile);
             if (!zipFile.isFile() || zipFile.length() <= 0) {

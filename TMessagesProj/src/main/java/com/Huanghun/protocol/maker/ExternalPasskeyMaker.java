@@ -13,7 +13,6 @@ import tw.nekomimi.nekogram.NekoXConfig;
 
 import com.Huanghun.protocol.PasskeyParser;
 import com.Huanghun.protocol.ProtocolParser;
-import com.Huanghun.protocol.TdataParser;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -88,13 +87,19 @@ public final class ExternalPasskeyMaker {
         }
     }
 
-    /** Called from a worker thread. The input is a copied file or a copied tdata directory. */
+    /** Called from a worker thread. The input is a copied file, ZIP archive, or tdata directory. */
     public static Result create(Context context, File input, String kind) throws Exception {
-        return create(context, input, kind, "");
+        return create(context, input, kind, "", "");
     }
 
     /** Called from a worker thread; localPasscode is used only to unlock Telegram Desktop tdata. */
     public static Result create(Context context, File input, String kind, String localPasscode) throws Exception {
+        return create(context, input, kind, localPasscode, "");
+    }
+
+    /** twoFactorPassword is embedded in the generated credential for optional future login use. */
+    public static Result create(Context context, File input, String kind, String localPasscode,
+                                String twoFactorPassword) throws Exception {
         if (context == null || input == null) {
             throw new IOException("缺少输入文件");
         }
@@ -102,29 +107,33 @@ public final class ExternalPasskeyMaker {
                 || NekoXConfig.currentAppHash().isEmpty()) {
             throw new IOException("黄昏客户端 Telegram API 配置无效");
         }
+        if ("tdata".equalsIgnoreCase(kind) && (!input.isFile() || !ZipUtil.isZip(input))) {
+            throw new IOException("tdata 输入必须是包含完整 tdata 目录的 ZIP 压缩包");
+        }
         Result result = new Result();
         File convertedDirectory = ProtocolPaths.createTemporaryDirectory(context, "passkey_sessions_");
         ArrayList<ProtocolParser.SessionData> parsed = new ArrayList<>();
         ArrayList<InputAccount> accounts = new ArrayList<>();
         try {
-            if ("tdata".equalsIgnoreCase(kind)) {
-                if (!input.isDirectory()) {
-                    throw new IOException("请选择完整的 tdata 文件夹");
-                }
-                ArrayList<ProtocolParser.SessionData> sessions = TdataParser.parse(input, localPasscode);
+            if (input.isFile() && ZipUtil.isZip(input)) {
+                ProtocolConverter.Loaded imported = ProtocolConverter.load(context, input, localPasscode);
+                result.failures.addAll(imported.failures);
                 int index = 0;
-                for (ProtocolParser.SessionData session : sessions) {
-                    File converted = new File(convertedDirectory, "tdata_" + (++index) + ".session");
-                    try {
-                        ProtocolAccount account = new ProtocolAccount(session.authKey, session.dcId);
-                        account.source = "tdata";
-                        SessionCodec.writeTelethonSession(account, converted);
-                        ProtocolParser.SessionData normalized = ProtocolParser.parseTelethonSession(converted);
-                        parsed.add(normalized);
-                        accounts.add(new InputAccount(normalized, "", "tdata_" + index));
-                    } finally {
-                        if (session.authKey != null) Arrays.fill(session.authKey, (byte) 0);
+                try {
+                    for (ProtocolAccount account : imported.accounts) {
+                        ProtocolParser.SessionData session = new ProtocolParser.SessionData();
+                        session.authKey = account.authKey == null
+                                ? null : Arrays.copyOf(account.authKey, account.authKey.length);
+                        session.dcId = account.dcId;
+                        session.userId = account.userId;
+                        parsed.add(session);
+                        String source = account.source == null || account.source.isEmpty()
+                                ? input.getName() : account.source;
+                        accounts.add(new InputAccount(session, account.phone,
+                                source + " #" + (++index)));
                     }
+                } finally {
+                    zeroAccounts(imported.accounts);
                 }
             } else if ("json".equalsIgnoreCase(kind)) {
                 if (!input.isFile()) {
@@ -186,7 +195,7 @@ public final class ExternalPasskeyMaker {
             for (int i = 0; i < accounts.size(); i++) {
                 InputAccount account = accounts.get(i);
                 try {
-                    File archive = createOne(context, account, i + 1);
+                    File archive = createOne(context, account, i + 1, twoFactorPassword);
                     result.zipFiles.add(archive);
                 } catch (PendingRegistrationException pending) {
                     if (pending.archive != null && pending.archive.isFile()) {
@@ -210,7 +219,8 @@ public final class ExternalPasskeyMaker {
         }
     }
 
-    private static File createOne(Context context, InputAccount input, int sequence) throws Exception {
+    private static File createOne(Context context, InputAccount input, int sequence,
+                                  String twoFactorPassword) throws Exception {
         ProtocolParser.SessionData session = input.session;
         if (session == null || session.authKey == null || session.authKey.length != ProtocolAccount.KEY_SIZE
                 || session.dcId < 1 || session.dcId > 5) {
@@ -290,7 +300,7 @@ public final class ExternalPasskeyMaker {
             JSONObject payload = new JSONObject();
             payload.put("Phone", self.phone == null || self.phone.isEmpty()
                     ? (input.phone.isEmpty() ? String.valueOf(self.id) : input.phone) : self.phone);
-            payload.put("TwoFA", "");
+            payload.put("TwoFA", twoFactorPassword == null ? "" : twoFactorPassword);
             payload.put("CredentialId", credentialIdB64);
             payload.put("PrivateKeyHex", privateKeyHex);
             payload.put("UserHandle", userHandle);
@@ -310,7 +320,8 @@ public final class ExternalPasskeyMaker {
             byte[] authenticatorData = createAuthenticatorData(rpId, credentialId, coseKey);
             byte[] attestationObject = createNoneAttestation(authenticatorData);
 
-            ProtocolPaths.Resolved output = ProtocolPaths.resolveOutputDirectory(context);
+            ProtocolPaths.Resolved output = ProtocolPaths.resolveOutputDirectory(context,
+                    ProtocolPaths.FOLDER_PASSKEY);
             String fileBase = safeBaseName(self.phone, self.id, sequence);
             String internalName = fileBase + ".Passkey";
             passkeyFile = ProtocolPaths.createTemporaryFile(context, "passkey_credential_", ".Passkey");
@@ -601,7 +612,11 @@ public final class ExternalPasskeyMaker {
     }
 
     private static String failureDetails(String source, Throwable error) {
-        return source + "：" + safeError(error)
+        String reason = safeError(error);
+        if (reason.contains("FRESH_RESET_AUTHORISATION_FORBIDDEN")) {
+            return source + "：您当前账号提取出来的协议不满足一天！TG 创建通行密钥的要求是需要在新设备上登录满足一天，请等待一天后重新尝试。";
+        }
+        return source + "：" + reason
                 + "\n如失败原因提示授权未满 24 小时，请等待一天后重新尝试。";
     }
 

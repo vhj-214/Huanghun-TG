@@ -18,6 +18,10 @@ public final class ProtocolPaths {
 
     public static final String FOLDER_ROOT = "黄昏";
     public static final String FOLDER_BUILD = "协议制作";
+    public static final String FOLDER_LOCAL_EXPORT = "本机账号提取";
+    public static final String FOLDER_CONVERT = "协议转换";
+    public static final String FOLDER_EXTERNAL_EXPORT = "外部账号提取";
+    public static final String FOLDER_PASSKEY = "外部Passkey制作";
 
     private ProtocolPaths() {
     }
@@ -33,12 +37,26 @@ public final class ProtocolPaths {
     }
 
     public static Resolved resolveOutputDirectory(Context context) {
+        return resolveOutputDirectory(context, null);
+    }
+
+    public static Resolved resolveOutputDirectory(Context context, String category) {
         File publicRoot = new File(Environment.getExternalStorageDirectory(),
                 FOLDER_ROOT + File.separator + FOLDER_BUILD);
-        if (ensureWritable(publicRoot)) {
-            return new Resolved(publicRoot, true);
+        File output = publicRoot;
+        if (category != null && !category.isEmpty()) {
+            if (!FOLDER_LOCAL_EXPORT.equals(category) && !FOLDER_CONVERT.equals(category)
+                    && !FOLDER_EXTERNAL_EXPORT.equals(category) && !FOLDER_PASSKEY.equals(category)) {
+                throw new IllegalArgumentException("无效的协议输出分类");
+            }
+            output = new File(publicRoot, category);
         }
-        throw new IllegalStateException("无法写入公共目录 /storage/emulated/0/黄昏/协议制作/，请授予所有文件访问权限");
+        if (ensureWritable(output)) {
+            return new Resolved(output, true);
+        }
+        throw new IllegalStateException("无法写入公共目录 /storage/emulated/0/黄昏/协议制作/"
+                + (category == null || category.isEmpty() ? "" : category + "/")
+                + "，请授予所有文件访问权限");
     }
 
     private static boolean ensureWritable(File directory) {
