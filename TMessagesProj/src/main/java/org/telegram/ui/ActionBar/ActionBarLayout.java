@@ -1370,6 +1370,10 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         if (USE_ACTIONBAR_CROSSFADE) {
             invalidateActionBars();
         }
+        BaseFragment visibleFragment = getLastFragment();
+        if (visibleFragment != null) {
+            visibleFragment.invalidateSettingsWallpaper();
+        }
     }
 
     private void prepareForMoving() {
@@ -1813,6 +1817,10 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         containerViewBack.setTranslationY(0);
         if (USE_ACTIONBAR_CROSSFADE) {
             invalidateActionBars();
+        }
+        BaseFragment visibleFragment = getLastFragment();
+        if (visibleFragment != null) {
+            visibleFragment.invalidateSettingsWallpaper();
         }
     }
 

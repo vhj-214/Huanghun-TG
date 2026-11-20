@@ -4,6 +4,7 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.Pair;
 import android.view.View;
@@ -13,10 +14,12 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
 import androidx.annotation.NonNull;
+import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.ShadowSectionCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
@@ -29,6 +32,8 @@ public class SectionsScrollView extends ScrollView {
 
     private Theme.ResourcesProvider resourcesProvider;
     private LinearLayout contentView;
+    private final Paint glassSectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private boolean glassSectionsEnabled;
 
     private float sectionRadius = dp(16);
     private float[] sectionRadiusTop, sectionRadiusBottom;
@@ -74,6 +79,13 @@ public class SectionsScrollView extends ScrollView {
     private ArrayList<Runnable> onScroll = new ArrayList<>();
     public void onScroll(Runnable listener) {
         onScroll.add(listener);
+    }
+
+    public void setGlassSectionsEnabled(boolean enabled) {
+        if (glassSectionsEnabled != enabled) {
+            glassSectionsEnabled = enabled;
+            invalidate();
+        }
     }
 
     @Override
@@ -154,7 +166,15 @@ public class SectionsScrollView extends ScrollView {
             Math.min(getHeight() + dp(16) + getScrollY(), contentView.getY() + getChildY(to) + to.getHeight() + toBottomMargin)
         );
         if (AndroidUtilities.rectTmp.bottom < AndroidUtilities.rectTmp.top) return;
-        RecyclerListView.drawBackgroundRect(canvas, AndroidUtilities.rectTmp, dp(16), dp(16), from.getAlpha(), resourcesProvider);
+        if (glassSectionsEnabled && BaseFragment.isInGlassPage(this)) {
+            int color = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
+            boolean darkSurface = ColorUtils.calculateLuminance(color) < 0.5f;
+            glassSectionPaint.setColor(ColorUtils.setAlphaComponent(color,
+                    Math.round((darkSurface ? 0x26 : 0x20) * from.getAlpha())));
+            canvas.drawRoundRect(AndroidUtilities.rectTmp, dp(16), dp(16), glassSectionPaint);
+        } else {
+            RecyclerListView.drawBackgroundRect(canvas, AndroidUtilities.rectTmp, dp(16), dp(16), from.getAlpha(), resourcesProvider);
+        }
     }
 
     @Override

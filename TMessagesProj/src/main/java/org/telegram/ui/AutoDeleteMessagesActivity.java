@@ -88,6 +88,7 @@ public class AutoDeleteMessagesActivity extends BaseFragment implements Notifica
 
         LinearLayout mainContainer = new SectionsScrollView.SectionsLinearLayout(getContext());
         SectionsScrollView scrollView = new SectionsScrollView(getContext(), mainContainer, resourceProvider);
+        scrollView.setGlassSectionsEnabled(true);
         mainContainer.setOrientation(LinearLayout.VERTICAL);
         scrollView.addView(mainContainer);
         frameLayout.addView(scrollView);
@@ -182,7 +183,10 @@ public class AutoDeleteMessagesActivity extends BaseFragment implements Notifica
 
     private void updateItems() {
         for (int i = 0; i < arrayList.size(); i++) {
-            arrayList.get(i).setBackground(Theme.createSelectorWithBackgroundDrawable(Theme.getColor(Theme.key_windowBackgroundWhite), Theme.getColor(Theme.key_listSelector)));
+            // The section supplies the surface in both normal and glass modes.
+            // A ripple with an opaque content layer would cover the wallpaper.
+            arrayList.get(i).setBackground(Theme.createSelectorDrawable(
+                    Theme.getColor(Theme.key_listSelector, resourceProvider), Theme.RIPPLE_MASK_ALL));
             arrayList.get(i).setOnClickListener(v -> {
                 if (v == customTimeButton) {
                     AlertsCreator.createAutoDeleteDatePickerDialog(getContext(), 1, null, new AlertsCreator.ScheduleDatePickerDelegate() {

@@ -18,6 +18,7 @@ import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -339,6 +340,8 @@ public abstract class BaseFragment {
     }
 
     public void clearViews() {
+        setSettingsWallpaperViewport(null);
+        setSettingsWallpaperObserverRegistered(false);
         if (fragmentView != null) {
             ViewGroup parent = (ViewGroup) fragmentView.getParent();
             if (parent != null) {
@@ -382,6 +385,8 @@ public abstract class BaseFragment {
 
     public void setParentLayout(INavigationLayout layout) {
         if (parentLayout != layout) {
+            setSettingsWallpaperViewport(null);
+            setSettingsWallpaperObserverRegistered(false);
             parentLayout = layout;
             inBubbleMode = parentLayout != null && parentLayout.isInBubbleMode();
             if (fragmentView != null) {
@@ -501,6 +506,8 @@ public abstract class BaseFragment {
 
     @CallSuper
     public void onFragmentDestroy() {
+        setSettingsWallpaperViewport(null);
+        setSettingsWallpaperObserverRegistered(false);
         getConnectionsManager().cancelRequestsForGuid(classGuid);
         getMessagesStorage().cancelTasksForGuid(classGuid);
         isFinished = true;
@@ -558,25 +565,6 @@ public abstract class BaseFragment {
             // add a second, misaligned wallpaper layer.
             return;
         }
-        // Never wait for Theme's wallpaper worker on the UI thread while a page
-        // is being opened. If the cache is not ready, retain the page's safe
-        // native background and let the next resume apply the wallpaper.
-        final Drawable cachedWallpaper = Theme.getCachedWallpaperNonBlocking();
-        if (cachedWallpaper == null) {
-            // The wallpaper cache is rebuilt on the theme worker. Retry a few times
-            // instead of leaving the page permanently on the window's black fallback.
-            if (wallpaperApplyAttempt < 4) {
-                wallpaperApplyAttempt++;
-                final View retryTarget = fragmentView;
-                retryTarget.postDelayed(() -> {
-                    if (fragmentView == retryTarget && !isPaused && !isFinished) {
-                        applySettingsGlassWallpaper();
-                    }
-                }, 220);
-            }
-            return;
-        }
-        wallpaperApplyAttempt = 0;
         final String name = getClass().getName();
         boolean huanghunServiceScreen = name.equals("com.Huanghun.HuanghunServiceActivity")
                 || name.equals("com.Huanghun.HuanghunDeviceDetailsActivity");
@@ -601,16 +589,31 @@ public abstract class BaseFragment {
                 || simpleName.contains("Logout")
                 || simpleName.contains("HuanghunService") || simpleName.contains("HuanghunDeviceDetails"))) return;
 
-        // Keep the fragment in its normal layout below the ActionBar. Both surfaces
-        // use the navigation container as one shared wallpaper viewport, so their
-        // independently clipped backgrounds join without moving page content.
-        View wallpaperViewport = parentLayout != null ? parentLayout.getView() : null;
-        if (wallpaperViewport == null) {
-            wallpaperViewport = fragmentView.getRootView();
+        setSettingsWallpaperObserverRegistered(true);
+        // Never wait for the wallpaper worker on the UI thread. Keep the native
+        // background until it is ready, including on unusually slow devices.
+        final Drawable cachedWallpaper = Theme.getCachedWallpaperNonBlocking();
+        if (cachedWallpaper == null) {
+            if (wallpaperApplyAttempt < 4) {
+                wallpaperApplyAttempt++;
+                final View retryTarget = fragmentView;
+                retryTarget.postDelayed(() -> {
+                    if (fragmentView == retryTarget && !isPaused && !isFinished) {
+                        applySettingsGlassWallpaper();
+                    }
+                }, 220);
+            }
+            return;
         }
-        if (wallpaperViewport == null) {
-            wallpaperViewport = fragmentView;
-        }
+        wallpaperApplyAttempt = 0;
+
+        // Both surfaces normally share the same page container. Use that moving
+        // container as the viewport: measuring against the stationary navigation
+        // layout would include the transient horizontal offset during transitions.
+        // A hardware display list can otherwise keep the cropped first frame after
+        // the transition, leaving an uncovered strip at the edge of the action bar.
+        View wallpaperViewport = findSettingsWallpaperViewport();
+        setSettingsWallpaperViewport(wallpaperViewport);
         final int scrim = Theme.isCurrentThemeDark() ? 0x1F000000 : 0x14FFFFFF;
         boolean rootWallpaperMatches = isWallpaperViewportDrawable(fragmentView.getBackground(), cachedWallpaper, fragmentView, wallpaperViewport);
         boolean actionBarWallpaperMatches = false;
@@ -635,6 +638,14 @@ public abstract class BaseFragment {
             fragmentView.setBackground(rootWallpaper);
         }
         glassWallpaperRoots.put(fragmentView, Boolean.TRUE);
+        if (actionBar != null) {
+            glassWallpaperRoots.put(actionBar, Boolean.TRUE);
+        }
+        // Motion wallpapers are shared by Theme and cannot be cloned. Rebind the
+        // animation owner on resume even when both viewport wrappers were reused.
+        if (cachedWallpaper instanceof org.telegram.ui.Components.MotionBackgroundDrawable) {
+            bindWallpaperAnimation(cachedWallpaper, wallpaperViewport);
+        }
         if (getParentActivity() != null && getParentActivity().getWindow() != null) {
             getParentActivity().getWindow().setStatusBarColor(Color.TRANSPARENT);
         }
@@ -677,6 +688,90 @@ public abstract class BaseFragment {
     }
 
     private int wallpaperApplyAttempt;
+    private View settingsWallpaperViewport;
+    private boolean settingsWallpaperObserverRegistered;
+    private final NotificationCenter.NotificationCenterDelegate settingsWallpaperObserver = (id, account, args) ->
+            AndroidUtilities.runOnUIThread(() -> {
+                if (!isPaused && !isFinished && fragmentView != null) {
+                    applySettingsGlassWallpaper();
+                    invalidateSettingsWallpaper();
+                }
+            });
+    private final View.OnLayoutChangeListener settingsWallpaperLayoutListener = (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+        if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+            invalidateSettingsWallpaper();
+        }
+    };
+
+    private void setSettingsWallpaperObserverRegistered(boolean registered) {
+        if (settingsWallpaperObserverRegistered == registered) {
+            return;
+        }
+        settingsWallpaperObserverRegistered = registered;
+        if (registered) {
+            NotificationCenter.getGlobalInstance().addObserver(settingsWallpaperObserver, NotificationCenter.didSetNewWallpapper);
+        } else {
+            NotificationCenter.getGlobalInstance().removeObserver(settingsWallpaperObserver, NotificationCenter.didSetNewWallpapper);
+        }
+    }
+
+    private View findSettingsWallpaperViewport() {
+        if (actionBar == null) {
+            ViewParent parent = fragmentView.getParent();
+            if (parent instanceof View) {
+                return (View) parent;
+            }
+        } else {
+            // The action bar is usually a sibling, but some settings pages put
+            // it inside the fragment. Find their nearest shared view in both cases.
+            for (View candidate = fragmentView; candidate != null; ) {
+                for (View current = actionBar; current != null; ) {
+                    if (candidate == current) {
+                        return candidate;
+                    }
+                    ViewParent parent = current.getParent();
+                    current = parent instanceof View ? (View) parent : null;
+                }
+                ViewParent parent = candidate.getParent();
+                candidate = parent instanceof View ? (View) parent : null;
+            }
+        }
+        if (parentLayout != null && parentLayout.getView() != null) {
+            return parentLayout.getView();
+        }
+        View root = fragmentView.getRootView();
+        return root != null ? root : fragmentView;
+    }
+
+    private void setSettingsWallpaperViewport(@Nullable View viewport) {
+        if (settingsWallpaperViewport == viewport) {
+            return;
+        }
+        if (settingsWallpaperViewport != null) {
+            settingsWallpaperViewport.removeOnLayoutChangeListener(settingsWallpaperLayoutListener);
+        }
+        settingsWallpaperViewport = viewport;
+        if (viewport != null) {
+            viewport.addOnLayoutChangeListener(settingsWallpaperLayoutListener);
+        }
+    }
+
+    /** Re-record wallpaper surfaces after window resizing or a navigation transition. */
+    void invalidateSettingsWallpaper() {
+        if (fragmentView == null || !(glassWallpaperRoots.containsKey(fragmentView)
+                || fragmentView instanceof HuanghunWallpaperLayout)) {
+            return;
+        }
+        if (fragmentView instanceof HuanghunWallpaperLayout) {
+            HuanghunWallpaperLayout wallpaperLayout = (HuanghunWallpaperLayout) fragmentView;
+            wallpaperLayout.invalidateBackground();
+            wallpaperLayout.invalidateBlur();
+        }
+        fragmentView.invalidate();
+        if (actionBar != null) {
+            actionBar.invalidate();
+        }
+    }
 
     /** Roots that paint the settings wallpaper themselves; theme refreshes must not repaint them. */
     private static final java.util.WeakHashMap<View, Boolean> glassWallpaperRoots = new java.util.WeakHashMap<>();
@@ -714,11 +809,19 @@ public abstract class BaseFragment {
         if (wallpaper == null) {
             wallpaper = source;
         }
-        wallpaper.setCallback(viewport);
-        if (wallpaper instanceof org.telegram.ui.Components.MotionBackgroundDrawable) {
-            ((org.telegram.ui.Components.MotionBackgroundDrawable) wallpaper).setParentView(viewport);
-        }
+        bindWallpaperAnimation(wallpaper, viewport);
         return new WallpaperViewportDrawable(wallpaper, source, target, viewport);
+    }
+
+    private void bindWallpaperAnimation(@NonNull Drawable wallpaper, @NonNull View viewport) {
+        // LayoutContainer instances are swapped/reused during navigation. Keep the
+        // shared motion drawable's callback on the stable navigation layout instead
+        // of leaving it attached to a hidden, recycled page container.
+        View owner = parentLayout != null && parentLayout.getView() != null ? parentLayout.getView() : viewport;
+        wallpaper.setCallback(owner);
+        if (wallpaper instanceof org.telegram.ui.Components.MotionBackgroundDrawable) {
+            ((org.telegram.ui.Components.MotionBackgroundDrawable) wallpaper).setParentView(owner);
+        }
     }
 
     private boolean isWallpaperViewportDrawable(@Nullable Drawable drawable, @NonNull Drawable source, @NonNull View target, @NonNull View viewport) {
@@ -735,8 +838,6 @@ public abstract class BaseFragment {
         private final Drawable source;
         private final View target;
         private final View viewport;
-        private final int[] targetLocation = new int[2];
-        private final int[] viewportLocation = new int[2];
 
         private WallpaperViewportDrawable(Drawable wallpaper, Drawable source, View target, View viewport) {
             this.wallpaper = wallpaper;
@@ -751,8 +852,6 @@ public abstract class BaseFragment {
             if (bounds.isEmpty()) {
                 return;
             }
-            target.getLocationInWindow(targetLocation);
-            viewport.getLocationInWindow(viewportLocation);
             int width = viewport.getWidth();
             int height = viewport.getHeight();
             if (width <= 0) {
@@ -762,15 +861,22 @@ public abstract class BaseFragment {
                 height = Math.max(target.getHeight(), bounds.height());
             }
 
-            final int offsetX = targetLocation[0] - viewportLocation[0];
-            final int offsetY = targetLocation[1] - viewportLocation[1];
+            Matrix targetToViewport = new Matrix();
+            target.transformMatrixToGlobal(targetToViewport);
+            viewport.transformMatrixToLocal(targetToViewport);
+            float[] targetOrigin = {0, 0};
+            targetToViewport.mapPoints(targetOrigin);
             final Rect previousBounds = wallpaper.copyBounds();
+            final int saveCount = canvas.save();
             try {
-                final int left = bounds.left - offsetX;
-                final int top = bounds.top - offsetY;
-                wallpaper.setBounds(left, top, left + width, top + height);
+                // Motion wallpapers do not consistently honor a non-zero bounds
+                // origin. Translate the canvas instead, so bitmap, gradient and
+                // motion drawables all use the same full-viewport coordinates.
+                canvas.translate(bounds.left - targetOrigin[0], bounds.top - targetOrigin[1]);
+                wallpaper.setBounds(0, 0, width, height);
                 wallpaper.draw(canvas);
             } finally {
+                canvas.restoreToCount(saveCount);
                 wallpaper.setBounds(previousBounds);
             }
         }
@@ -868,6 +974,8 @@ public abstract class BaseFragment {
 
     @CallSuper
     public void onPause() {
+        setSettingsWallpaperViewport(null);
+        setSettingsWallpaperObserverRegistered(false);
         if (actionBar != null) {
             actionBar.onPause();
         }

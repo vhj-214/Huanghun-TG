@@ -2571,7 +2571,7 @@ void ConnectionsManager::processRequestQueue(uint32_t connectionTypes, uint32_t 
                 }
                 break;
             case ConnectionTypeDownload: {
-                auto map = request->isCancelRequest() ? downloadCancelRunningRequestCount : downloadRunningRequestCount;
+                auto &map = request->isCancelRequest() ? downloadCancelRunningRequestCount : downloadRunningRequestCount;
                 uint32_t currentCount;
                 auto dcIter = map.find(datacenterId);
                 if (dcIter != map.end()) {
@@ -2916,7 +2916,7 @@ void ConnectionsManager::processRequestQueue(uint32_t connectionTypes, uint32_t 
                 break;
             case ConnectionTypeDownload: {
                 uint32_t currentCount;
-                auto map = request->isCancelRequest() ? downloadCancelRunningRequestCount : downloadRunningRequestCount;
+                auto &map = request->isCancelRequest() ? downloadCancelRunningRequestCount : downloadRunningRequestCount;
                 auto dcIter = map.find(datacenterId);
                 if (dcIter != map.end()) {
                     currentCount = dcIter->second;
@@ -2943,7 +2943,7 @@ void ConnectionsManager::processRequestQueue(uint32_t connectionTypes, uint32_t 
                         DEBUG_D("skip queue, token = %d: download type: running download requests >= %d", request->requestToken, max);
                     continue;
                 }
-                downloadRunningRequestCount[datacenterId] = currentCount + 1;
+                map[datacenterId] = currentCount + 1;
                 break;
             }
             case ConnectionTypeProxy:

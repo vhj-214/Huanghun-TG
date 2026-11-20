@@ -451,14 +451,22 @@ public class TwoStepVerificationActivity extends BaseFragment implements Notific
         }
 
         if (passwordEntered) {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
-            fragmentView.setTag(Theme.key_windowBackgroundGray);
+            updatePageBackground(Theme.key_windowBackgroundGray);
         } else {
-            fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-            fragmentView.setTag(Theme.key_windowBackgroundWhite);
+            updatePageBackground(Theme.key_windowBackgroundWhite);
         }
 
         return fragmentView;
+    }
+
+    private void updatePageBackground(int colorKey) {
+        // Password state can arrive asynchronously after the shared glass
+        // wallpaper has been installed. Preserve it instead of replacing the
+        // drawable with an opaque theme color on every state change.
+        if (!isInGlassPage(fragmentView)) {
+            fragmentView.setBackgroundColor(Theme.getColor(colorKey));
+        }
+        fragmentView.setTag(colorKey);
     }
 
     @Override
@@ -819,8 +827,7 @@ public class TwoStepVerificationActivity extends BaseFragment implements Notific
                     bottomButton.setVisibility(View.INVISIBLE);
                     updateBottomButton();
                 }
-                fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
-                fragmentView.setTag(Theme.key_windowBackgroundGray);
+                updatePageBackground(Theme.key_windowBackgroundGray);
             } else {
                 if (listView != null) {
                     listView.setEmptyView(null);
@@ -831,8 +838,7 @@ public class TwoStepVerificationActivity extends BaseFragment implements Notific
                 if (passwordEditText != null) {
                     floatingButton.setButtonVisible(true, false);
                     passwordEditText.setVisibility(View.VISIBLE);
-                    fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-                    fragmentView.setTag(Theme.key_windowBackgroundWhite);
+                    updatePageBackground(Theme.key_windowBackgroundWhite);
                     titleTextView.setVisibility(View.VISIBLE);
                     bottomButton.setVisibility(View.VISIBLE);
                     updateBottomButton();

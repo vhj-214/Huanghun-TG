@@ -24,6 +24,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+      - name: Test settings wallpaper viewport
+        run: python3 .github/test_settings_wallpaper_viewport.py
+      - name: Test MTProto transfer safety invariants
+        run: python3 .github/test_transfer_safety.py
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
       - name: Set up Android SDK Tools

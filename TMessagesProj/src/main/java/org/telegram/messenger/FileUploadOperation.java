@@ -45,6 +45,7 @@ public class FileUploadOperation {
     private static final int initialRequestsCount = 8;
     private static final int initialRequestsSlowNetworkCount = 1;
     private static final int maxUploadingKBytes = 1024 * 2;
+    private static final int maxUploadingBoostKBytes = 1024 * 4;
     private static final int maxUploadingSlowNetworkKBytes = 32;
 
     private int maxRequestsCount;
@@ -124,7 +125,12 @@ public class FileUploadOperation {
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("start upload on slow network = " + slowNetwork);
             }
-            for (int a = 0, count = (slowNetwork ? initialRequestsSlowNetworkCount : initialRequestsCount); a < count; a++) {
+            int initialRequestCount = slowNetwork ? initialRequestsSlowNetworkCount : initialRequestsCount;
+            // The first request initializes chunk sizing and the true in-flight
+            // limit. Do not queue the optimistic startup count before that limit
+            // (or the encrypted IV pool) is known.
+            startUploadRequest();
+            for (int a = 1; a < initialRequestCount && a < maxRequestsCount; a++) {
                 startUploadRequest();
             }
         });
@@ -161,7 +167,9 @@ public class FileUploadOperation {
                 cachedResults.clear();
 
                 operationGuid++;
-                for (int a = 0, count = (slowNetwork ? initialRequestsSlowNetworkCount : initialRequestsCount); a < count; a++) {
+                int initialRequestCount = slowNetwork ? initialRequestsSlowNetworkCount : initialRequestsCount;
+                startUploadRequest();
+                for (int a = 1; a < initialRequestCount && a < maxRequestsCount; a++) {
                     startUploadRequest();
                 }
             }
@@ -192,6 +200,7 @@ public class FileUploadOperation {
                 remove(fileKey + "_size").
                 remove(fileKey + "_uploaded").
                 remove(fileKey + "_id").
+                remove(fileKey + "_chunk").
                 remove(fileKey + "_iv").
                 remove(fileKey + "_key").
                 remove(fileKey + "_ivc").commit();
@@ -243,6 +252,7 @@ public class FileUploadOperation {
         editor.putInt(fileKey + "_time", uploadStartTime);
         editor.putLong(fileKey + "_size", totalFileSize);
         editor.putLong(fileKey + "_id", currentFileId);
+        editor.putInt(fileKey + "_chunk", uploadChunkSize);
         editor.remove(fileKey + "_uploaded");
         if (isEncrypted) {
             editor.putString(fileKey + "_iv", Utilities.bytesToHex(iv));
@@ -272,12 +282,16 @@ public class FileUploadOperation {
         if (state != 1) {
             return;
         }
+        if (maxRequestsCount > 0 && currentUploadRequetsCount >= maxRequestsCount) {
+            return;
+        }
 
         final TLObject finalRequest;
         final int currentRequestPartNum;
 
         final int currentRequestBytes;
         final byte[] currentRequestIv;
+        long requestBytesOffset = 0;
         try {
             started = true;
             if (stream == null) {
@@ -320,7 +334,9 @@ public class FileUploadOperation {
                     }
                     uploadChunkSize = chunkSize;
                 }
-                maxRequestsCount = Math.max(1, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize);
+                int windowKBytes = slowNetwork ? maxUploadingSlowNetworkKBytes
+                        : NekoConfig.uploadBoost.Bool() && !isEncrypted ? maxUploadingBoostKBytes : maxUploadingKBytes;
+                maxRequestsCount = Math.max(1, windowKBytes / uploadChunkSize);
 
                 if (isEncrypted) {
                     freeRequestIvs = new ArrayList<>(maxRequestsCount);
@@ -335,8 +351,9 @@ public class FileUploadOperation {
 
                 fileKey = Utilities.MD5(uploadingFilePath + (isEncrypted ? "enc" : ""));
                 long fileSize = preferences.getLong(fileKey + "_size", 0);
+                int savedChunkSize = preferences.getInt(fileKey + "_chunk", 0);
                 uploadStartTime = (int)(System.currentTimeMillis() / 1000);
-                boolean rewrite = false;
+                boolean rewrite = savedChunkSize != uploadChunkSize;
                 if (!uploadFirstPartLater && !nextPartFirst && estimatedSize == 0 && fileSize == totalFileSize) {
                     currentFileId = preferences.getLong(fileKey + "_id", 0);
                     int date = preferences.getInt(fileKey + "_time", 0);
@@ -416,6 +433,13 @@ public class FileUploadOperation {
                     rewrite = true;
                 }
                 if (rewrite) {
+                    // Never resume from metadata written with a different part
+                    // size, or after validating a damaged encrypted checkpoint.
+                    stream.seek(0);
+                    readBytesCount = 0;
+                    uploadedBytesCount = 0;
+                    currentPartNum = 0;
+                    isLastPart = false;
                     if (isEncrypted) {
                         iv = new byte[32];
                         key = new byte[32];
@@ -476,6 +500,9 @@ public class FileUploadOperation {
             } else {
                 currentRequestBytes = stream.read(readBuffer);
             }
+            // Part numbers are not byte offsets. This also handles the short
+            // first chunk used by the first-part-later upload path.
+            requestBytesOffset = stream.getFilePointer();
             if (currentRequestBytes == -1) {
                 return;
             }
@@ -538,7 +565,7 @@ public class FileUploadOperation {
         currentPartNum++;
         currentUploadRequetsCount++;
         final int requestNumFinal = requestNum++;
-        final long currentRequestBytesOffset = currentRequestPartNum + currentRequestBytes;
+        final long currentRequestBytesOffset = requestBytesOffset;
         final int requestSize = finalRequest.getObjectSize() + 4;
         final int currentOperationGuid = operationGuid;
 

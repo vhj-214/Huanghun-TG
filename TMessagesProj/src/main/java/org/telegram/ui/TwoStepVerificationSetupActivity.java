@@ -921,10 +921,17 @@ public class TwoStepVerificationSetupActivity extends BaseFragment {
 
                     @Override
                     protected void onDraw(Canvas canvas) {
-                        paint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                        boolean glass = isInGlassPage(fragmentView);
+                        int color = Theme.getColor(Theme.key_windowBackgroundWhite);
+                        if (glass) {
+                            color = ColorUtils.setAlphaComponent(color, Theme.isCurrentThemeDark() ? 0x26 : 0x20);
+                        }
+                        paint.setColor(color);
                         int h = getMeasuredHeight() - AndroidUtilities.dp(3);
                         canvas.drawRect(0, 0, getMeasuredWidth(), h, paint);
-                        parentLayout.drawHeaderShadow(canvas, h);
+                        if (!glass) {
+                            parentLayout.drawHeaderShadow(canvas, h);
+                        }
                     }
                 };
                 actionBarBackground.setAlpha(0.0f);
