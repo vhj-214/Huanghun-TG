@@ -164,14 +164,16 @@ android {
             storePassword keystorePwd
             keyAlias alias
             keyPassword pwd
-            v1SigningEnabled true
+            enableV1Signing = true
+            enableV2Signing = true
         }
         mtStaging {
             storeFile project.file('release.keystore')
             storePassword 'xxs10086'
             keyAlias '黄昏客户端'
             keyPassword 'xxs10086'
-            v1SigningEnabled true
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 
