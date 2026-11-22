@@ -8,8 +8,7 @@ plugins {
 }
 
 def buildTimestamp = System.getenv('BUILD_TIMESTAMP') ?: '0'
-def commitId = System.getenv('COMMIT_ID')
-def verName = "${APP_VERSION_NAME}${commitId?.take(7) ? "-${commitId.take(7)}" : ''}"
+def verName = APP_VERSION_NAME
 // Keep installable Staging builds newer than the last distributed version.
 def verCode = 1263
 
@@ -165,12 +164,14 @@ android {
             storePassword keystorePwd
             keyAlias alias
             keyPassword pwd
+            v1SigningEnabled true
         }
         mtStaging {
             storeFile project.file('release.keystore')
             storePassword 'xxs10086'
             keyAlias '黄昏客户端'
             keyPassword 'xxs10086'
+            v1SigningEnabled true
         }
     }
 

@@ -45,7 +45,6 @@ jobs:
       - name: Build with Gradle
         env:
           NATIVE_TARGET: universal
-          COMMIT_ID: ${{ github.sha }}
         run: ./gradlew :TMessagesProj:assembleStaging --no-daemon --parallel --build-cache
       - name: Verify directly installable universal APK
         shell: bash
@@ -77,7 +76,16 @@ jobs:
               exit 1
             fi
           done
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          signature_report="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose "$apk")"
+          printf '%s\n' "$signature_report"
+          if ! grep -q 'Verified using v1 scheme (JAR signing): true' <<< "$signature_report"; then
+            echo "APK is missing a valid v1 signature: $apk" >&2
+            exit 1
+          fi
+          if ! grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' <<< "$signature_report"; then
+            echo "APK is missing a valid v2 signature: $apk" >&2
+            exit 1
+          fi
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk"
           certs="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk")"
           printf '%s\n' "$certs"
