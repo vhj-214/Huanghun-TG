@@ -36249,7 +36249,7 @@ public class ChatActivity extends BaseFragment implements
                             path = f.getPath();
                         }
                     }
-                    MediaController.saveFile(selectedObject, path, getParentActivity(), 2, fileName, selectedObject.getDocument() != null ? selectedObject.getDocument().mime_type : "", uri -> {
+                    MediaController.saveFileToHuanghunPath(selectedObject, path, getParentActivity(), 2, fileName, selectedObject.getDocument() != null ? selectedObject.getDocument().mime_type : "", uri -> {
                         if (getParentActivity() == null) {
                             return;
                         }
@@ -36928,12 +36928,8 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private String getStickerDownloadFolderPath(MessageObject messageObject) {
-        String folderName = NekoConfig.customSavePath.String();
-        if (messageObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
-            folderName = folderName + File.separator + ChatsHelper.getChatFolderName(messageObject);
-        }
-        File downloadFolder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), folderName);
-        return downloadFolder.getAbsolutePath();
+        String folderName = messageObject == null ? "" : ChatsHelper.getChatFolderName(messageObject);
+        return new File(NekoConfig.getHuanghunDefaultSaveDirectory(), folderName).getAbsolutePath();
     }
 
     private int processSelectedOptionLongClick(ActionBarMenuSubItem cell, int option) {

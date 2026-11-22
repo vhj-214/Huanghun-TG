@@ -394,7 +394,7 @@ public class MessageHelper extends BaseController {
         if (source == null || !source.exists()) {
             return;
         }
-        MediaController.saveFile(
+        MediaController.saveFileToHuanghunPath(
             messageObject,
             source.getAbsolutePath(),
             context,

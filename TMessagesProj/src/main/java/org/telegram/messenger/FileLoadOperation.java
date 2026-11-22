@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipException;
 
@@ -164,6 +165,52 @@ public class FileLoadOperation {
     private int downloadChunkSizeAnimation = 1024 * 128;
     private int maxDownloadRequestsAnimation = 4;
 
+    /*
+     * Adaptive transfer tuning.
+     *
+     * Instead of a fixed request window we measure the real throughput of every
+     * finished download window and only widen the window while the measured
+     * speed actually improves. When the speed drops or the server answers with
+     * an error we shrink the window again and keep it there for a cooldown
+     * period. This keeps the transfer stable on slow / lossy networks while
+     * still allowing fast links to use the whole available bandwidth.
+     */
+    private static final int TRANSFER_TUNE_WINDOW_MS = 1500;
+    private static final int TRANSFER_TUNE_MAX_REQUESTS = 24;
+    private static final int TRANSFER_TUNE_MAX_REQUESTS_LOW_MEMORY = 16;
+    private static final int TRANSFER_TUNE_STEP = 2;
+    // Must stay in sync with MAX_DOWNLOAD_REQUESTS in jni/tgnet/ConnectionsManager.cpp.
+    // The native side counts in-flight download requests per datacenter for the
+    // whole process, so all tuned operations have to share this budget.
+    private static final int TRANSFER_TUNE_DC_BUDGET = 64;
+    private static final AtomicInteger tunedDownloadOperations = new AtomicInteger();
+
+    /*
+     * Several parallel TCP connections per datacenter give a much better
+     * throughput on high latency links than a single pipelined one. The count
+     * has to match DOWNLOAD_CONNECTIONS_COUNT in jni/tgnet/Defines.h.
+     */
+    private static final int[] DOWNLOAD_CONNECTION_TYPES = {
+            ConnectionsManager.ConnectionTypeDownload,
+            ConnectionsManager.ConnectionTypeDownload2,
+            ConnectionsManager.ConnectionTypeDownload3,
+            ConnectionsManager.ConnectionTypeDownload4
+    };
+
+    private volatile boolean transferTuneEnabled;
+    private boolean transferTuneRegistered;
+    private int transferTuneBaseRequests;
+    private int transferTuneLevel;
+    private int transferTuneWindows;
+    private volatile long transferTuneWindowStart;
+    private volatile long transferTuneWindowBytes;
+    private volatile long transferTuneCooldownUntil;
+    private int transferTuneWindowsAtLevel;
+    private int transferTuneSettleWindows;
+    private boolean transferTuneProbing;
+    private long transferTuneSpeedBeforeProbe;
+    private long transferTuneBestSpeed;
+
     private final static int preloadMaxBytes = 2 * 1024 * 1024;
 
     private String fileName;
@@ -287,17 +334,203 @@ public class FileLoadOperation {
         boolean isLocallyCreatedFile(String path);
     }
 
+    private static int getDownloadConnectionIndex(int connectionType) {
+        for (int i = 0; i < DOWNLOAD_CONNECTION_TYPES.length; i++) {
+            if (DOWNLOAD_CONNECTION_TYPES[i] == connectionType) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     private void updateParams() {
         if ((preloadPrefixSize > 0 || MessagesController.getInstance(currentAccount).getfileExperimentalParams || NekoConfig.enhancedFileLoader.Bool()) && !forceSmallChunk) {
             downloadChunkSizeBig = 1024 * 512;
             maxDownloadRequests = 8;
             maxDownloadRequestsBig = 8;
+            // Medium sized files (photos, voice notes, short clips) profit from
+            // the large chunks as well - the request overhead dominates there.
+            bigFileSizeFrom = NekoConfig.enhancedFileLoader.Bool() ? 4 * 1024 * 1024 : 10 * 1024 * 1024;
         } else {
             downloadChunkSizeBig = 1024 * 128;
             maxDownloadRequests = 4;
             maxDownloadRequestsBig = 4;
+            bigFileSizeFrom = 10 * 1024 * 1024;
         }
         maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
+    }
+
+    private void initTransferTune() {
+        transferTuneBaseRequests = currentMaxDownloadRequests;
+        transferTuneLevel = 0;
+        transferTuneCooldownUntil = 0;
+        transferTuneWindowsAtLevel = 0;
+        transferTuneProbing = false;
+        transferTuneSettleWindows = 0;
+        transferTuneSpeedBeforeProbe = 0;
+        transferTuneBestSpeed = 0;
+        ensureTransferTuneState();
+    }
+
+    /*
+     * Called on every start / resume. Keeps the bookkeeping consistent when an
+     * operation is paused and later continued, without resetting the window
+     * that was already negotiated.
+     */
+    private void ensureTransferTuneState() {
+        transferTuneWindowBytes = 0;
+        transferTuneWindowStart = System.currentTimeMillis();
+        transferTuneWindows = 0;
+        transferTuneSettleWindows = 0;
+        transferTuneProbing = false;
+        // Only plain, large, non streaming file downloads are tuned. Streaming
+        // needs low latency instead of raw throughput and small previews are
+        // finished long before a measurement window would make sense.
+        final boolean largeFile = totalBytesCount <= 0 || totalBytesCount >= bigFileSizeFrom;
+        final boolean eligible = NekoConfig.enhancedFileLoader.Bool()
+                && !forceSmallChunk
+                && !isStory
+                && !isStream
+                && !isPreloadVideoOperation
+                && !ApplicationLoader.isConnectionSlow()
+                && largeFile
+                && currentDownloadChunkSize >= downloadChunkSizeBig;
+        if (!eligible) {
+            releaseTransferTune();
+            return;
+        }
+        if (transferTuneBaseRequests <= 0) {
+            transferTuneBaseRequests = currentMaxDownloadRequests;
+        }
+        transferTuneEnabled = true;
+        synchronized (this) {
+            if (!transferTuneRegistered) {
+                transferTuneRegistered = true;
+                tunedDownloadOperations.incrementAndGet();
+            }
+        }
+    }
+
+    private void releaseTransferTune() {
+        transferTuneEnabled = false;
+        synchronized (this) {
+            if (transferTuneRegistered) {
+                transferTuneRegistered = false;
+                tunedDownloadOperations.decrementAndGet();
+            }
+        }
+    }
+
+    private int getTransferTuneCeiling() {
+        final int active = Math.max(1, tunedDownloadOperations.get());
+        final int budget = TRANSFER_TUNE_DC_BUDGET / active;
+        final long maxHeap = Runtime.getRuntime().maxMemory();
+        final int hardCap = maxHeap > 0 && maxHeap < 192L * 1024 * 1024
+                ? TRANSFER_TUNE_MAX_REQUESTS_LOW_MEMORY : TRANSFER_TUNE_MAX_REQUESTS;
+        return Math.max(transferTuneBaseRequests, Math.min(hardCap, budget));
+    }
+
+    private void applyTransferTune() {
+        if (!transferTuneEnabled) {
+            return;
+        }
+        final int target = Math.max(1, Math.min(getTransferTuneCeiling(),
+                transferTuneBaseRequests + transferTuneLevel * TRANSFER_TUNE_STEP));
+        if (target == currentMaxDownloadRequests) {
+            return;
+        }
+        currentMaxDownloadRequests = target;
+        if (BuildVars.LOGS_ENABLED) {
+            FileLog.d("debug_loading: " + fileName + " transfer window = " + target);
+        }
+        // Fill the freshly gained slots right away instead of waiting for the
+        // next completed chunk.
+        startDownloadRequest(-1);
+    }
+
+    private int getTransferTuneMaxLevel() {
+        final int ceiling = getTransferTuneCeiling();
+        return Math.max(0, (ceiling - transferTuneBaseRequests) / TRANSFER_TUNE_STEP);
+    }
+
+    /*
+     * Classic probe / keep / back off loop:
+     *  - stay at the current window for a few measurement periods,
+     *  - then widen it once and skip one settling period,
+     *  - keep the wider window only if the measured speed really improved,
+     *    otherwise fall back and stop probing for a while.
+     */
+    private void tuneDownloadThroughput(int bytes) {
+        if (!transferTuneEnabled || bytes <= 0) {
+            return;
+        }
+        transferTuneWindowBytes += bytes;
+        final long now = System.currentTimeMillis();
+        final long elapsed = now - transferTuneWindowStart;
+        // React quickly on the first samples so short transfers benefit as
+        // well, then settle on a longer, less noisy measurement period.
+        final long interval = transferTuneWindows < 2 ? 700L : TRANSFER_TUNE_WINDOW_MS;
+        if (elapsed < interval) {
+            return;
+        }
+        final long speed = transferTuneWindowBytes * 1000L / elapsed;
+        transferTuneWindowBytes = 0;
+        transferTuneWindowStart = now;
+        transferTuneWindows++;
+        if (speed <= 0 || state != stateDownloading) {
+            return;
+        }
+        if (transferTuneSettleWindows > 0) {
+            // The freshly widened window is still filling up, do not judge it.
+            transferTuneSettleWindows--;
+            return;
+        }
+        if (transferTuneProbing) {
+            transferTuneProbing = false;
+            transferTuneWindowsAtLevel = 0;
+            if (speed > transferTuneSpeedBeforeProbe + transferTuneSpeedBeforeProbe / 32) {
+                transferTuneBestSpeed = speed;
+            } else {
+                // No gain - go back to the previous window and stop probing.
+                if (transferTuneLevel > 0) {
+                    transferTuneLevel--;
+                }
+                transferTuneBestSpeed = speed;
+                transferTuneCooldownUntil = now + 15000L;
+                applyTransferTune();
+            }
+            return;
+        }
+        if (speed > transferTuneBestSpeed) {
+            transferTuneBestSpeed = speed;
+        }
+        transferTuneWindowsAtLevel++;
+        if (transferTuneLevel < getTransferTuneMaxLevel()
+                && transferTuneWindowsAtLevel >= 3
+                && now >= transferTuneCooldownUntil) {
+            transferTuneProbing = true;
+            transferTuneSettleWindows = 1;
+            transferTuneSpeedBeforeProbe = transferTuneBestSpeed;
+            transferTuneWindowsAtLevel = 0;
+            transferTuneLevel++;
+            applyTransferTune();
+        }
+    }
+
+    private void onDownloadTransferError() {
+        if (!transferTuneEnabled) {
+            return;
+        }
+        final long now = System.currentTimeMillis();
+        transferTuneProbing = false;
+        transferTuneSettleWindows = 0;
+        transferTuneWindowsAtLevel = 0;
+        transferTuneCooldownUntil = now + 10000L;
+        if (transferTuneLevel > 0) {
+            transferTuneLevel = Math.max(0, transferTuneLevel - 2);
+            transferTuneBestSpeed = 0;
+            applyTransferTune();
+        }
     }
 
     public FileLoadOperation(ImageLocation imageLocation, Object parent, String extension, long size) {
@@ -809,6 +1042,9 @@ public class FileLoadOperation {
         }
         paused = true;
         Utilities.stageQueue.postRunnable(() -> {
+            transferTuneWindowBytes = 0;
+            transferTuneWindowStart = System.currentTimeMillis();
+                transferTuneWindows = 0;
             if (isStory) {
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d("debug_loading: " + cacheFileFinal.getName() + " pause operation, clear requests");
@@ -847,6 +1083,9 @@ public class FileLoadOperation {
                 currentDownloadChunkSize = bigChunk ? downloadChunkSizeBig : downloadChunkSize;
                 currentMaxDownloadRequests = bigChunk ? maxDownloadRequestsBig : maxDownloadRequests;
             }
+            initTransferTune();
+        } else {
+            ensureTransferTuneState();
         }
         final boolean alreadyStarted = state != stateIdle;
         final boolean wasPaused = paused;
@@ -1411,7 +1650,7 @@ public class FileLoadOperation {
         FileLog.d("cancelRequests" + (fullyCancelled != null ? " with callback" : ""));
         if (requestInfos != null) {
             int[] waitingForCancelledCount = new int[1];
-            int[] waitingDownloadSize = new int[2];
+            int[] waitingDownloadSize = new int[DOWNLOAD_CONNECTION_TYPES.length];
             for (int a = 0; a < requestInfos.size(); a++) {
                 RequestInfo requestInfo = requestInfos.get(a);
                 if (requestInfo.requestToken != 0) {
@@ -1437,12 +1676,11 @@ public class FileLoadOperation {
                             }
                         });
                     }
-                    int index = requestInfo.connectionType == ConnectionsManager.ConnectionTypeDownload ? 0 : 1;
-                    waitingDownloadSize[index] += requestInfo.chunkSize;
+                    waitingDownloadSize[getDownloadConnectionIndex(requestInfo.connectionType)] += requestInfo.chunkSize;
                 }
             }
-            for (int i = 0; i < 2; i++) {
-                int connectionType = i == 0 ? ConnectionsManager.ConnectionTypeDownload : ConnectionsManager.ConnectionTypeDownload2;
+            for (int i = 0; i < DOWNLOAD_CONNECTION_TYPES.length; i++) {
+                int connectionType = DOWNLOAD_CONNECTION_TYPES[i];
                 if (waitingDownloadSize[i] > 1024 * 1024)  {
                     int datacenterId = isCdn ? cdnDatacenterId : this.datacenterId;
                     ConnectionsManager.getInstance(currentAccount).discardConnection(datacenterId, connectionType);
@@ -1452,6 +1690,7 @@ public class FileLoadOperation {
     }
 
     private void cleanup() {
+        releaseTransferTune();
         try {
             if (fileOutputStream != null) {
                 try {
@@ -2038,6 +2277,10 @@ public class FileLoadOperation {
                 if (finishedDownloading) {
                     onFinishLoadingFile(true, FINISH_CODE_DEFAULT, finishPreload);
                 } else if (state != stateCanceled && state != stateCancelling) {
+                    // Measure only after the chunk has been fully committed to the
+                    // file and to the downloaded ranges, otherwise widening the
+                    // window here could re-request the chunk that just arrived.
+                    tuneDownloadThroughput(currentBytesSize);
                     startDownloadRequest(requestInfo.connectionType);
                 }
             } catch (Exception e) {
@@ -2052,6 +2295,7 @@ public class FileLoadOperation {
                 }
             }
         } else {
+            onDownloadTransferError();
             if (error.text.contains("LIMIT_INVALID") && !requestInfo.forceSmallChunk) {
                 if (requestInfo.whenCancelled != null) {
                     requestInfo.whenCancelled.run();
@@ -2061,6 +2305,7 @@ public class FileLoadOperation {
                     forceSmallChunk = true;
                     currentDownloadChunkSize =  1024 * 32;
                     currentMaxDownloadRequests = 4;
+                    releaseTransferTune();
                 }
                 startDownloadRequest(requestInfo.connectionType);
             } else if (error.text.contains("FILE_MIGRATE_")) {
@@ -2145,7 +2390,7 @@ public class FileLoadOperation {
 
     private void clearOperation(RequestInfo currentInfo, boolean preloadChanged, boolean acceptChunksAfterCancel) {
         long minOffset = Long.MAX_VALUE;
-        int[] waitingDownloadSize = new int[2];
+        int[] waitingDownloadSize = new int[DOWNLOAD_CONNECTION_TYPES.length];
         for (int a = 0; a < requestInfos.size(); a++) {
             RequestInfo info = requestInfos.get(a);
             minOffset = Math.min(info.offset, minOffset);
@@ -2177,8 +2422,8 @@ public class FileLoadOperation {
                 }
             }
         }
-        for (int i = 0; i < 2; i++) {
-            int connectionType = i == 0 ? ConnectionsManager.ConnectionTypeDownload : ConnectionsManager.ConnectionTypeDownload2;
+        for (int i = 0; i < DOWNLOAD_CONNECTION_TYPES.length; i++) {
+            int connectionType = DOWNLOAD_CONNECTION_TYPES[i];
             if (waitingDownloadSize[i] > 512 * 1024 * 2)  {
                 int datacenterId = isCdn ? cdnDatacenterId : this.datacenterId;
                 ConnectionsManager.getInstance(currentAccount).discardConnection(datacenterId, connectionType);
@@ -2368,7 +2613,7 @@ public class FileLoadOperation {
             final TLObject request;
             int connectionType;
             if (useConnectionType == -1) {
-                connectionType = requestsCount % 2 == 0 ? ConnectionsManager.ConnectionTypeDownload : ConnectionsManager.ConnectionTypeDownload2;
+                connectionType = DOWNLOAD_CONNECTION_TYPES[requestsCount % DOWNLOAD_CONNECTION_TYPES.length];
                 //globalRequestPointer++;
             } else {
                 connectionType = useConnectionType;

@@ -48,7 +48,31 @@ public class FileUploadOperation {
     private static final int maxUploadingBoostKBytes = 1024 * 4;
     private static final int maxUploadingSlowNetworkKBytes = 32;
 
+    /*
+     * Adaptive upload window. The boost preset starts with a 4 MB window and
+     * widens it only while the measured upload speed keeps improving, up to a
+     * hard memory bound. Any failure or slowdown shrinks the window again, so
+     * a saturated or unstable connection never ends up flooding the server.
+     */
+    private static final int TRANSFER_TUNE_WINDOW_MS = 1500;
+    private static final int TRANSFER_TUNE_STEP = 2;
+    private static final int TRANSFER_TUNE_MAX_REQUESTS = 12;
+    private static final int TRANSFER_TUNE_MAX_WINDOW_KB = 6 * 1024;
+    private static final int TRANSFER_TUNE_LOW_MEMORY_WINDOW_KB = 4 * 1024;
+
     private int maxRequestsCount;
+    private int uploadTuneBaseRequests;
+    private int uploadTuneLevel;
+    private int uploadTuneMaxLevel;
+    private long uploadTuneWindowStart;
+    private long uploadTuneWindowBytes;
+    private long uploadTuneCooldownUntil;
+    private int uploadTuneWindows;
+    private int uploadTuneWindowsAtLevel;
+    private int uploadTuneSettleWindows;
+    private boolean uploadTuneProbing;
+    private long uploadTuneSpeedBeforeProbe;
+    private long uploadTuneBestSpeed;
     private int uploadChunkSize = 64 * 1024;
     private boolean slowNetwork;
     private ArrayList<byte[]> freeRequestIvs;
@@ -167,6 +191,7 @@ public class FileUploadOperation {
                 cachedResults.clear();
 
                 operationGuid++;
+                resetUploadTransferTune();
                 int initialRequestCount = slowNetwork ? initialRequestsSlowNetworkCount : initialRequestsCount;
                 startUploadRequest();
                 for (int a = 1; a < initialRequestCount && a < maxRequestsCount; a++) {
@@ -193,6 +218,9 @@ public class FileUploadOperation {
     }
 
     private void cleanup() {
+        uploadTuneMaxLevel = 0;
+        uploadTuneLevel = 0;
+        uploadTuneWindowBytes = 0;
         if (preferences == null) {
             preferences = ApplicationLoader.applicationContext.getSharedPreferences("uploadinfo", Activity.MODE_PRIVATE);
         }
@@ -278,6 +306,121 @@ public class FileUploadOperation {
         forceSmallFile = true;
     }
 
+    private void initUploadTransferTune(boolean enabled) {
+        uploadTuneBaseRequests = maxRequestsCount;
+        uploadTuneLevel = 0;
+        uploadTuneMaxLevel = 0;
+        uploadTuneWindows = 0;
+        uploadTuneWindowsAtLevel = 0;
+        uploadTuneSettleWindows = 0;
+        uploadTuneProbing = false;
+        uploadTuneSpeedBeforeProbe = 0;
+        uploadTuneBestSpeed = 0;
+        uploadTuneWindowBytes = 0;
+        uploadTuneCooldownUntil = 0;
+        uploadTuneWindowStart = System.currentTimeMillis();
+        if (!enabled || !isBigFile || uploadChunkSize <= 0) {
+            return;
+        }
+        int windowKb = TRANSFER_TUNE_MAX_WINDOW_KB;
+        final long maxHeap = Runtime.getRuntime().maxMemory();
+        if (maxHeap > 0 && maxHeap < 192L * 1024 * 1024) {
+            // Keep the in-flight buffers small on low memory devices.
+            windowKb = TRANSFER_TUNE_LOW_MEMORY_WINDOW_KB;
+        }
+        final int maxRequests = Math.max(uploadTuneBaseRequests, Math.min(TRANSFER_TUNE_MAX_REQUESTS, windowKb / uploadChunkSize));
+        uploadTuneMaxLevel = Math.max(0, (maxRequests - uploadTuneBaseRequests) / TRANSFER_TUNE_STEP);
+    }
+
+    private void applyUploadTransferTune() {
+        if (uploadTuneMaxLevel <= 0) {
+            return;
+        }
+        final int previous = maxRequestsCount;
+        final int target = Math.max(1, uploadTuneBaseRequests + uploadTuneLevel * TRANSFER_TUNE_STEP);
+        if (target == previous) {
+            return;
+        }
+        maxRequestsCount = target;
+        if (target > previous) {
+            // Fill the newly available slots right away.
+            for (int a = previous; a < target; a++) {
+                startUploadRequest();
+            }
+        }
+        if (BuildVars.LOGS_ENABLED) {
+            FileLog.d("debug_uploading: transfer window = " + target);
+        }
+    }
+
+    /*
+     * Same probe / keep / back off strategy as the download side: only widen
+     * the window when a probe really made the upload faster, otherwise fall
+     * back so a flaky connection is never pushed harder than it can take.
+     */
+    private void tuneUploadThroughput(int bytes) {
+        if (uploadTuneMaxLevel <= 0 || state != 1 || bytes <= 0) {
+            return;
+        }
+        uploadTuneWindowBytes += bytes;
+        final long now = System.currentTimeMillis();
+        final long elapsed = now - uploadTuneWindowStart;
+        final long interval = uploadTuneWindows < 2 ? 700L : TRANSFER_TUNE_WINDOW_MS;
+        if (elapsed < interval) {
+            return;
+        }
+        final long speed = uploadTuneWindowBytes * 1000L / elapsed;
+        uploadTuneWindowBytes = 0;
+        uploadTuneWindowStart = now;
+        uploadTuneWindows++;
+        if (speed <= 0) {
+            return;
+        }
+        if (uploadTuneSettleWindows > 0) {
+            uploadTuneSettleWindows--;
+            return;
+        }
+        if (uploadTuneProbing) {
+            uploadTuneProbing = false;
+            uploadTuneWindowsAtLevel = 0;
+            if (speed > uploadTuneSpeedBeforeProbe + uploadTuneSpeedBeforeProbe / 32) {
+                uploadTuneBestSpeed = speed;
+            } else {
+                if (uploadTuneLevel > 0) {
+                    uploadTuneLevel--;
+                }
+                uploadTuneBestSpeed = speed;
+                uploadTuneCooldownUntil = now + 15000L;
+                applyUploadTransferTune();
+            }
+            return;
+        }
+        if (speed > uploadTuneBestSpeed) {
+            uploadTuneBestSpeed = speed;
+        }
+        uploadTuneWindowsAtLevel++;
+        if (uploadTuneLevel < uploadTuneMaxLevel
+                && uploadTuneWindowsAtLevel >= 3
+                && now >= uploadTuneCooldownUntil) {
+            uploadTuneProbing = true;
+            uploadTuneSettleWindows = 1;
+            uploadTuneSpeedBeforeProbe = uploadTuneBestSpeed;
+            uploadTuneWindowsAtLevel = 0;
+            uploadTuneLevel++;
+            applyUploadTransferTune();
+        }
+    }
+
+    private void resetUploadTransferTune() {
+        uploadTuneWindowBytes = 0;
+        uploadTuneWindows = 0;
+        uploadTuneWindowsAtLevel = 0;
+        uploadTuneSettleWindows = 0;
+        uploadTuneProbing = false;
+        uploadTuneBestSpeed = 0;
+        uploadTuneWindowStart = System.currentTimeMillis();
+    }
+
     private void startUploadRequest() {
         if (state != 1) {
             return;
@@ -337,6 +480,7 @@ public class FileUploadOperation {
                 int windowKBytes = slowNetwork ? maxUploadingSlowNetworkKBytes
                         : NekoConfig.uploadBoost.Bool() && !isEncrypted ? maxUploadingBoostKBytes : maxUploadingKBytes;
                 maxRequestsCount = Math.max(1, windowKBytes / uploadChunkSize);
+                initUploadTransferTune(!slowNetwork && !isEncrypted && NekoConfig.uploadBoost.Bool());
 
                 if (isEncrypted) {
                     freeRequestIvs = new ArrayList<>(maxRequestsCount);
@@ -616,6 +760,7 @@ public class FileUploadOperation {
                 }
                 delegate.didChangedUploadProgress(FileUploadOperation.this, uploadedBytesCount, size);
                 currentUploadRequetsCount--;
+                tuneUploadThroughput(currentRequestBytes);
                 if (isLastPart && currentUploadRequetsCount == 0 && state == 1) {
                     state = 3;
                     if (key == null) {

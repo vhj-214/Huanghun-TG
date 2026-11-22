@@ -2512,7 +2512,10 @@ inline void addMessageToDatacenter(uint32_t datacenterId, NetworkMessage *networ
 #define MAX_GENERAL_REQUESTS 60 * 8
 #define MAX_DOWNLOAD_REQUESTS_CANCELS 24 * 2
 #define MAX_DOWNLOAD_REQUESTS_PREMIUM 32 * 2
-#define MAX_DOWNLOAD_REQUESTS 16 * 2
+// Free accounts use the same in-flight budget as premium ones. The actual
+// number of parallel requests stays adaptive on the Java side, this is only
+// the hard ceiling the queue is allowed to reach.
+#define MAX_DOWNLOAD_REQUESTS 32 * 2
 #define MAX_UPLOAD_REQUESTS 10 * 3
 
 void ConnectionsManager::processRequestQueue(uint32_t connectionTypes, uint32_t dc) {

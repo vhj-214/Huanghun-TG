@@ -5544,7 +5544,16 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         saveFile(selectedObject, fullPath, context, type, name, mime, onSaved, true);
     }
 
+    /** Saves a user-invoked download into Huanghun's chat folder without changing other save flows. */
+    public static void saveFileToHuanghunPath(MessageObject selectedObject, String fullPath, Context context, final int type, final String name, final String mime, final Utilities.Callback<Uri> onSaved) {
+        saveFile(selectedObject, fullPath, context, type, name, mime, onSaved, true, true);
+    }
+
     public static void saveFile(MessageObject selectedObject, String fullPath, Context context, final int type, final String name, final String mime, final Utilities.Callback<Uri> onSaved, boolean showProgress) {
+        saveFile(selectedObject, fullPath, context, type, name, mime, onSaved, showProgress, false);
+    }
+
+    private static void saveFile(MessageObject selectedObject, String fullPath, Context context, final int type, final String name, final String mime, final Utilities.Callback<Uri> onSaved, boolean showProgress, boolean useHuanghunPath) {
         if (fullPath == null || context == null) {
             return;
         }
@@ -5588,27 +5597,33 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 try {
                     Uri uri;
                     boolean result = true;
-                    String folderName = NekoConfig.customSavePath.String();
-                    if (selectedObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
+                    String folderName = useHuanghunPath ? "" : NekoConfig.customSavePath.String();
+                    if (useHuanghunPath && selectedObject != null) {
+                        folderName = ChatsHelper.getChatFolderName(selectedObject);
+                    } else if (selectedObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
                         String chatFolderName = ChatsHelper.getChatFolderName(selectedObject);
                         folderName = folderName + File.separator + chatFolderName;
                     }
                     if (Build.VERSION.SDK_INT >= 29) {
-                        uri = saveFileInternal(type, sourceFile, name, selectedObject);
+                        uri = saveFileInternal(type, sourceFile, name, selectedObject, useHuanghunPath);
                         result = uri != null;
                     } else {
                         File destFile;
                         if (type == 0) {
-                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), folderName);
+                            File baseDir = useHuanghunPath ? NekoConfig.getHuanghunDefaultSaveDirectory() : Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+                            destFile = new File(baseDir, folderName);
                             destFile.mkdirs();
                             destFile = new File(destFile, AndroidUtilities.generateFileName(0, FileLoader.getFileExtension(sourceFile)));
                         } else if (type == 1) {
-                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), folderName);
+                            File baseDir = useHuanghunPath ? NekoConfig.getHuanghunDefaultSaveDirectory() : Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+                            destFile = new File(baseDir, folderName);
                             destFile.mkdirs();
                             destFile = new File(destFile, AndroidUtilities.generateFileName(1, FileLoader.getFileExtension(sourceFile)));
                         } else {
                             File dir;
-                            if (type == 2) {
+                            if (useHuanghunPath) {
+                                dir = NekoConfig.getHuanghunDefaultSaveDirectory();
+                            } else if (type == 2) {
                                 dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                             } else {
                                 dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC);
@@ -5874,6 +5889,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     private static Uri saveFileInternal(int type, File sourceFile, String filename, MessageObject messageObject) {
+        return saveFileInternal(type, sourceFile, filename, messageObject, false);
+    }
+
+    private static Uri saveFileInternal(int type, File sourceFile, String filename, MessageObject messageObject, boolean useHuanghunPath) {
         try {
             int selectedType = type;
             ContentValues contentValues = new ContentValues();
@@ -5891,17 +5910,27 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     selectedType = 1;
                 }
             }
-            String folderName = NekoConfig.customSavePath.String();
-            if (messageObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
+            String folderName = useHuanghunPath ? "" : NekoConfig.customSavePath.String();
+            if (useHuanghunPath && messageObject != null) {
+                folderName = ChatsHelper.getChatFolderName(messageObject);
+            } else if (messageObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
                 String chatFolderName = ChatsHelper.getChatFolderName(messageObject);
                 folderName = folderName + File.separator + chatFolderName;
             }
+            if (useHuanghunPath && hasHuanghunDirectStorageAccess()) {
+                return saveFileToHuanghunDirectory(sourceFile, filename, folderName);
+            }
+            String relativeSaveRoot = useHuanghunPath
+                    ? NekoConfig.HUANGHUN_DEFAULT_SAVE_RELATIVE_PATH
+                    : null;
             if (selectedType == 0) {
                 if (filename == null) {
                     filename = AndroidUtilities.generateFileName(0, extension);
                 }
-                uriToInsert = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-                File dirDest = new File(Environment.DIRECTORY_PICTURES, folderName);
+                uriToInsert = useHuanghunPath
+                        ? MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                        : MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                File dirDest = new File(useHuanghunPath ? relativeSaveRoot : Environment.DIRECTORY_PICTURES, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 contentValues.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
                 contentValues.put(MediaStore.Images.Media.MIME_TYPE, mimeType);
@@ -5909,17 +5938,21 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (filename == null) {
                     filename = AndroidUtilities.generateFileName(1, extension);
                 }
-                File dirDest = new File(Environment.DIRECTORY_MOVIES, folderName);
+                File dirDest = new File(useHuanghunPath ? relativeSaveRoot : Environment.DIRECTORY_MOVIES, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
-                uriToInsert = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                uriToInsert = useHuanghunPath
+                        ? MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                        : MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Video.Media.DISPLAY_NAME, filename);
             } else if (selectedType == 2) {
                 if (filename == null) {
                     filename = sourceFile.getName();
                 }
-                File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, folderName);
+                File dirDest = new File(useHuanghunPath ? relativeSaveRoot : Environment.DIRECTORY_DOWNLOADS, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
-                uriToInsert = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                uriToInsert = useHuanghunPath
+                        ? MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                        : MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Downloads.DISPLAY_NAME, filename);
             } else {
                 if (filename == null) {
@@ -5945,6 +5978,40 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             FileLog.e(e);
             return null;
         }
+    }
+
+    private static boolean hasHuanghunDirectStorageAccess() {
+        if (Build.VERSION.SDK_INT < 30) {
+            return true;
+        }
+        try {
+            return Environment.isExternalStorageManager();
+        } catch (Throwable ignore) {
+            return false;
+        }
+    }
+
+    private static Uri saveFileToHuanghunDirectory(File sourceFile, String filename, String folderName) throws IOException {
+        File directory = NekoConfig.getHuanghunDefaultSaveDirectory();
+        if (!TextUtils.isEmpty(folderName)) {
+            directory = new File(directory, folderName);
+        }
+        if (!directory.exists() && !directory.mkdirs() && !directory.isDirectory()) {
+            throw new IOException("Unable to create Huanghun save directory: " + directory);
+        }
+        String targetName = TextUtils.isEmpty(filename) ? sourceFile.getName() : filename;
+        File destination = new File(directory, targetName);
+        if (destination.exists()) {
+            int extensionIndex = targetName.lastIndexOf('.');
+            for (int index = 1; index <= 10 && destination.exists(); index++) {
+                String candidate = extensionIndex > 0
+                        ? targetName.substring(0, extensionIndex) + "(" + index + ")" + targetName.substring(extensionIndex)
+                        : targetName + "(" + index + ")";
+                destination = new File(directory, candidate);
+            }
+        }
+        AndroidUtilities.copyFile(sourceFile, destination);
+        return Uri.fromFile(destination);
     }
 
     public static String getStickerExt(Uri uri) {

@@ -11,6 +11,7 @@ import static tw.nekomimi.nekogram.config.ConfigItem.configTypeString;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Environment;
 import android.util.Base64;
 import android.util.Pair;
 
@@ -20,6 +21,7 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -140,8 +142,12 @@ public class NekoConfig {
     public static ConfigItem showIdAndDc = addConfig("ShowIdAndDc", configTypeBool, true);
 
     public static ConfigItem cachePath = addConfig("cache_path", configTypeString, "");
-    // Default attachment folder under Downloads. Users can still change or clear it in General settings.
+    public static final String HUANGHUN_DEFAULT_SAVE_RELATIVE_PATH = "黄昏/存储";
     public static ConfigItem customSavePath = addConfig("customSavePath", configTypeString, "黄昏");
+
+    public static File getHuanghunDefaultSaveDirectory() {
+        return new File(Environment.getExternalStorageDirectory(), HUANGHUN_DEFAULT_SAVE_RELATIVE_PATH);
+    }
 
     // 新安装默认使用 Google 翻译；升级用户由黄昏一次性迁移同步。
     public static ConfigItem translationProvider = addConfig("translationProvider", configTypeInt, 1);
