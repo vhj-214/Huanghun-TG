@@ -219,6 +219,11 @@ android {
 
 androidComponents {
     onVariants(selector().all()) { variant ->
+        if (variant.buildType == 'staging' || variant.buildType == 'release') {
+            // Set the finalized per-variant signing properties explicitly for AGP 9.
+            variant.signingConfig.enableV1Signing.set(true)
+            variant.signingConfig.enableV2Signing.set(true)
+        }
         variant.outputs.forEach { output ->
             // Keep the distributable filename ASCII-only for Android download/file managers.
             String productName = 'Huanghun'
