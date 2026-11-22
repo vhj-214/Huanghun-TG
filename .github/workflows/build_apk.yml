@@ -99,7 +99,9 @@ jobs:
           done
           signature_report="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose "$apk")"
           printf '%s\n' "$signature_report"
-          if ! grep -q 'Verified using v1 scheme (JAR signing): true' <<< "$signature_report"; then
+          legacy_signature_report="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose --min-sdk-version 23 "$apk")"
+          printf '%s\n' "$legacy_signature_report"
+          if ! grep -q 'Verified using v1 scheme (JAR signing): true' <<< "$legacy_signature_report"; then
             echo "APK is missing a valid v1 signature: $apk" >&2
             exit 1
           fi
