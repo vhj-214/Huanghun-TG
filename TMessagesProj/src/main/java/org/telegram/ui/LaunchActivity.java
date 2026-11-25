@@ -1634,7 +1634,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         contactsToSendUri = null;
     }
 
-    private boolean handleSharedMultipleFiles(Intent intent, int account) {
+    private boolean handleSharedMultipleFiles(Intent intent, int account, long dialogId) {
         ArrayList<Uri> uris = org.telegram.messenger.SharedFileUriHelper.collect(intent);
         if (uris == null || uris.isEmpty()) {
             Toast.makeText(this, "Unsupported content", Toast.LENGTH_SHORT).show();
@@ -2055,7 +2055,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                         importingStickersSoftware = null;
                     }
                 } else if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
-                    handleSharedMultipleFiles(intent, intentAccount[0]);
+                    handleSharedMultipleFiles(intent, intentAccount[0], dialogId);
                 } else if (Intent.ACTION_VIEW.equals(intent.getAction())) {
                     Uri data = intent.getData();
 

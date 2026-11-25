@@ -99,6 +99,7 @@ class SharedFileIntentTest(unittest.TestCase):
         end = source.index("/**\n     * Some file managers", start)
         method = source[start:end]
         self.assertIn("for (Uri uri : uris)", method)
+        self.assertIn("Intent intent, int account, long dialogId", method)
         self.assertIn("catch (Throwable e)", method)
         self.assertIn("getContentResolver().getType(uri)", method)
         self.assertIn("SharedFileUriHelper.isPhotoOrVideoMimeType(itemType)", method)
@@ -106,7 +107,7 @@ class SharedFileIntentTest(unittest.TestCase):
         self.assertIn("documentsUrisArray.add(uri)", method)
         self.assertNotIn("if (declaredType != null && (declaredType.startsWith(\"image/\")", method)
         self.assertIn("ACTION_SEND_MULTIPLE.equals(intent.getAction())", source)
-        self.assertIn("handleSharedMultipleFiles(intent, intentAccount[0])", source)
+        self.assertIn("handleSharedMultipleFiles(intent, intentAccount[0], dialogId)", source)
 
     def test_single_share_uses_same_safe_uri_collector(self):
         source = LAUNCH.read_text()
