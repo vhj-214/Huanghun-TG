@@ -1634,43 +1634,131 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         contactsToSendUri = null;
     }
 
+    private boolean handleSharedMultipleFiles(Intent intent, int account) {
+        ArrayList<Uri> uris = org.telegram.messenger.SharedFileUriHelper.collect(intent);
+        if (uris == null || uris.isEmpty()) {
+            Toast.makeText(this, "Unsupported content", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        String declaredType = intent.getType();
+        Set<String> exportUris = MessagesController.getInstance(account).exportUri;
+        int accepted = 0;
+        for (Uri uri : uris) {
+            try {
+                if (uri == null || AndroidUtilities.isInternalUri(uri)) {
+                    continue;
+                }
+                String itemType = null;
+                try {
+                    itemType = getContentResolver().getType(uri);
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                if (TextUtils.isEmpty(itemType) || "*/*".equals(itemType) || "application/octet-stream".equals(itemType)) {
+                    itemType = declaredType;
+                    if (TextUtils.isEmpty(itemType) || "*/*".equals(itemType) || "application/octet-stream".equals(itemType)) {
+                        itemType = null;
+                    }
+                }
+
+                if (org.telegram.messenger.SharedFileUriHelper.isPhotoOrVideoMimeType(itemType)) {
+                    if (photoPathsArray == null) {
+                        photoPathsArray = new ArrayList<>();
+                    }
+                    SendMessagesHelper.SendingMediaInfo info = new SendMessagesHelper.SendingMediaInfo();
+                    info.uri = uri;
+                    info.isVideo = itemType.startsWith("video/");
+                    photoPathsArray.add(info);
+                    accepted++;
+                    continue;
+                }
+
+                String originalPath = uri.toString();
+                String fileName = null;
+                try {
+                    fileName = FileLoader.fixFileName(MediaController.getFileName(uri));
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                if (dialogId == 0 && exportingChatUri == null) {
+                    boolean matched = false;
+                    if (originalPath != null) {
+                        for (String patternText : exportUris) {
+                            try {
+                                Pattern pattern = Pattern.compile(patternText);
+                                if (pattern.matcher(originalPath).find() || fileName != null && pattern.matcher(fileName).find()) {
+                                    exportingChatUri = uri;
+                                    matched = true;
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                FileLog.e(e);
+                            }
+                        }
+                    }
+                    if (!matched && originalPath != null && originalPath.startsWith("content://com.kakao.talk") && originalPath.endsWith("KakaoTalkChats.txt")) {
+                        exportingChatUri = uri;
+                        matched = true;
+                    }
+                    if (matched) {
+                        accepted++;
+                        continue;
+                    }
+                }
+
+                String path = null;
+                try {
+                    path = AndroidUtilities.getPath(uri);
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                if (!BuildVars.NO_SCOPED_STORAGE) {
+                    try {
+                        path = MediaController.copyFileToCache(uri, "file");
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                        path = null;
+                    }
+                }
+                if (!TextUtils.isEmpty(path)) {
+                    if (path.startsWith("file:")) {
+                        path = path.replace("file://", "");
+                    }
+                    if (documentsPathsArray == null) {
+                        documentsPathsArray = new ArrayList<>();
+                        documentsOriginalPathsArray = new ArrayList<>();
+                    }
+                    documentsPathsArray.add(path);
+                    documentsOriginalPathsArray.add(originalPath);
+                } else {
+                    if (documentsUrisArray == null) {
+                        documentsUrisArray = new ArrayList<>();
+                    }
+                    documentsUrisArray.add(uri);
+                }
+                if (TextUtils.isEmpty(documentsMimeType) && !TextUtils.isEmpty(itemType)) {
+                    documentsMimeType = itemType;
+                }
+                accepted++;
+            } catch (Throwable e) {
+                // Invalid or revoked grants should not discard the other files in a batch.
+                FileLog.e(e);
+            }
+        }
+        if (accepted == 0) {
+            Toast.makeText(this, "无法读取分享文件，请检查文件访问权限", Toast.LENGTH_LONG).show();
+            return false;
+        }
+        return true;
+    }
+
     /**
      * Some file managers put a shared file only in ClipData instead of EXTRA_STREAM.
      * Keep both forms working, especially for APKs shared with a content:// URI.
      */
     private static Uri getSharedFileUri(Intent intent) {
-        if (intent == null) {
-            return null;
-        }
-        try {
-            Bundle extras = intent.getExtras();
-            if (extras != null) {
-                Object stream = extras.get(Intent.EXTRA_STREAM);
-                if (stream instanceof Uri) {
-                    return (Uri) stream;
-                } else if (stream instanceof Parcelable) {
-                    return Uri.parse(stream.toString());
-                }
-            }
-        } catch (Throwable e) {
-            FileLog.e(e);
-        }
-        try {
-            android.content.ClipData clipData = intent.getClipData();
-            if (clipData != null && clipData.getItemCount() > 0) {
-                Uri uri = clipData.getItemAt(0).getUri();
-                if (uri != null) {
-                    return uri;
-                }
-            }
-        } catch (Throwable e) {
-            FileLog.e(e);
-        }
-        Uri data = intent.getData();
-        if (data != null && ("content".equalsIgnoreCase(data.getScheme()) || "file".equalsIgnoreCase(data.getScheme()))) {
-            return data;
-        }
-        return null;
+        ArrayList<Uri> uris = org.telegram.messenger.SharedFileUriHelper.collect(intent);
+        return uris == null || uris.isEmpty() ? null : uris.get(0);
     }
 
     @SuppressLint("Range")
@@ -1967,136 +2055,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                         importingStickersSoftware = null;
                     }
                 } else if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
-                    boolean error = false;
-                    try {
-                        ArrayList<Parcelable> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-                        if (uris == null) {
-                            android.content.ClipData clipData = intent.getClipData();
-                            if (clipData != null && clipData.getItemCount() > 0) {
-                                uris = new ArrayList<>();
-                                for (int a = 0; a < clipData.getItemCount(); a++) {
-                                    Uri uri = clipData.getItemAt(a).getUri();
-                                    if (uri != null) {
-                                        uris.add(uri);
-                                    }
-                                }
-                            }
-                        }
-                        String type = intent.getType();
-                        if (uris != null) {
-                            for (int a = 0; a < uris.size(); a++) {
-                                Parcelable parcelable = uris.get(a);
-                                if (!(parcelable instanceof Uri)) {
-                                    parcelable = Uri.parse(parcelable.toString());
-                                }
-                                Uri uri = (Uri) parcelable;
-                                if (uri != null) {
-                                    if (AndroidUtilities.isInternalUri(uri)) {
-                                        uris.remove(a);
-                                        a--;
-                                    }
-                                }
-                            }
-                            if (uris.isEmpty()) {
-                                uris = null;
-                            }
-                        }
-                        if (uris != null) {
-                            if (type != null && (type.startsWith("image/") || type.startsWith("video/"))) {
-                                for (int a = 0; a < uris.size(); a++) {
-                                    Parcelable parcelable = uris.get(a);
-                                    if (!(parcelable instanceof Uri)) {
-                                        parcelable = Uri.parse(parcelable.toString());
-                                    }
-                                    Uri uri = (Uri) parcelable;
-                                    if (photoPathsArray == null) {
-                                        photoPathsArray = new ArrayList<>();
-                                    }
-                                    SendMessagesHelper.SendingMediaInfo info = new SendMessagesHelper.SendingMediaInfo();
-                                    info.uri = uri;
-                                    final String itemType = getContentResolver().getType(uri);
-                                    info.isVideo = itemType != null ? itemType.startsWith("video/") : type.startsWith("video/");
-                                    photoPathsArray.add(info);
-                                }
-                            } else {
-                                Set<String> exportUris = MessagesController.getInstance(intentAccount[0]).exportUri;
-                                for (int a = 0; a < uris.size(); a++) {
-                                    Parcelable parcelable = uris.get(a);
-                                    if (!(parcelable instanceof Uri)) {
-                                        parcelable = Uri.parse(parcelable.toString());
-                                    }
-                                    Uri uri = (Uri) parcelable;
-                                    final String itemType = getContentResolver().getType(uri);
-                                    if (itemType != null && (itemType.startsWith("image/") || itemType.startsWith("video/"))) {
-                                        if (photoPathsArray == null) {
-                                            photoPathsArray = new ArrayList<>();
-                                        }
-                                        SendMessagesHelper.SendingMediaInfo info = new SendMessagesHelper.SendingMediaInfo();
-                                        info.uri = uri;
-                                        info.isVideo = itemType.startsWith("video/");
-                                        photoPathsArray.add(info);
-                                        continue;
-                                    }
-                                    String path = AndroidUtilities.getPath(uri);
-                                    String originalPath = parcelable.toString();
-                                    if (originalPath == null) {
-                                        originalPath = path;
-                                    }
-
-                                    if (BuildVars.LOGS_ENABLED) {
-                                        FileLog.d("export path = " + originalPath);
-                                    }
-                                    if (dialogId == 0 && originalPath != null && exportingChatUri == null) {
-                                        boolean ok = false;
-                                        String fileName = FileLoader.fixFileName(MediaController.getFileName(uri));
-                                        for (String u : exportUris) {
-                                            try {
-                                                Pattern pattern = Pattern.compile(u);
-                                                if (pattern.matcher(originalPath).find() || pattern.matcher(fileName).find()) {
-                                                    exportingChatUri = uri;
-                                                    ok = true;
-                                                    break;
-                                                }
-                                            } catch (Exception e) {
-                                                FileLog.e(e);
-                                            }
-                                        }
-                                        if (ok) {
-                                            continue;
-                                        } else if (originalPath.startsWith("content://com.kakao.talk") && originalPath.endsWith("KakaoTalkChats.txt")) {
-                                            exportingChatUri = uri;
-                                            continue;
-                                        }
-                                    }
-                                    if (path != null) {
-                                        if (path.startsWith("file:")) {
-                                            path = path.replace("file://", "");
-                                        }
-                                        if (documentsPathsArray == null) {
-                                            documentsPathsArray = new ArrayList<>();
-                                            documentsOriginalPathsArray = new ArrayList<>();
-                                        }
-                                        documentsPathsArray.add(path);
-                                        documentsOriginalPathsArray.add(originalPath);
-                                    } else {
-                                        if (documentsUrisArray == null) {
-                                            documentsUrisArray = new ArrayList<>();
-                                        }
-                                        documentsUrisArray.add(uri);
-                                        documentsMimeType = type;
-                                    }
-                                }
-                            }
-                        } else {
-                            error = true;
-                        }
-                    } catch (Exception e) {
-                        FileLog.e(e);
-                        error = true;
-                    }
-                    if (error) {
-                        Toast.makeText(this, "Unsupported content", Toast.LENGTH_SHORT).show();
-                    }
+                    handleSharedMultipleFiles(intent, intentAccount[0]);
                 } else if (Intent.ACTION_VIEW.equals(intent.getAction())) {
                     Uri data = intent.getData();
 

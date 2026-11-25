@@ -20,9 +20,11 @@ import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -86,6 +88,13 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
     protected final ViewPagerAdapter viewPagerAdapter;
     public FrameLayout searchContainer;
     public final @NonNull RecyclerListView searchListView;
+    private static final int MESSAGE_SEARCH_OPTIONS_HEIGHT = 52;
+    private final FrameLayout searchResultsContainer;
+    private final LinearLayout messageSearchOptionsRow;
+    private final Switch deduplicateSearchSwitch;
+    private final Switch exactSearchSwitch;
+    private final TextView deduplicateSearchLabel;
+    private final TextView exactSearchLabel;
     public StickerEmptyView emptyView;
     private DefaultItemAnimator itemAnimator;
     public DialogsSearchAdapter dialogsSearchAdapter;
@@ -383,9 +392,35 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
 
         searchContainer = new FrameLayout(context);
         searchContainer.setBackgroundColor(Color.TRANSPARENT);
-        searchContainer.addView(emptyView);
-        searchContainer.addView(searchListView);
-        searchContainer.addView(noMediaFiltersSearchView);
+        // Clip both result routes below the fixed options row, including their
+        // empty/loading views. Padding alone would allow scrolled rows underneath it.
+        searchResultsContainer = new FrameLayout(context);
+        searchResultsContainer.setBackgroundColor(Color.TRANSPARENT);
+        searchResultsContainer.addView(emptyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        searchResultsContainer.addView(searchListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        searchResultsContainer.addView(noMediaFiltersSearchView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        searchContainer.addView(searchResultsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, type == 0 ? 0 : MESSAGE_SEARCH_OPTIONS_HEIGHT, 0, 0));
+
+        messageSearchOptionsRow = new LinearLayout(context);
+        messageSearchOptionsRow.setOrientation(LinearLayout.HORIZONTAL);
+        messageSearchOptionsRow.setPadding(AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8), 0);
+        messageSearchOptionsRow.setBackgroundColor(Color.TRANSPARENT);
+        messageSearchOptionsRow.setVisibility(type == 0 ? View.GONE : View.VISIBLE);
+        deduplicateSearchSwitch = new Switch(context, parent.getResourceProvider());
+        exactSearchSwitch = new Switch(context, parent.getResourceProvider());
+        deduplicateSearchLabel = new TextView(context);
+        exactSearchLabel = new TextView(context);
+        messageSearchOptionsRow.addView(createMessageSearchOption(context, deduplicateSearchLabel, deduplicateSearchSwitch, getString(R.string.hh_chat_search_deduplicate)), LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1f));
+        messageSearchOptionsRow.addView(createMessageSearchOption(context, exactSearchLabel, exactSearchSwitch, getString(R.string.hh_chat_search_exact)), LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1f));
+        searchContainer.addView(messageSearchOptionsRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, MESSAGE_SEARCH_OPTIONS_HEIGHT, Gravity.TOP));
+        // The adapter owns the per-pager defaults (deduplicate on, exact off).
+        // Attach listeners only after both controls have their initial state.
+        deduplicateSearchSwitch.setChecked(dialogsSearchAdapter.isDeduplicateSearchEnabled(), false);
+        exactSearchSwitch.setChecked(dialogsSearchAdapter.isExactSearchEnabled(), false);
+        deduplicateSearchSwitch.setOnCheckedChangeListener((button, checked) -> applyMessageSearchOptions());
+        exactSearchSwitch.setOnCheckedChangeListener((button, checked) -> applyMessageSearchOptions());
+        applyMessageSearchOptions();
+        updateMessageSearchOptionColors();
         searchListView.setEmptyView(emptyView);
         searchListView.setBackgroundColor(Color.TRANSPARENT);
         emptyView.setBackgroundColor(Color.TRANSPARENT);
@@ -641,6 +676,54 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         postsSearchContainer.listView.addEdgeEffectListener(this::invalidateBlur);
 
         setAdapter(viewPagerAdapter = new ViewPagerAdapter());
+    }
+
+    private FrameLayout createMessageSearchOption(Context context, TextView label, Switch button, String title) {
+        FrameLayout option = new FrameLayout(context) {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(info);
+                info.setClassName("android.widget.Switch");
+                info.setCheckable(true);
+                info.setChecked(button.isChecked());
+                info.setContentDescription(label.getText());
+            }
+        };
+        option.setFocusable(true);
+        option.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        option.setOnClickListener(view -> button.setChecked(!button.isChecked(), true));
+        label.setText(title);
+        label.setTextSize(14);
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL);
+        label.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        option.addView(label, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER_VERTICAL, LocaleController.isRTL ? 48 : 8, 0, LocaleController.isRTL ? 8 : 48, 0));
+        button.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
+        button.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        // The entire labeled half-row is one accessible, keyboard-clickable target.
+        option.addView(button, LayoutHelper.createFrame(48, LayoutHelper.MATCH_PARENT, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL));
+        return option;
+    }
+
+    private void applyMessageSearchOptions() {
+        boolean deduplicate = deduplicateSearchSwitch.isChecked();
+        boolean exact = exactSearchSwitch.isChecked();
+        // These setters re-filter retained results immediately; do not restart
+        // the query or clear caches just because a presentation option changed.
+        dialogsSearchAdapter.setMessageSearchOptions(deduplicate, exact);
+        noMediaFiltersSearchView.setMessageSearchOptions(deduplicate, exact);
+    }
+
+    private void updateMessageSearchOptionColors() {
+        int textColor = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, parent.getResourceProvider());
+        deduplicateSearchLabel.setTextColor(textColor);
+        exactSearchLabel.setTextColor(textColor);
+        for (int i = 0; i < messageSearchOptionsRow.getChildCount(); i++) {
+            messageSearchOptionsRow.getChildAt(i).setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector, parent.getResourceProvider()), 2));
+        }
+        deduplicateSearchSwitch.invalidate();
+        exactSearchSwitch.invalidate();
     }
 
     protected void onPageScrolled(int dx, int dy) {
@@ -1227,6 +1310,9 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
             arrayList.addAll(noMediaFiltersSearchView.getThemeDescriptions());
         }
 
+        arrayList.addAll(SimpleThemeDescription.createThemeDescriptions(this::updateMessageSearchOptionColors,
+                Theme.key_windowBackgroundWhiteBlackText, Theme.key_listSelector,
+                Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite));
         arrayList.add(new ThemeDescription(emptyView.title, ThemeDescription.FLAG_TEXTCOLOR, null, null, null, null, Theme.key_windowBackgroundWhiteBlackText));
         arrayList.add(new ThemeDescription(emptyView.subtitle, ThemeDescription.FLAG_TEXTCOLOR, null, null, null, null, Theme.key_windowBackgroundWhiteGrayText));
         arrayList.addAll(SimpleThemeDescription.createThemeDescriptions(()-> {
@@ -1237,6 +1323,7 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
     }
 
     public void updateColors() {
+        updateMessageSearchOptionColors();
         for (int i = 0; i < getChildCount(); i++) {
             if (getChildAt(i) instanceof FilteredSearchView) {
                 RecyclerListView recyclerListView = ((FilteredSearchView) getChildAt(i)).recyclerListView;
@@ -1313,14 +1400,23 @@ public class SearchViewPager extends ViewPagerFixed implements FilteredSearchVie
         this.pagesPaddingTop = top;
         this.pagesPaddingBottom = bottom;
 
-
-        // setPagesPaddings(searchContainer, searchListView, pagesPaddingTop, pagesPaddingBottom, doNotRequestLayout);
-        searchListView.setPadding(0, pagesPaddingTop, 0, pagesPaddingBottom, doNotRequestLayout);
-        noMediaFiltersSearchView.setPagesPaddings(pagesPaddingTop, pagesPaddingBottom, doNotRequestLayout);
+        int optionsHeight = messageSearchOptionsRow.getVisibility() == View.GONE ? 0 : AndroidUtilities.dp(MESSAGE_SEARCH_OPTIONS_HEIGHT);
+        MarginLayoutParams optionsParams = (MarginLayoutParams) messageSearchOptionsRow.getLayoutParams();
+        MarginLayoutParams resultsParams = (MarginLayoutParams) searchResultsContainer.getLayoutParams();
+        if (optionsParams.topMargin != top || resultsParams.topMargin != top + optionsHeight) {
+            optionsParams.topMargin = top;
+            resultsParams.topMargin = top + optionsHeight;
+            if (!doNotRequestLayout) {
+                messageSearchOptionsRow.requestLayout();
+                searchResultsContainer.requestLayout();
+            }
+        }
+        searchListView.setPadding(0, 0, 0, pagesPaddingBottom, doNotRequestLayout);
+        noMediaFiltersSearchView.setPagesPaddings(0, pagesPaddingBottom, doNotRequestLayout);
         {
             MarginLayoutParams mlp = (MarginLayoutParams) emptyView.getLayoutParams();
-            if (mlp.topMargin != pagesPaddingTop || mlp.bottomMargin != pagesPaddingBottom) {
-                mlp.topMargin = pagesPaddingTop;
+            if (mlp.topMargin != 0 || mlp.bottomMargin != pagesPaddingBottom) {
+                mlp.topMargin = 0;
                 mlp.bottomMargin = pagesPaddingBottom;
                 emptyView.requestLayout();
             }

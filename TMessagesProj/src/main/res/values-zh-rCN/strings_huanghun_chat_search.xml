@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hh_chat_search_deduplicate">去重搜索</string>
+    <string name="hh_chat_search_exact">精确搜索</string>
+</resources>

@@ -209,7 +209,7 @@
   <div class="scroll">
     <!-- 主菜单 -->
     <section class="screen on" id="screen-home">
-      <p class="lead">选择一个任务开始。<b>协议文件等同于账号密码</b>，仅用于本人账号，请勿上传或转发。</p>
+      <p class="lead">选择一个任务开始。<b>协议文件等同于账号密码</b>，仅用于本人账号，请勿公开或分享给不可信对象。</p>
 
       <button class="card" id="card-local" style="display:none" onclick="HH.exportLocal()">
         <span class="ico i-amber">
@@ -382,8 +382,10 @@
       <div id="result-files"></div>
       <div id="result-fails"></div>
       <div class="path" id="result-path"><span>保存位置</span><code></code></div>
+      <div class="note"><b>分享前请确认收件人</b>：协议或 Passkey 压缩包包含登录凭据，收件人可能使用它登录账号。请仅分享给可信对象。</div>
       <div class="actions">
         <button class="btn" onclick="go('home')">返回首页</button>
+        <button class="btn" id="result-share" style="display:none" onclick="HH.share()">分享</button>
         <button class="btn primary" onclick="HH.close()">完成</button>
       </div>
     </section>
@@ -467,11 +469,13 @@
         : '转换 · 外部账号提取 · Passkey';
     },
     busy: function(title, text){
+      document.getElementById('result-share').style.display = 'none';
       document.getElementById('busy-title').textContent = title || '正在处理…';
       document.getElementById('busy-text').textContent = text || '请保持应用在前台，处理完成后会自动显示结果。';
       go('busy');
     },
     error: function(message){
+      document.getElementById('result-share').style.display = 'none';
       document.getElementById('error-text').textContent = message || '未知错误';
       go('error');
     },
@@ -492,10 +496,19 @@
         pathBox.querySelector('code').textContent = data.path || '/storage/emulated/0/黄昏/协议制作/';
         document.getElementById('result-sub').textContent =
           '共 ' + files.length + ' 个压缩包 · ' + (data.publicDirectory === false ? '应用私有目录' : '公共目录');
+        document.getElementById('result-share').style.display = files.length && data.canShare !== false ? '' : 'none';
         go('result');
         requestAnimationFrame(reportHeight);
       } catch (e) {
         window.HH.error('结果解析失败：' + e);
+      }
+    },
+    share: function(){
+      if (document.getElementById('result-share').style.display === 'none') return;
+      if (window.Huanghun && window.Huanghun.share) {
+        window.Huanghun.share();
+      } else {
+        window.HH.error('客户端分享桥接不可用，请关闭页面后重试');
       }
     },
     close: function(){

@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -55,6 +56,7 @@ public final class ProtocolWebUi {
     private int maxHeightPx;
     private boolean pageReady;
     private boolean released;
+    private final ArrayList<File> resultFiles = new ArrayList<>();
 
     private ProtocolWebUi(BaseFragment fragment, boolean settingsMode) {
         this.fragmentRef = new WeakReference<>(fragment);
@@ -87,6 +89,7 @@ public final class ProtocolWebUi {
         if (ui == null || !ui.pageReady) {
             return false;
         }
+        ui.resultFiles.clear();
         try {
             JSONArray fileArray = new JSONArray();
             String directory = null;
@@ -95,6 +98,7 @@ public final class ProtocolWebUi {
                     if (file == null) {
                         continue;
                     }
+                    ui.resultFiles.add(file);
                     JSONObject item = new JSONObject();
                     item.put("name", file.getName());
                     item.put("size", file.length());
@@ -114,12 +118,14 @@ public final class ProtocolWebUi {
             payload.put("files", fileArray);
             payload.put("failures", failureArray);
             payload.put("publicDirectory", publicDirectory);
+            payload.put("canShare", !ui.resultFiles.isEmpty());
             if (directory != null) {
                 payload.put("path", directory);
             }
             ui.callJs("HH.result(" + JSONObject.quote(payload.toString()) + ")");
             return true;
         } catch (Throwable error) {
+            ui.resultFiles.clear();
             FileLog.e(error);
             return false;
         }
@@ -131,6 +137,7 @@ public final class ProtocolWebUi {
         if (ui == null || !ui.pageReady) {
             return false;
         }
+        ui.resultFiles.clear();
         ui.callJs("HH.error(" + JSONObject.quote(message == null ? "未知错误" : message) + ")");
         return true;
     }
@@ -140,6 +147,7 @@ public final class ProtocolWebUi {
         if (ui == null || !ui.pageReady) {
             return;
         }
+        ui.resultFiles.clear();
         ui.callJs("HH.busy(" + JSONObject.quote(title) + "," + JSONObject.quote(text) + ")");
     }
 
@@ -248,6 +256,7 @@ public final class ProtocolWebUi {
 
     private void dismiss() {
         released = true;
+        resultFiles.clear();
         try {
             if (dialog != null && dialog.isShowing()) {
                 dialog.dismiss();
@@ -361,6 +370,21 @@ public final class ProtocolWebUi {
                 BaseFragment fragment = fragmentRef.get();
                 if (fragment != null) {
                     ProtocolBuildUi.externalPasskeyFromUi(fragment, kind);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void share() {
+            AndroidUtilities.runOnUIThread(() -> {
+                // JavaScript cannot supply arbitrary paths or recipients. Only
+                // this live result page's native-generated archives are eligible.
+                if (released || current != ProtocolWebUi.this || resultFiles.isEmpty()) {
+                    return;
+                }
+                BaseFragment fragment = fragmentRef.get();
+                if (fragment != null && ProtocolShareHelper.share(fragment, new ArrayList<>(resultFiles))) {
+                    dismissCurrent();
                 }
             });
         }

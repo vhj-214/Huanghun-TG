@@ -44,6 +44,7 @@ import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.MessageSearchFilter;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
@@ -89,6 +90,7 @@ import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundPro
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 
 import me.vkryl.android.animator.BoolAnimator;
@@ -116,6 +118,20 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
     public SparseArray<MessageObject> messagesById = new SparseArray<>();
     public ArrayList<String> sections = new ArrayList<>();
     public HashMap<String, ArrayList<MessageObject>> sectionArrays = new HashMap<>();
+
+    // Keep server order and the raw cursor independent of the visible results.
+    private final ArrayList<MessageObject> rawMessages = new ArrayList<>();
+    private final HashSet<MessageHashId> rawMessageIds = new HashSet<>();
+    private MessageObject lastRawMessage;
+    private int rawMessagesLoaded;
+    private boolean messageSearchOptionsEnabled;
+    private boolean deduplicateMessageSearch = true;
+    private boolean exactMessageSearch;
+    private boolean messageSearchAutoLoadBlocked;
+    private int messageSearchPageTarget = 20;
+    private boolean loadingMoreFilteredMessages;
+    private int searchRequestToken;
+    private int searchRequestAccount;
 
     private int columnsCount = 3;
     private int nextSearchRate;
@@ -161,9 +177,7 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
         @Override
         public void run() {
             if (isLoading) {
-                messages.clear();
-                sections.clear();
-                sectionArrays.clear();
+                clearSearchResults();
                 if (adapter != null) {
                     adapter.notifyDataSetChanged();
                 }
@@ -400,7 +414,7 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
                 int lastVisibleItem = layoutManager.findLastVisibleItemPosition();
                 int visibleItemCount = Math.abs(lastVisibleItem - firstVisibleItem) + 1;
                 int totalItemCount = recyclerView.getAdapter().getItemCount();
-                if (!isLoading && visibleItemCount > 0 && lastVisibleItem >= totalItemCount - 10 && !endReached) {
+                if (!isLoading && visibleItemCount > 0 && lastVisibleItem >= totalItemCount - 10 && !endReached && !(isMessageSearchFilteringEnabled() && messageSearchAutoLoadBlocked)) {
                     AndroidUtilities.runOnUIThread(() -> {
                         search(currentSearchDialogId, currentSearchCommunityId, currentSearchMinDate, currentSearchMaxDate, currentSearchFilter, currentIncludeFolder, lastMessagesSearchString, false);
                     });
@@ -572,12 +586,95 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
         return fromName == null ? "" : fromName;
     }
 
+    public void setMessageSearchOptions(boolean deduplicate, boolean exact) {
+        if (messageSearchOptionsEnabled && deduplicateMessageSearch == deduplicate && exactMessageSearch == exact) {
+            return;
+        }
+        messageSearchOptionsEnabled = true;
+        deduplicateMessageSearch = deduplicate;
+        exactMessageSearch = exact;
+        messageSearchPageTarget = 20;
+        if (isMessageSearchFilteringEnabled()) {
+            rebuildMessageSearchResults();
+            if (messages.isEmpty()) {
+                emptyView.title.setText(LocaleController.getString(R.string.SearchEmptyViewTitle2));
+                emptyView.subtitle.setVisibility(View.GONE);
+            }
+            emptyView.showProgress(isLoading);
+            if (adapter != null) {
+                adapter.notifyDataSetChanged();
+            }
+            loadMoreFilteredMessages();
+        }
+    }
+
+    private boolean isMessageSearchFilteringEnabled() {
+        return messageSearchOptionsEnabled && currentSearchFilter == null;
+    }
+
+    private void clearSearchResults() {
+        rawMessages.clear();
+        rawMessageIds.clear();
+        lastRawMessage = null;
+        rawMessagesLoaded = 0;
+        nextSearchRate = 0;
+        currentDataQuery = null;
+        endReached = false;
+        messageSearchAutoLoadBlocked = false;
+        messageSearchPageTarget = 20;
+        messages.clear();
+        messagesById.clear();
+        sections.clear();
+        sectionArrays.clear();
+    }
+
+    private void rebuildMessageSearchResults() {
+        messages.clear();
+        messagesById.clear();
+        sections.clear();
+        sectionArrays.clear();
+        MessageSearchFilter filter = isMessageSearchFilteringEnabled() ? new MessageSearchFilter(deduplicateMessageSearch, exactMessageSearch) : null;
+        for (int i = 0; i < rawMessages.size(); i++) {
+            MessageObject messageObject = rawMessages.get(i);
+            if (filter != null && !filter.accept(messageObject.getDialogId(), MessageObject.getPeerId(messageObject.messageOwner.from_id), messageObject.getId(), messageObject.messageOwner.message, currentSearchString)) {
+                continue;
+            }
+            ArrayList<MessageObject> messageObjectsByDate = sectionArrays.get(messageObject.monthKey);
+            if (messageObjectsByDate == null) {
+                messageObjectsByDate = new ArrayList<>();
+                sectionArrays.put(messageObject.monthKey, messageObjectsByDate);
+                sections.add(messageObject.monthKey);
+            }
+            messageObjectsByDate.add(messageObject);
+            messages.add(messageObject);
+            messagesById.put(messageObject.getId(), messageObject);
+        }
+    }
+
+    private void loadMoreFilteredMessages() {
+        if (!isMessageSearchFilteringEnabled() || isLoading || endReached || messageSearchAutoLoadBlocked || messages.size() >= messageSearchPageTarget || currentDataQuery == null || !currentDataQuery.equals(currentSearchString)) {
+            return;
+        }
+        if (messages.isEmpty()) {
+            emptyView.showProgress(true);
+        }
+        loadingMoreFilteredMessages = true;
+        try {
+            search(currentSearchDialogId, currentSearchCommunityId, currentSearchMinDate, currentSearchMaxDate, currentSearchFilter, currentIncludeFolder, currentSearchString, false);
+        } finally {
+            loadingMoreFilteredMessages = false;
+        }
+    }
+
     public void search(long dialogId, long communityId, long minDate, long maxDate, FiltersView.MediaFilterData currentSearchFilter, boolean includeFolder, String query, boolean clearOldResults) {
         if (query == null) query = "";
         final String finalQuery = query;
         String currentSearchFilterQueryString = String.format(Locale.ENGLISH, "%d%d%d%d%d%s%s", dialogId, communityId, minDate, maxDate, currentSearchFilter == null ? -1 : currentSearchFilter.filterType, query, includeFolder);
         boolean filterAndQueryIsSame = lastSearchFilterQueryString != null && lastSearchFilterQueryString.equals(currentSearchFilterQueryString);
         boolean forceClear = !filterAndQueryIsSame && clearOldResults;
+        if (filterAndQueryIsSame && (clearOldResults || isLoading || endReached)) {
+            return;
+        }
         this.currentSearchFilter = currentSearchFilter;
         this.currentSearchDialogId = dialogId;
         this.currentSearchCommunityId = communityId;
@@ -585,17 +682,19 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
         this.currentSearchMaxDate = maxDate;
         this.currentSearchString = query;
         this.currentIncludeFolder = includeFolder;
+        if (filterAndQueryIsSame && isMessageSearchFilteringEnabled() && !loadingMoreFilteredMessages && messages.size() >= messageSearchPageTarget) {
+            messageSearchPageTarget = messages.size() + 20;
+        }
         if (searchRunnable != null) {
             AndroidUtilities.cancelRunOnUIThread(searchRunnable);
         }
-        AndroidUtilities.cancelRunOnUIThread(clearCurrentResultsRunnable);
-        if (filterAndQueryIsSame && clearOldResults) {
-            return;
+        if (searchRequestToken != 0) {
+            ConnectionsManager.getInstance(searchRequestAccount).cancelRequest(searchRequestToken, true);
+            searchRequestToken = 0;
         }
-        if (forceClear || currentSearchFilter == null && communityId == 0 && dialogId == 0 && minDate == 0 && maxDate == 0) {
-            messages.clear();
-            sections.clear();
-            sectionArrays.clear();
+        AndroidUtilities.cancelRunOnUIThread(clearCurrentResultsRunnable);
+        if (forceClear || !isMessageSearchFilteringEnabled() && currentSearchFilter == null && communityId == 0 && dialogId == 0 && minDate == 0 && maxDate == 0) {
+            clearSearchResults();
             isLoading = true;
             emptyView.setVisibility(View.VISIBLE);
             if (adapter != null) {
@@ -615,6 +714,7 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
             return;
         }
         isLoading = true;
+        messageSearchAutoLoadBlocked = false;
         if (adapter != null) {
             adapter.notifyDataSetChanged();
         }
@@ -634,8 +734,16 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
         requestIndex++;
         final int requestId = requestIndex;
         int currentAccount = UserConfig.selectedAccount;
+        final MessageObject paginationMessage = filterAndQueryIsSame && finalQuery.equals(lastMessagesSearchString) ? (isMessageSearchFilteringEnabled() ? lastRawMessage : messages.isEmpty() ? null : messages.get(messages.size() - 1)) : null;
+        final int previousSearchRate = nextSearchRate;
+        // Track the pending query too, so A -> B -> A during debounce cancels B.
+        lastSearchFilterQueryString = currentSearchFilterQueryString;
 
         AndroidUtilities.runOnUIThread(searchRunnable = () -> {
+            if (requestId != requestIndex) {
+                return;
+            }
+            searchRunnable = null;
             TLMethod<TLRPC.messages_Messages> request;
 
             ArrayList<Object> resultArray = null;
@@ -651,9 +759,8 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
                 if (maxDate > 0) {
                     req.max_date = (int) (maxDate / 1000);
                 }
-                if (filterAndQueryIsSame && finalQuery.equals(lastMessagesSearchString) && !messages.isEmpty()) {
-                    MessageObject lastMessage = messages.get(messages.size() - 1);
-                    req.offset_id = lastMessage.getId();
+                if (paginationMessage != null) {
+                    req.offset_id = paginationMessage.getId();
                 } else {
                     req.offset_id = 0;
                 }
@@ -677,11 +784,10 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
                 if (maxDate > 0) {
                     req.max_date = (int) (maxDate / 1000);
                 }
-                if (filterAndQueryIsSame && finalQuery.equals(lastMessagesSearchString) && !messages.isEmpty()) {
-                    MessageObject lastMessage = messages.get(messages.size() - 1);
-                    req.offset_id = lastMessage.getId();
-                    req.offset_rate = nextSearchRate;
-                    long id = MessageObject.getPeerId(lastMessage.messageOwner.peer_id);
+                if (paginationMessage != null) {
+                    req.offset_id = paginationMessage.getId();
+                    req.offset_rate = previousSearchRate;
+                    long id = MessageObject.getPeerId(paginationMessage.messageOwner.peer_id);
                     req.offset_peer = MessagesController.getInstance(currentAccount).getInputPeer(id);
                 } else {
                     req.offset_rate = 0;
@@ -694,14 +800,14 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
             }
 
             lastMessagesSearchString = finalQuery;
-            lastSearchFilterQueryString = currentSearchFilterQueryString;
 
             ArrayList<Object> finalResultArray = resultArray;
             final ArrayList<FiltersView.DateData> dateData = new ArrayList<>();
             FiltersView.fillTipDates(lastMessagesSearchString, dateData);
-            ConnectionsManager.getInstance(currentAccount).sendRequestTyped(request, (response, error) -> {
+            searchRequestAccount = currentAccount;
+            searchRequestToken = ConnectionsManager.getInstance(currentAccount).sendRequestTyped(request, (response, error) -> {
                 ArrayList<MessageObject> messageObjects = new ArrayList<>();
-                if (error == null) {
+                if (error == null && response != null) {
                     TLRPC.messages_Messages res = response;
                     int n = res.messages.size();
                     for (int i = 0; i < n; i++) {
@@ -715,51 +821,57 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
                     if (requestId != requestIndex) {
                         return;
                     }
+                    searchRequestToken = 0;
                     isLoading = false;
-                    if (error != null) {
+                    if (error != null || response == null) {
+                        messageSearchAutoLoadBlocked = true;
                         emptyView.title.setText(LocaleController.getString(R.string.SearchEmptyViewTitle2));
                         emptyView.subtitle.setVisibility(View.VISIBLE);
                         emptyView.subtitle.setText(LocaleController.getString(R.string.SearchEmptyViewFilteredSubtitle2));
                         emptyView.showProgress(false, true);
+                        if (adapter != null) {
+                            adapter.notifyDataSetChanged();
+                        }
                         return;
                     }
 
                     emptyView.showProgress(false);
 
                     TLRPC.messages_Messages res = response;
-                    nextSearchRate = res.next_rate;
                     MessagesStorage.getInstance(currentAccount).putUsersAndChats(res.users, res.chats, true, true);
                     MessagesController.getInstance(currentAccount).putUsers(res.users, false);
                     MessagesController.getInstance(currentAccount).putChats(res.chats, false);
                     if (!filterAndQueryIsSame) {
-                        messages.clear();
-                        messagesById.clear();
-                        sections.clear();
-                        sectionArrays.clear();
+                        clearSearchResults();
                     }
+                    nextSearchRate = res.next_rate;
                     totalCount = res.count;
                     currentDataQuery = finalQuery;
                     int n = messageObjects.size();
+                    int addedCount = 0;
                     for (int i = 0; i < n; i++) {
                         MessageObject messageObject = messageObjects.get(i);
-                        ArrayList<MessageObject> messageObjectsByDate = sectionArrays.get(messageObject.monthKey);
-                        if (messageObjectsByDate == null) {
-                            messageObjectsByDate = new ArrayList<>();
-                            sectionArrays.put(messageObject.monthKey, messageObjectsByDate);
-                            sections.add(messageObject.monthKey);
+                        boolean newMessage = rawMessageIds.add(new MessageHashId(messageObject.getId(), messageObject.getDialogId()));
+                        if (isMessageSearchFilteringEnabled() && !newMessage) {
+                            continue;
                         }
-                        messageObjectsByDate.add(messageObject);
-                        messages.add(messageObject);
-                        messagesById.put(messageObject.getId(), messageObject);
+                        rawMessages.add(messageObject);
+                        addedCount++;
 
                         if (PhotoViewer.getInstance().isVisible()) {
                             PhotoViewer.getInstance().addPhoto(messageObject, photoViewerClassGuid);
                         }
                     }
-                    if (messages.size() > totalCount) {
-                        totalCount = messages.size();
+                    rawMessagesLoaded += addedCount;
+                    if (n > 0) {
+                        lastRawMessage = messageObjects.get(n - 1);
                     }
-                    endReached = messages.size() >= totalCount;
+                    rebuildMessageSearchResults();
+                    if (rawMessagesLoaded > totalCount) {
+                        totalCount = rawMessagesLoaded;
+                    }
+                    boolean cursorUnchanged = paginationMessage != null && lastRawMessage != null && paginationMessage.getId() == lastRawMessage.getId() && paginationMessage.getDialogId() == lastRawMessage.getDialogId() && (dialogId != 0 && communityId == 0 || previousSearchRate == nextSearchRate);
+                    endReached = rawMessagesLoaded >= totalCount || isMessageSearchFilteringEnabled() && (n == 0 || addedCount == 0 || cursorUnchanged);
 
                     if (messages.isEmpty()) {
                         if (currentSearchFilter != null) {
@@ -917,9 +1029,10 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
                         });
                     }
                     adapter.notifyDataSetChanged();
+                    loadMoreFilteredMessages();
                 });
             });
-        }, (filterAndQueryIsSame && !messages.isEmpty()) ? 0 : 350);
+        }, (filterAndQueryIsSame && paginationMessage != null) ? 0 : 350);
 
         if (currentSearchFilter == null) {
             loadingView.setViewType(FlickerLoadingView.DIALOG_TYPE);
@@ -968,6 +1081,29 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
     }
 
     public void messagesDeleted(long channelId, ArrayList<Integer> markAsDeletedMessages) {
+        if (isMessageSearchFilteringEnabled()) {
+            boolean changed = false;
+            for (int j = rawMessages.size() - 1; j >= 0; j--) {
+                MessageObject messageObject = rawMessages.get(j);
+                long dialogId = messageObject.getDialogId();
+                long currentChannelId = dialogId < 0 && ChatObject.isChannel(-dialogId, UserConfig.selectedAccount) ? -dialogId : 0;
+                if (currentChannelId == channelId && markAsDeletedMessages.contains(messageObject.getId())) {
+                    rawMessages.remove(j);
+                    rawMessagesLoaded--;
+                    totalCount--;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                // Retain the raw cursor/IDs, including deleted IDs, so pagination cannot resurrect them.
+                rebuildMessageSearchResults();
+                if (adapter != null) {
+                    adapter.notifyDataSetChanged();
+                }
+                loadMoreFilteredMessages();
+            }
+            return;
+        }
         boolean changed = false;
         for (int j = 0; j < messages.size(); j++) {
             MessageObject messageObject = messages.get(j);
@@ -979,6 +1115,8 @@ public class FilteredSearchView extends FrameLayout implements NotificationCente
                         changed = true;
                         messages.remove(j);
                         messagesById.remove(messageObject.getId());
+                        rawMessages.remove(messageObject);
+                        rawMessagesLoaded--;
 
                         ArrayList<MessageObject> section = sectionArrays.get(messageObject.monthKey);
                         section.remove(messageObject);

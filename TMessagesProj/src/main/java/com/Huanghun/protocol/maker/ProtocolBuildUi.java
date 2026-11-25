@@ -36,6 +36,7 @@ import org.telegram.ui.LoginActivity;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -828,15 +829,23 @@ public final class ProtocolBuildUi {
         if (ProtocolWebUi.presentResult(files, failures, publicDirectory)) {
             return;
         }
+        final List<File> shareFiles = new ArrayList<>();
+        if (files != null) {
+            for (File file : files) {
+                if (file != null) {
+                    shareFiles.add(file);
+                }
+            }
+        }
         StringBuilder message = new StringBuilder();
-        message.append("已生成 ").append(files.size()).append(" 个协议压缩包：\n");
-        for (File file : files) {
+        message.append("已生成 ").append(shareFiles.size()).append(" 个协议压缩包：\n");
+        for (File file : shareFiles) {
             message.append("· ").append(file.getName()).append("（")
                     .append(file.length() / 1024).append(" KB）\n");
         }
         message.append("\n保存位置：\n");
-        if (!files.isEmpty()) {
-            File parent = files.get(0).getParentFile();
+        if (!shareFiles.isEmpty()) {
+            File parent = shareFiles.get(0).getParentFile();
             message.append(parent == null ? "未知" : parent.getAbsolutePath()).append("\n");
         }
         if (!publicDirectory) {
@@ -850,11 +859,15 @@ public final class ProtocolBuildUi {
                 message.append("· ").append(failures.get(i)).append("\n");
             }
         }
-        AlertDialog dialog = new AlertDialog.Builder(context)
+        message.append("\n协议或 Passkey 文件包含登录凭据，收件人可能使用它登录账号。请仅分享给可信对象。");
+        AlertDialog.Builder builder = new AlertDialog.Builder(context)
                 .setTitle("协议制作完成")
                 .setMessage(message.toString().trim())
-                .setPositiveButton("好", null)
-                .create();
+                .setPositiveButton("好", null);
+        if (!shareFiles.isEmpty()) {
+            builder.setNeutralButton("分享", (d, which) -> ProtocolShareHelper.share(context, shareFiles));
+        }
+        AlertDialog dialog = builder.create();
         styleDialog(dialog);
         dialog.show();
     }
