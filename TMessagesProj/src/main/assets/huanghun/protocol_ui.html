@@ -335,7 +335,15 @@
     <!-- 外部【通行密钥】 Passkey 制作 -->
     <section class="screen" id="screen-passkey">
       <button class="back" onclick="go('home')">‹ 返回</button>
-      <p class="lead">选择要导入的账号格式。JSON 和 tdata 会在本机临时转换为 session，再通过黄昏客户端连接注册 Passkey。</p>
+      <p class="lead">选择本机当前账号或外部导入账号。JSON 和 tdata 会在本机临时转换为 session，再通过黄昏客户端连接注册 Passkey。</p>
+
+      <button class="card" id="card-local-passkey" style="display:none" onclick="HH.localPasskey()">
+        <span class="ico i-amber">
+          <svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l7-7 3 3-7 7M16 7l2 2M6 15h.01"/></svg>
+        </span>
+        <span class="meta"><h3>本机密钥制作</h3><p>直接读取当前已登录账号并注册 Telegram Passkey</p></span>
+        <span class="chev">›</span>
+      </button>
 
       <button class="card" onclick="HH.passkey('session')">
         <span class="ico i-indigo">
@@ -358,7 +366,7 @@
         <span class="meta"><h3>tdata 压缩包</h3><p>选择包含完整 tdata 目录的 ZIP 压缩包</p></span>
         <span class="chev">›</span>
       </button>
-      <div class="note">注册会修改所选 Telegram 账号的 Passkey 设置。生成的 ZIP 含可登录账号的私钥文件，请仅处理本人账号并安全保管。API 请求使用黄昏客户端当前配置，不读取输入文件中的 API ID/hash；tdata 暂不支持设置了本地密码的目录。Telegram 可能要求 session/tdata 授权已满 24 小时；未满一天时可能无法创建，请等待满一天后重试。注册可能成功或失败，失败原因会显示在结果中。</div>
+      <div class="note">注册会修改本机当前账号或所选 Telegram 账号的 Passkey 设置。生成的 ZIP 含可登录账号的私钥文件，请仅处理本人账号并安全保管。API 请求使用黄昏客户端当前配置，不读取输入文件中的 API ID/hash；tdata 暂不支持设置了本地密码的目录。Telegram 可能要求授权已满 24 小时；未满一天时可能无法创建，请等待满一天后重试。注册可能成功或失败，失败原因会显示在结果中。</div>
     </section>
 
     <!-- 处理中 -->
@@ -459,9 +467,11 @@
     setSettingsMode: function(enabled){
       settingsMode = !!enabled;
       var local = document.getElementById('card-local');
+      var localPasskey = document.getElementById('card-local-passkey');
       var external = document.getElementById('card-external');
       // 登录页不允许读取本机已登录账号；黄昏服务页展示完整功能。
       if (local) local.style.display = settingsMode ? '' : 'none';
+      if (localPasskey) localPasskey.style.display = settingsMode ? '' : 'none';
       if (external) external.style.display = '';
       var sub = document.getElementById('subtitle');
       if (sub) sub.textContent = settingsMode
@@ -520,6 +530,13 @@
         window.Huanghun.exportLocal();
       } else {
         window.HH.error('协议制作桥接不可用，请关闭页面后重试');
+      }
+    },
+    localPasskey: function(){
+      if (settingsMode && window.Huanghun && window.Huanghun.localPasskey) {
+        window.Huanghun.localPasskey();
+      } else {
+        window.HH.error('本机密钥制作仅能从黄昏服务页面使用');
       }
     },
     convert: function(kind){

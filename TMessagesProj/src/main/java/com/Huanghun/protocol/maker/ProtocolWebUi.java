@@ -375,6 +375,16 @@ public final class ProtocolWebUi {
         }
 
         @JavascriptInterface
+        public void localPasskey() {
+            AndroidUtilities.runOnUIThread(() -> {
+                BaseFragment fragment = fragmentRef.get();
+                if (settingsMode && fragment instanceof com.Huanghun.HuanghunServiceActivity) {
+                    ProtocolBuildUi.localPasskeyFromUi(fragment);
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void share() {
             AndroidUtilities.runOnUIThread(() -> {
                 // JavaScript cannot supply arbitrary paths or recipients. Only

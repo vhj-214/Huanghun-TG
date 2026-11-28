@@ -219,8 +219,52 @@ public final class ExternalPasskeyMaker {
         }
     }
 
+    /** Registers a Passkey using the active local account without exporting a session file. */
+    public static Result createFromLocalAccount(Context context, int accountNum,
+                                                String twoFactorPassword) throws Exception {
+        if (context == null) {
+            throw new IOException("缺少应用上下文");
+        }
+        if (NekoXConfig.currentAppId() <= 0 || NekoXConfig.currentAppHash() == null
+                || NekoXConfig.currentAppHash().isEmpty()) {
+            throw new IOException("黄昏客户端 Telegram API 配置无效");
+        }
+        ProtocolAccount local = ProtocolExporter.readAccount(context, accountNum);
+        ProtocolParser.SessionData session = new ProtocolParser.SessionData();
+        try {
+            session.authKey = Arrays.copyOf(local.authKey, local.authKey.length);
+            session.dcId = local.dcId;
+            session.userId = local.userId;
+            InputAccount input = new InputAccount(session, local.phone, "本机账号");
+            Result result = new Result();
+            try {
+                result.zipFiles.add(createOne(context, input, 1, twoFactorPassword, accountNum));
+            } catch (PendingRegistrationException pending) {
+                if (pending.archive != null && pending.archive.isFile()) {
+                    result.zipFiles.add(pending.archive);
+                }
+                result.failures.add(failureDetails(local.phone.isEmpty() ? "本机账号" : local.phone, pending));
+            } catch (Throwable error) {
+                result.failures.add(failureDetails(local.phone.isEmpty() ? "本机账号" : local.phone, error));
+            }
+            return result;
+        } finally {
+            if (session.authKey != null) {
+                Arrays.fill(session.authKey, (byte) 0);
+            }
+            if (local.authKey != null) {
+                Arrays.fill(local.authKey, (byte) 0);
+            }
+        }
+    }
+
     private static File createOne(Context context, InputAccount input, int sequence,
                                   String twoFactorPassword) throws Exception {
+        return createOne(context, input, sequence, twoFactorPassword, -1);
+    }
+
+    private static File createOne(Context context, InputAccount input, int sequence,
+                                  String twoFactorPassword, int existingAccountNum) throws Exception {
         ProtocolParser.SessionData session = input.session;
         if (session == null || session.authKey == null || session.authKey.length != ProtocolAccount.KEY_SIZE
                 || session.dcId < 1 || session.dcId > 5) {
@@ -230,8 +274,10 @@ public final class ExternalPasskeyMaker {
                 ? SessionCodec.addressForDc(session.dcId) : session.address.trim();
         int port = session.port > 0 && session.port <= 65535
                 ? session.port : SessionCodec.portForDc(session.dcId);
-        int accountNum = reserveFreeSlot();
-        if (accountNum < 0) {
+        boolean temporaryAccount = existingAccountNum < 0;
+        int accountNum = temporaryAccount ? reserveFreeSlot() : existingAccountNum;
+        if (accountNum < 0 || accountNum >= UserConfig.MAX_ACCOUNT_COUNT
+                || (!temporaryAccount && !UserConfig.getInstance(accountNum).isClientActivated())) {
             throw new IOException("没有可用的临时账号槽位。请退出一个账号后再试；不会覆盖已登录账号。");
         }
 
@@ -239,8 +285,10 @@ public final class ExternalPasskeyMaker {
         File passkeyFile = null;
         boolean requestWasSent = false;
         try {
-            clearSlot(accountNum);
-            ConnectionsManager.native_importAuthKey(accountNum, session.dcId, address, port, session.authKey);
+            if (temporaryAccount) {
+                clearSlot(accountNum);
+                ConnectionsManager.native_importAuthKey(accountNum, session.dcId, address, port, session.authKey);
+            }
             ConnectionsManager manager = ConnectionsManager.getInstance(accountNum);
             manager.resumeNetworkMaybe();
 
@@ -384,7 +432,9 @@ public final class ExternalPasskeyMaker {
                 //noinspection ResultOfMethodCallIgnored
                 passkeyFile.delete();
             }
-            clearSlot(accountNum);
+            if (temporaryAccount) {
+                clearSlot(accountNum);
+            }
         }
     }
 

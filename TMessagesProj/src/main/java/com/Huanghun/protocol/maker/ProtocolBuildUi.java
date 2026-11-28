@@ -160,6 +160,61 @@ public final class ProtocolBuildUi {
         }
     }
 
+    /** Creates a Passkey from the service page's currently selected local account. */
+    public static void localPasskeyFromUi(BaseFragment fragment) {
+        Activity activity = fragment == null ? null : fragment.getParentActivity();
+        if (activity == null) {
+            return;
+        }
+        if (!(fragment instanceof com.Huanghun.HuanghunServiceActivity)) {
+            showError(activity, "本机密钥制作仅能从黄昏服务页面使用。");
+            return;
+        }
+        int account = fragment.getCurrentAccount();
+        if (account < 0 || account >= UserConfig.MAX_ACCOUNT_COUNT
+                || !UserConfig.getInstance(account).isClientActivated()
+                || UserConfig.getInstance(account).getCurrentUser() == null) {
+            showError(activity, "当前选中的账号未登录，无法制作本机密钥。请先切换到已登录账号。");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 30 && !ProtocolPaths.hasAllFilesAccess()) {
+            requestStorageAccess(activity);
+            return;
+        }
+        ProtocolWebUi.showBusy("正在制作本机密钥", "正在读取本机当前账号授权信息并向 Telegram 注册 Passkey…");
+        Context context = activity.getApplicationContext();
+        java.lang.ref.WeakReference<Activity> activityRef = new java.lang.ref.WeakReference<>(activity);
+        Handler handler = new Handler(Looper.getMainLooper());
+        new Thread(() -> {
+            ExternalPasskeyMaker.Result result = null;
+            String failure = null;
+            try {
+                result = ExternalPasskeyMaker.createFromLocalAccount(context, account, "");
+            } catch (Throwable error) {
+                failure = ProtocolConverter.describe(error);
+                FileLog.e(error);
+            }
+            final ExternalPasskeyMaker.Result created = result;
+            final String reason = failure;
+            handler.post(() -> {
+                Activity owner = activityRef.get();
+                if (owner == null || owner.isFinishing() || owner.isDestroyed()) {
+                    return;
+                }
+                if (created == null) {
+                    showError(owner, "本机密钥制作失败：" + (reason == null ? "未知错误" : reason));
+                } else if (created.zipFiles.isEmpty()) {
+                    String detail = created.failures.isEmpty()
+                            ? "Telegram 未返回可用的 Passkey。"
+                            : TextUtils.join("\n", created.failures);
+                    showError(owner, "本机密钥制作失败：\n" + detail);
+                } else {
+                    showResult(owner, created.zipFiles, created.failures, created.publicDirectory);
+                }
+            });
+        }, "protocol-passkey-local").start();
+    }
+
     // -------------------------------------------------------------- 本机账号
 
     private static void confirmAndExportCurrentAccount(BaseFragment fragment) {
